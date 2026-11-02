@@ -1,0 +1,14 @@
+[package]
+name = "pliego-core"
+description = "Tipos comunes, errores, rangos de páginas, trabajos y el trait PdfEngine de Pliego"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

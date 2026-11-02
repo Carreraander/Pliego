@@ -1,0 +1,17 @@
+[package]
+name = "pliego-engine-mupdf"
+description = "Implementación de PdfEngine sobre MuPDF"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+mupdf.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

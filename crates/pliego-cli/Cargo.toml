@@ -1,0 +1,24 @@
+[package]
+name = "pliego-cli"
+description = "Línea de comandos de Pliego"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "pliego"
+path = "src/main.rs"
+
+[dependencies]
+pliego-core.workspace = true
+pliego-engine-mupdf.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

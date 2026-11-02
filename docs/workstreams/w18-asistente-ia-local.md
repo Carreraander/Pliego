@@ -1,0 +1,50 @@
+# W18 · Asistente IA local
+
+Ola 2. Depende de: W01 fusionado.
+
+## Contexto (léelo entero)
+Eres una sesión de implementación del proyecto **Pliego**: una alternativa libre (AGPL-3.0-or-later) y gratuita a
+Adobe Acrobat Pro para Windows. Ander es el dueño del proyecto. Hay un hilo de gestión ("Diseñar alternativa open
+source a Acrobat Pro", id `cmsg_01VzNAbDDgN8F4HKcyc76pSD2RqHEmBxL1s12gPvzmcf2G`) que coordina todos los flujos, revisa
+PRs y decide sobre interfaces compartidas. Escríbele con `message_thread` usando ese id.
+
+- Repositorio: https://github.com/Carreraander/Pliego (rama `main`). Añádelo a tu sesión y clónalo.
+- Diseño completo: https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw
+- Lee antes de empezar: `CLAUDE.md`, `docs/CONVENTIONS.md`, `docs/ARCHITECTURE.md`.
+- Stack: Rust (edición 2024) + MuPDF vía crate `mupdf` 0.8 (AGPL) · Tauri 2 + WebView2 + SolidJS · CLI `pliego`.
+- Ya existe: `pliego-core` (Error, PageRange, JobContext, Report, trait PdfEngine), `pliego-engine-mupdf`
+  (render de página/tesela, texto, búsqueda, marcadores) y `pliego-cli` (info, render, text, search).
+- Equipo de pruebas Windows: usuario `acr12` en `DESKTOP-41TJN0V`. Para compilar o probar allí, pide una sesión
+  Remote Control en ese equipo. Trabaja SOLO en `C:\Users\acr12\dev\pliego-w18` (clon propio). Ander autorizó
+  instalar las herramientas de desarrollo necesarias; si ya están (Rust, VS Build Tools, Node, Git, LLVM), reutilízalas.
+  No borres ni modifiques carpetas de otros flujos.
+- Producto propio: nada de nombres, iconos, textos o disposición que imiten a Acrobat.
+
+## Reglas de trabajo
+1. Solo editas las rutas que son tuyas (abajo) y, con cambios mínimos, los archivos compartidos de la CLI que lista
+   `docs/CONVENTIONS.md`. Si necesitas cambiar `pliego-core` u otra ruta ajena, pídelo al hilo de gestión.
+2. Rama `w18-<tema>` desde `main`. PRs pequeños e incrementales (< 800 líneas), cada uno útil por sí solo.
+   Rebase sobre `main` antes de abrir el PR; regenera `Cargo.lock`, no lo resuelvas a mano.
+3. Antes de cada push: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+   `cargo test --workspace`. Dependencias nuevas solo con licencias de `deny.toml`.
+4. Al abrir cada PR, envía el enlace al hilo de gestión. Sigue la CI y las revisiones hasta que se fusione.
+5. Si una decisión cambia el alcance o una interfaz compartida, pregunta al hilo de gestión antes de seguir.
+6. Responde a Ander en español.
+
+## Tus rutas
+`crates/pliego-assistant`, `app/src/assistant/` (coordinar con W01).
+
+## Objetivo
+Asistente opcional que resume, responde preguntas sobre el documento y ayuda a redactar, 100 % local y sin enviar datos fuera.
+
+## Alcance
+- Motor llama.cpp (MIT) con modelos GGUF pequeños de licencia abierta descargables bajo demanda (elegir modelos con licencia compatible y documentarla).
+- Recuperación sobre el texto del documento (troceado por página, embeddings locales) para responder citando páginas.
+- Funciones: resumir, preguntar, extraer datos clave (fechas, importes, partes), sugerir texto alternativo para imágenes (W12) si hay modelo multimodal.
+- Desactivado por defecto; aviso de requisitos (RAM/CPU) y tamaño de descarga.
+
+## Interfaces que debes exponer
+- `pliego_assistant::{Assistant::load(model), ask(doc, question) -> Answer { text, citations }, summarize(doc, ctx)}`.
+
+## Criterios de "hecho"
+- En acr12 responde preguntas sobre un PDF de 50 páginas citando la página correcta en 8 de 10 preguntas de prueba, con un modelo de < 4 GB.

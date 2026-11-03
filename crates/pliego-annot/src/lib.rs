@@ -4,10 +4,14 @@
 
 mod flatten;
 mod ops;
+mod stamp;
 mod summary;
 mod types;
+mod xfdf;
+mod xml;
 
 pub use flatten::flatten;
 pub use ops::{add, delete, list, update};
 pub use summary::{CommentSummary, Thread, summary};
 pub use types::*;
+pub use xfdf::{export_xfdf, import_xfdf};

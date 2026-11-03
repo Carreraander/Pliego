@@ -7,8 +7,17 @@ license.workspace = true
 repository.workspace = true
 build = "build.rs"
 
+# Sin pruebas propias: el código con lógica vive en `pliego-app-service`. En Windows, WebView2 (CRT estático) y
+# MuPDF (CRT dinámico) no pueden enlazarse en un ejecutable de pruebas.
 [lib]
 name = "pliego_app_lib"
+test = false
+doctest = false
+
+[[bin]]
+name = "pliego-app"
+path = "src/main.rs"
+test = false
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

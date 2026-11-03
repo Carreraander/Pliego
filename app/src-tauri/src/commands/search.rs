@@ -5,7 +5,7 @@ use pliego_core::SearchHit;
 use tauri::State;
 
 use crate::AppState;
-use crate::error::ApiResult;
+use pliego_app_service::api::ApiResult;
 
 const DEFAULT_MAX_RESULTS: u32 = 500;
 

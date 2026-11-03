@@ -1,7 +1,6 @@
 //! App de escritorio de Pliego: capa fina de Tauri sobre `pliego-app-service`.
 
 mod commands;
-mod error;
 
 use std::sync::{Arc, Mutex};
 

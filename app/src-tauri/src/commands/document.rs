@@ -7,7 +7,7 @@ use pliego_core::{DocInfo, PageSize};
 use tauri::State;
 
 use crate::AppState;
-use crate::error::{ApiError, ApiResult};
+use pliego_app_service::api::{ApiError, ApiResult};
 
 #[tauri::command]
 pub fn open_document(state: State<'_, AppState>, path: String, password: Option<String>) -> ApiResult<DocId> {

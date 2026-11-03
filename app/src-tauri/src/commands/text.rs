@@ -5,7 +5,7 @@ use pliego_core::OutlineItem;
 use tauri::State;
 
 use crate::AppState;
-use crate::error::ApiResult;
+use pliego_app_service::api::ApiResult;
 
 #[tauri::command]
 pub fn outline(state: State<'_, AppState>, doc_id: DocId) -> ApiResult<Vec<OutlineItem>> {

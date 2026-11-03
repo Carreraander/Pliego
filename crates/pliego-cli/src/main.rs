@@ -37,6 +37,8 @@ enum Command {
     Split(commands::pages::SplitArgs),
     /// Operaciones sobre páginas: extraer, insertar, borrar, girar, mover, recortar, etiquetas.
     Pages(commands::pages::PagesArgs),
+    /// Sellos de documento: encabezado y pie, marca de agua, fondo y numeración Bates.
+    Stamp(commands::stamp::StampArgs),
     /// Cifrar, permisos y saneado.
     #[command(subcommand)]
     Protect(commands::protect::ProtectCommand),
@@ -47,6 +49,9 @@ enum Command {
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
     Export(commands::convert::ExportArgs),
+    /// Accesibilidad: comprobar y corregir idioma, título y texto alternativo.
+    #[command(subcommand)]
+    A11y(commands::a11y::A11yCommand),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -61,9 +66,11 @@ fn main() -> anyhow::Result<()> {
         Command::Merge(a) => commands::pages::merge(a, cli.json),
         Command::Split(a) => commands::pages::split(a, cli.json),
         Command::Pages(a) => commands::pages::pages(a, cli.json),
+        Command::Stamp(a) => commands::stamp::run(a, cli.json),
         Command::Protect(c) => commands::protect::run(c, cli.json),
         Command::Annot(c) => commands::annot::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
+        Command::A11y(c) => commands::a11y::run(c, cli.json),
     }
 }

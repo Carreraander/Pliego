@@ -4,8 +4,8 @@ use anyhow::{Context, bail};
 use clap::{Args, ValueEnum};
 use pliego_convert::{
     ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
-    TextExportOptions, extract_images, images_to_pdf, pdf_to_html, pdf_to_images, pdf_to_svg, pdf_to_text,
-    structured_text_pages,
+    TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, pdf_to_html,
+    pdf_to_images, pdf_to_svg, pdf_to_text, structured_text_pages, text_to_pdf,
 };
 use pliego_core::{JobContext, PageRange, Report};
 
@@ -20,7 +20,7 @@ pub enum OrientationArg {
 
 #[derive(Args)]
 pub struct CreateArgs {
-    /// Archivos de entrada (imágenes: JPG, PNG, TIFF, WebP, GIF, BMP).
+    /// Archivos de entrada: imágenes (JPG, PNG, TIFF, WebP, GIF, BMP) o un único .txt, .md o .html.
     #[arg(required = true)]
     pub inputs: Vec<PathBuf>,
     /// PDF de salida.
@@ -94,6 +94,38 @@ fn show(report: &Report, json: bool) -> anyhow::Result<()> {
 pub fn create(a: CreateArgs, json: bool) -> anyhow::Result<()> {
     if a.inputs.is_empty() {
         bail!("indica al menos un archivo de entrada");
+    }
+    let kind = a.inputs[0]
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_lowercase)
+        .unwrap_or_default();
+    let doc_fn: Option<fn(&_, &_, &TextToPdfOptions, &JobContext) -> pliego_core::Result<Report>> = match kind.as_str()
+    {
+        "txt" => Some(text_to_pdf),
+        "md" | "markdown" => Some(markdown_to_pdf),
+        "html" | "htm" => Some(html_to_pdf),
+        _ => None,
+    };
+    if let Some(convert) = doc_fn {
+        if a.inputs.len() != 1 {
+            bail!("los archivos de texto, Markdown y HTML se convierten de uno en uno");
+        }
+        let opts = TextToPdfOptions {
+            page_size: if a.page_size == PageSizeSpec::Fit {
+                PageSizeSpec::A4
+            } else {
+                a.page_size
+            },
+            margin_pt: if a.margin_mm > 0.0 {
+                a.margin_mm * 72.0 / 25.4
+            } else {
+                TextToPdfOptions::default().margin_pt
+            },
+            ..Default::default()
+        };
+        let report = convert(&a.inputs[0], &a.output, &opts, &JobContext::silent())?;
+        return show(&report, json);
     }
     let opts = ImagesToPdfOptions {
         page_size: a.page_size,

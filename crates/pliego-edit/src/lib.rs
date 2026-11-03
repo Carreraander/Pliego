@@ -13,14 +13,17 @@ mod content;
 mod fonts;
 mod images;
 mod links;
+mod objects;
 mod text;
 mod types;
+mod unicode;
 
 pub use blocks::text_blocks;
 pub use images::{
     ImageObject, Transform, crop_image, delete_object, images, insert_image, replace_image, transform_object,
 };
 pub use links::add_link;
+pub use objects::{VectorObject, delete_vector, transform_vector, vectors};
 pub use text::{insert_text, replace_text};
 pub use types::*;
 

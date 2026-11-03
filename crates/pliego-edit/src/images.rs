@@ -50,12 +50,12 @@ impl Default for Transform {
     }
 }
 
-fn num(v: f32) -> String {
+pub(crate) fn num(v: f32) -> String {
     let s = format!("{v:.5}");
     s.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
 
-fn matrix_str(m: &Matrix) -> String {
+pub(crate) fn matrix_str(m: &Matrix) -> String {
     format!(
         "{} {} {} {} {} {}",
         num(m.a),
@@ -67,18 +67,40 @@ fn matrix_str(m: &Matrix) -> String {
     )
 }
 
-fn mul(a: &Matrix, b: &Matrix) -> Matrix {
+pub(crate) fn mul(a: &Matrix, b: &Matrix) -> Matrix {
     let mut m = a.clone();
     m.concat(b.clone());
     m
 }
 
-fn inv(m: &Matrix) -> Result<Matrix> {
+pub(crate) fn inv(m: &Matrix) -> Result<Matrix> {
     m.invert()
         .ok_or_else(|| Error::Pdf("la imagen tiene una matriz no invertible (tamaño cero)".into()))
 }
 
-fn bbox_of(m: &Matrix) -> RectPts {
+/// Matriz `M` para insertar (`M cm`) justo antes de dibujar un objeto con matriz vigente `c`, de modo que
+/// el objeto sufra la transformación `t` (dada en el espacio MuPDF; `p` lleva usuario -> MuPDF). `center`
+/// es el centro del objeto en el espacio MuPDF.
+pub(crate) fn local_transform(c: &Matrix, p: &Matrix, t: &Transform, center: (f32, f32)) -> Result<Matrix> {
+    let (cx, cy) = center;
+    // T en espacio MuPDF: alrededor del centro, escalar, girar y mover.
+    let mut tf = Matrix::new_translate(-cx, -cy);
+    tf.concat(Matrix::new_scale(t.scale_x, t.scale_y));
+    tf.concat(Matrix::new_rotate(t.rotate_degrees));
+    tf.concat(Matrix::new_translate(cx + t.dx, cy + t.dy));
+    // Al espacio de usuario (P·T·P⁻¹) y de ahí al espacio local del objeto (C·T·C⁻¹).
+    let t_user = mul(&mul(p, &tf), &inv(p)?);
+    Ok(mul(&mul(c, &t_user), &inv(c)?))
+}
+
+pub(crate) fn valid_transform(t: &Transform) -> Result<()> {
+    if t.scale_x == 0.0 || t.scale_y == 0.0 || !(t.dx + t.dy + t.scale_x + t.scale_y + t.rotate_degrees).is_finite() {
+        return Err(Error::InvalidInput("la transformación no es válida".into()));
+    }
+    Ok(())
+}
+
+pub(crate) fn bbox_of(m: &Matrix) -> RectPts {
     let pts = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)].map(|(x, y)| m.transform_xy(x, y));
     let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
     for (x, y) in pts {
@@ -98,7 +120,7 @@ fn xobject(page: &PdfPage) -> Option<mupdf::pdf::PdfObject> {
 }
 
 /// Contenido de la página (todos los flujos, decodificados y unidos).
-fn page_bytes(page: &PdfPage) -> Result<Vec<u8>> {
+pub(crate) fn page_bytes(page: &PdfPage) -> Result<Vec<u8>> {
     let Some(c) = page.contents().map_err(pe)? else {
         return Ok(Vec::new());
     };
@@ -240,22 +262,11 @@ pub fn delete_object(doc: &mut Document, page: usize, id: usize) -> Result<Repor
 
 /// Mueve, redimensiona y/o gira la imagen `id`.
 pub fn transform_object(doc: &mut Document, page: usize, id: usize, t: &Transform) -> Result<Report> {
-    if t.scale_x == 0.0 || t.scale_y == 0.0 || !(t.dx + t.dy + t.scale_x + t.scale_y + t.rotate_degrees).is_finite() {
-        return Err(Error::InvalidInput("la transformación no es válida".into()));
-    }
+    valid_transform(t)?;
     let t = *t;
     edit_placement(doc, page, id, move |pl, p, _, _| {
-        let c = pl.ctm.clone();
-        let b = bbox_of(&mul(&c, p));
-        let (cx, cy) = ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0);
-        // T en espacio MuPDF: alrededor del centro, escalar, girar y mover.
-        let mut tf = Matrix::new_translate(-cx, -cy);
-        tf.concat(Matrix::new_scale(t.scale_x, t.scale_y));
-        tf.concat(Matrix::new_rotate(t.rotate_degrees));
-        tf.concat(Matrix::new_translate(cx + t.dx, cy + t.dy));
-        // Al espacio de usuario (P·T·P⁻¹) y de ahí al espacio local de la imagen (C·T·C⁻¹).
-        let t_user = mul(&mul(p, &tf), &inv(p)?);
-        let m = mul(&mul(&c, &t_user), &inv(&c)?);
+        let b = bbox_of(&mul(&pl.ctm, p));
+        let m = local_transform(&pl.ctm, p, &t, ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0))?;
         Ok(format!("q {} cm /{} Do Q", matrix_str(&m), pl.name))
     })?;
     Ok(Report {

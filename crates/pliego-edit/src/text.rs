@@ -12,6 +12,7 @@ use pliego_document::Document;
 use crate::blocks::extract;
 use crate::fonts::{Metrics, base14_name, encode};
 use crate::types::{Align, FontFamily, RectPts, Style};
+use crate::unicode::{LoadedFont, Shaper, find_font, is_wide};
 use crate::{load_page, pe};
 
 const DEFAULT_SIZE: f32 = 12.0;
@@ -41,8 +42,85 @@ fn resolve(style: &Style, base: Option<(&crate::TextBlock, ())>) -> Resolved {
     }
 }
 
+/// Fuente de composición: estándar (WinAnsi) o Unicode formada con rustybuzz.
+enum Face<'a> {
+    Std { name: &'static str, metrics: Metrics },
+    Uni { shaper: Box<Shaper<'a>>, bytes: &'a [u8] },
+}
+
+impl Face<'_> {
+    fn width(&self, text: &str, size: f32) -> f32 {
+        match self {
+            Face::Std { metrics, .. } => metrics.width(text, size),
+            Face::Uni { shaper, .. } => shaper.width(text, size),
+        }
+    }
+
+    /// Ascendente en fracción del tamaño.
+    fn ascent(&self) -> f32 {
+        match self {
+            Face::Std { name, .. } => mupdf::Font::new(name)
+                .map(|f| f.ascender().clamp(0.5, 1.2))
+                .unwrap_or(0.8),
+            Face::Uni { shaper, .. } => shaper.ascender().clamp(0.5, 1.2),
+        }
+    }
+
+    /// Cadena hexadecimal del texto con los códigos que usa la fuente en el PDF.
+    fn hex(&self, line: &str) -> Result<String> {
+        Ok(match self {
+            Face::Std { .. } => encode(line)?.iter().map(|b| format!("{b:02X}")).collect(),
+            Face::Uni { shaper, .. } => shaper
+                .shape(line, 1.0)
+                .gids
+                .iter()
+                .map(|g| format!("{g:04X}"))
+                .collect(),
+        })
+    }
+
+    fn register(&self, page: &mut PdfPage, doc: &mut mupdf::pdf::PdfDocument) -> Result<String> {
+        let opts = match self {
+            Face::Std { name, .. } => InsertFontOptions::new(name),
+            Face::Uni { bytes, .. } => InsertFontOptions {
+                fontfile: Some(bytes),
+                simple: false,
+                ..InsertFontOptions::new("PliegoUnicode")
+            },
+        };
+        Ok(page.insert_font(doc, &opts).map_err(pe)?.0)
+    }
+}
+
+/// Trozos de una línea: cada uno puede ir tras un espacio. Los ideogramas, kana y hangul se pueden partir
+/// en cualquier punto aunque no haya espacios.
+fn tokens(para: &str) -> Vec<(String, bool)> {
+    let mut out: Vec<(String, bool)> = Vec::new();
+    let (mut cur, mut space) = (String::new(), false);
+    let flush = |cur: &mut String, space: &mut bool, out: &mut Vec<(String, bool)>| {
+        if !cur.is_empty() {
+            out.push((std::mem::take(cur), *space));
+            *space = false;
+        }
+    };
+    for c in para.chars() {
+        if c.is_whitespace() {
+            flush(&mut cur, &mut space, &mut out);
+            space = true;
+        } else if is_wide(c) {
+            flush(&mut cur, &mut space, &mut out);
+            out.push((c.to_string(), space));
+            space = false;
+        } else {
+            cur.push(c);
+        }
+    }
+    flush(&mut cur, &mut space, &mut out);
+    out
+}
+
 /// Reparte el texto en líneas que caben en `max_width` (sin límite si es `None`).
-fn wrap(text: &str, metrics: &Metrics, size: f32, max_width: Option<f32>) -> Vec<String> {
+fn wrap(text: &str, face: &Face, size: f32, max_width: Option<f32>) -> Vec<String> {
     let mut lines = Vec::new();
     for para in text.split('\n') {
         let Some(max) = max_width else {
@@ -50,17 +128,19 @@ fn wrap(text: &str, metrics: &Metrics, size: f32, max_width: Option<f32>) -> Vec
             continue;
         };
         let mut cur = String::new();
-        for word in para.split_whitespace() {
+        for (tok, space) in tokens(para) {
             let candidate = if cur.is_empty() {
-                word.to_owned()
+                tok.clone()
+            } else if space {
+                format!("{cur} {tok}")
             } else {
-                format!("{cur} {word}")
+                format!("{cur}{tok}")
             };
-            if cur.is_empty() || metrics.width(&candidate, size) <= max {
+            if cur.is_empty() || face.width(&candidate, size) <= max {
                 cur = candidate;
             } else {
                 lines.push(std::mem::take(&mut cur));
-                cur = word.to_owned();
+                cur = tok;
             }
         }
         lines.push(cur);
@@ -85,9 +165,9 @@ fn draw(
     x1: f32,
     baseline: f32,
     leading: f32,
-    metrics: &Metrics,
+    face: &Face,
 ) -> Result<()> {
-    let (font_res, _, _) = page.insert_font(doc, &InsertFontOptions::new(r.font)).map_err(pe)?;
+    let font_res = face.register(page, doc)?;
     let inv = page
         .object()
         .page_ctm()
@@ -102,14 +182,14 @@ fn draw(
         if line.is_empty() {
             continue;
         }
-        let w = metrics.width(line, r.size);
+        let w = face.width(line, r.size);
         let x = match r.align {
             Align::Left => x0,
             Align::Center => x0 + ((x1 - x0) - w) / 2.0,
             Align::Right => x1 - w,
         };
         let (ux, uy) = inv.transform_xy(x, baseline + leading * i as f32);
-        let hex: String = encode(line)?.iter().map(|b| format!("{b:02X}")).collect();
+        let hex = face.hex(line)?;
         let _ = writeln!(s, "1 0 0 1 {} {} Tm <{hex}> Tj", pdf_num(ux), pdf_num(uy));
     }
     s.push_str("ET\nQ\n");
@@ -117,8 +197,39 @@ fn draw(
     Ok(())
 }
 
-fn check_text(text: &str) -> Result<()> {
-    encode(text).map(|_| ())
+/// Carga la fuente Unicode si el texto no cabe en WinAnsi o si se indicó una fuente concreta.
+fn load_unicode(text: &str, style: &Style) -> Result<Option<LoadedFont>> {
+    if style.font_file.is_none() && encode(text).is_ok() {
+        return Ok(None);
+    }
+    find_font(text, style.font_file.as_deref()).map(Some)
+}
+
+fn make_face<'a>(res: &Resolved, loaded: &'a Option<LoadedFont>) -> Result<Face<'a>> {
+    Ok(match loaded {
+        Some(l) => Face::Uni {
+            shaper: Box::new(Shaper::new(&l.data)?),
+            bytes: &l.data,
+        },
+        None => Face::Std {
+            name: res.font,
+            metrics: Metrics::new(res.font)?,
+        },
+    })
+}
+
+fn font_warning(res: &Resolved, loaded: &Option<LoadedFont>, original: Option<&str>) -> String {
+    match loaded {
+        Some(l) => format!(
+            "el texto usa caracteres que las fuentes estándar no tienen: se compuso con la fuente «{}» (negrita y cursiva no se aplican)",
+            l.label
+        ),
+        None => format!(
+            "se usó la fuente estándar {} en lugar de «{}»: el aspecto del texto puede variar ligeramente",
+            res.font,
+            original.unwrap_or("desconocida")
+        ),
+    }
 }
 
 fn rect_of(r: RectPts) -> Rect {
@@ -131,7 +242,7 @@ fn rect_of(r: RectPts) -> Rect {
 /// con reflujo dentro del ancho del bloque, empezando donde empezaba el original. Lo que queda fuera del
 /// bloque no cambia. La fuente se sustituye por una estándar parecida y se avisa en el informe.
 pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &str, style: &Style) -> Result<Report> {
-    check_text(new_text)?;
+    let loaded = load_unicode(new_text, style)?;
     let mut report = Report::default();
     doc.with_pdf_mut(|pdf| {
         let mut p = load_page(pdf, page)?;
@@ -143,7 +254,7 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
             })?;
         let b = &raw.block;
         let res = resolve(style, Some((b, ())));
-        let metrics = Metrics::new(res.font)?;
+        let face = make_face(&res, &loaded)?;
 
         // Retirar el texto original. El recuadro se encoge un poco para no arrastrar líneas vecinas.
         let inset_y = (b.font_size * 0.15).min((b.bbox[3] - b.bbox[1]) / 4.0);
@@ -164,7 +275,7 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
         let mut p = load_page(pdf, page)?;
 
         let max_width = (b.bbox[2] - raw.first_origin.0).max(res.size);
-        let lines = wrap(new_text, &metrics, res.size, Some(max_width));
+        let lines = wrap(new_text, &face, res.size, Some(max_width));
         let leading = raw.leading.unwrap_or(res.size * 1.2);
         draw(
             &mut p,
@@ -175,7 +286,7 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
             b.bbox[2],
             raw.first_origin.1,
             leading,
-            &metrics,
+            &face,
         )?;
 
         let new_bottom = raw.first_origin.1 + leading * (lines.len().saturating_sub(1)) as f32;
@@ -184,11 +295,9 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
                 "el texto nuevo ocupa más líneas que el original y puede invadir el contenido que hay debajo".into(),
             );
         }
-        let original = b.font_name.clone().unwrap_or_else(|| "desconocida".into());
-        report.warnings.push(format!(
-            "se usó la fuente estándar {} en lugar de «{original}»: el aspecto del texto puede variar ligeramente",
-            res.font
-        ));
+        report
+            .warnings
+            .push(font_warning(&res, &loaded, b.font_name.as_deref()));
         report.summary = format!("Texto del bloque {block} reemplazado en la página {}", page + 1);
         Ok(())
     })?;
@@ -197,7 +306,7 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
 
 /// Añade texto nuevo dentro de `rect` (espacio MuPDF) de la página `page`, con reflujo al ancho del recuadro.
 pub fn insert_text(doc: &mut Document, page: usize, rect: RectPts, text: &str, style: &Style) -> Result<Report> {
-    check_text(text)?;
+    let loaded = load_unicode(text, style)?;
     if rect[2] <= rect[0] || rect[3] <= rect[1] {
         return Err(Error::InvalidInput("el recuadro del texto está vacío".into()));
     }
@@ -205,10 +314,9 @@ pub fn insert_text(doc: &mut Document, page: usize, rect: RectPts, text: &str, s
     doc.with_pdf_mut(|pdf| {
         let mut p = load_page(pdf, page)?;
         let res = resolve(style, None);
-        let metrics = Metrics::new(res.font)?;
-        let lines = wrap(text, &metrics, res.size, Some(rect[2] - rect[0]));
-        let font = mupdf::Font::new(res.font).map_err(pe)?;
-        let ascent = font.ascender().clamp(0.5, 1.2) * res.size;
+        let face = make_face(&res, &loaded)?;
+        let lines = wrap(text, &face, res.size, Some(rect[2] - rect[0]));
+        let ascent = face.ascent() * res.size;
         let leading = res.size * 1.2;
         draw(
             &mut p,
@@ -219,13 +327,16 @@ pub fn insert_text(doc: &mut Document, page: usize, rect: RectPts, text: &str, s
             rect[2],
             rect[1] + ascent,
             leading,
-            &metrics,
+            &face,
         )?;
         let bottom = rect[1] + ascent + leading * (lines.len().saturating_sub(1)) as f32;
         if bottom > rect[3] + 0.5 {
             report
                 .warnings
                 .push("el texto no cabe en el recuadro y se sale por abajo".into());
+        }
+        if loaded.is_some() {
+            report.warnings.push(font_warning(&res, &loaded, None));
         }
         report.summary = format!("Texto añadido en la página {}", page + 1);
         Ok(())

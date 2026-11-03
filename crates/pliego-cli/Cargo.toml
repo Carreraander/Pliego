@@ -48,6 +48,7 @@ pliego-ocr = { path = "../pliego-ocr" }
 # [W14 office]
 
 # [W15 run e índice]
+pliego-actions = { path = "../pliego-actions" }
 
 # [W13/W17/W12 extra]
 

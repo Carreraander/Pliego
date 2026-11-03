@@ -102,3 +102,27 @@ fn imagenes_listar_mover_borrar() {
     let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
     assert_eq!(v.as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn vectores_listar_y_borrar() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("v.pdf");
+    let r = pliego()
+        .args(["--json", "edit", "vectors"])
+        .arg(corpus())
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
+    assert_eq!(v.as_array().unwrap().len(), 1);
+    let r = pliego()
+        .args(["edit", "vector-delete"])
+        .arg(corpus())
+        .args(["--id", "0", "-o"])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    let r = pliego().args(["--json", "edit", "vectors"]).arg(&out).output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
+    assert!(v.as_array().unwrap().is_empty());
+}

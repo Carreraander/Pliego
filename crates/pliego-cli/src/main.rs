@@ -90,7 +90,8 @@ enum Command {
     // [W14 office]
 
     // [W15 run e índice]
-
+    /// Aplica una acción guardada (secuencia de pasos) a archivos y carpetas de PDFs.
+    Run(commands::run::RunArgs),
     // [W13/W17/W12 extra]
 
     // [libre A]
@@ -135,7 +136,7 @@ fn main() -> anyhow::Result<()> {
         // [W14 office]
 
         // [W15 run e índice]
-
+        Command::Run(a) => commands::run::run(a, cli.json),
         // [W13/W17/W12 extra]
 
         // [libre A]

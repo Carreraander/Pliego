@@ -28,6 +28,12 @@ pub enum EditCommand {
     ImageMove(ImageMoveArgs),
     /// Recorta una imagen a un recuadro.
     ImageCrop(ImageCropArgs),
+    /// Lista los objetos vectoriales (trazados pintados) de una página.
+    Vectors(BlocksArgs),
+    /// Borra un objeto vectorial.
+    VectorDelete(ImageIdArgs),
+    /// Mueve, redimensiona o gira un objeto vectorial.
+    VectorMove(ImageMoveArgs),
 }
 
 #[derive(Args)]
@@ -83,6 +89,18 @@ pub struct ImageMoveArgs {
     /// Giro en grados, sentido horario.
     #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
     pub rotate: f32,
+}
+
+impl ImageMoveArgs {
+    fn transform(&self) -> pliego_edit::Transform {
+        pliego_edit::Transform {
+            dx: self.dx,
+            dy: self.dy,
+            scale_x: self.scale_x,
+            scale_y: self.scale_y,
+            rotate_degrees: self.rotate,
+        }
+    }
 }
 
 #[derive(Args)]
@@ -153,6 +171,9 @@ pub struct StyleArgs {
     pub italic: Option<bool>,
     #[arg(long, default_value = "left")]
     pub align: AlignArg,
+    /// Fuente TTF/OTF/TTC para texto no latino (por defecto se busca una del sistema).
+    #[arg(long)]
+    pub font_file: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -229,14 +250,34 @@ pub fn run(cmd: EditCommand, json: bool) -> anyhow::Result<()> {
         }
         EditCommand::ImageMove(a) => {
             let (mut doc, page) = open(&a.target.doc)?;
-            let t = pliego_edit::Transform {
-                dx: a.dx,
-                dy: a.dy,
-                scale_x: a.scale_x,
-                scale_y: a.scale_y,
-                rotate_degrees: a.rotate,
-            };
-            let report = pliego_edit::transform_object(&mut doc, page, a.target.id, &t)?;
+            let report = pliego_edit::transform_object(&mut doc, page, a.target.id, &a.transform())?;
+            finish(doc, &a.target.doc.input, &a.target.out, &report, json)
+        }
+        EditCommand::Vectors(a) => {
+            let (doc, page) = open(&a.doc)?;
+            let list = pliego_edit::vectors(&doc, page)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&list)?);
+            } else if list.is_empty() {
+                println!("Sin objetos vectoriales.");
+            } else {
+                for v in &list {
+                    println!(
+                        "id={} [{:.0},{:.0},{:.0},{:.0}]",
+                        v.id, v.bbox[0], v.bbox[1], v.bbox[2], v.bbox[3]
+                    );
+                }
+            }
+            Ok(())
+        }
+        EditCommand::VectorDelete(a) => {
+            let (mut doc, page) = open(&a.doc)?;
+            let report = pliego_edit::delete_vector(&mut doc, page, a.id)?;
+            finish(doc, &a.doc.input, &a.out, &report, json)
+        }
+        EditCommand::VectorMove(a) => {
+            let (mut doc, page) = open(&a.target.doc)?;
+            let report = pliego_edit::transform_vector(&mut doc, page, a.target.id, &a.transform())?;
             finish(doc, &a.target.doc.input, &a.target.out, &report, json)
         }
         EditCommand::ImageCrop(a) => {
@@ -292,6 +333,7 @@ fn style(a: &StyleArgs) -> anyhow::Result<Style> {
             AlignArg::Center => Align::Center,
             AlignArg::Right => Align::Right,
         },
+        font_file: a.font_file.clone(),
     })
 }
 

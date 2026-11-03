@@ -8,5 +8,6 @@ pub mod pages;
 pub mod pdfa;
 pub mod protect;
 pub mod redact;
+pub mod sign;
 pub mod stamp;
 pub mod view;

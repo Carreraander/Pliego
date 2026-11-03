@@ -6,6 +6,7 @@
 
 mod document;
 mod image;
+pub mod models;
 pub mod preprocess;
 pub mod tessdata;
 mod tesseract;
@@ -13,6 +14,7 @@ pub mod textlayer;
 
 pub use document::{OcrMode, OcrOptions, ocr_document};
 pub use image::{GrayImage, PixelRect, Word};
+pub use models::download_language;
 pub use tessdata::available_languages;
 pub use tesseract::TesseractEngine;
 

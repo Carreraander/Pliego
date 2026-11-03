@@ -2,10 +2,10 @@
 
 use std::fmt::Write as _;
 
-use mupdf::Rect;
 use mupdf::pdf::{
     InsertFontOptions, PdfPage, PdfRedactImageMethod, PdfRedactLineArtMethod, PdfRedactOptions, PdfRedactTextMethod,
 };
+use mupdf::{Matrix, Rect};
 use pliego_core::{Error, Report, Result};
 use pliego_document::Document;
 
@@ -139,6 +139,9 @@ fn tokens(para: &str) -> Vec<(String, bool)> {
 }
 
 /// Reparte el texto en líneas que caben en `max_width` (sin límite si es `None`).
+/// Tolerancia (pt) al comparar anchuras: evita una línea extra cuando la más ancha mide justo el ancho del bloque.
+const WRAP_TOLERANCE: f32 = 0.5;
+
 fn wrap(text: &str, face: &Face, size: f32, max_width: Option<f32>) -> Vec<String> {
     let mut lines = Vec::new();
     for para in text.split('\n') {
@@ -155,7 +158,7 @@ fn wrap(text: &str, face: &Face, size: f32, max_width: Option<f32>) -> Vec<Strin
             } else {
                 format!("{cur}{tok}")
             };
-            if cur.is_empty() || face.width(&candidate, size) <= max {
+            if cur.is_empty() || face.width(&candidate, size) <= max + WRAP_TOLERANCE {
                 cur = candidate;
             } else {
                 lines.push(std::mem::take(&mut cur));
@@ -209,9 +212,21 @@ fn draw(
             Align::Center => x0 + ((x1 - x0) - w) / 2.0,
             Align::Right => x1 - w,
         };
-        let (ux, uy) = inv.transform_xy(x, baseline + leading * i as f32);
+        // El texto se compone derecho en el espacio de la página visible (y hacia abajo); la matriz
+        // de texto incluye la inversa de la página para que también salga derecho si está girada.
+        let mut tm = Matrix::new(1.0, 0.0, 0.0, -1.0, x, baseline + leading * i as f32);
+        tm.concat(inv.clone());
         let hex = face.hex(line, &prepared)?;
-        let _ = writeln!(s, "1 0 0 1 {} {} Tm <{hex}> Tj", pdf_num(ux), pdf_num(uy));
+        let _ = writeln!(
+            s,
+            "{} {} {} {} {} {} Tm <{hex}> Tj",
+            pdf_num(tm.a),
+            pdf_num(tm.b),
+            pdf_num(tm.c),
+            pdf_num(tm.d),
+            pdf_num(tm.e),
+            pdf_num(tm.f)
+        );
     }
     s.push_str("ET\nQ\n");
     page.insert_contents(doc, s.as_bytes(), true).map_err(pe)?;

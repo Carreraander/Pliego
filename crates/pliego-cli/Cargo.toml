@@ -50,6 +50,7 @@ pliego-ocr = { path = "../pliego-ocr" }
 # [W15 run e índice]
 pliego-actions = { path = "../pliego-actions" }
 pliego-index = { path = "../pliego-index" }
+pliego-measure = { path = "../pliego-measure" }
 
 # [W13/W17/W12 extra]
 

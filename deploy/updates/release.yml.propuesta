@@ -1,0 +1,91 @@
+# PROPUESTA para W10 (dueño de .github/): copiar a .github/workflows/release.yml.
+# Publica una versión al empujar una etiqueta v*. Requiere el entorno protegido `release` (aprobación de Ander).
+name: release
+on:
+  push:
+    tags: ["v*"]
+  schedule:
+    - cron: "0 6 1 * *" # día 1 de cada mes: vuelve a firmar el manifiesto para que no caduque (job resign)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'schedule'
+    runs-on: windows-2022
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Compilar y empaquetar (W21)
+        shell: pwsh
+        env:
+          PLIEGO_UPDATE_URL: ${{ vars.PLIEGO_UPDATE_URL }}
+          PLIEGO_UPDATE_PUBKEYS: ${{ vars.PLIEGO_UPDATE_PUBKEYS }}
+        run: ./installer/setup/build.ps1 -Version ${{ steps.v.outputs.version }} -Out dist
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist/*, if-no-files-found: error }
+
+  publish:
+    if: github.event_name != 'schedule'
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: release # aprobación manual de Ander antes de usar la clave
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Recuperar el árbol publicado (para conservar el otro canal)
+        if: ${{ vars.UPDATE_SSH_HOST != '' }}
+        run: |
+          install -m 600 /dev/null key && printf '%s\n' "${{ secrets.UPDATE_SSH_KEY }}" > key
+          rsync -a -e "ssh -i key -o StrictHostKeyChecking=accept-new" "pliego@${{ vars.UPDATE_SSH_HOST }}:/" tree/ || mkdir -p tree
+      - name: Publicar y firmar
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          SIGNING_KEY: ${{ secrets.PLIEGO_UPDATE_SIGNING_KEY }}
+        run: |
+          mkdir -p tree; printf '%s' "$SIGNING_KEY" > key.secret
+          channel=stable; case "$VERSION" in *-*) channel=beta ;; esac
+          cargo run --release -p pliego-release -- publish --root tree --channel "$channel" --version "$VERSION" \
+            --package dist/pliego-$VERSION-x86_64.paq --setup dist/Pliego-Setup-$VERSION-x86_64.exe \
+            --notes-es @dist/notas.es.md --rollout 20 --key key.secret
+          cargo run --release -p pliego-release -- verify --root tree --channel "$channel" --pubkey "${{ vars.PLIEGO_UPDATE_PUBKEYS }}"
+          shred -u key.secret || rm -f key.secret
+      - name: Release de GitHub
+        uses: softprops/action-gh-release@v2
+        with: { files: "dist/*", draft: true }
+      - name: Subir al VPS (desactivado hasta que exista UPDATE_SSH_HOST)
+        if: ${{ vars.UPDATE_SSH_HOST != '' }}
+        run: rsync -a --delete-after -e "ssh -i key" tree/ "pliego@${{ vars.UPDATE_SSH_HOST }}:/"
+
+  resign:
+    if: github.event_name == 'schedule' && vars.UPDATE_SSH_HOST != ''
+    runs-on: ubuntu-24.04
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Volver a firmar los canales
+        env:
+          SIGNING_KEY: ${{ secrets.PLIEGO_UPDATE_SIGNING_KEY }}
+        run: |
+          install -m 600 /dev/null key && printf '%s\n' "${{ secrets.UPDATE_SSH_KEY }}" > key
+          rsync -a -e "ssh -i key -o StrictHostKeyChecking=accept-new" "pliego@${{ vars.UPDATE_SSH_HOST }}:/" tree/
+          printf '%s' "$SIGNING_KEY" > key.secret
+          for ch in stable beta; do
+            [ -f "tree/v1/$ch/manifest.json" ] && cargo run --release -p pliego-release -- resign --root tree --channel "$ch" --key key.secret
+          done
+          shred -u key.secret || rm -f key.secret
+          rsync -a -e "ssh -i key" tree/ "pliego@${{ vars.UPDATE_SSH_HOST }}:/"

@@ -315,6 +315,7 @@ impl Document {
             f.write_all(&buf).map_err(|e| Error::io_at(&tmp, e))?;
             f.sync_all().map_err(|e| Error::io_at(&tmp, e))?;
             drop(f);
+            self.release_file_handle()?;
             fs::rename(&tmp, path).map_err(|e| Error::io_at(path, e))
         })();
         if res.is_err() {
@@ -369,6 +370,7 @@ impl Document {
             fs::File::open(&tmp)
                 .and_then(|f| f.sync_all())
                 .map_err(|e| Error::io_at(&tmp, e))?;
+            self.release_file_handle()?;
             fs::rename(&tmp, dest).map_err(|e| Error::io_at(dest, e))
         })();
         if res.is_err() {
@@ -376,6 +378,14 @@ impl Document {
         }
         res?;
         self.after_save(dest);
+        Ok(())
+    }
+
+    /// Windows no deja reemplazar un archivo que MuPDF mantiene abierto: se pasa el documento a memoria
+    /// (misma revisión) antes de renombrar. `after_save` vuelve a abrir el archivo guardado.
+    fn release_file_handle(&mut self) -> Result<()> {
+        self.pdf = load(&self.current.bytes, self.password.as_deref())?;
+        self.pdf_matches_original = false;
         Ok(())
     }
 

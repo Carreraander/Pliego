@@ -3,7 +3,10 @@ use pliego_a11y::{AutotagOptions, IssueCode, autotag_file, check_file};
 use pliego_core::{Error, JobContext};
 
 fn build_untagged() -> Vec<u8> {
-    let content = "\
+    pdf_from_content(CONTENT)
+}
+
+const CONTENT: &str = "\
 q 0.9 g 40 40 515 3 re f Q\n\
 BT /F2 26 Tf 72 780 Td (Informe anual) Tj ET\n\
 BT /F1 12 Tf 72 740 Td (Primera linea del parrafo de introduccion.) Tj ET\n\
@@ -16,6 +19,8 @@ BT /F1 12 Tf 90 640 Td (Segundo punto de la lista) Tj ET\n\
 BT /F1 12 Tf 72 600 Td (1. Un elemento numerado) Tj ET\n\
 q 100 0 0 50 72 520 cm /Im1 Do Q\n\
 BT /F1 12 Tf 72 480 Td (Texto final despues de la imagen.) Tj ET\n";
+
+fn pdf_from_content(content: &str) -> Vec<u8> {
     let objs: Vec<String> = vec![
         "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into(),
         "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>".into(),
@@ -140,4 +145,47 @@ fn refuses_already_tagged_documents_and_overwrite() {
     let input = dir.path().join("sin.pdf");
     std::fs::write(&input, build_untagged()).unwrap();
     assert!(autotag_file(&input, &input, &AutotagOptions::default(), &JobContext::silent()).is_err());
+}
+
+fn tag_summary(content: &str) -> String {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("t.pdf");
+    std::fs::write(&input, pdf_from_content(content)).unwrap();
+    let out = dir.path().join("t2.pdf");
+    let rep = autotag_file(&input, &out, &AutotagOptions::default(), &JobContext::silent()).unwrap();
+    let r = check_file(&out, None).unwrap();
+    assert!(!r.has(IssueCode::TableWithoutHeader), "{:#?}", r.issues);
+    assert_eq!(ink(&input), ink(&out));
+    rep.summary
+}
+
+#[test]
+fn simple_table_is_detected_with_header_row() {
+    let content = "\
+BT /F2 20 Tf 72 780 Td (Ventas) Tj ET\n\
+0 g 70 700 300 0.5 re f\n\
+BT /F2 12 Tf 72 720 Td (Region) Tj ET BT /F2 12 Tf 200 720 Td (Total) Tj ET BT /F2 12 Tf 300 720 Td (Mes) Tj ET\n\
+0 g 70 680 300 0.5 re f\n\
+BT /F1 12 Tf 72 700 Td (Norte) Tj ET BT /F1 12 Tf 200 700 Td (120) Tj ET BT /F1 12 Tf 300 700 Td (Enero) Tj ET\n\
+BT /F1 12 Tf 72 680 Td (Sur) Tj ET BT /F1 12 Tf 200 680 Td (95) Tj ET BT /F1 12 Tf 300 680 Td (Enero) Tj ET\n\
+BT /F1 12 Tf 72 600 Td (Texto despues de la tabla.) Tj ET\n";
+    assert!(tag_summary(content).contains("1 tabla(s)"));
+}
+
+#[test]
+fn text_that_is_not_a_table_is_not_tagged_as_one() {
+    // una sola fila de dos celdas
+    let one = "BT /F1 12 Tf 72 700 Td (Izquierda) Tj ET BT /F1 12 Tf 300 700 Td (Derecha) Tj ET\n";
+    assert!(tag_summary(one).contains("0 tabla(s)"));
+    // dos columnas de texto corrido (celdas largas)
+    let long = "a".repeat(80);
+    let cols = format!(
+        "BT /F1 12 Tf 72 700 Td ({long}) Tj ET BT /F1 12 Tf 300 700 Td ({long}) Tj ET\n\
+         BT /F1 12 Tf 72 686 Td ({long}) Tj ET BT /F1 12 Tf 300 686 Td ({long}) Tj ET\n"
+    );
+    assert!(tag_summary(&cols).contains("0 tabla(s)"));
+    // columnas que no se alinean
+    let skew = "BT /F1 12 Tf 72 700 Td (A) Tj ET BT /F1 12 Tf 200 700 Td (B) Tj ET\n\
+                BT /F1 12 Tf 72 686 Td (C) Tj ET BT /F1 12 Tf 260 686 Td (D) Tj ET\n";
+    assert!(tag_summary(skew).contains("0 tabla(s)"));
 }

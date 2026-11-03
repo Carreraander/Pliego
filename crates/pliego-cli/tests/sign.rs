@@ -126,3 +126,84 @@ fn level_b_t_without_tsa_fails_cleanly() {
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("sellado de tiempo"));
 }
+
+#[test]
+fn visible_signature_changes_the_rendered_page() {
+    let dir = tempfile::tempdir().unwrap();
+    make_pki(dir.path());
+    let signed = dir.path().join("visible.pdf");
+    let out = pliego()
+        .arg("sign")
+        .arg(corpus())
+        .arg("-o")
+        .arg(&signed)
+        .arg("--p12")
+        .arg(dir.path().join("test.p12"))
+        .args(["--password", "prueba", "--visible", "1,72,600,240,60"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+
+    let render = |pdf: &std::path::Path, name: &str| {
+        let o = dir.path().join(name);
+        std::fs::create_dir_all(&o).unwrap();
+        let r = pliego()
+            .arg("render")
+            .arg(pdf)
+            .args(["--pages", "1", "--dpi", "72", "-o"])
+            .arg(&o)
+            .output()
+            .unwrap();
+        assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+        std::fs::read(std::fs::read_dir(&o).unwrap().next().unwrap().unwrap().path()).unwrap()
+    };
+    assert_ne!(
+        render(&corpus(), "a"),
+        render(&signed, "b"),
+        "la apariencia debe verse en la página"
+    );
+
+    let bad = pliego()
+        .arg("sign")
+        .arg(corpus())
+        .arg("-o")
+        .arg(dir.path().join("x.pdf"))
+        .arg("--p12")
+        .arg(dir.path().join("test.p12"))
+        .args(["--visible", "1,2,3"])
+        .output()
+        .unwrap();
+    assert!(!bad.status.success());
+}
+
+#[test]
+fn certify_is_reported_by_verify() {
+    let dir = tempfile::tempdir().unwrap();
+    make_pki(dir.path());
+    let signed = dir.path().join("cert.pdf");
+    let out = pliego()
+        .arg("sign")
+        .arg(corpus())
+        .arg("-o")
+        .arg(&signed)
+        .arg("--p12")
+        .arg(dir.path().join("test.p12"))
+        .args(["--password", "prueba", "--certify", "2"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = pliego().args(["--json", "verify"]).arg(&signed).output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v[0]["certification"], 2);
+    let bad = pliego()
+        .arg("sign")
+        .arg(corpus())
+        .arg("-o")
+        .arg(dir.path().join("x.pdf"))
+        .arg("--p12")
+        .arg(dir.path().join("test.p12"))
+        .args(["--password", "prueba", "--certify", "9"])
+        .output()
+        .unwrap();
+    assert!(!bad.status.success());
+}

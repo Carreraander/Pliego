@@ -1,0 +1,33 @@
+/* Estilos del visor y sus paneles (W01) expresados con tokens del sistema de diseño. Sustituye a provisional.css. */
+.viewer-host { position: absolute; inset: 0; }
+.viewer { position: absolute; inset: 0; overflow: auto; background: var(--pl-canvas); }
+.viewer-content { position: relative; margin: 0 auto; min-width: 100%; }
+.page { position: absolute; left: 50%; transform: translateX(-50%); background: var(--pl-paper); box-shadow: var(--pl-page-shadow); }
+.page-rot { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.tile { position: absolute; user-select: none; }
+.tile.low { left: 0; top: 0; }
+.hit { position: absolute; background: var(--pl-hit); mix-blend-mode: multiply; pointer-events: none; }
+.hit.current { background: var(--pl-hit-current); outline: 2px solid var(--pl-hit-current); }
+
+.thumbs { display: grid; gap: var(--pl-space-4); justify-items: center; padding: var(--pl-space-4); }
+.thumb { display: grid; justify-items: center; gap: var(--pl-space-1); padding: var(--pl-space-2); border: 1px solid transparent; border-radius: var(--pl-radius-md); background: transparent; }
+.thumb:hover { background: var(--pl-hover); }
+.thumb img { background: var(--pl-paper); box-shadow: var(--pl-page-shadow); }
+.thumb.active { background: var(--pl-accent-soft); border-color: var(--pl-accent); }
+.thumb span { font-size: var(--pl-text-caption); color: var(--pl-text-2); font-variant-numeric: tabular-nums; }
+
+.outline { padding: var(--pl-space-3) var(--pl-space-4); }
+.outline ul { list-style: none; margin: 0; padding-left: var(--pl-space-5); }
+.outline > ul { padding-left: 0; }
+.outline-item { width: 100%; text-align: left; padding: var(--pl-space-2) var(--pl-space-3); border: 0; border-radius: var(--pl-radius-sm); background: transparent; }
+.outline-item:hover:not(:disabled) { background: var(--pl-hover); }
+.outline-item:disabled { color: var(--pl-text-3); }
+.muted { color: var(--pl-text-2); font-size: var(--pl-text-caption); padding: var(--pl-space-4); }
+
+.searchbox { display: flex; align-items: center; gap: var(--pl-space-3); }
+.searchbox input { min-height: 28px; min-width: 200px; padding: 0 var(--pl-space-3); border-radius: var(--pl-radius-md); border: 1px solid var(--pl-border-strong); background: var(--pl-surface-sunken); }
+.searchbox input:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 0; }
+.searchbox button { min-width: 28px; height: 28px; border: 1px solid transparent; border-radius: var(--pl-radius-md); background: transparent; }
+.searchbox button:hover:not(:disabled) { background: var(--pl-hover); }
+.searchbox button:disabled { opacity: 0.4; }
+.searchbox .muted { padding: 0; }

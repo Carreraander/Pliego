@@ -1,0 +1,60 @@
+/* Base de Pliego: reset, tipografía, foco visible, alto contraste y movimiento reducido.
+   Todo sale de tokens.css; aquí no hay colores literales. */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  color-scheme: light dark;
+  font-family: var(--pl-font);
+  font-size: var(--pl-text-body);
+  line-height: var(--pl-lh-body);
+  color: var(--pl-text);
+  background: var(--pl-chrome);
+  -webkit-font-smoothing: auto;
+  text-size-adjust: 100%;
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+html, body, #root { height: 100%; margin: 0; }
+body { overflow: hidden; background: var(--pl-chrome); user-select: none; -webkit-user-select: none; }
+input, textarea, [contenteditable], .pl-selectable { user-select: text; -webkit-user-select: text; }
+
+h1, h2, h3, h4, p { margin: 0; }
+h1 { font: var(--pl-weight-semibold) var(--pl-text-title)/var(--pl-lh-title) var(--pl-font-display); }
+h2 { font: var(--pl-weight-semibold) var(--pl-text-subtitle)/var(--pl-lh-subtitle) var(--pl-font); }
+h3 { font: var(--pl-weight-semibold) var(--pl-text-body)/var(--pl-lh-body) var(--pl-font); }
+small, .pl-caption { font-size: var(--pl-text-caption); line-height: var(--pl-lh-caption); }
+.pl-num { font-variant-numeric: tabular-nums; }
+.pl-muted { color: var(--pl-text-2); }
+.pl-label-group {
+  font-size: var(--pl-text-caption); line-height: var(--pl-lh-caption); font-weight: var(--pl-weight-semibold);
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--pl-text-2);
+}
+a { color: var(--pl-accent); }
+hr { border: 0; border-top: 1px solid var(--pl-divider); margin: 0; }
+::selection { background: var(--pl-selection); }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { margin: 0; cursor: default; }
+svg { flex: none; }
+
+/* Foco visible solo con teclado; nunca se suprime sin sustituirlo. */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 2px; border-radius: var(--pl-radius-sm); }
+
+.pl-sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Barras de desplazamiento discretas */
+* { scrollbar-width: thin; scrollbar-color: var(--pl-border-strong) transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid Highlight; }
+  svg { forced-color-adjust: auto; }
+}

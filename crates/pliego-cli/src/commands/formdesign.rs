@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand, ValueEnum};
 use mupdf::pdf::PdfDocument;
-use pliego_formdesign::{FieldPatch, FieldSpec, FieldType};
+use pliego_core::JobContext;
+use pliego_formdesign::{CalcOp, Calculation, FieldFormat, FieldPatch, FieldSpec, FieldType, NumberFormat, Validation};
 
 #[derive(Subcommand)]
 pub enum FormDesignCommand {
@@ -17,6 +18,126 @@ pub enum FormDesignCommand {
     Delete(DeleteArgs),
     /// Fija el orden de tabulación de los campos de una página.
     TabOrder(TabOrderArgs),
+    /// Define (o quita) el cálculo automático de un campo.
+    Calc(CalcArgs),
+    /// Define la validación de un campo.
+    Validate(ValidateArgs),
+    /// Define el formato de un campo.
+    Format(FormatArgs),
+    /// Recalcula los campos calculados y guarda los valores.
+    Recalc(RecalcArgs),
+    /// Detecta campos en un PDF plano o escaneado; con `-o` los crea.
+    Detect(DetectArgs),
+}
+
+#[derive(Args)]
+pub struct DetectArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    /// Páginas (desde 1), p. ej. `1-3,5`; por defecto, todas.
+    #[arg(long)]
+    pub pages: Option<String>,
+    /// Crea los campos detectados y guarda el resultado en este archivo.
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum Op {
+    Sum,
+    Product,
+    Average,
+    Min,
+    Max,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum ValidationKind {
+    None,
+    Range,
+    Dni,
+    Iban,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum FormatKind {
+    None,
+    Number,
+    Percent,
+    Date,
+    Time,
+    Postal,
+    Mask,
+}
+
+#[derive(Args)]
+pub struct CalcArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
+    /// Campo calculado.
+    #[arg(long)]
+    pub field: String,
+    /// Operación.
+    #[arg(long, value_enum, required_unless_present = "clear")]
+    pub op: Option<Op>,
+    /// Campos de entrada, separados por comas.
+    #[arg(long, value_delimiter = ',', required_unless_present = "clear")]
+    pub inputs: Vec<String>,
+    /// Decimales del resultado.
+    #[arg(long)]
+    pub decimals: Option<u8>,
+    /// Quita el cálculo del campo.
+    #[arg(long)]
+    pub clear: bool,
+}
+
+#[derive(Args)]
+pub struct ValidateArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
+    #[arg(long)]
+    pub field: String,
+    #[arg(long, value_enum)]
+    pub kind: ValidationKind,
+    /// Mínimo del rango.
+    #[arg(long, allow_hyphen_values = true)]
+    pub min: Option<f64>,
+    /// Máximo del rango.
+    #[arg(long, allow_hyphen_values = true)]
+    pub max: Option<f64>,
+}
+
+#[derive(Args)]
+pub struct FormatArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
+    #[arg(long)]
+    pub field: String,
+    #[arg(long, value_enum)]
+    pub kind: FormatKind,
+    /// Decimales (número y porcentaje).
+    #[arg(long, default_value_t = 2)]
+    pub decimals: u8,
+    /// Símbolo de moneda (número).
+    #[arg(long)]
+    pub currency: Option<String>,
+    /// Patrón de fecha (`dd/mm/yyyy`), hora (`HH:MM`) o máscara (`999-AA`).
+    #[arg(long)]
+    pub pattern: Option<String>,
+}
+
+#[derive(Args)]
+pub struct RecalcArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -265,6 +386,7 @@ pub fn run(cmd: FormDesignCommand, json: bool) -> anyhow::Result<()> {
                 font_size: a.font_size,
                 tooltip: a.tooltip,
                 caption: a.caption,
+                ..Default::default()
             };
             pliego_formdesign::add_field(&mut doc, &spec)?;
             let dest = save(&doc, &a.doc.input, &a.out)?;
@@ -294,6 +416,129 @@ pub fn run(cmd: FormDesignCommand, json: bool) -> anyhow::Result<()> {
             pliego_formdesign::delete_field(&mut doc, &a.field)?;
             let dest = save(&doc, &a.doc.input, &a.out)?;
             done("Campo borrado", &dest, json)
+        }
+        FormDesignCommand::Calc(a) => {
+            let mut doc = open(&a.doc)?;
+            let calc = (!a.clear).then(|| Calculation {
+                op: match a.op.unwrap_or(Op::Sum) {
+                    Op::Sum => CalcOp::Sum,
+                    Op::Product => CalcOp::Product,
+                    Op::Average => CalcOp::Average,
+                    Op::Min => CalcOp::Min,
+                    Op::Max => CalcOp::Max,
+                },
+                fields: a.inputs.clone(),
+                decimals: a.decimals,
+            });
+            pliego_formdesign::set_calculation(&mut doc, &a.field, calc.as_ref())?;
+            let dest = save(&doc, &a.doc.input, &a.out)?;
+            done("Cálculo guardado", &dest, json)
+        }
+        FormDesignCommand::Validate(a) => {
+            let mut doc = open(&a.doc)?;
+            let v = match a.kind {
+                ValidationKind::None => Validation::None,
+                ValidationKind::Range => Validation::Range { min: a.min, max: a.max },
+                ValidationKind::Dni => Validation::Dni,
+                ValidationKind::Iban => Validation::Iban,
+            };
+            pliego_formdesign::set_validation(&mut doc, &a.field, &v)?;
+            let dest = save(&doc, &a.doc.input, &a.out)?;
+            done("Validación guardada", &dest, json)
+        }
+        FormDesignCommand::Format(a) => {
+            let mut doc = open(&a.doc)?;
+            let pattern = |what: &str| a.pattern.clone().with_context(|| format!("{what} necesita --pattern"));
+            let f = match a.kind {
+                FormatKind::None => FieldFormat::None,
+                FormatKind::Number => FieldFormat::Number(NumberFormat {
+                    decimals: a.decimals,
+                    currency: a.currency.clone(),
+                    ..Default::default()
+                }),
+                FormatKind::Percent => FieldFormat::Percent { decimals: a.decimals },
+                FormatKind::Date => FieldFormat::Date {
+                    pattern: pattern("la fecha")?,
+                },
+                FormatKind::Time => FieldFormat::Time {
+                    pattern: pattern("la hora")?,
+                },
+                FormatKind::Postal => FieldFormat::PostalCode,
+                FormatKind::Mask => FieldFormat::Mask {
+                    mask: pattern("la máscara")?,
+                },
+            };
+            pliego_formdesign::set_format(&mut doc, &a.field, &f)?;
+            let dest = save(&doc, &a.doc.input, &a.out)?;
+            done("Formato guardado", &dest, json)
+        }
+        FormDesignCommand::Recalc(a) => {
+            let mut doc = open(&a.doc)?;
+            let names = pliego_formdesign::recalculate(&mut doc)?;
+            let dest = save(&doc, &a.doc.input, &a.out)?;
+            if json {
+                println!("{}", serde_json::json!({ "recalculated": names, "output": dest }));
+            } else {
+                println!("{} campo(s) recalculado(s): {}", names.len(), dest.display());
+            }
+            Ok(())
+        }
+        FormDesignCommand::Detect(a) => {
+            let mut doc = open(&a.doc)?;
+            let total = doc.page_count()? as usize;
+            let range: Vec<usize> = match &a.pages {
+                Some(s) => s
+                    .parse::<pliego_core::PageRange>()?
+                    .resolve(total as u32)?
+                    .into_iter()
+                    .map(|p| p as usize)
+                    .collect(),
+                None => (0..total).collect(),
+            };
+            let ctx = JobContext::silent();
+            let mut found = Vec::new();
+            for p in range {
+                found.extend(pliego_formdesign::detect_fields(&doc, p, &ctx)?);
+            }
+            if let Some(out) = &a.output {
+                for f in &found {
+                    pliego_formdesign::add_field(&mut doc, f)?;
+                }
+                let dest = save(
+                    &doc,
+                    &a.doc.input,
+                    &OutArgs {
+                        output: Some(out.clone()),
+                        in_place: false,
+                    },
+                )?;
+                if !json {
+                    println!("{} campo(s) creado(s): {}", found.len(), dest.display());
+                    return Ok(());
+                }
+            }
+            if json {
+                println!("{}", serde_json::to_string_pretty(&found)?);
+            } else {
+                for f in &found {
+                    let kind = serde_json::to_value(f.kind)?;
+                    println!(
+                        "pág. {:<3} {:<24} {:<10} [{:.0} {:.0} {:.0} {:.0}]",
+                        f.page + 1,
+                        f.name,
+                        kind.as_str().unwrap_or(""),
+                        f.rect[0],
+                        f.rect[1],
+                        f.rect[2],
+                        f.rect[3]
+                    );
+                }
+                println!(
+                    "{} campo(s) detectado(s). Usa -o <salida.pdf> para crearlos.",
+                    found.len()
+                );
+            }
+            Ok(())
         }
         FormDesignCommand::TabOrder(a) => {
             let mut doc = open(&a.doc)?;

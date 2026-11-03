@@ -2,12 +2,13 @@
 //!
 //! - [`check`] / [`check_file`]: informe con hallazgos y correcciones sugeridas.
 //! - [`set_language`], [`set_title`], [`set_alt_text`], [`set_tab_order`]: correcciones sobre un documento abierto.
-//! - [`autotag`] / [`autotag_file`]: etiquetado inicial con heurísticas (encabezados, listas, párrafos, figuras).
+//! - [`autotag`] / [`autotag_file`]: etiquetado inicial con heurísticas (encabezados, listas, párrafos, figuras, tablas sencillas).
 //! - [`fix_file`]: aplica varias correcciones a un archivo y guarda en otro.
 
 mod autotag;
 mod check;
 mod content;
+mod contrast;
 mod edit;
 mod io;
 mod report;

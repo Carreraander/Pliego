@@ -21,7 +21,7 @@ fn tile_response(service: &DocumentService, path: &str) -> Response<Vec<u8>> {
             .header(header::CONTENT_TYPE, "image/png")
             .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(header::CACHE_CONTROL, "no-store")
-            .body(png.as_ref().clone())
+            .body(png)
             .unwrap_or_default(),
         Err(e) => Response::builder()
             .status(StatusCode::NOT_FOUND)
@@ -33,6 +33,7 @@ fn tile_response(service: &DocumentService, path: &str) -> Response<Vec<u8>> {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // Segunda instancia: pasa sus archivos a la primera y la trae al frente.
             let files = commands::startup::pdf_args(args);
@@ -51,9 +52,19 @@ pub fn run() {
         })
         .setup(|app| {
             let handle = app.handle().clone();
-            let service = DocumentService::new().on_document_changed(move |ev| {
+            // El worker (MuPDF aislado) va junto al ejecutable; en desarrollo, PLIEGO_WORKER.
+            let service = DocumentService::discover()?.on_document_changed(move |ev| {
                 let _ = handle.emit("document-changed", ev);
             });
+            let data_dir = pliego_appdata::data_dir();
+            app.manage(commands::settings::SettingsState(
+                pliego_appdata::settings::SettingsStore::new(&data_dir),
+            ));
+            app.manage(commands::recents::RecentsState(
+                pliego_appdata::recents::RecentStore::new(&data_dir),
+            ));
+            app.manage(commands::jobs::JobsState::new(app.handle().clone()));
+            app.manage(commands::assistant::AssistantState::default());
             app.manage(AppState {
                 service: Arc::new(service),
                 startup_files: Mutex::new(commands::startup::pdf_args(std::env::args())),

@@ -118,6 +118,9 @@ pub fn list_fields(doc: &PdfDocument) -> Result<Vec<FieldSpec>> {
                 font_size: 0.0,
                 tooltip: field.get_dict("TU").ok().flatten().and_then(|t| text_of(&t)),
                 caption: None,
+                format: Default::default(),
+                validation: Default::default(),
+                calculation: crate::js::read_calc(&field),
             });
         }
     }

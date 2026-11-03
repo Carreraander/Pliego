@@ -1,0 +1,24 @@
+[package]
+name = "pliego-launcher"
+description = "Lanzador de Pliego: Pliego.exe (app) y bin\\pliego.exe (CLI). Activa actualizaciones y vuelve atrás si algo falla"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "pliego-launcher"
+path = "src/bin/app.rs"
+
+[[bin]]
+name = "pliego-launcher-cli"
+path = "src/bin/cli.rs"
+
+[dependencies]
+pliego-install = { path = "../pliego-install", default-features = false }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

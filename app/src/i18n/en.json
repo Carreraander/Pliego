@@ -23,5 +23,8 @@
   "password.submit": "Open",
   "password.cancel": "Cancel",
   "password.wrong": "The password is not correct",
+  "menu.home": "Home",
+  "menu.settings": "Settings",
+  "menu.shortcuts": "Keyboard shortcuts",
   "error.open": "The document could not be opened"
 }

@@ -1,0 +1,19 @@
+[package]
+name = "pliego-print"
+description = "Producción de impresión: tintas, separaciones, preflight y herramientas de preimpresión"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+mupdf.workspace = true
+serde.workspace = true
+tempfile.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

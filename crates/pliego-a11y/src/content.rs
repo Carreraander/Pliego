@@ -239,11 +239,11 @@ pub(crate) struct Segment {
     pub kind: SegKind,
 }
 
-fn scale_of(m: &[f32; 6]) -> f32 {
+pub(crate) fn scale_of(m: &[f32; 6]) -> f32 {
     (m[0] * m[3] - m[1] * m[2]).abs().sqrt()
 }
 
-fn mul(a: &[f32; 6], b: &[f32; 6]) -> [f32; 6] {
+pub(crate) fn mul(a: &[f32; 6], b: &[f32; 6]) -> [f32; 6] {
     // a × b con la convención de PDF (a se aplica primero)
     [
         a[0] * b[0] + a[1] * b[2],
@@ -255,7 +255,7 @@ fn mul(a: &[f32; 6], b: &[f32; 6]) -> [f32; 6] {
     ]
 }
 
-const IDENTITY: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+pub(crate) const IDENTITY: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 
 /// Segmenta el flujo en objetos de texto, imágenes y trazados.
 pub(crate) fn segment(data: &[u8], toks: &[Token]) -> Vec<Segment> {

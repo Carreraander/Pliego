@@ -339,15 +339,206 @@ mod http {
     }
 
     #[test]
-    fn https_tsa_is_rejected_with_a_clear_message() {
+    fn https_tsa_is_attempted_and_failure_is_clear() {
         let pki = make_pki(true);
         let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
         let opts = SignOptions {
             level: PadesLevel::BT,
-            timestamp_url: Some("https://tsa.example/ts".into()),
+            timestamp_url: Some("https://127.0.0.1:1/ts".into()),
             ..Default::default()
         };
         let err = sign_bytes(&corpus_pdf(), &signer, &opts).unwrap_err();
-        assert!(err.to_string().contains("https"), "{err}");
+        assert!(err.to_string().contains("no se pudo contactar"), "{err}");
+    }
+}
+
+mod visible {
+    use super::*;
+    use pliego_sign::VisibleSignature;
+
+    #[test]
+    fn visible_signature_has_rect_and_appearance_and_validates() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let opts = SignOptions {
+            visible: Some(VisibleSignature {
+                page: 1,
+                rect: [72.0, 700.0, 220.0, 60.0],
+            }),
+            reason: Some("Aprobación (revisada)".into()),
+            ..Default::default()
+        };
+        let signed = sign_bytes(&corpus_pdf(), &signer, &opts).unwrap();
+        let r = &validate_bytes(&signed, &anchors(&pki)).unwrap()[0];
+        assert!(r.is_valid(), "{:?}", r.problems);
+
+        let doc = lopdf::Document::load_mem(&signed).unwrap();
+        let (_, widget) = doc
+            .objects
+            .iter()
+            .find(|(_, o)| {
+                o.as_dict()
+                    .is_ok_and(|d| d.get(b"FT").ok() == Some(&lopdf::Object::Name(b"Sig".to_vec())))
+            })
+            .unwrap();
+        let d = widget.as_dict().unwrap();
+        let rect: Vec<f32> = d
+            .get(b"Rect")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o.as_float().unwrap())
+            .collect();
+        assert_eq!(rect, vec![72.0, 700.0, 292.0, 760.0]);
+        let ap = d
+            .get(b"AP")
+            .unwrap()
+            .as_dict()
+            .unwrap()
+            .get(b"N")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let stream = doc.get_object(ap).unwrap().as_stream().unwrap();
+        let content = String::from_utf8_lossy(&stream.content).to_string();
+        assert!(
+            content.contains("Firmado digitalmente por Persona de Prueba"),
+            "{content}"
+        );
+        assert!(content.contains("Motivo: Aprobaci"));
+        // El widget cuelga de la página 2 (índice 1).
+        let page2 = *doc.get_pages().get(&2).unwrap();
+        assert_eq!(d.get(b"P").unwrap().as_reference().unwrap(), page2);
+    }
+
+    #[test]
+    fn tiny_or_missing_page_is_rejected() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let small = SignOptions {
+            visible: Some(VisibleSignature {
+                page: 0,
+                rect: [0.0, 0.0, 5.0, 5.0],
+            }),
+            ..Default::default()
+        };
+        assert!(sign_bytes(&corpus_pdf(), &signer, &small).is_err());
+        let no_page = SignOptions {
+            visible: Some(VisibleSignature {
+                page: 9,
+                rect: [0.0, 0.0, 100.0, 40.0],
+            }),
+            ..Default::default()
+        };
+        assert!(sign_bytes(&corpus_pdf(), &signer, &no_page).is_err());
+    }
+}
+
+mod fields_and_certification {
+    use super::*;
+
+    fn signer(pki: &TestPki) -> Pkcs12Signer {
+        Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap()
+    }
+
+    #[test]
+    fn signs_an_existing_empty_field_in_place() {
+        let pki = make_pki(true);
+        let opts = SignOptions {
+            field_name: Some("Firma1".into()),
+            ..Default::default()
+        };
+        let signed = sign_bytes(&pdf_with_empty_field(), &signer(&pki), &opts).unwrap();
+        let r = &validate_bytes(&signed, &anchors(&pki)).unwrap()[0];
+        assert!(r.is_valid(), "{:?}", r.problems);
+        assert_eq!(r.field.as_deref(), Some("Firma1"));
+
+        let doc = lopdf::Document::load_mem(&signed).unwrap();
+        let sig_fields = doc
+            .objects
+            .values()
+            .filter(|o| {
+                o.as_dict()
+                    .is_ok_and(|d| d.get(b"FT").ok() == Some(&lopdf::Object::Name(b"Sig".to_vec())))
+            })
+            .count();
+        assert_eq!(sig_fields, 1, "no debe crearse un campo nuevo");
+        // El campo tenía tamaño: ahora muestra la apariencia.
+        let field = doc
+            .objects
+            .values()
+            .find(|o| o.as_dict().is_ok_and(|d| d.has(b"FT")))
+            .unwrap();
+        assert!(field.as_dict().unwrap().has(b"AP"));
+    }
+
+    #[test]
+    fn an_already_signed_field_cannot_be_signed_again() {
+        let pki = make_pki(true);
+        let opts = SignOptions {
+            field_name: Some("Firma1".into()),
+            ..Default::default()
+        };
+        let once = sign_bytes(&pdf_with_empty_field(), &signer(&pki), &opts).unwrap();
+        let err = sign_bytes(&once, &signer(&pki), &opts).unwrap_err();
+        assert!(err.to_string().contains("ya está firmado"), "{err}");
+    }
+
+    #[test]
+    fn certification_levels_control_later_changes() {
+        let pki = make_pki(true);
+        let s = signer(&pki);
+        for (level, later_signature_ok) in [(2u8, true), (1u8, false)] {
+            let opts = SignOptions {
+                certify: Some(level),
+                ..Default::default()
+            };
+            let certified = sign_bytes(&corpus_pdf(), &s, &opts).unwrap();
+            if let Ok(dir) = std::env::var("PLIEGO_SIGN_OUT") {
+                std::fs::write(format!("{dir}/certificado-p{level}.pdf"), &certified).unwrap();
+                std::fs::write(format!("{dir}/ca-cert.der"), &pki.ca_der).unwrap();
+            }
+            let r = &validate_bytes(&certified, &anchors(&pki)).unwrap()[0];
+            assert_eq!(r.certification, Some(level));
+            assert!(r.is_valid(), "{:?}", r.problems);
+
+            let again = sign_bytes(&certified, &s, &SignOptions::default()).unwrap();
+            let reports = validate_bytes(&again, &anchors(&pki)).unwrap();
+            let first = reports.iter().find(|r| r.certification.is_some()).unwrap();
+            assert!(first.integrity);
+            assert_eq!(
+                first.modifications_allowed, later_signature_ok,
+                "P={level}: {:?}",
+                first.problems
+            );
+            // Un sello de mantenimiento (DSS) sí se admite incluso con P=1.
+            let chain = pliego_sign::Signer::certificate_chain(&s);
+            let rev = pliego_sign::StaticRevocation(pliego_sign::RevocationData {
+                crls: vec![pki.crl_der.clone()],
+                ocsps: vec![],
+            });
+            let data = pliego_sign::collect_revocation(&chain, &rev).unwrap();
+            let with_dss = pliego_sign::add_dss(&certified, &chain, &data).unwrap();
+            let r = &validate_bytes(&with_dss, &anchors(&pki)).unwrap()[0];
+            assert!(r.modifications_allowed, "P={level}: {:?}", r.problems);
+        }
+    }
+
+    #[test]
+    fn only_the_first_signature_can_certify_and_levels_are_checked() {
+        let pki = make_pki(true);
+        let s = signer(&pki);
+        let once = sign_bytes(&corpus_pdf(), &s, &SignOptions::default()).unwrap();
+        let opts = SignOptions {
+            certify: Some(2),
+            ..Default::default()
+        };
+        assert!(sign_bytes(&once, &s, &opts).is_err());
+        let bad = SignOptions {
+            certify: Some(7),
+            ..Default::default()
+        };
+        assert!(sign_bytes(&corpus_pdf(), &s, &bad).is_err());
     }
 }

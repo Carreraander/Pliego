@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::js::{Calculation, FieldFormat, Validation};
+
 /// Tipo de campo que se puede crear.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,6 +45,12 @@ pub struct FieldSpec {
     pub tooltip: Option<String>,
     /// Rótulo de un botón.
     pub caption: Option<String>,
+    /// Formato de presentación y de tecleo (número, fecha, máscara...).
+    pub format: FieldFormat,
+    /// Validación al confirmar el valor.
+    pub validation: Validation,
+    /// Cálculo automático a partir de otros campos.
+    pub calculation: Option<Calculation>,
 }
 
 /// Cambios sobre un campo existente: solo se aplica lo que venga relleno.

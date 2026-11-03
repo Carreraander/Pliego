@@ -1,0 +1,18 @@
+[package]
+name = "pliego-appdata"
+description = "Datos de la app de escritorio sin Tauri: ajustes, recientes y registro de trabajos en segundo plano"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

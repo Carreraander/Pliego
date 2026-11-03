@@ -20,7 +20,9 @@ fn same_except(a: &Dictionary, b: &Dictionary, skip: &[&[u8]]) -> bool {
 
 /// Comprueba que lo añadido después de `signed_len` bytes solo contiene cambios permitidos:
 /// objetos nuevos, el DSS en el catálogo, campos de firma nuevos y las listas que los referencian.
-pub fn check_updates(data: &[u8], signed_len: usize) -> Result<(), String> {
+pub fn check_updates(data: &[u8], signed_len: usize, mdp: Option<u8>) -> Result<(), String> {
+    // DocMDP 1: no se permite ningún cambio salvo el DSS (mantenimiento de la firma).
+    let frozen = mdp == Some(1);
     let before =
         lopdf::Document::load_mem(&data[..signed_len]).map_err(|e| format!("revisión firmada ilegible: {e}"))?;
     let after =
@@ -38,19 +40,25 @@ pub fn check_updates(data: &[u8], signed_len: usize) -> Result<(), String> {
             continue;
         }
         let ok = match (old, new) {
-            (Object::Dictionary(a), Object::Dictionary(b)) if Some(*id) == root_id => {
-                same_except(a, b, &[b"DSS", b"AcroForm", b"Extensions"])
-            }
+            (Object::Dictionary(a), Object::Dictionary(b)) if Some(*id) == root_id => same_except(
+                a,
+                b,
+                if frozen {
+                    &[b"DSS", b"Extensions"]
+                } else {
+                    &[b"DSS", b"AcroForm", b"Extensions"]
+                },
+            ),
             (Object::Dictionary(a), Object::Dictionary(b))
                 if a.get(b"Type").ok() == Some(&Object::Name(b"Page".to_vec())) =>
             {
-                same_except(a, b, &[b"Annots"])
+                !frozen && same_except(a, b, &[b"Annots"])
             }
             (Object::Dictionary(a), Object::Dictionary(b)) if a.has(b"Fields") => {
-                same_except(a, b, &[b"Fields", b"SigFlags"])
+                !frozen && same_except(a, b, &[b"Fields", b"SigFlags"])
             }
             // Listas de anotaciones o de campos que solo crecen.
-            (Object::Array(a), Object::Array(b)) => b.len() >= a.len() && b[..a.len()] == a[..],
+            (Object::Array(a), Object::Array(b)) => !frozen && b.len() >= a.len() && b[..a.len()] == a[..],
             _ => false,
         };
         if !ok {

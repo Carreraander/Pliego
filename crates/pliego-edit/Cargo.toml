@@ -1,0 +1,21 @@
+[package]
+name = "pliego-edit"
+description = "Edición del contenido de páginas: texto, imágenes y enlaces"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+pliego-document = { path = "../pliego-document" }
+mupdf.workspace = true
+serde.workspace = true
+rustybuzz = "0.20"
+subsetter = "0.2"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

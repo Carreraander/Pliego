@@ -1,0 +1,35 @@
+.pl-field { display: grid; gap: var(--pl-space-2); min-width: 0; }
+.pl-field__label { font-weight: var(--pl-weight-semibold); }
+.pl-field__hint { color: var(--pl-text-2); font-size: var(--pl-text-caption); line-height: var(--pl-lh-caption); }
+.pl-field__error { color: var(--pl-danger); font-size: var(--pl-text-caption); line-height: var(--pl-lh-caption); }
+
+.pl-input {
+  width: 100%; min-height: var(--pl-control-h); padding: 0 var(--pl-space-4); border-radius: var(--pl-radius-md);
+  border: 1px solid var(--pl-border-strong); background: var(--pl-surface-sunken); color: var(--pl-text);
+  transition: border-color var(--pl-dur-fast) var(--pl-ease);
+}
+.pl-input::placeholder { color: var(--pl-text-3); }
+.pl-input:hover { border-color: var(--pl-text-3); }
+.pl-input:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 0; border-color: var(--pl-focus); }
+.pl-input[aria-invalid="true"] { border-color: var(--pl-danger); }
+.pl-input[disabled] { opacity: 0.5; }
+.pl-select { appearance: none; padding-right: var(--pl-space-8); cursor: default;
+  background-image: linear-gradient(45deg, transparent 50%, var(--pl-text-2) 50%), linear-gradient(135deg, var(--pl-text-2) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+
+.pl-slider { display: flex; align-items: center; gap: var(--pl-space-4); }
+.pl-slider__input { flex: 1; min-width: 0; height: var(--pl-control-h); margin: 0; background: transparent; appearance: none; }
+.pl-slider__input::-webkit-slider-runnable-track { height: 4px; border-radius: var(--pl-radius-full); background: var(--pl-border-strong); }
+.pl-slider__input::-webkit-slider-thumb {
+  appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: var(--pl-radius-full);
+  background: var(--pl-accent); border: 2px solid var(--pl-surface-raised); box-shadow: var(--pl-shadow-1);
+}
+.pl-slider__input:hover::-webkit-slider-thumb { background: var(--pl-accent-hover); }
+.pl-slider__input[disabled] { opacity: 0.5; }
+.pl-slider__value { min-width: 4ch; text-align: right; color: var(--pl-text-2); }
+
+@media (forced-colors: active) {
+  .pl-input { border-color: ButtonText; }
+  .pl-slider__input::-webkit-slider-thumb { background: Highlight; }
+  .pl-slider__input::-webkit-slider-runnable-track { background: ButtonText; }
+}

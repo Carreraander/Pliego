@@ -52,6 +52,9 @@ enum Command {
     /// Producción de impresión: tintas, preflight y separaciones.
     #[command(subcommand)]
     Print(commands::print::PrintCommand),
+    /// Accesibilidad: comprobar y corregir idioma, título y texto alternativo.
+    #[command(subcommand)]
+    A11y(commands::a11y::A11yCommand),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -72,5 +75,6 @@ fn main() -> anyhow::Result<()> {
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
         Command::Print(c) => commands::print::run(c, cli.json),
+        Command::A11y(c) => commands::a11y::run(c, cli.json),
     }
 }

@@ -351,3 +351,86 @@ mod http {
         assert!(err.to_string().contains("https"), "{err}");
     }
 }
+
+mod visible {
+    use super::*;
+    use pliego_sign::VisibleSignature;
+
+    #[test]
+    fn visible_signature_has_rect_and_appearance_and_validates() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let opts = SignOptions {
+            visible: Some(VisibleSignature {
+                page: 1,
+                rect: [72.0, 700.0, 220.0, 60.0],
+            }),
+            reason: Some("Aprobación (revisada)".into()),
+            ..Default::default()
+        };
+        let signed = sign_bytes(&corpus_pdf(), &signer, &opts).unwrap();
+        let r = &validate_bytes(&signed, &anchors(&pki)).unwrap()[0];
+        assert!(r.is_valid(), "{:?}", r.problems);
+
+        let doc = lopdf::Document::load_mem(&signed).unwrap();
+        let (_, widget) = doc
+            .objects
+            .iter()
+            .find(|(_, o)| {
+                o.as_dict()
+                    .is_ok_and(|d| d.get(b"FT").ok() == Some(&lopdf::Object::Name(b"Sig".to_vec())))
+            })
+            .unwrap();
+        let d = widget.as_dict().unwrap();
+        let rect: Vec<f32> = d
+            .get(b"Rect")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o.as_float().unwrap())
+            .collect();
+        assert_eq!(rect, vec![72.0, 700.0, 292.0, 760.0]);
+        let ap = d
+            .get(b"AP")
+            .unwrap()
+            .as_dict()
+            .unwrap()
+            .get(b"N")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let stream = doc.get_object(ap).unwrap().as_stream().unwrap();
+        let content = String::from_utf8_lossy(&stream.content).to_string();
+        assert!(
+            content.contains("Firmado digitalmente por Persona de Prueba"),
+            "{content}"
+        );
+        assert!(content.contains("Motivo: Aprobaci"));
+        // El widget cuelga de la página 2 (índice 1).
+        let page2 = *doc.get_pages().get(&2).unwrap();
+        assert_eq!(d.get(b"P").unwrap().as_reference().unwrap(), page2);
+    }
+
+    #[test]
+    fn tiny_or_missing_page_is_rejected() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let small = SignOptions {
+            visible: Some(VisibleSignature {
+                page: 0,
+                rect: [0.0, 0.0, 5.0, 5.0],
+            }),
+            ..Default::default()
+        };
+        assert!(sign_bytes(&corpus_pdf(), &signer, &small).is_err());
+        let no_page = SignOptions {
+            visible: Some(VisibleSignature {
+                page: 9,
+                rect: [0.0, 0.0, 100.0, 40.0],
+            }),
+            ..Default::default()
+        };
+        assert!(sign_bytes(&corpus_pdf(), &signer, &no_page).is_err());
+    }
+}

@@ -524,6 +524,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "jpeg-encoder"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b454d911ac55068f53495488d8ccd0646eaa540c033a28ee15b07838afafb01f"
+
+[[package]]
 name = "lazy_static"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -704,6 +710,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
+name = "pliego-annot"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
@@ -719,9 +735,28 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "mupdf",
+ "pliego-annot",
+ "pliego-compare",
  "pliego-convert",
  "pliego-core",
  "pliego-engine-mupdf",
+ "pliego-optimize",
+ "pliego-organize",
+ "pliego-protect",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-compare"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "mupdf",
+ "pliego-core",
+ "serde",
  "serde_json",
  "tempfile",
 ]
@@ -734,6 +769,7 @@ dependencies = [
  "mupdf",
  "pliego-core",
  "serde",
+ "serde_json",
  "tempfile",
  "tiff",
 ]
@@ -747,11 +783,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-document"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "tempfile",
+]
+
+[[package]]
 name = "pliego-engine-mupdf"
 version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-optimize"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "jpeg-encoder",
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-organize"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-protect"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
  "tempfile",
 ]
 
@@ -763,6 +843,18 @@ dependencies = [
  "clap",
  "pliego-core",
  "pliego-engine-mupdf",
+]
+
+[[package]]
+name = "pliego-worker"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "windows-sys",
 ]
 
 [[package]]

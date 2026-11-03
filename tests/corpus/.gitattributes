@@ -1,0 +1,2 @@
+# Los PDF de prueba son binarios: sin conversión de saltos de línea (rompería los desplazamientos de la xref en Windows).
+*.pdf -text

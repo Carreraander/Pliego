@@ -4,6 +4,7 @@ use mupdf::pdf::{InsertPdfOptions, PdfDocument};
 use pliego_core::{Error, JobContext, Report, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::annots::{FormState, carry_annotations};
 use crate::io::{open, save};
 use crate::outline::{OutlineNode, read_outline, retarget, write_outline};
 use crate::pdf_err;
@@ -43,19 +44,22 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
     let mut dest = PdfDocument::new();
     let mut outline: Vec<OutlineNode> = Vec::new();
     let total = inputs.len() as u64;
+    let mut form = FormState::default();
     for (i, path) in inputs.iter().enumerate() {
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         ctx.step(i as u64, total, &format!("Añadiendo {name}"))?;
-        let src = open(path, options.password.as_deref())?;
+        let mut src = open(path, options.password.as_deref())?;
         let src_pages = src.page_count().map_err(pdf_err)?.max(0) as u32;
         let offset = dest.page_count().map_err(pdf_err)?.max(0) as u32;
         if src_pages == 0 {
             continue;
         }
         dest.insert_pdf(&src, InsertPdfOptions::default()).map_err(pdf_err)?;
+        let pairs: Vec<(u32, u32)> = (0..src_pages).map(|i| (i, offset + i)).collect();
+        carry_annotations(&mut dest, &mut src, &pairs, &mut form)?;
         if options.keep_bookmarks || options.bookmark_per_file {
             let kept = if options.keep_bookmarks {
                 retarget(&read_outline(&src)?, &|p| Some(p + offset))
@@ -81,8 +85,12 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
     ctx.step(total, total, "Guardando")?;
     save(&dest, out)?;
     let pages = dest.page_count().map_err(pdf_err)?;
-    Ok(Report::with_output(
-        out,
-        format!("{} archivos combinados, {pages} páginas", inputs.len()),
-    ))
+    let mut report = Report::with_output(out, format!("{} archivos combinados, {pages} páginas", inputs.len()));
+    if form.renamed() > 0 {
+        report.warnings.push(format!(
+            "{} campos de formulario se renombraron (_2, _3…) porque su nombre ya existía en otro archivo",
+            form.renamed()
+        ));
+    }
+    Ok(report)
 }

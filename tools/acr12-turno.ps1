@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
   Ejecuta una orden pesada (cargo build/clippy/test, tauri build, npm run test:e2e...) en acr12
-  respetando el turno: como mucho 2 flujos compilando a la vez en la máquina.
+  respetando el turno: un solo flujo compilando, enlazando o pasando tests pesados a la vez
+  (con 2 a la vez acr12, de 16 GB, se quedaba sin memoria y paginaba).
 
 .EXAMPLE
   . .\tools\acr12-env.ps1
@@ -12,7 +13,7 @@
   -EsperaMaxMinutos. Alternativa: -Orden @('cargo','build','--release').
 
 .NOTES
-  Usa dos mutex con nombre (Global\PliegoAcr12Turno1 y ...2). Si una sesión muere con el turno cogido,
+  Usa un mutex con nombre (Global\PliegoAcr12Turno1). Si una sesión muere con el turno cogido,
   Windows libera el mutex (queda "abandonado") y el siguiente lo toma: no hay turnos huérfanos.
   El estado se escribe en D:\dev-cache\turnos\turno<N>.txt (quién y desde cuándo) para poder consultarlo.
 #>
@@ -29,7 +30,7 @@ if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '4' }
 $estado = 'D:\dev-cache\turnos'
 if (Test-Path 'D:\') { New-Item -ItemType Directory -Force -Path $estado | Out-Null }
 
-$mutexes = 1..2 | ForEach-Object { New-Object System.Threading.Mutex($false, "Global\PliegoAcr12Turno$_") }
+$mutexes = @(1..1 | ForEach-Object { New-Object System.Threading.Mutex($false, "Global\PliegoAcr12Turno$_") })
 $mio = $null
 $limite = (Get-Date).AddMinutes($EsperaMaxMinutos)
 while ($null -eq $mio) {

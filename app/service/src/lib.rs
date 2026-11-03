@@ -7,6 +7,7 @@
 mod cache;
 mod worker;
 
+pub mod api;
 pub mod uri;
 
 use std::collections::HashMap;

@@ -724,6 +724,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-assistant"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pliego-cli"
 version = "0.1.0"
 dependencies = [
@@ -731,6 +741,7 @@ dependencies = [
  "clap",
  "mupdf",
  "pliego-annot",
+ "pliego-assistant",
  "pliego-convert",
  "pliego-core",
  "pliego-engine-mupdf",

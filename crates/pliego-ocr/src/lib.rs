@@ -5,6 +5,7 @@
 //! - [`ocr_page_image`] / [`available_languages`]: funciones de conveniencia de la API pública.
 
 mod image;
+pub mod preprocess;
 pub mod tessdata;
 mod tesseract;
 

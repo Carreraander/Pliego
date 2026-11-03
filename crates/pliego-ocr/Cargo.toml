@@ -1,0 +1,20 @@
+[package]
+name = "pliego-ocr"
+description = "OCR de Pliego: reconocimiento con Tesseract y capa de texto invisible"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+tesseract-sys = { path = "../tesseract-sys" }
+mupdf.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+pliego-engine-mupdf.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -23,6 +23,15 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Tesseract (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libtesseract-dev libleptonica-dev tesseract-ocr-eng tesseract-ocr-spa
+      - name: Tesseract (Windows, vcpkg)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/ocr/setup-tesseract-windows.ps1 -GithubEnv $env:GITHUB_ENV
       - name: Formato
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all --check

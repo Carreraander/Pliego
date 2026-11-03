@@ -591,6 +591,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-ocr"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "serde",
+ "tempfile",
+ "tesseract-sys",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -790,6 +802,13 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys",
+]
+
+[[package]]
+name = "tesseract-sys"
+version = "0.1.0"
+dependencies = [
+ "pkg-config",
 ]
 
 [[package]]

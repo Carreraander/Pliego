@@ -3718,6 +3718,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-assistant"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pliego-cli"
 version = "0.1.0"
 dependencies = [
@@ -3727,12 +3737,14 @@ dependencies = [
  "p12-keystore",
  "pliego-a11y",
  "pliego-annot",
+ "pliego-assistant",
  "pliego-compare",
  "pliego-convert",
  "pliego-core",
  "pliego-document",
  "pliego-edit",
  "pliego-engine-mupdf",
+ "pliego-formdesign",
  "pliego-forms",
  "pliego-optimize",
  "pliego-organize",
@@ -3740,6 +3752,7 @@ dependencies = [
  "pliego-protect",
  "pliego-redact",
  "pliego-sign",
+ "pliego-signflow",
  "pliego-stamp",
  "rcgen",
  "serde",
@@ -3812,6 +3825,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-formdesign"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "pliego-forms"
 version = "0.1.0"
 dependencies = [
@@ -3868,6 +3892,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-qa"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "pliego-worker",
+]
+
+[[package]]
 name = "pliego-redact"
 version = "0.1.0"
 dependencies = [
@@ -3903,6 +3938,24 @@ dependencies = [
  "tempfile",
  "ureq",
  "x509-cert 0.2.5",
+]
+
+[[package]]
+name = "pliego-signflow"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "lopdf",
+ "p12-keystore",
+ "pliego-core",
+ "pliego-sign",
+ "rcgen",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
 ]
 
 [[package]]

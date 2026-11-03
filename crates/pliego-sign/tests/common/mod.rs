@@ -12,6 +12,8 @@ use rcgen::{
 pub struct TestPki {
     pub ca_der: Vec<u8>,
     pub p12: Vec<u8>,
+    /// CRL vacía firmada por la CA.
+    pub crl_der: Vec<u8>,
 }
 
 pub const PASSWORD: &str = "prueba";
@@ -54,6 +56,16 @@ pub fn make_pki_for(ecdsa: bool, tsa: bool) -> TestPki {
     }
     let leaf = params.signed_by(&key, &issuer).unwrap();
 
+    let crl = rcgen::CertificateRevocationListParams {
+        this_update: rcgen::date_time_ymd(2026, 1, 1),
+        next_update: rcgen::date_time_ymd(2040, 1, 1),
+        crl_number: rcgen::SerialNumber::from(1u64),
+        issuing_distribution_point: None,
+        revoked_certs: vec![],
+        key_identifier_method: rcgen::KeyIdMethod::Sha256,
+    }
+    .signed_by(&issuer)
+    .unwrap();
     let chain = PrivateKeyChain::new(
         b"k1".to_vec(),
         PrivateKey::from_der(&key.serialize_der()).unwrap(),
@@ -66,6 +78,7 @@ pub fn make_pki_for(ecdsa: bool, tsa: bool) -> TestPki {
     store.add_entry("firma", KeyStoreEntry::PrivateKeyChain(chain));
     let p12 = store.writer(PASSWORD).write().unwrap();
     TestPki {
+        crl_der: crl.der().to_vec(),
         ca_der: ca.der().to_vec(),
         p12,
     }

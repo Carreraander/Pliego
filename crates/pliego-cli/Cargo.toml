@@ -14,6 +14,7 @@ path = "src/main.rs"
 pliego-core.workspace = true
 pliego-engine-mupdf.workspace = true
 pliego-sign = { path = "../pliego-sign" }
+pliego-signflow = { path = "../pliego-signflow" }
 pliego-compare = { path = "../pliego-compare" }
 pliego-optimize = { path = "../pliego-optimize" }
 pliego-organize.workspace = true
@@ -22,7 +23,9 @@ pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }
 pliego-forms = { path = "../pliego-forms" }
+pliego-formdesign = { path = "../pliego-formdesign" }
 mupdf.workspace = true
+pliego-assistant = { path = "../pliego-assistant" }
 pliego-convert = { path = "../pliego-convert" }
 pliego-document = { path = "../pliego-document" }
 pliego-edit = { path = "../pliego-edit" }

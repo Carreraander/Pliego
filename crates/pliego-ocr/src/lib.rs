@@ -4,10 +4,14 @@
 //! - [`tessdata`]: búsqueda de modelos de idioma instalados.
 //! - [`ocr_page_image`] / [`available_languages`]: funciones de conveniencia de la API pública.
 
+mod document;
 mod image;
+pub mod preprocess;
 pub mod tessdata;
 mod tesseract;
+pub mod textlayer;
 
+pub use document::{OcrMode, OcrOptions, ocr_document};
 pub use image::{GrayImage, PixelRect, Word};
 pub use tessdata::available_languages;
 pub use tesseract::TesseractEngine;

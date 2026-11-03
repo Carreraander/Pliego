@@ -20,6 +20,7 @@ pub mod view;
 
 // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
 // [W06 ocr]
+pub mod ocr;
 
 // [W11 edit]
 

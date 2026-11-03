@@ -83,7 +83,8 @@ enum Command {
     Pdfa(commands::pdfa::PdfaCommand),
     // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
     // [W06 ocr]
-
+    /// OCR: añade texto buscable a un PDF escaneado.
+    Ocr(commands::ocr::OcrArgs),
     // [W11 edit]
 
     // [W14 office]
@@ -129,7 +130,7 @@ fn main() -> anyhow::Result<()> {
         Command::Pdfa(c) => commands::pdfa::run(c, cli.json),
         // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
         // [W06 ocr]
-
+        Command::Ocr(a) => commands::ocr::run(a, cli.json),
         // [W11 edit]
 
         // [W14 office]

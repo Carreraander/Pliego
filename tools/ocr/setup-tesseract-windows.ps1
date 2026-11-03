@@ -58,5 +58,7 @@ if ($TessdataDir) {
             Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata_fast/raw/main/$l.traineddata" -OutFile $dest
         }
     }
+    if ($GithubEnv) { "PLIEGO_TESSDATA=$TessdataDir" | Out-File -FilePath $GithubEnv -Append -Encoding utf8 }
+    else { $env:PLIEGO_TESSDATA = $TessdataDir }
 }
 Write-Host "Tesseract listo en $installed"

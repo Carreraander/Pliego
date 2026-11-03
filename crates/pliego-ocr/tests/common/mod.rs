@@ -98,7 +98,7 @@ pub fn make_scan(path: &Path, spec: &ScanSpec) {
         for p in img.data.iter_mut() {
             let r = lcg(&mut st) as u64 * 2 % u32::MAX as u64;
             if (r as u32) < thr {
-                *p = if r % 2 == 0 { 0 } else { 255 };
+                *p = if r.is_multiple_of(2) { 0 } else { 255 };
             }
         }
     }

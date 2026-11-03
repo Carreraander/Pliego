@@ -3833,6 +3833,7 @@ dependencies = [
  "pliego-engine-mupdf",
  "pliego-formdesign",
  "pliego-forms",
+ "pliego-ocr",
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",

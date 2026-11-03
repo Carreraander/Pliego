@@ -13,6 +13,18 @@ pub enum AnnotCommand {
     Add(AddArgs),
     /// Borra una anotación (y sus respuestas).
     Delete(DeleteArgs),
+    /// Aplana las anotaciones en el contenido de las páginas.
+    Flatten(FlattenArgs),
+    /// Resumen de comentarios (texto o JSON con `--json`).
+    Summary(ListArgs),
+}
+
+#[derive(Args)]
+pub struct FlattenArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
 }
 
 #[derive(Args)]
@@ -76,6 +88,8 @@ pub fn run(cmd: AnnotCommand, json: bool) -> anyhow::Result<()> {
         AnnotCommand::List(a) => list(a, json),
         AnnotCommand::Add(a) => add(a, json),
         AnnotCommand::Delete(a) => delete(a, json),
+        AnnotCommand::Flatten(a) => flatten(a, json),
+        AnnotCommand::Summary(a) => summary(a, json),
     }
 }
 
@@ -186,6 +200,29 @@ fn delete(a: DeleteArgs, json: bool) -> anyhow::Result<()> {
         println!("{}", serde_json::json!({ "output": dest }));
     } else {
         println!("Anotación {} borrada: {}", a.id, dest.display());
+    }
+    Ok(())
+}
+
+fn flatten(a: FlattenArgs, json: bool) -> anyhow::Result<()> {
+    let mut doc = open(&a.doc)?;
+    let n = pliego_annot::flatten(&mut doc)?;
+    let dest = save(&doc, &a.doc.input, &a.out)?;
+    if json {
+        println!("{}", serde_json::json!({ "flattened": n, "output": dest }));
+    } else {
+        println!("{n} anotación(es) aplanada(s): {}", dest.display());
+    }
+    Ok(())
+}
+
+fn summary(a: ListArgs, json: bool) -> anyhow::Result<()> {
+    let mut doc = open(&a.doc)?;
+    let s = pliego_annot::summary(&mut doc)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&s)?);
+    } else {
+        print!("{}", s.to_text());
     }
     Ok(())
 }

@@ -69,3 +69,40 @@ fn refuses_to_overwrite_input_by_default() {
         .unwrap();
     assert!(!r.status.success());
 }
+
+#[test]
+fn summary_and_flatten() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("s.json");
+    std::fs::write(
+        &spec,
+        r#"{"page":0,"geometry":{"type":"note","at":[10,10]},"author":"Ana","contents":"Hola"}"#,
+    )
+    .unwrap();
+    let out = dir.path().join("a.pdf");
+    let r = pliego()
+        .args(["annot", "add"])
+        .arg(corpus())
+        .arg("--spec")
+        .arg(&spec)
+        .arg("-o")
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(r.status.success());
+    let r = pliego().args(["annot", "summary"]).arg(&out).output().unwrap();
+    let t = String::from_utf8_lossy(&r.stdout);
+    assert!(t.contains("1 comentario(s)") && t.contains("Hola"), "{t}");
+    let flat = dir.path().join("f.pdf");
+    let r = pliego()
+        .args(["annot", "flatten"])
+        .arg(&out)
+        .arg("-o")
+        .arg(&flat)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    let r = pliego().args(["--json", "annot", "list"]).arg(&flat).output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
+    assert!(v.as_array().unwrap().is_empty());
+}

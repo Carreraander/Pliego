@@ -8,6 +8,9 @@ allow = [
   # IJG (Independent JPEG Group): permisiva y compatible con GPL/AGPL según la FSF. La usa jpeg-encoder
   # (pliego-optimize); MuPDF ya incluye libjpeg bajo la misma licencia. Ver THIRD-PARTY.md.
   "IJG",
+  # CDLA-Permissive-2.0: la usa webpki-roots (raíces de confianza Mozilla) que necesita rustls para https en
+  # pliego-sign (TSA/CRL). Es permisiva (datos) y la aprobó el hilo de gestión el 2026-11-03.
+  "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
 

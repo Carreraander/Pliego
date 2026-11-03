@@ -7,3 +7,4 @@
 /tests/output/
 /app/test-results/
 /app/playwright-report/
+/tests/corpus/external/

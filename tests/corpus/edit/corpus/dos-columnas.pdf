@@ -1,0 +1,61 @@
+%PDF-1.7
+%âãÏÓ
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>
+endobj
+7 0 obj
+<< /Length 568 >>
+stream
+BT /Times 12 Tf 72 760.0 Td (La edición de párrafos conserva el) Tj ET
+BT /Times 12 Tf 72 744.4 Td (aspecto del resto de la página.) Tj ET
+BT /Times 12 Tf 330 760.0 Td (Un segundo párrafo más largo) Tj ET
+BT /Times 12 Tf 330 744.4 Td (sirve para comprobar el) Tj ET
+BT /Times 12 Tf 330 728.8 Td (reflujo de varias líneas) Tj ET
+BT /Times 12 Tf 330 713.2 Td (dentro del mismo bloque.) Tj ET
+BT /Times 12 Tf 330 683.2 Td (Números 1234567890 y) Tj ET
+BT /Times 12 Tf 330 667.6 Td (símbolos \(paréntesis\)) Tj ET
+BT /Times 12 Tf 330 652.0 Td (también aparecen aquí.) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 9 0 R /MediaBox [0 0 595 842] /Resources << /Font << /Helvetica 1 0 R /Times 2 0 R /Courier 3 0 R /HelvB 4 0 R /TimesI 5 0 R /CourierB 6 0 R >>  >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Type /Pages /Kids [8 0 R] /Count 1 >>
+endobj
+10 0 obj
+<< /Type /Catalog /Pages 9 0 R >>
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000211 00000 n 
+0000000306 00000 n 
+0000000408 00000 n 
+0000000508 00000 n 
+0000000608 00000 n 
+0000001227 00000 n 
+0000001432 00000 n 
+0000001489 00000 n 
+trailer
+<< /Size 11 /Root 10 0 R >>
+startxref
+1539
+%%EOF

@@ -1,0 +1,27 @@
+[package]
+name = "pliego-signflow"
+description = "Flujo de firmas local de Pliego: varios firmantes en orden y registro de auditoría"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+# Firma y validación PAdES: el flujo orquesta firmas de W05, no las reimplementa.
+pliego-sign = { path = "../pliego-sign" }
+lopdf = { version = "0.46", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+rcgen = "0.14"
+p12-keystore = "0.4"
+rsa = "0.9"
+
+[lints]
+workspace = true

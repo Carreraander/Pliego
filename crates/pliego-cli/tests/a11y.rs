@@ -87,3 +87,32 @@ fn fix_rejects_bad_alt_format() {
         .unwrap();
     assert!(!res.status.success());
 }
+
+#[test]
+fn autotag_makes_a_plain_document_tagged() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("t.pdf");
+    let res = pliego()
+        .args(["a11y", "autotag"])
+        .arg(corpus("basic/hola.pdf"))
+        .arg("-o")
+        .arg(&out)
+        .args(["--lang", "es", "--title", "Hola"])
+        .output()
+        .unwrap();
+    assert!(res.status.success(), "{}", String::from_utf8_lossy(&res.stderr));
+    assert!(String::from_utf8_lossy(&res.stdout).contains("Etiquetado:"));
+    let chk = pliego().args(["--json", "a11y", "check"]).arg(&out).output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&chk.stdout).unwrap();
+    assert_eq!(v["tagged"], true);
+    assert_eq!(v["language"], "es");
+    // ya etiquetado: no se vuelve a etiquetar
+    let again = pliego()
+        .args(["a11y", "autotag"])
+        .arg(&out)
+        .arg("-o")
+        .arg(dir.path().join("t2.pdf"))
+        .output()
+        .unwrap();
+    assert!(!again.status.success());
+}

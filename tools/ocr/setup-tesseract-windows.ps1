@@ -38,7 +38,7 @@ if (-not $tess -or -not $lept) { throw "No se encontraron las bibliotecas de Tes
 $extra = (Get-ChildItem $libDir -Filter "*.lib" | Where-Object { $_.Name -notin @($tess.Name, $lept.Name) } |
     ForEach-Object { $_.BaseName }) -join ","
 # libcurl (dependencia de Tesseract en vcpkg) y las demás estáticas necesitan estas bibliotecas del sistema.
-$extra += ",crypt32,ws2_32,wldap32,normaliz,bcrypt,advapi32,secur32,user32"
+$extra += ",crypt32,ws2_32,wldap32,normaliz,bcrypt,advapi32,secur32,user32,xmllite,iphlpapi,ole32,shlwapi"
 $vars = @{
     TESSERACT_LIB_DIR    = $libDir
     TESSERACT_LIB_NAME   = $tess.BaseName

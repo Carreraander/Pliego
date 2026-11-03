@@ -45,5 +45,8 @@ if (Test-Path 'D:\') {
     # CARGO_HOME: se respeta el que ya haya (en acr12 ya está en D:); si no hay ninguno, uno en D:.
     if (-not $env:CARGO_HOME) { $env:CARGO_HOME = Join-Path $cache 'cargo' }
 }
+# acr12 es compartido por muchos flujos: cada compilación usa como mucho 4 núcleos.
+# Las compilaciones y pruebas largas se lanzan con tools\acr12-turno.ps1 (2 turnos a la vez).
+$env:CARGO_BUILD_JOBS = '4'
 Write-Host "LIBCLANG_PATH=$env:LIBCLANG_PATH  CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 Write-Host "TEMP=$env:TEMP  npm=$env:npm_config_cache  CARGO_HOME=$env:CARGO_HOME"

@@ -12,7 +12,11 @@ pub(crate) fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocumen
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
-    let mut doc = PdfDocument::open(path).map_err(pdf_err)?;
+    // En Windows `mupdf` solo acepta rutas UTF-8 (`&str`).
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| Error::InvalidInput("la ruta del archivo debe ser UTF-8".into()))?;
+    let mut doc = PdfDocument::open(path_str).map_err(pdf_err)?;
     if doc.needs_password().map_err(pdf_err)? {
         match password {
             Some(p) if doc.authenticate(p).map_err(pdf_err)? => {}

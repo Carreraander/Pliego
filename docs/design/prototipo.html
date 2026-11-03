@@ -1,0 +1,904 @@
+<title>Prototipo de Pliego</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Prototipo de diseño v1 de Pliego. Los tokens --pl-* son copia de docs/design/tokens.css.
+   Disposición: la página es un banco de pruebas (cabecera + secciones); dentro, la ventana de la app a 1280×800
+   escalada para caber, el instalador a 680×440 y la hoja del sistema visual. */
+:root {
+  --pl-chrome:#f2f3f1; --pl-surface:#fbfbfa; --pl-surface-raised:#fff; --pl-surface-sunken:#e8eae6; --pl-canvas:#dfe2de;
+  --pl-hover:rgb(24 32 28/.06); --pl-pressed:rgb(24 32 28/.1); --pl-border:#d6d9d4; --pl-border-strong:#b9bdb6; --pl-divider:rgb(24 32 28/.08);
+  --pl-text:#1b1f1d; --pl-text-2:#545b57; --pl-text-3:#7d847f; --pl-text-on-accent:#fff;
+  --pl-accent:#0f6b62; --pl-accent-hover:#0b5a52; --pl-accent-soft:#d7ebe7; --pl-accent-soft-text:#0a4f48; --pl-focus:#0f6b62; --pl-selection:rgb(15 107 98/.22);
+  --pl-ok:#23733f; --pl-ok-soft:#dcefe2; --pl-warn:#8a5300; --pl-warn-soft:#fbecd2; --pl-danger:#b42318; --pl-danger-soft:#fbe3e0; --pl-info:#255f9e; --pl-info-soft:#dde9f7;
+  --pl-paper:#fff; --pl-page-shadow:0 0 0 1px rgb(24 32 28/.06),0 2px 6px rgb(24 32 28/.12);
+  --pl-hit:rgb(255 214 64/.55); --pl-hit-current:rgb(255 140 0/.6); --pl-redact-mark:rgb(180 35 24/.35);
+  --pl-annot-yellow:#ffd84d; --pl-annot-green:#7ed492; --pl-annot-blue:#7cc3f5; --pl-annot-pink:#f59ac4; --pl-annot-orange:#ffb35c;
+  --pl-shadow-1:0 1px 2px rgb(24 32 28/.08),0 2px 8px rgb(24 32 28/.08); --pl-shadow-2:0 2px 6px rgb(24 32 28/.1),0 8px 24px rgb(24 32 28/.12); --pl-shadow-3:0 4px 12px rgb(24 32 28/.14),0 16px 48px rgb(24 32 28/.18);
+  --pl-font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif; --pl-font-display:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --pl-font-mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
+  --pl-ease:cubic-bezier(.2,0,0,1); --pl-dur:180ms;
+  /* banco de pruebas */
+  --bench:#e9ebe8; --bench-ink:#1b1f1d; --bench-ink-2:#545b57; --ink-on-paper:#2a2e2c; --rule-on-paper:#c9cdc8;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme:dark;
+  --pl-chrome:#1b1d1c; --pl-surface:#222524; --pl-surface-raised:#2a2d2c; --pl-surface-sunken:#161817; --pl-canvas:#121413;
+  --pl-hover:rgb(236 241 238/.06); --pl-pressed:rgb(236 241 238/.1); --pl-border:#353a38; --pl-border-strong:#4c524f; --pl-divider:rgb(236 241 238/.08);
+  --pl-text:#eceeec; --pl-text-2:#a8afab; --pl-text-3:#7a817d; --pl-text-on-accent:#04211e;
+  --pl-accent:#4cc2b2; --pl-accent-hover:#66cfc0; --pl-accent-soft:#173a36; --pl-accent-soft-text:#8ee0d3; --pl-focus:#4cc2b2; --pl-selection:rgb(76 194 178/.3);
+  --pl-ok:#6fcf8e; --pl-ok-soft:#173322; --pl-warn:#f2b85b; --pl-warn-soft:#3a2a10; --pl-danger:#ff8a7a; --pl-danger-soft:#3d1a16; --pl-info:#86b8f0; --pl-info-soft:#172a40;
+  --pl-page-shadow:0 0 0 1px rgb(0 0 0/.4),0 2px 8px rgb(0 0 0/.5);
+  --pl-shadow-1:0 1px 2px rgb(0 0 0/.4),0 2px 8px rgb(0 0 0/.3); --pl-shadow-2:0 2px 6px rgb(0 0 0/.4),0 8px 24px rgb(0 0 0/.4); --pl-shadow-3:0 4px 12px rgb(0 0 0/.5),0 16px 48px rgb(0 0 0/.5);
+  --bench:#0e100f; --bench-ink:#eceeec; --bench-ink-2:#a8afab;
+}}
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --pl-chrome:#1b1d1c; --pl-surface:#222524; --pl-surface-raised:#2a2d2c; --pl-surface-sunken:#161817; --pl-canvas:#121413;
+  --pl-hover:rgb(236 241 238/.06); --pl-pressed:rgb(236 241 238/.1); --pl-border:#353a38; --pl-border-strong:#4c524f; --pl-divider:rgb(236 241 238/.08);
+  --pl-text:#eceeec; --pl-text-2:#a8afab; --pl-text-3:#7a817d; --pl-text-on-accent:#04211e;
+  --pl-accent:#4cc2b2; --pl-accent-hover:#66cfc0; --pl-accent-soft:#173a36; --pl-accent-soft-text:#8ee0d3; --pl-focus:#4cc2b2; --pl-selection:rgb(76 194 178/.3);
+  --pl-ok:#6fcf8e; --pl-ok-soft:#173322; --pl-warn:#f2b85b; --pl-warn-soft:#3a2a10; --pl-danger:#ff8a7a; --pl-danger-soft:#3d1a16; --pl-info:#86b8f0; --pl-info-soft:#172a40;
+  --pl-page-shadow:0 0 0 1px rgb(0 0 0/.4),0 2px 8px rgb(0 0 0/.5);
+  --pl-shadow-1:0 1px 2px rgb(0 0 0/.4),0 2px 8px rgb(0 0 0/.3); --pl-shadow-2:0 2px 6px rgb(0 0 0/.4),0 8px 24px rgb(0 0 0/.4); --pl-shadow-3:0 4px 12px rgb(0 0 0/.5),0 16px 48px rgb(0 0 0/.5);
+  --bench:#0e100f; --bench-ink:#eceeec; --bench-ink-2:#a8afab;
+}
+@media (prefers-reduced-motion: reduce) { :root { --pl-dur:0ms } *,*::before,*::after { animation-duration:0ms !important; transition-duration:0ms !important } }
+
+* { box-sizing:border-box }
+body { background:var(--bench); color:var(--bench-ink); font:14px/20px var(--pl-font); margin:0 }
+button { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer }
+button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline:2px solid var(--pl-focus); outline-offset:1px; border-radius:6px }
+svg.i { width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; flex:none }
+svg.i.s { width:16px; height:16px }
+.tn { font-variant-numeric:tabular-nums }
+
+/* ── Banco de pruebas ─────────────────────────────────────────── */
+.bench { padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); padding-block:20px 48px; max-width:1360px; margin:0 auto; display:flex; flex-direction:column; gap:28px }
+.bench-head { display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between }
+.brand { display:flex; gap:12px; align-items:center }
+.brand h1 { font:600 22px/28px var(--pl-font-display); margin:0; text-wrap:balance }
+.brand p { margin:0; color:var(--bench-ink-2); font-size:13px }
+.seg { display:inline-flex; background:var(--pl-surface-sunken); border-radius:8px; padding:3px; gap:2px; flex-wrap:wrap }
+.seg button { padding:5px 12px; border-radius:6px; color:var(--pl-text-2); font-size:13px }
+.seg button[aria-pressed="true"] { background:var(--pl-surface-raised); color:var(--pl-text); box-shadow:var(--pl-shadow-1) }
+.sec { display:flex; flex-direction:column; gap:12px }
+.sec-h { display:flex; flex-wrap:wrap; gap:12px; align-items:baseline; justify-content:space-between }
+.sec-h h2 { font:600 18px/24px var(--pl-font-display); margin:0 }
+.sec-h p { margin:0; color:var(--bench-ink-2); font-size:13px; max-width:72ch }
+.notes { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px 24px; color:var(--bench-ink-2); font-size:13px; line-height:19px }
+.notes b { color:var(--bench-ink); font-weight:600 }
+.notes div { min-width:0 }
+.stage { width:100%; position:relative; overflow:hidden; border-radius:10px }
+.scaler { transform-origin:0 0; position:absolute; left:0; top:0 }
+
+/* ── Ventana de la app ────────────────────────────────────────── */
+.win { width:1280px; height:800px; background:var(--pl-chrome); color:var(--pl-text); display:grid; grid-template-rows:40px 44px 1fr 28px; border-radius:8px; overflow:hidden; box-shadow:var(--pl-shadow-3); position:relative; font-size:14px; border:1px solid var(--pl-border) }
+.titlebar { display:flex; align-items:stretch; gap:4px; padding-left:6px; background:linear-gradient(90deg, var(--pl-chrome), color-mix(in oklab, var(--pl-chrome), var(--pl-accent) 4%)) }
+.appmenu { display:flex; align-items:center; gap:6px; padding:0 8px; border-radius:6px; margin:4px 0 }
+.appmenu:hover { background:var(--pl-hover) }
+.tabs { display:flex; align-items:flex-end; gap:2px; min-width:0; flex:1 }
+.tab { position:relative; height:34px; padding:0 10px 0 12px; display:flex; align-items:center; gap:8px; border-radius:8px 8px 0 0; color:var(--pl-text-2); max-width:220px; min-width:0; white-space:nowrap }
+.tab span.n { overflow:hidden; text-overflow:ellipsis }
+.tab:hover { background:var(--pl-hover) }
+.tab[aria-selected="true"] { background:var(--pl-surface); color:var(--pl-text); font-weight:600 }
+.tab[aria-selected="true"]::after { content:""; position:absolute; top:0; right:0; width:8px; height:8px; background:linear-gradient(225deg, var(--pl-chrome) 50%, var(--pl-accent-soft) 50%); border-top-right-radius:8px }
+.tab .x { width:20px; height:20px; border-radius:4px; display:grid; place-items:center; color:var(--pl-text-3) }
+.tab .x:hover { background:var(--pl-pressed); color:var(--pl-text) }
+.tab .dot { width:8px; height:8px; border-radius:50%; background:var(--pl-text-2) }
+.tab.plus { padding:0 8px; height:30px; margin-bottom:2px; border-radius:6px }
+.omni { align-self:center; display:flex; align-items:center; gap:8px; height:28px; width:300px; padding:0 8px; border-radius:6px; background:var(--pl-surface-sunken); color:var(--pl-text-3); font-size:13px; border:1px solid transparent }
+.omni:hover { border-color:var(--pl-border) }
+.omni kbd, .kbd { font:12px/16px var(--pl-font); color:var(--pl-text-2); border:1px solid var(--pl-border); border-bottom-width:2px; border-radius:4px; padding:0 4px; background:var(--pl-surface-raised) }
+.omni kbd { margin-left:auto }
+.uppill { align-self:center; display:flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:999px; background:var(--pl-accent-soft); color:var(--pl-accent-soft-text); font-size:12px; font-weight:600 }
+.uppill i { width:7px; height:7px; border-radius:50%; background:var(--pl-accent) }
+.winbtns { display:flex; margin-left:6px }
+.winbtns span { width:46px; display:grid; place-items:center; color:var(--pl-text-2) }
+.winbtns span:hover { background:var(--pl-hover) }
+.winbtns span.close:hover { background:#c42b1c; color:#fff }
+
+.modebar { display:flex; align-items:center; gap:2px; padding:0 8px; background:var(--pl-surface); border-bottom:1px solid var(--pl-border) }
+.mode { height:32px; padding:0 12px; border-radius:6px; color:var(--pl-text-2); display:flex; align-items:center; gap:6px; white-space:nowrap }
+.mode:hover { background:var(--pl-hover); color:var(--pl-text) }
+.mode[aria-pressed="true"] { color:var(--pl-accent-soft-text); background:var(--pl-accent-soft); font-weight:600 }
+.vsep { width:1px; height:20px; background:var(--pl-border); margin:0 8px; flex:none }
+.tools { display:flex; align-items:center; gap:2px; min-width:0; overflow:hidden }
+.tool { height:32px; min-width:32px; padding:0 6px; border-radius:6px; display:flex; align-items:center; gap:6px; color:var(--pl-text-2); white-space:nowrap }
+.tool:hover { background:var(--pl-hover); color:var(--pl-text) }
+.tool[aria-pressed="true"] { background:var(--pl-accent-soft); color:var(--pl-accent-soft-text) }
+.tool.lbl { padding:0 10px }
+.swatches { display:flex; gap:4px; padding:0 6px }
+.swatches i { width:18px; height:18px; border-radius:50%; border:2px solid var(--pl-surface); box-shadow:0 0 0 1px var(--pl-border-strong) }
+.swatches i.on { box-shadow:0 0 0 2px var(--pl-accent) }
+
+.body { display:grid; grid-template-columns:48px 248px 1fr auto; min-height:0; background:var(--pl-surface) }
+.body.nopanel { grid-template-columns:48px 0 1fr auto }
+.rail { display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:8px; border-right:1px solid var(--pl-border); background:var(--pl-surface) }
+.rail button { width:36px; height:36px; border-radius:6px; display:grid; place-items:center; color:var(--pl-text-2) }
+.rail button:hover { background:var(--pl-hover) }
+.rail button[aria-pressed="true"] { background:var(--pl-accent-soft); color:var(--pl-accent-soft-text) }
+.rail .grow { flex:1 }
+.side { border-right:1px solid var(--pl-border); overflow:hidden; display:flex; flex-direction:column; min-width:0 }
+.side-h { height:40px; display:flex; align-items:center; justify-content:space-between; padding:0 12px 0 16px; font-weight:600 }
+.thumbs { padding:4px 16px 16px; display:grid; grid-template-columns:1fr 1fr; gap:18px 14px; overflow:auto }
+.thumb { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:12px; color:var(--pl-text-2) }
+.thumb .pg { width:100%; aspect-ratio:210/297; background:var(--pl-paper); box-shadow:var(--pl-page-shadow); border-radius:2px; padding:10% 9%; display:flex; flex-direction:column; gap:5% }
+.thumb .pg i { display:block; height:3px; background:var(--rule-on-paper); border-radius:2px }
+.thumb .pg i.h { height:5px; width:60%; background:#7b817d }
+.thumb.on .pg { outline:2px solid var(--pl-accent); outline-offset:3px }
+.thumb.on { color:var(--pl-accent-soft-text); font-weight:600 }
+.outline { padding:0 8px; display:flex; flex-direction:column }
+.outline div { padding:6px 8px; border-radius:6px; color:var(--pl-text-2); display:flex; gap:6px; align-items:center }
+.outline div:hover { background:var(--pl-hover) }
+.outline div.on { background:var(--pl-accent-soft); color:var(--pl-accent-soft-text) }
+
+.canvas { background:var(--pl-canvas); position:relative; overflow:hidden; display:flex; flex-direction:column; min-width:0 }
+.notice { height:36px; display:flex; align-items:center; gap:10px; padding:0 16px; font-size:13px; border-bottom:1px solid var(--pl-border) }
+.notice.ok { background:var(--pl-ok-soft); color:var(--pl-text) }
+.notice.ok svg { color:var(--pl-ok) }
+.notice.warn { background:var(--pl-warn-soft) }
+.notice.warn svg { color:var(--pl-warn) }
+.notice .act { margin-left:auto; font-weight:600; color:var(--pl-accent); padding:4px 8px; border-radius:6px }
+.notice .act:hover { background:var(--pl-hover) }
+.scroll { flex:1; overflow:hidden; display:flex; flex-direction:column; align-items:center; gap:16px; padding:24px 0 }
+.page { width:520px; flex:none; aspect-ratio:210/297; background:var(--pl-paper); box-shadow:var(--pl-page-shadow); padding:56px 58px; color:var(--ink-on-paper); font:12px/18px Georgia,"Times New Roman",serif; position:relative }
+.page h3 { font:700 15px/20px Georgia,serif; text-align:center; margin:0 0 4px; letter-spacing:.02em }
+.page .sub { text-align:center; font-size:11px; margin:0 0 18px; color:#5d625f }
+.page p { margin:0 0 10px; text-align:justify; hyphens:auto }
+.page b { font-weight:700 }
+.page .hl { background:color-mix(in srgb, var(--pl-annot-yellow) 70%, transparent) }
+.page .hit { background:var(--pl-hit); border-radius:1px }
+.page .hit.cur { background:var(--pl-hit-current) }
+.page .sel { background:var(--pl-selection) }
+.page .redact { background:var(--pl-redact-mark); outline:1px dashed var(--pl-danger) }
+.page .field { display:inline-block; min-width:120px; border-bottom:1px solid #8a8f8b; background:rgb(124 195 245/.25); padding:0 4px; font-family:var(--pl-font); font-size:11px }
+.page .note { position:absolute; right:-10px; top:150px; width:28px; height:28px; border-radius:6px 6px 6px 0; background:var(--pl-annot-yellow); display:grid; place-items:center; color:#5a4700; box-shadow:0 2px 6px rgb(0 0 0/.2) }
+.page .sigbox { position:absolute; left:58px; bottom:62px; width:190px; height:62px; border:1.5px dashed var(--pl-accent); border-radius:4px; display:grid; place-items:center; font:12px var(--pl-font); color:var(--pl-accent); background:color-mix(in srgb, var(--pl-accent-soft) 45%, transparent) }
+.page .signed { position:absolute; left:58px; bottom:62px; width:220px; font:11px/14px var(--pl-font); color:#2a2e2c; border-left:3px solid var(--pl-ok); padding-left:8px }
+.page .signed .scr { font:italic 22px/26px "Segoe Script","Brush Script MT",cursive; color:#123f8c }
+.page .foot { position:absolute; bottom:24px; left:0; right:0; text-align:center; font-size:10px; color:#7d847f }
+.page.small { opacity:.98 }
+.zoomer { position:absolute; right:20px; bottom:16px; display:flex; align-items:center; gap:2px; background:var(--pl-surface-raised); border:1px solid var(--pl-border); border-radius:999px; padding:3px; box-shadow:var(--pl-shadow-2) }
+.zoomer button { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; color:var(--pl-text-2) }
+.zoomer button:hover { background:var(--pl-hover) }
+.zoomer b { min-width:56px; text-align:center; font-weight:600; font-size:13px }
+
+.insp { width:0; overflow:hidden; border-left:1px solid var(--pl-border); background:var(--pl-surface); transition:width var(--pl-dur) var(--pl-ease) }
+.insp.open { width:320px }
+.insp-in { width:320px; height:100%; display:flex; flex-direction:column }
+.insp-h { height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 8px 0 16px; font:600 16px/22px var(--pl-font) }
+.insp-b { padding:4px 16px 16px; display:flex; flex-direction:column; gap:14px; overflow:auto; flex:1 }
+.insp-f { padding:12px 16px; border-top:1px solid var(--pl-border); display:flex; gap:8px; justify-content:flex-end }
+.iconbtn { width:32px; height:32px; border-radius:6px; display:grid; place-items:center; color:var(--pl-text-2) }
+.iconbtn:hover { background:var(--pl-hover) }
+.lab { font-size:12px; color:var(--pl-text-2); font-weight:600; letter-spacing:.04em; text-transform:uppercase }
+.opt { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--pl-border); border-radius:8px; background:var(--pl-surface-raised) }
+.opt.on { border-color:var(--pl-accent); background:color-mix(in srgb, var(--pl-accent-soft) 55%, var(--pl-surface-raised)) }
+.opt .r { width:16px; height:16px; border-radius:50%; border:1.5px solid var(--pl-border-strong); margin-top:2px; flex:none; display:grid; place-items:center }
+.opt.on .r { border-color:var(--pl-accent) }
+.opt.on .r::after { content:""; width:8px; height:8px; border-radius:50%; background:var(--pl-accent) }
+.opt small { display:block; color:var(--pl-text-2); font-size:12px; line-height:16px }
+.est { display:flex; align-items:center; justify-content:space-between; padding:12px; border-radius:8px; background:var(--pl-surface-sunken); font-size:13px }
+.est b { font-size:16px }
+.btn { height:32px; padding:0 14px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--pl-border-strong); background:var(--pl-surface-raised); white-space:nowrap }
+.btn:hover { background:color-mix(in srgb, var(--pl-surface-raised), var(--pl-text) 5%) }
+.btn.pri { background:var(--pl-accent); border-color:var(--pl-accent); color:var(--pl-text-on-accent); font-weight:600 }
+.btn.pri:hover { background:var(--pl-accent-hover) }
+.btn.ghost { border-color:transparent; background:none }
+.btn.danger { color:var(--pl-danger); border-color:color-mix(in srgb, var(--pl-danger) 40%, transparent) }
+.fieldrow { display:flex; flex-direction:column; gap:6px }
+.input { height:32px; border-radius:6px; border:1px solid var(--pl-border); border-bottom-color:var(--pl-border-strong); background:var(--pl-surface-raised); padding:0 10px; display:flex; align-items:center; gap:8px; color:var(--pl-text) }
+.steps { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--pl-text-2) }
+.steps i { flex:1; height:4px; border-radius:2px; background:var(--pl-surface-sunken) }
+.steps i.on { background:var(--pl-accent) }
+.cert { display:flex; gap:10px; padding:10px 12px; border:1px solid var(--pl-border); border-radius:8px; background:var(--pl-surface-raised); align-items:center }
+.cert.on { border-color:var(--pl-accent) }
+.cert small { display:block; color:var(--pl-text-2); font-size:12px; line-height:16px }
+.cert .tag { margin-left:auto; font-size:11px; padding:1px 6px; border-radius:4px; background:var(--pl-info-soft); color:var(--pl-info); font-weight:600 }
+.chk { display:flex; gap:8px; align-items:center }
+.chk i { width:18px; height:18px; border-radius:4px; border:1.5px solid var(--pl-border-strong); display:grid; place-items:center; flex:none }
+.chk i.on { background:var(--pl-accent); border-color:var(--pl-accent); color:var(--pl-text-on-accent) }
+.annot-meta { display:flex; gap:10px; align-items:center }
+.avatar { width:28px; height:28px; border-radius:50%; background:var(--pl-info-soft); color:var(--pl-info); display:grid; place-items:center; font-weight:600; font-size:12px; flex:none }
+.reply { padding:10px 12px; border-radius:8px; background:var(--pl-surface-sunken); font-size:13px }
+
+.status { display:flex; align-items:center; gap:2px; padding:0 6px; font-size:12px; color:var(--pl-text-2); background:var(--pl-chrome); border-top:1px solid var(--pl-border) }
+.status > span, .status > button { height:24px; padding:0 8px; border-radius:4px; display:flex; align-items:center; gap:6px; white-space:nowrap }
+.status > button:hover { background:var(--pl-hover) }
+.status .sp { margin-left:auto }
+.status .ok { color:var(--pl-ok) }
+.mini-prog { width:64px; height:4px; border-radius:2px; background:var(--pl-surface-sunken); overflow:hidden }
+.mini-prog i { display:block; height:100%; width:42%; background:var(--pl-accent) }
+.reg { width:14px; height:14px; animation:spin 1.6s linear infinite }
+@keyframes spin { to { transform:rotate(360deg) } }
+
+/* superposiciones */
+.pop { position:absolute; background:var(--pl-surface-raised); border:1px solid var(--pl-border); border-radius:8px; box-shadow:var(--pl-shadow-2); z-index:100 }
+.palette { left:50%; top:52px; transform:translateX(-50%); width:880px; max-height:640px; display:flex; flex-direction:column }
+.palette .ph { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--pl-border) }
+.palette .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px 18px; padding:14px 16px 18px; overflow:auto }
+.palette .grp { display:flex; flex-direction:column; gap:2px }
+.palette .grp h4 { margin:8px 0 4px; font-size:12px; color:var(--pl-text-2); letter-spacing:.04em; text-transform:uppercase }
+.palette .it { display:flex; gap:10px; padding:6px 8px; border-radius:6px; align-items:flex-start; text-align:left }
+.palette .it:hover { background:var(--pl-hover) }
+.palette .it svg { color:var(--pl-accent); margin-top:1px }
+.palette .it small { display:block; color:var(--pl-text-2); font-size:12px; line-height:16px }
+.palette .it.off { opacity:.5 }
+.cmdk { left:50%; top:6px; transform:translateX(-50%); width:620px }
+.cmdk .q { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--pl-border); font-size:15px }
+.cmdk .q .caret { width:1.5px; height:18px; background:var(--pl-accent); animation:blink 1s step-end infinite }
+@keyframes blink { 50% { opacity:0 } }
+.cmdk .res { padding:6px; display:flex; flex-direction:column }
+.cmdk .res h5 { margin:6px 10px 2px; font-size:11px; color:var(--pl-text-3); letter-spacing:.04em; text-transform:uppercase; font-weight:600 }
+.cmdk .row { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:6px; text-align:left }
+.cmdk .row.on { background:var(--pl-accent-soft); color:var(--pl-accent-soft-text) }
+.cmdk .row .kbd { margin-left:auto }
+.cmdk .row small { color:var(--pl-text-2) }
+.cmdk mark { background:none; color:inherit; font-weight:700; text-decoration:underline; text-decoration-color:var(--pl-accent); text-underline-offset:3px }
+.uppop { right:150px; top:40px; width:340px; padding:16px; display:flex; flex-direction:column; gap:12px }
+.uppop h4 { margin:0; font-size:16px }
+.uppop ul { margin:0; padding-left:18px; color:var(--pl-text-2); font-size:13px }
+
+/* Inicio */
+.home { grid-column:1 / -1; overflow:auto; background:var(--pl-surface); padding:36px 56px; display:flex; flex-direction:column; gap:26px }
+.home h2 { font:600 28px/36px var(--pl-font-display); margin:0 }
+.drop { border:1.5px dashed var(--pl-border-strong); border-radius:12px; padding:22px; display:flex; align-items:center; gap:16px; color:var(--pl-text-2); background:var(--pl-surface-raised) }
+.drop b { color:var(--pl-text) }
+.qa { display:grid; grid-template-columns:repeat(6,1fr); gap:12px }
+.qa button { display:flex; flex-direction:column; align-items:flex-start; gap:10px; padding:14px; border-radius:8px; border:1px solid var(--pl-border); background:var(--pl-surface-raised); text-align:left }
+.qa button:hover { border-color:var(--pl-accent) }
+.qa .ic { width:36px; height:36px; border-radius:8px; display:grid; place-items:center; background:var(--pl-accent-soft); color:var(--pl-accent-soft-text) }
+.qa small { color:var(--pl-text-2); font-size:12px; line-height:16px }
+.recent { display:flex; flex-direction:column; border:1px solid var(--pl-border); border-radius:8px; overflow:hidden; background:var(--pl-surface-raised) }
+.recent .r { display:grid; grid-template-columns:44px 1fr 260px 140px 120px; align-items:center; gap:14px; padding:8px 14px; border-top:1px solid var(--pl-divider); font-size:13px }
+.recent .r:first-child { border-top:0 }
+.recent .r:hover { background:var(--pl-hover) }
+.recent .mini { width:32px; height:44px; background:var(--pl-paper); box-shadow:var(--pl-page-shadow); border-radius:2px }
+.recent .muted { color:var(--pl-text-2) }
+.chip { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:1px 8px; border-radius:999px; background:var(--pl-surface-sunken); color:var(--pl-text-2) }
+.chip.ok { background:var(--pl-ok-soft); color:var(--pl-ok) }
+.chip.info { background:var(--pl-info-soft); color:var(--pl-info) }
+.whatsnew { display:flex; gap:14px; align-items:center; padding:14px 16px; border-radius:8px; background:var(--pl-accent-soft); color:var(--pl-accent-soft-text) }
+
+/* Organizar */
+.org { flex:1; overflow:hidden; padding:24px 28px; display:grid; grid-template-columns:repeat(6,1fr); gap:22px 18px; align-content:start }
+.org .pgc { display:flex; flex-direction:column; align-items:center; gap:6px; font-size:12px; color:var(--pl-text-2) }
+.org .pg { width:100%; aspect-ratio:210/297; background:var(--pl-paper); box-shadow:var(--pl-page-shadow); padding:12% 10%; display:flex; flex-direction:column; gap:6%; position:relative }
+.org .pg i { display:block; height:4px; background:var(--rule-on-paper); border-radius:2px }
+.org .pg i.h { height:6px; width:60%; background:#7b817d }
+.org .pgc.sel .pg { outline:2px solid var(--pl-accent); outline-offset:3px }
+.org .pgc.sel { color:var(--pl-accent-soft-text); font-weight:600 }
+.org .pgc.drag .pg { transform:rotate(-3deg) translateY(-6px); box-shadow:var(--pl-shadow-3) }
+.org .ins { width:3px; background:var(--pl-accent); border-radius:2px; justify-self:start; margin-left:-11px }
+.org .badge { position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:var(--pl-accent); color:var(--pl-text-on-accent); font:600 11px/20px var(--pl-font); text-align:center }
+.docsep { grid-column:1 / -1; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--pl-text-2) }
+.docsep::after { content:""; flex:1; height:1px; background:var(--pl-border) }
+
+/* Ajustes */
+.settings { grid-column:1 / -1; display:grid; grid-template-columns:240px 1fr; min-height:0; background:var(--pl-surface) }
+.settings nav { border-right:1px solid var(--pl-border); padding:16px 8px; display:flex; flex-direction:column; gap:2px }
+.settings nav .input { margin:0 8px 10px }
+.settings nav button { text-align:left; padding:7px 12px; border-radius:6px; color:var(--pl-text-2); display:flex; gap:10px; align-items:center }
+.settings nav button:hover { background:var(--pl-hover) }
+.settings nav button.on { background:var(--pl-accent-soft); color:var(--pl-accent-soft-text); font-weight:600 }
+.settings main { padding:28px 40px; overflow:auto; display:flex; flex-direction:column; gap:18px; max-width:820px }
+.settings h2 { font:600 20px/28px var(--pl-font-display); margin:0 }
+.card { border:1px solid var(--pl-border); border-radius:8px; background:var(--pl-surface-raised) }
+.card .row { display:flex; align-items:center; gap:14px; padding:14px 16px; border-top:1px solid var(--pl-divider) }
+.card .row:first-child { border-top:0 }
+.card .row small { display:block; color:var(--pl-text-2); font-size:12px; line-height:16px }
+.card .row .end { margin-left:auto; display:flex; gap:8px; align-items:center }
+.upstate { display:flex; gap:16px; align-items:center; padding:18px 16px }
+.upstate .ring { width:44px; height:44px; border-radius:50%; display:grid; place-items:center; background:var(--pl-ok-soft); color:var(--pl-ok) }
+.toggle { width:40px; height:20px; border-radius:10px; background:var(--pl-accent); position:relative; flex:none }
+.toggle::after { content:""; position:absolute; right:3px; top:3px; width:14px; height:14px; border-radius:50%; background:var(--pl-text-on-accent) }
+.toggle.off { background:none; border:1.5px solid var(--pl-border-strong) }
+.toggle.off::after { right:auto; left:3px; top:2px; background:var(--pl-text-2) }
+.selectbox { height:32px; min-width:180px; padding:0 10px; border-radius:6px; border:1px solid var(--pl-border); background:var(--pl-surface-raised); display:flex; align-items:center; justify-content:space-between; gap:8px }
+.mono { font-family:var(--pl-font-mono); font-size:12px; color:var(--pl-text-2) }
+
+/* ── Instalador ──────────────────────────────────────────────── */
+.setup-wrap { display:grid; grid-template-columns:minmax(0,680px) minmax(0,1fr); gap:24px; align-items:start }
+.setup { width:680px; height:440px; border-radius:12px; overflow:hidden; background:var(--pl-surface); color:var(--pl-text); box-shadow:var(--pl-shadow-3); border:1px solid var(--pl-border); display:grid; grid-template-columns:260px 1fr; position:relative }
+.setup .art { background:radial-gradient(120% 90% at 20% 10%, color-mix(in srgb, var(--pl-accent) 22%, var(--pl-chrome)), var(--pl-chrome)); display:flex; flex-direction:column; justify-content:space-between; padding:22px; position:relative; overflow:hidden }
+.setup .art .name { font:600 28px/32px var(--pl-font-display); letter-spacing:-.01em }
+.setup .art .ver { font-size:12px; color:var(--pl-text-2) }
+.setup .art .reg-marks { position:absolute; inset:0; pointer-events:none; opacity:.5 }
+.setup .pane { padding:26px 28px 22px; display:flex; flex-direction:column; gap:14px; min-width:0 }
+.setup .pane h3 { font:600 20px/28px var(--pl-font-display); margin:0 }
+.setup .pane p { margin:0; color:var(--pl-text-2) }
+.setup .pane .foot { margin-top:auto; display:flex; gap:8px; align-items:center }
+.setup .pane .foot .grow { flex:1 }
+.setup .wctl { position:absolute; top:0; right:0; display:flex }
+.setup .wctl span { width:40px; height:32px; display:grid; place-items:center; color:var(--pl-text-2) }
+.link { color:var(--pl-accent); font-weight:600 }
+.bigbtn { height:40px; padding:0 22px; font-size:15px }
+.prog { height:6px; border-radius:3px; background:var(--pl-surface-sunken); overflow:hidden }
+.prog i { display:block; height:100%; background:var(--pl-accent); width:0; transition:width .3s var(--pl-ease) }
+.optlist { display:flex; flex-direction:column; gap:10px; font-size:13px }
+.pathrow { display:flex; gap:8px }
+.pathrow .input { flex:1; min-width:0; font-size:12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+.scope { display:grid; grid-template-columns:1fr 1fr; gap:8px }
+.scope .opt { padding:8px 10px; font-size:13px }
+.tips { display:grid; gap:8px; font-size:13px; color:var(--pl-text-2) }
+.tips div { display:flex; gap:10px; align-items:center }
+.setup-thumbs { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px }
+.setup-thumbs button { padding:10px; border-radius:8px; border:1px solid var(--pl-border); background:var(--pl-surface-raised); text-align:left; font-size:13px; color:var(--pl-text) }
+.setup-thumbs button[aria-pressed="true"] { border-color:var(--pl-accent); background:var(--pl-accent-soft); color:var(--pl-accent-soft-text); font-weight:600 }
+.setup-thumbs small { display:block; color:var(--pl-text-2); font-weight:400; font-size:12px }
+.fold-logo { width:120px; height:120px }
+.fold-logo .rt { transform-origin:60px 60px; transform-box:view-box }
+.folding .fold-logo .rt { animation:fold 1.8s var(--pl-ease) infinite alternate }
+@keyframes fold { from { transform:scaleX(1) } to { transform:scaleX(.18) } }
+
+/* ── Sistema visual ──────────────────────────────────────────── */
+.vs { background:var(--pl-surface); color:var(--pl-text); border:1px solid var(--pl-border); border-radius:10px; padding:20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px }
+.vs > div { min-width:0; display:flex; flex-direction:column; gap:10px }
+.vs h3 { margin:0; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--pl-text-2) }
+.sw { display:grid; grid-template-columns:repeat(4,1fr); gap:8px }
+.sw div { border-radius:6px; border:1px solid var(--pl-border); overflow:hidden; font-size:11px; line-height:14px }
+.sw div i { display:block; height:40px }
+.sw div span { display:block; padding:4px 6px; color:var(--pl-text-2) }
+.typescale div { display:flex; align-items:baseline; gap:12px; border-bottom:1px solid var(--pl-divider); padding-bottom:6px }
+.typescale small { width:70px; color:var(--pl-text-3); font-size:11px; flex:none }
+.comp { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+
+@media (max-width: 900px) { .setup-wrap { grid-template-columns:1fr } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V5a1.5 1.5 0 0 1 3 0v6m0-1V4a1.5 1.5 0 0 1 3 0v6m0-1V5.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2.5-4a1.5 1.5 0 0 1 2.5-1.6L8 15"/></symbol>
+    <symbol id="i-columns" viewBox="0 0 24 24"><rect x="4" y="3" width="7" height="18" rx="1"/><rect x="13" y="3" width="7" height="18" rx="1"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.6M20 4v4.6h-4.6"/></symbol>
+    <symbol id="i-rotl" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M10 8.5v5l4-2.5zM8 21h8"/></symbol>
+    <symbol id="i-speak" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></symbol>
+    <symbol id="i-highlight" viewBox="0 0 24 24"><path d="M9 11l-5 5v3h6l5-5M9 11l6-6 4 4-6 6zM14 20h6"/></symbol>
+    <symbol id="i-underline" viewBox="0 0 24 24"><path d="M7 4v6a5 5 0 0 0 10 0V4M5 20h14"/></symbol>
+    <symbol id="i-strike" viewBox="0 0 24 24"><path d="M16 6.5A4 4 0 0 0 12.5 5h-1a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7h-2a4 4 0 0 1-4-2.5M4 12h16"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5"/></symbol>
+    <symbol id="i-type" viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M3 21c3-1 5-3 7-6l7-7a2.1 2.1 0 0 0-3-3l-7 7c-3 2-5 4-6 7z"/></symbol>
+    <symbol id="i-shapes" viewBox="0 0 24 24"><rect x="3" y="11" width="9" height="9" rx="1"/><circle cx="16.5" cy="7.5" r="4.5"/></symbol>
+    <symbol id="i-stamp" viewBox="0 0 24 24"><path d="M9 4h6l-1 7h3a3 3 0 0 1 3 3v2H4v-2a3 3 0 0 1 3-3h3zM5 20h14"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L9.7 17.2a1.7 1.7 0 0 1-2.4-2.4L15 7"/></symbol>
+    <symbol id="i-sign" viewBox="0 0 24 24"><path d="M3 17c2-4 4-6 5-6s-1 5 1 5 3-4 4-4 0 3 2 3 3-2 4-2M3 21h18"/></symbol>
+    <symbol id="i-cert" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-fields" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="5" rx="1"/><rect x="3" y="14" width="18" height="5" rx="1"/><path d="M6 7.5h4M6 16.5h7"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-extract" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3 3 3-3"/></symbol>
+    <symbol id="i-split" viewBox="0 0 24 24"><path d="M6 3v6l6 3 6-3V3M12 12v9M6 21h12"/></symbol>
+    <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14M10 3L8 21M16 3l-2 18"/></symbol>
+    <symbol id="i-merge" viewBox="0 0 24 24"><path d="M8 3v5a4 4 0 0 0 4 4 4 4 0 0 1 4 4v5M16 3v5a4 4 0 0 1-4 4"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16zM13.5 6.5l4 4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></symbol>
+    <symbol id="i-header" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M7 7h10M7 17h10"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></symbol>
+    <symbol id="i-bates" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 17h5M8 7h8M8 11h5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></symbol>
+    <symbol id="i-redact" viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="1"/><path d="M3 5h8M3 19h12"/></symbol>
+    <symbol id="i-sanit" viewBox="0 0 24 24"><path d="M5 21l3-9h8l3 9M9 12V4h6v8M7 17h10"/></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="3" width="7" height="8" rx="1"/><rect x="13" y="3" width="7" height="8" rx="1"/><rect x="4" y="13" width="7" height="8" rx="1"/><rect x="13" y="13" width="7" height="8" rx="1"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 9h8M8 12h8M8 15h5"/></symbol>
+    <symbol id="i-compress" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7zM14 3v4h4M12 10v7M9 14l3 3 3-3"/></symbol>
+    <symbol id="i-convert" viewBox="0 0 24 24"><path d="M4 7h13l-3-3M20 17H7l3 3"/></symbol>
+    <symbol id="i-compare" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/><path d="M12 2v20"/></symbol>
+    <symbol id="i-form" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><rect x="7" y="7" width="10" height="3"/><path d="M7 14h2M11 14h6M7 17h2M11 17h6"/></symbol>
+    <symbol id="i-access" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M5 8l7 1.5L19 8M12 9.5V14l-3 7M12 14l3 7"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2zM19 15l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7zM14 3v4h4"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v.5"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+    <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></symbol>
+    <symbol id="i-reg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v20M2 12h20"/></symbol>
+  </defs>
+</svg>
+
+<div class="bench">
+  <header class="bench-head">
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></svg>
+      <div><h1>Pliego · prototipo de diseño</h1><p>Versión 1, 3 nov. 2026. Navegable: pulsa modos, herramientas, Ctrl+K, la pastilla de actualización y el instalador.</p></div>
+    </div>
+    <div class="seg" role="group" aria-label="Tema">
+      <button type="button" data-th="system" aria-pressed="true">Sistema</button>
+      <button type="button" data-th="light" aria-pressed="false">Claro</button>
+      <button type="button" data-th="dark" aria-pressed="false">Oscuro</button>
+    </div>
+  </header>
+
+  <section class="sec" id="app">
+    <div class="sec-h">
+      <h2>Aplicación</h2>
+      <div class="seg" role="group" aria-label="Pantalla" id="screens">
+        <button type="button" data-sc="doc" aria-pressed="true">Documento</button>
+        <button type="button" data-sc="home" aria-pressed="false">Inicio</button>
+        <button type="button" data-sc="org" aria-pressed="false">Organizar</button>
+        <button type="button" data-sc="settings" aria-pressed="false">Ajustes · actualizaciones</button>
+        <button type="button" data-sc="palette" aria-pressed="false">Todas las herramientas</button>
+        <button type="button" data-sc="cmdk" aria-pressed="false">Ctrl+K</button>
+      </div>
+    </div>
+    <div class="stage" id="appStage"><div class="scaler" id="appScaler"><div class="win" id="win"></div></div></div>
+    <div class="notes">
+      <div><b>Modos arriba, herramientas al lado.</b> Seis modos fijos (Leer, Comentar, Rellenar y firmar, Organizar, Editar, Proteger) y «Herramientas» con todo lo demás. Cualquier herramienta se puede fijar como modo.</div>
+      <div><b>Las tareas no abren ventanas.</b> Comprimir, OCR o proteger se configuran en el inspector de la derecha, muestran el efecto estimado y guardan una copia por defecto.</div>
+      <div><b>Todo se encuentra con Ctrl+K.</b> Herramientas, ajustes, recientes, «ir a la página 12» o buscar texto, con el atajo de cada orden a la vista.</div>
+      <div><b>Estado del documento siempre visible.</b> Una sola barra de aviso (firmado, protegido, reparado) y la barra de estado con página, papel en mm, tareas en curso y firma.</div>
+    </div>
+  </section>
+
+  <section class="sec" id="setup">
+    <div class="sec-h">
+      <h2>Instalador</h2>
+      <p>Un solo .exe de menos de 40 MB, sin UAC por defecto (instala para el usuario). Comparte tokens con la app y sigue el tema de Windows.</p>
+    </div>
+    <div class="setup-wrap">
+      <div class="stage" id="setupStage"><div class="scaler" id="setupScaler"><div class="setup" id="setupWin"></div></div></div>
+      <div class="sec">
+        <div class="setup-thumbs" id="setupSteps" role="group" aria-label="Pantalla del instalador"></div>
+        <div class="notes" style="grid-template-columns:1fr">
+          <div><b>Instalar en un clic.</b> «Instalar» usa las opciones recomendadas; «Opciones de instalación» deja elegir carpeta, para todos los usuarios, accesos directos, asociación de PDF, menú contextual y PATH.</div>
+          <div><b>La hoja se dobla.</b> El logo es un pliego; durante la instalación se dobla y se abre según avanza.</div>
+          <div><b>Actualizar no reinstala.</b> La versión nueva se prepara junto a la actual mientras usas Pliego y se activa al cerrarlo, sin pantallas.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="visual">
+    <div class="sec-h">
+      <h2>Sistema visual</h2>
+      <p>Grafito y tinta: cromo neutro con un sesgo verde leve y un único acento verde azulado de tinta de imprenta. El papel siempre es lo más claro de la pantalla.</p>
+    </div>
+    <div class="vs">
+      <div>
+        <h3>Color</h3>
+        <div class="sw">
+          <div><i style="background:var(--pl-chrome)"></i><span>chrome</span></div>
+          <div><i style="background:var(--pl-surface)"></i><span>surface</span></div>
+          <div><i style="background:var(--pl-canvas)"></i><span>canvas</span></div>
+          <div><i style="background:var(--pl-surface-sunken)"></i><span>sunken</span></div>
+          <div><i style="background:var(--pl-accent)"></i><span>accent · tinta</span></div>
+          <div><i style="background:var(--pl-accent-soft)"></i><span>accent-soft</span></div>
+          <div><i style="background:var(--pl-text)"></i><span>text</span></div>
+          <div><i style="background:var(--pl-text-2)"></i><span>text-2</span></div>
+          <div><i style="background:var(--pl-ok)"></i><span>ok</span></div>
+          <div><i style="background:var(--pl-warn)"></i><span>aviso</span></div>
+          <div><i style="background:var(--pl-danger)"></i><span>error</span></div>
+          <div><i style="background:var(--pl-info)"></i><span>info</span></div>
+        </div>
+        <h3>Anotaciones (no cambian con el tema)</h3>
+        <div class="swatches" style="padding:0"><i style="background:var(--pl-annot-yellow)"></i><i style="background:var(--pl-annot-green)"></i><i style="background:var(--pl-annot-blue)"></i><i style="background:var(--pl-annot-pink)"></i><i style="background:var(--pl-annot-orange)"></i></div>
+      </div>
+      <div>
+        <h3>Tipografía · Segoe UI Variable</h3>
+        <div class="typescale">
+          <div><small>Display 28</small><span style="font:600 28px/36px var(--pl-font-display)">Hola, Ander</span></div>
+          <div><small>Title 20</small><span style="font:600 20px/28px var(--pl-font-display)">Actualizaciones</span></div>
+          <div><small>Subtitle 16</small><span style="font:600 16px/22px var(--pl-font)">Comprimir</span></div>
+          <div><small>Body 14</small><span>Guardar copia junto al original</span></div>
+          <div><small>Caption 12</small><span class="tn" style="font-size:12px;color:var(--pl-text-2)">Pág. 2 de 14 · A4 · 210 × 297 mm</span></div>
+        </div>
+        <h3>Logo</h3>
+        <div class="comp">
+          <svg width="56" height="56" viewBox="0 0 32 32" aria-label="Logo de Pliego"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></svg>
+          <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></svg>
+          <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></svg>
+          <span style="color:var(--pl-text-2);font-size:13px">Un pliego: la hoja doblada por la mitad.</span>
+        </div>
+      </div>
+      <div>
+        <h3>Controles</h3>
+        <div class="comp"><button class="btn pri" type="button">Guardar copia</button><button class="btn" type="button">Reemplazar…</button><button class="btn ghost" type="button">Cancelar</button><button class="btn danger" type="button">Aplicar redacción</button></div>
+        <div class="comp"><span class="chip ok"><svg class="i s"><use href="#i-check"/></svg>Firma válida</span><span class="chip info">PDF/A-2b</span><span class="chip">Protegido</span><span class="kbd">Ctrl</span><span class="kbd">K</span></div>
+        <div class="comp"><div class="toggle"></div><div class="toggle off"></div><div class="chk"><i class="on"><svg class="i s" style="width:12px;height:12px"><use href="#i-check"/></svg></i>Abrir PDF con Pliego</div></div>
+        <div class="notice ok" style="border:1px solid var(--pl-border);border-radius:6px"><svg class="i s"><use href="#i-cert"/></svg>Firmado por ANA GARCÍA LÓPEZ · firma válida<button class="act" type="button">Ver firmas</button></div>
+        <div class="comp" style="color:var(--pl-text-2);font-size:13px"><svg class="reg" viewBox="0 0 24 24" fill="none" stroke="var(--pl-accent)" stroke-width="1.75"><use href="#i-reg"/></svg>Carga: marca de registro de imprenta</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const ic = (n, cls = "i") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+  const S = { screen: "doc", mode: "read", tool: "pointer", insp: null, side: "thumbs", overlay: null, signStep: 2, setup: 0 };
+
+  /* ── Datos ── */
+  const MODES = [
+    ["read", "Leer"], ["comment", "Comentar"], ["sign", "Rellenar y firmar"], ["organize", "Organizar"], ["edit", "Editar"], ["protect", "Proteger"],
+  ];
+  const TOOLS = {
+    read: [["pointer", "Seleccionar", "V"], ["hand", "Mano", "H"], "|", ["columns", "Vista continua ▾"], ["rotate", "Rotar vista", "Ctrl+R"], "|", ["speak", "Leer en voz alta"], ["play", "Presentación", "F11"]],
+    comment: [["pointer", "Seleccionar", "V"], "|", ["highlight", "Resaltar", "H"], ["underline", "Subrayar", "U"], ["strike", "Tachar", "K"], ["note", "Nota", "N"], ["type", "Texto", "T"], ["pen", "Dibujo", "P"], ["shapes", "Formas ▾", "R"], ["stamp", "Sello ▾", "S"], ["clip", "Adjuntar"], "|", "SW"],
+    sign: [["fields", "Rellenar campos", "", true], ["type", "Texto"], ["check", "Marca ✓"], ["cal", "Fecha"], "|", ["sign", "Mi firma ▾", "", true], ["cert", "Firma digital…", "", true, "signwiz"], ["shield", "Validar firmas"], ["users", "Pedir firmas…", "", true]],
+    organize: [["plus", "Insertar ▾", "", true], ["trash", "Eliminar"], ["rotl", "Rotar a la izquierda"], ["rotate", "Rotar a la derecha"], ["extract", "Extraer"], ["split", "Dividir…", "", true], ["crop", "Recortar"], ["copy", "Duplicar"], ["hash", "Numerar páginas"], ["merge", "Combinar con…", "", true]],
+    edit: [["edit", "Editar texto", "E", true], ["image", "Imagen ▾"], ["link", "Enlace"], "|", ["header", "Encabezado y pie…", "", true], ["drop", "Marca de agua…", "", true], ["bates", "Bates…"]],
+    protect: [["lock", "Contraseña…", "", true, "compress-like"], ["key", "Permisos…"], ["cert", "Cifrar con certificado…"], "|", ["redact", "Redactar ▾", "", true, "redact"], ["sanit", "Sanear documento…", "", true], ["unlock", "Quitar protección"]],
+  };
+  const PALETTE = [
+    ["Ver", [["eye", "Leer", "Desplazamiento, zoom y vistas"], ["play", "Presentación", "Pantalla completa, página a página"], ["layers", "Capas", "Mostrar u ocultar capas del PDF"], ["clip", "Adjuntos", "Archivos incrustados en el PDF"]]],
+    ["Comentar", [["highlight", "Comentar", "Resaltados, notas, dibujo y formas"], ["stamp", "Sellos", "Aprobado, recibido o sellos propios"], ["msg", "Resumen de comentarios", "Exporta los comentarios a PDF o XFDF"]]],
+    ["Rellenar y firmar", [["fields", "Rellenar y firmar", "Campos, texto libre y tu firma"], ["cert", "Firma digital", "Certificado, DNIe o FNMT (PAdES)"], ["shield", "Validar firmas", "Comprueba quién firmó y si cambió", true], ["users", "Pedir firmas", "Paquete de firma con orden y registro"]]],
+    ["Organizar", [["grid", "Organizar páginas", "Reordenar, rotar, eliminar, extraer"], ["merge", "Combinar archivos", "Varios PDF, imágenes u Office en uno"], ["split", "Dividir", "Por páginas, tamaño o marcadores"], ["hash", "Numerar páginas", "Números y Bates"]]],
+    ["Editar", [["edit", "Editar texto e imágenes", "Cambia el contenido de la página"], ["drop", "Marca de agua", "Texto o imagen en todas las páginas"], ["header", "Encabezado y pie", "Fecha, página, nombre de archivo"]]],
+    ["Formularios", [["form", "Diseñar formulario", "Crear y editar campos"], ["spark", "Detectar campos", "Convierte un PDF plano en formulario"]]],
+    ["Escanear y OCR", [["scan", "Reconocer texto", "Hace buscable un escaneo (100+ idiomas)"], ["rotate", "Enderezar y limpiar", "Corrige inclinación y manchas"]]],
+    ["Proteger", [["lock", "Proteger", "Contraseña, permisos y certificado"], ["redact", "Redactar", "Elimina datos de forma permanente"], ["sanit", "Sanear", "Quita metadatos, scripts y ocultos"]]],
+    ["Convertir", [["file", "Crear PDF", "Desde imágenes, Office, web o escáner"], ["convert", "Exportar", "A Word, Excel, imágenes o texto"], ["info", "Guardar como PDF/A", "Archivo a largo plazo"]]],
+    ["Comparar y optimizar", [["compare", "Comparar", "Dos versiones lado a lado"], ["compress", "Comprimir", "Reduce el tamaño del archivo"]]],
+    ["Estándares y accesibilidad", [["access", "Comprobar accesibilidad", "PDF/UA, orden de lectura, texto alternativo"]]],
+    ["Impresión y automatizar", [["print", "Vista previa de salida", "Separaciones y tintas"], ["bolt", "Acciones en lote", "Aplica pasos a muchos archivos"], ["ruler", "Medir", "Distancias y áreas a escala"], ["spark", "Asistente local", "Resume y pregunta, sin nube"]]],
+  ];
+
+  /* ── Piezas ── */
+  const logo = (s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></svg>`;
+
+  function titlebar() {
+    const docTabs = S.screen === "settings"
+      ? `<div class="tab" role="tab" aria-selected="false"><span class="n">contrato-alquiler.pdf</span></div><div class="tab" role="tab" aria-selected="true">${ic("gear", "i s")}<span class="n">Ajustes</span><span class="x">${ic("x", "i s")}</span></div>`
+      : S.screen === "home"
+      ? `<div class="tab" role="tab" aria-selected="false"><span class="n">contrato-alquiler.pdf</span></div><div class="tab" role="tab" aria-selected="true"><span class="n">Inicio</span><span class="x">${ic("x", "i s")}</span></div>`
+      : `<div class="tab" role="tab" aria-selected="true"><span class="n">contrato-alquiler.pdf</span><span class="x"><i class="dot" title="Cambios sin guardar"></i></span></div><div class="tab" role="tab" aria-selected="false"><span class="n">factura-2026-0412.pdf</span><span class="x">${ic("x", "i s")}</span></div><div class="tab" role="tab" aria-selected="false"><span class="n">informe-anual.pdf</span><span class="x">${ic("x", "i s")}</span></div>`;
+    return `<div class="titlebar">
+      <button class="appmenu" type="button" aria-label="Menú de Pliego">${logo()}${ic("down", "i s")}</button>
+      <div class="tabs" role="tablist">${docTabs}<button class="tab plus" type="button" aria-label="Nueva pestaña" data-go="home">${ic("plus", "i s")}</button></div>
+      <button class="omni" type="button" data-ov="cmdk">${ic("search", "i s")}Buscar o ejecutar…<kbd>Ctrl K</kbd></button>
+      <button class="uppill" type="button" data-ov="update"><i></i>Actualización lista</button>
+      <div class="winbtns" aria-hidden="true"><span>${ic("minus", "i s")}</span><span><svg class="i s" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></span><span class="close">${ic("x", "i s")}</span></div>
+    </div>`;
+  }
+
+  function modebar() {
+    if (S.screen === "home" || S.screen === "settings") {
+      return `<div class="modebar" style="color:var(--pl-text-2)">${S.screen === "home" ? "Inicio" : "Ajustes › Actualizaciones"}</div>`;
+    }
+    const mode = S.screen === "org" ? "organize" : S.mode;
+    const modes = MODES.map(([id, label]) => `<button class="mode" type="button" data-mode="${id}" aria-pressed="${id === mode}">${label}</button>`).join("");
+    const tools = TOOLS[mode].map(t => {
+      if (t === "|") return `<span class="vsep"></span>`;
+      if (t === "SW") return `<span class="swatches" aria-label="Color"><i class="on" style="background:var(--pl-annot-yellow)"></i><i style="background:var(--pl-annot-green)"></i><i style="background:var(--pl-annot-blue)"></i><i style="background:var(--pl-annot-pink)"></i></span>`;
+      const [icn, label, key, showLabel, action] = t;
+      const pressed = (S.tool === icn && !showLabel) || (action && S.insp === action);
+      return `<button class="tool${showLabel ? " lbl" : ""}" type="button" data-tool="${icn}" ${action ? `data-insp="${action}"` : ""} aria-pressed="${pressed}" title="${label}${key ? " (" + key + ")" : ""}">${ic(icn)}${showLabel ? `<span>${label}</span>` : ""}</button>`;
+    }).join("");
+    return `<div class="modebar" role="toolbar">${modes}<button class="mode" type="button" data-ov="palette">Herramientas ${ic("down", "i s")}</button><span class="vsep"></span><div class="tools">${tools}</div></div>`;
+  }
+
+  function rail() {
+    const items = [["thumbs", "grid", "Miniaturas"], ["outline", "bookmark", "Marcadores"], ["comments", "msg", "Comentarios"], ["attach", "clip", "Adjuntos"], ["layers", "layers", "Capas"], ["sigs", "cert", "Firmas"]];
+    return `<nav class="rail" aria-label="Paneles">${items.map(([id, icn, l]) => `<button type="button" data-side="${id}" aria-pressed="${S.side === id}" title="${l}">${ic(icn)}</button>`).join("")}<span class="grow"></span><button type="button" title="Asistente local">${ic("spark")}</button><button type="button" data-go="settings" title="Ajustes">${ic("gear")}</button></nav>`;
+  }
+
+  const thumbLines = n => `<i class="h"></i>${"<i></i>".repeat(n)}<i style="width:70%"></i>`;
+  function side() {
+    if (!S.side) return `<aside class="side"></aside>`;
+    if (S.side === "outline") {
+      return `<aside class="side"><div class="side-h">Marcadores</div><div class="outline">
+        <div>${ic("down", "i s")}Contrato de arrendamiento</div><div style="padding-left:30px">Reunidos</div><div style="padding-left:30px">Exponen</div>
+        <div class="on" style="padding-left:30px">Primera. Objeto</div><div style="padding-left:30px">Segunda. Duración</div><div style="padding-left:30px">Tercera. Renta</div><div style="padding-left:30px">Cuarta. Fianza</div><div style="padding-left:30px">Firmas</div></div></aside>`;
+    }
+    const pages = Array.from({ length: 8 }, (_, i) => `<div class="thumb${i === 1 ? " on" : ""}"><div class="pg">${thumbLines(5 + (i % 3))}</div><span class="tn">${i + 1}</span></div>`).join("");
+    return `<aside class="side"><div class="side-h">Miniaturas <button class="iconbtn" type="button" aria-label="Más opciones">${ic("down", "i s")}</button></div><div class="thumbs">${pages}</div></aside>`;
+  }
+
+  function pageContent() {
+    const m = S.mode;
+    const hit = m === "read" ? ` <span class="hit cur">arrendamiento</span>` : " arrendamiento";
+    const sel = m === "comment" ? `<span class="hl">La vivienda se destina exclusivamente a residencia habitual y permanente del arrendatario y de su familia</span>` : `La vivienda se destina exclusivamente a residencia habitual y permanente del arrendatario y de su familia`;
+    const dni = m === "protect" ? `<span class="redact">12345678Z</span>` : "12345678Z";
+    const iban = m === "protect" ? `<span class="redact">ES91 2100 0418 4502 0005 1332</span>` : "ES91 2100 0418 4502 0005 1332";
+    const name = m === "sign" ? `<span class="field">Luis Martín Ortega</span>` : "D. Luis Martín Ortega";
+    return `<h3>CONTRATO DE${hit.toUpperCase().replace("ARRENDAMIENTO", "ARRENDAMIENTO")} DE VIVIENDA</h3>
+      <p class="sub">En Valencia, a 3 de noviembre de 2026</p>
+      <p><b>REUNIDOS.</b> De una parte, Dña. Ana García López, mayor de edad, con DNI ${dni}, en adelante «la arrendadora». De otra parte, ${name}, mayor de edad, en adelante «el arrendatario».</p>
+      <p><b>PRIMERA. Objeto.</b> La arrendadora cede en${hit} la vivienda situada en la calle de Colón, 14, 3.º B, de Valencia, con referencia catastral 9872023YJ2797S0001WX. ${sel}.</p>
+      <p><b>SEGUNDA. Duración.</b> El contrato se celebra por un plazo de un año, prorrogable por plazos anuales hasta un máximo de cinco, conforme a la Ley 29/1994, de Arrendamientos Urbanos.</p>
+      <p><b>TERCERA. Renta.</b> La renta anual es de 10.200 €, pagadera en mensualidades de 850 € dentro de los siete primeros días de cada mes en la cuenta ${iban}.</p>
+      <p><b>CUARTA. Fianza.</b> El arrendatario entrega en este acto una mensualidad en concepto de fianza legal, que se depositará en el organismo autonómico competente.</p>
+      ${m === "comment" ? `<span class="note" title="Nota de Ana">${ic("note", "i s")}</span>` : ""}
+      ${m === "sign" ? (S.insp === "signwiz" ? `<div class="sigbox">Recuadro de la firma</div>` : `<div class="signed"><div class="scr">Ana García</div>Firmado digitalmente por ANA GARCÍA LÓPEZ<br>3/11/2026 10:42 · PAdES B-LT</div>`) : ""}
+      <div class="foot tn">2</div>`;
+  }
+
+  function notice() {
+    if (S.mode === "sign" || S.mode === "read") return `<div class="notice ok">${ic("cert", "i s")}Firmado por ANA GARCÍA LÓPEZ · firma válida · sello de tiempo de la FNMT<button class="act" type="button" data-side="sigs">Ver firmas</button></div>`;
+    if (S.mode === "edit") return `<div class="notice warn">${ic("warn", "i s")}Si cambias este documento, la firma de ANA GARCÍA LÓPEZ dejará de ser válida.<button class="act" type="button">Guardar como copia y editar</button></div>`;
+    if (S.mode === "protect") return `<div class="notice warn">${ic("redact", "i s")}2 zonas marcadas para redactar en la página 2. Aún no se han aplicado.<button class="act" type="button" data-insp="redact">Revisar y aplicar</button></div>`;
+    return "";
+  }
+
+  function canvas() {
+    if (S.screen === "org") return organize();
+    return `<main class="canvas">${notice()}<div class="scroll"><article class="page">${pageContent()}</article><article class="page small"><p style="margin-top:20px"><b>QUINTA. Gastos.</b> Los gastos de comunidad y el IBI corren a cargo de la arrendadora. Los suministros con contador individual corren a cargo del arrendatario.</p></article></div>
+      <div class="zoomer" role="group" aria-label="Zoom"><button type="button" aria-label="Alejar">${ic("minus", "i s")}</button><b class="tn">100 %</b><button type="button" aria-label="Acercar">${ic("plus", "i s")}</button></div></main>`;
+  }
+
+  function organize() {
+    const pg = (n, cls = "", badge = "") => `<div class="pgc ${cls}"><div class="pg">${thumbLines(6 + (n % 3))}${badge}</div><span class="tn">${n}</span></div>`;
+    return `<main class="canvas"><div class="org">
+      <div class="docsep">contrato-alquiler.pdf · 6 páginas</div>
+      ${pg(1)}${pg(2, "sel", '<span class="badge">2</span>')}${pg(3, "sel")}${pg(4)}${pg(5, "drag")}${pg(6)}
+      <div class="docsep">anexo-inventario.pdf · insertado · 3 páginas</div>
+      ${pg(7)}${pg(8)}${pg(9)}
+    </div></main>`;
+  }
+
+  /* inspector */
+  function inspector() {
+    const open = !!S.insp;
+    let h = "", b = "", f = "";
+    if (S.insp === "compress") {
+      h = "Comprimir";
+      b = `<div class="opt"><span class="r"></span><div>Máxima calidad<small>Imágenes a 300 ppp. Para imprimir.</small></div></div>
+        <div class="opt on"><span class="r"></span><div>Equilibrado<small>Imágenes a 150 ppp. Para enviar por correo.</small></div></div>
+        <div class="opt"><span class="r"></span><div>Mínimo tamaño<small>Imágenes a 96 ppp. Solo pantalla.</small></div></div>
+        <button type="button" style="display:flex;gap:6px;align-items:center;color:var(--pl-text-2)">${ic("down", "i s")}Opciones avanzadas</button>
+        <div class="est"><span>Ahora <b class="tn">12,4 MB</b></span>${ic("convert", "i s")}<span>Estimado <b class="tn">~3,1 MB</b></span></div>
+        <div class="chk" style="font-size:13px"><i class="on"><svg class="i s" style="width:12px;height:12px"><use href="#i-check"/></svg></i>Guardar como ajuste para Acciones en lote</div>`;
+      f = `<button class="btn" type="button">Reemplazar…</button><button class="btn pri" type="button">Guardar copia</button>`;
+    } else if (S.insp === "signwiz") {
+      h = "Firma digital";
+      b = `<div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i><span>Paso 2 de 4</span></div>
+        <div class="lab">Con qué certificado</div>
+        <div class="cert on">${ic("cert")}<div>ANA GARCÍA LÓPEZ (FIRMA)<small>DNIe · Policía Nacional · caduca 14/05/2029</small></div><span class="tag">DNIe</span></div>
+        <div class="cert">${ic("cert")}<div>GARCIA LOPEZ ANA - 12345678Z<small>FNMT-RCM · caduca 02/02/2028</small></div></div>
+        <button class="btn ghost" type="button" style="justify-content:flex-start">${ic("folder", "i s")}Usar un archivo .p12 o .pfx…</button>
+        <div class="lab">Aspecto</div>
+        <div class="fieldrow"><span style="font-size:13px;color:var(--pl-text-2)">Motivo</span><div class="input">Conforme con el contrato</div></div>
+        <div class="chk" style="font-size:13px"><i class="on"><svg class="i s" style="width:12px;height:12px"><use href="#i-check"/></svg></i>Mostrar nombre, fecha y motivo</div>
+        <p style="margin:0;font-size:12px;color:var(--pl-text-2)">Al firmar, Windows te pedirá el PIN del DNIe.</p>`;
+      f = `<button class="btn ghost" type="button">Atrás</button><button class="btn pri" type="button">Siguiente</button>`;
+    } else if (S.insp === "redact") {
+      h = "Redactar";
+      b = `<div class="lab">Buscar datos personales</div>
+        <div class="chk" style="font-size:13px"><i class="on"><svg class="i s" style="width:12px;height:12px"><use href="#i-check"/></svg></i>DNI y NIE <span class="chip" style="margin-left:auto">1</span></div>
+        <div class="chk" style="font-size:13px"><i class="on"><svg class="i s" style="width:12px;height:12px"><use href="#i-check"/></svg></i>IBAN <span class="chip" style="margin-left:auto">1</span></div>
+        <div class="chk" style="font-size:13px"><i></i>Correo electrónico <span class="chip" style="margin-left:auto">0</span></div>
+        <div class="chk" style="font-size:13px"><i></i>Teléfono <span class="chip" style="margin-left:auto">0</span></div>
+        <div class="lab">Zonas marcadas</div>
+        <div class="reply">Pág. 2 · «12345678Z»</div><div class="reply">Pág. 2 · «ES91 2100 0418 4502 0005 1332»</div>
+        <div class="notice warn" style="height:auto;padding:10px 12px;border:0;border-radius:8px;align-items:flex-start">${ic("warn", "i s")}<span>Se eliminarán 2 zonas en 1 página. En el archivo resultante no se puede deshacer.</span></div>`;
+      f = `<button class="btn ghost" type="button">Cancelar</button><button class="btn pri" type="button">Aplicar y guardar copia</button>`;
+    } else if (S.insp === "annot") {
+      h = "Nota";
+      b = `<div class="annot-meta"><span class="avatar">AG</span><div>Ana García<small style="display:block;color:var(--pl-text-2);font-size:12px">hoy, 10:15 · página 2</small></div></div>
+        <div class="reply">¿Incluimos la plaza de garaje en el objeto del contrato?</div>
+        <div class="annot-meta"><span class="avatar" style="background:var(--pl-accent-soft);color:var(--pl-accent-soft-text)">LM</span><div class="input" style="flex:1;color:var(--pl-text-3)">Responder…</div></div>
+        <div class="lab">Aspecto</div>
+        <div class="swatches" style="padding:0"><i class="on" style="background:var(--pl-annot-yellow)"></i><i style="background:var(--pl-annot-green)"></i><i style="background:var(--pl-annot-blue)"></i><i style="background:var(--pl-annot-pink)"></i><i style="background:var(--pl-annot-orange)"></i></div>
+        <div class="fieldrow"><span style="font-size:13px;color:var(--pl-text-2)">Estado</span><div class="selectbox">Sin estado ${ic("down", "i s")}</div></div>`;
+      f = `<button class="btn danger" type="button">${ic("trash", "i s")}Eliminar</button>`;
+    } else if (S.insp === "pages") {
+      h = "2 páginas seleccionadas";
+      b = `<div class="est"><span>Páginas</span><b class="tn">2–3</b></div><div class="est"><span>Tamaño</span><b class="tn">A4 · 210 × 297 mm</b></div>
+        <div class="comp"><button class="btn" type="button">${ic("rotl", "i s")}Rotar</button><button class="btn" type="button">${ic("extract", "i s")}Extraer</button><button class="btn danger" type="button">${ic("trash", "i s")}Eliminar</button></div>
+        <p style="margin:0;font-size:12px;color:var(--pl-text-2)">Arrastra para reordenar. Suelta archivos entre páginas para insertarlos.</p>`;
+    }
+    return `<aside class="insp${open ? " open" : ""}" aria-label="Inspector"><div class="insp-in"><div class="insp-h">${h}<button class="iconbtn" type="button" data-close="insp" aria-label="Cerrar">${ic("x", "i s")}</button></div><div class="insp-b">${b}</div>${f ? `<div class="insp-f">${f}</div>` : ""}</div></aside>`;
+  }
+
+  function status() {
+    if (S.screen === "home" || S.screen === "settings") return `<footer class="status"><span>Pliego 0.4.0</span><span class="sp">Software libre · AGPL-3.0</span></footer>`;
+    return `<footer class="status">
+      <button type="button" class="tn">Pág. 2 de ${S.screen === "org" ? 9 : 6}</button><span class="tn">A4 · 210 × 297 mm</span>
+      <button type="button"><svg class="reg" viewBox="0 0 24 24" fill="none" stroke="var(--pl-accent)" stroke-width="1.75"><use href="#i-reg"/></svg>OCR de informe-anual.pdf<span class="mini-prog"><i></i></span><span class="tn">42 %</span></button>
+      <span class="sp"></span>
+      <button type="button" class="ok">${ic("cert", "i s")}Firmado · válido</button>
+      <button type="button">${ic("columns", "i s")}Continua</button>
+      <button type="button" class="tn">100 % ${ic("down", "i s")}</button>
+    </footer>`;
+  }
+
+  function home() {
+    const qa = [["folder", "Abrir", "Un PDF de tu equipo"], ["merge", "Combinar", "Varios archivos en un PDF"], ["scan", "Reconocer texto", "Escaneos buscables (OCR)"], ["cert", "Firmar", "Con DNIe o certificado"], ["compress", "Comprimir", "Para enviar por correo"], ["convert", "Convertir", "A Word, imágenes o PDF/A"]];
+    const rec = [["contrato-alquiler.pdf", "Documentos › Piso Colón", "hoy, 10:42", '<span class="chip ok">' + ic("check", "i s") + "Firmado</span>"], ["factura-2026-0412.pdf", "Descargas", "ayer", ""], ["informe-anual.pdf", "Trabajo › 2026", "1 nov. 2026", '<span class="chip info">OCR en curso</span>'], ["modelo-303-3T.pdf", "Documentos › Impuestos", "28 oct. 2026", '<span class="chip">Formulario</span>'], ["escrituras-escaneadas.pdf", "OneDrive › Casa", "12 oct. 2026", '<span class="chip">Protegido</span>']];
+    return `<div class="home">
+      <div class="whatsnew">${ic("spark")}<div><b>Novedades de Pliego 0.4.0</b><div style="font-size:13px">Firma con DNIe más rápida y comparar documentos lado a lado.</div></div><button class="iconbtn" type="button" style="margin-left:auto" aria-label="Cerrar">${ic("x", "i s")}</button></div>
+      <h2>Buenos días, Luis</h2>
+      <div class="drop">${ic("upload")}<div><b>Suelta aquí un PDF</b> o cualquier archivo para convertirlo. También puedes <span class="link">elegir un archivo</span>.</div></div>
+      <div class="qa">${qa.map(([i, t, d]) => `<button type="button"><span class="ic">${ic(i)}</span><span><b>${t}</b><small style="display:block">${d}</small></span></button>`).join("")}</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between"><h3 style="margin:0;font-size:16px">Recientes</h3><button type="button" class="link" data-ov="palette">Todas las herramientas</button></div>
+      <div class="recent">${rec.map(([n, f, d, c], i) => `<div class="r"><span class="mini"></span><span style="display:flex;gap:8px;align-items:center">${i === 0 ? `<svg class="i s" style="color:var(--pl-warn)"><use href="#i-star"/></svg>` : ""}<b style="font-weight:600">${n}</b></span><span class="muted">${f}</span><span class="muted tn">${d}</span><span>${c}</span></div>`).join("")}</div>
+    </div>`;
+  }
+
+  function settings() {
+    const nav = [["gear", "General"], ["eye", "Visor"], ["msg", "Comentarios"], ["cert", "Firma"], ["scan", "OCR e idiomas"], ["refresh", "Actualizaciones", 1], ["shield", "Privacidad"], ["access", "Accesibilidad"], ["kbd", "Avanzado"], ["info", "Acerca de"]];
+    return `<div class="settings"><nav><div class="input" style="color:var(--pl-text-3)">${ic("search", "i s")}Buscar ajustes</div>${nav.map(([i, t, on]) => `<button type="button" class="${on ? "on" : ""}">${ic(i, "i s")}${t}</button>`).join("")}</nav>
+      <main>
+        <h2>Actualizaciones</h2>
+        <div class="card"><div class="upstate"><span class="ring" style="background:var(--pl-accent-soft);color:var(--pl-accent-soft-text)">${ic("refresh")}</span><div><b>Pliego 0.5.0 está lista para instalar</b><div style="font-size:13px;color:var(--pl-text-2)">Tienes la 0.4.0 · descargada y verificada hace 12 min · se instalará al cerrar Pliego</div></div><div class="end" style="margin-left:auto;display:flex;gap:8px"><button class="btn" type="button">Novedades</button><button class="btn pri" type="button">Reiniciar ahora</button></div></div></div>
+        <div class="card">
+          <div class="row"><div>Cómo se actualiza<small>Automático: descarga en segundo plano e instala al cerrar. Nunca se reinicia solo.</small></div><div class="end"><div class="selectbox">Automático ${ic("down", "i s")}</div></div></div>
+          <div class="row"><div>Canal<small>Beta recibe antes las novedades; puede tener fallos.</small></div><div class="end"><div class="seg"><button type="button" aria-pressed="true">Estable</button><button type="button" aria-pressed="false">Beta</button></div></div></div>
+          <div class="row"><div>Con conexión de uso medido<small>Solo comprobar; no descargar sin preguntar.</small></div><div class="end"><div class="toggle"></div></div></div>
+          <div class="row"><div>Comprobar ahora<small>Última comprobación: hoy, 10:30 · correcta</small></div><div class="end"><button class="btn" type="button">${ic("refresh", "i s")}Buscar actualizaciones</button></div></div>
+        </div>
+        <div class="card">
+          <div class="row"><div>Historial en este equipo<small class="tn">0.4.0 · 21 oct. 2026 &nbsp;·&nbsp; 0.3.2 · 2 oct. 2026 &nbsp;·&nbsp; 0.3.0 · 15 sept. 2026</small></div></div>
+          <div class="row"><div>Servidor<small class="mono">https://actualizaciones.ejemplo.es · firma ed25519 cb61b24f03c56bc8</small></div><div class="end"><button class="btn ghost" type="button">Ver registro</button></div></div>
+        </div>
+        <p style="margin:0;font-size:12px;color:var(--pl-text-2)">Pliego no envía datos de uso. Al comprobar solo se pide un archivo al servidor; la versión instalada viaja en la cabecera User-Agent.</p>
+      </main></div>`;
+  }
+
+  function overlays() {
+    if (S.overlay === "palette") {
+      return `<div class="pop palette" role="dialog" aria-label="Todas las herramientas"><div class="ph">${ic("search")}<span style="color:var(--pl-text-3);flex:1">Buscar herramienta</span><span class="kbd">Ctrl</span><span class="kbd">Mayús</span><span class="kbd">T</span><button class="iconbtn" type="button" data-close="ov" aria-label="Cerrar">${ic("x", "i s")}</button></div>
+        <div class="grid">${PALETTE.map(([g, items]) => `<div class="grp"><h4>${g}</h4>${items.map(([i, t, d, off]) => `<button type="button" class="it${off ? " off" : ""}" ${t === "Comprimir" ? 'data-insp="compress"' : ""} title="${off ? "Este documento no tiene firmas" : t}">${ic(i)}<span>${t}<small>${d}</small></span></button>`).join("")}</div>`).join("")}</div></div>`;
+    }
+    if (S.overlay === "cmdk") {
+      return `<div class="pop cmdk" role="dialog" aria-label="Buscar o ejecutar"><div class="q">${ic("search")}<span>compr</span><span class="caret"></span></div><div class="res">
+        <h5>Órdenes</h5>
+        <button type="button" class="row on" data-insp="compress">${ic("compress")}<span><mark>Compr</mark>imir <small>· reduce el tamaño del archivo</small></span><span class="kbd">Enter</span></button>
+        <button type="button" class="row">${ic("compare")}<span><mark>Compr</mark>obar accesibilidad</span></button>
+        <button type="button" class="row">${ic("shield")}<span><mark>Compr</mark>obar firmas <small>· Validar firmas</small></span></button>
+        <h5>Ajustes</h5>
+        <button type="button" class="row">${ic("gear")}<span>Visor › <mark>Compr</mark>imir imágenes al guardar</span></button>
+        <h5>En el documento</h5>
+        <button type="button" class="row">${ic("search")}<span>Buscar «compr» en contrato-alquiler.pdf <small>· 3 coincidencias</small></span><span class="kbd">Ctrl F</span></button>
+        <h5>Recientes</h5>
+        <button type="button" class="row">${ic("file")}<span>escrituras-<mark>compr</mark>aventa.pdf <small>· OneDrive › Casa</small></span></button>
+      </div></div>`;
+    }
+    if (S.overlay === "update") {
+      return `<div class="pop uppop" role="dialog" aria-label="Actualización"><h4>Pliego 0.5.0 está lista</h4><div style="font-size:13px;color:var(--pl-text-2)">Descargada y verificada. Se instala en segundos.</div>
+        <ul><li>Firma con DNIe un 40 % más rápida</li><li>Comparar documentos lado a lado</li><li>Corrige el giro de páginas apaisadas al imprimir</li></ul>
+        <div class="notice warn" style="height:auto;padding:8px 10px;border:0;border-radius:6px">${ic("warn", "i s")}<span style="font-size:13px">contrato-alquiler.pdf tiene cambios sin guardar.</span></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" type="button" data-close="ov">Al cerrar Pliego</button><button class="btn pri" type="button">Guardar y reiniciar</button></div></div>`;
+    }
+    return "";
+  }
+
+  function renderApp() {
+    const win = $("#win");
+    let body;
+    if (S.screen === "home") body = `<div class="body" style="grid-template-columns:1fr">${home()}</div>`;
+    else if (S.screen === "settings") body = `<div class="body" style="grid-template-columns:1fr">${settings()}</div>`;
+    else body = `<div class="body${S.side ? "" : " nopanel"}">${rail()}${side()}${canvas()}${inspector()}</div>`;
+    win.innerHTML = titlebar() + modebar() + body + status() + overlays();
+    document.querySelectorAll("#screens button").forEach(b => {
+      const sc = b.dataset.sc;
+      const on = sc === S.screen && !S.overlay || (sc === "palette" && S.overlay === "palette") || (sc === "cmdk" && S.overlay === "cmdk");
+      b.setAttribute("aria-pressed", String(on && !(sc === S.screen && S.overlay && sc !== "palette" && sc !== "cmdk")));
+    });
+  }
+
+  $("#win").addEventListener("click", e => {
+    const t = e.target.closest("button,[data-side]");
+    if (!t) return;
+    const d = t.dataset;
+    if (d.mode) { S.mode = d.mode; S.screen = d.mode === "organize" ? "org" : "doc"; S.overlay = null;
+      S.insp = { comment: "annot", sign: "signwiz", organize: "pages", protect: "redact" }[d.mode] || null; S.tool = "pointer"; }
+    else if (d.ov) S.overlay = S.overlay === d.ov ? null : d.ov;
+    else if (d.close === "ov") S.overlay = null;
+    else if (d.close === "insp") S.insp = null;
+    else if (d.insp) { S.insp = d.insp === "compress-like" ? "compress" : d.insp; S.overlay = null; if (S.screen !== "doc" && S.screen !== "org") S.screen = "doc"; }
+    else if (d.side) S.side = S.side === d.side && t.closest(".rail") ? null : (d.side === "sigs" ? "outline" : d.side);
+    else if (d.go) { S.screen = d.go; S.overlay = null; }
+    else if (d.tool) S.tool = d.tool;
+    renderApp();
+  });
+
+  document.getElementById("screens").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const sc = b.dataset.sc;
+    if (sc === "palette" || sc === "cmdk") { if (S.screen !== "doc" && S.screen !== "org") S.screen = "doc"; S.overlay = sc; }
+    else { S.screen = sc; S.overlay = null; if (sc === "org") { S.mode = "organize"; S.insp = "pages"; } if (sc === "doc" && S.mode === "organize") { S.mode = "read"; S.insp = null; } }
+    renderApp();
+  });
+
+  /* ── Instalador ── */
+  const SETUP = [
+    ["Bienvenida", "Instalar en un clic"], ["Opciones", "Carpeta, accesos, PDF"], ["Instalando", "La hoja se dobla"], ["Listo", "Abrir Pliego"], ["Desinstalar", "Conserva tus ajustes"], ["Ya abierto", "Cierra Pliego para seguir"],
+  ];
+  const foldLogo = `<svg class="fold-logo" viewBox="0 0 120 120" aria-hidden="true"><path d="M24 26l36 6v62l-36-6z" fill="var(--pl-surface-raised)" stroke="var(--pl-border)"/><g class="rt"><path d="M60 32l36-6v62l-36 6z" fill="var(--pl-accent)"/><path d="M60 32l36-6v62l-36 6z" fill="var(--pl-accent-soft)" opacity=".35"/></g></svg>`;
+  const regMarks = `<svg class="reg-marks" viewBox="0 0 260 440" aria-hidden="true" fill="none" stroke="var(--pl-accent)" stroke-width="1"><circle cx="232" cy="28" r="7"/><path d="M232 16v24M220 28h24"/><circle cx="232" cy="412" r="7"/><path d="M232 400v24M220 412h24"/><path d="M0 220h10M250 220h10" /></svg>`;
+  function setupPane() {
+    const i = S.setup;
+    const chk = (on, t, extra = "") => `<div class="chk"><i class="${on ? "on" : ""}">${on ? `<svg class="i s" style="width:12px;height:12px"><use href="#i-check"/></svg>` : ""}</i>${t}${extra}</div>`;
+    if (i === 0) return `<h3>Instalar Pliego</h3><p>Lee, firma y organiza tus PDF. Libre, ligero y sin nube.</p>
+      <div class="tips"><div>${ic("check", "i s")}Para ti, en ${"%LOCALAPPDATA%"}\\Programs\\Pliego</div><div>${ic("check", "i s")}Abre PDF con Pliego y añade el menú contextual</div><div>${ic("check", "i s")}Busca actualizaciones firmadas automáticamente</div></div>
+      <div class="foot"><button type="button" class="link" data-st="1">Opciones de instalación</button><span class="grow"></span><button class="btn pri bigbtn" type="button" data-st="2">Instalar</button></div>
+      <div style="font-size:12px;color:var(--pl-text-3)">Software libre bajo AGPL-3.0 · <span class="link" style="font-weight:400">Ver licencia</span> · 38,2 MB</div>`;
+    if (i === 1) return `<h3>Opciones de instalación</h3>
+      <div class="scope"><div class="opt on"><span class="r"></span><div>Solo para mí<small>Sin permisos de administrador</small></div></div><div class="opt"><span class="r"></span><div>Para todos ${ic("shield", "i s")}<small>Pide permiso de administrador</small></div></div></div>
+      <div class="pathrow"><div class="input">C:\\Users\\acr12\\AppData\\Local\\Programs\\Pliego</div><button class="btn" type="button">Cambiar…</button></div>
+      <div class="optlist">${chk(true, "Abrir los PDF con Pliego")}${chk(true, "Opciones de Pliego en el menú contextual del Explorador")}${chk(false, "Acceso directo en el escritorio")}${chk(false, "Añadir <span class='mono'>pliego</span> a la línea de órdenes")}${chk(true, "Buscar actualizaciones automáticamente")}</div>
+      <div class="foot"><button class="btn ghost" type="button" data-st="0">Atrás</button><span class="grow"></span><button class="btn pri" type="button" data-st="2">Instalar</button></div>`;
+    if (i === 2) return `<h3>Instalando Pliego</h3><p id="stepTxt">Copiando archivos…</p><div class="prog"><i id="progBar"></i></div><div class="tn" style="font-size:12px;color:var(--pl-text-2)" id="progPct">0 %</div>
+      <div class="foot"><span class="grow"></span><button class="btn ghost" type="button" data-st="0">Cancelar</button></div>`;
+    if (i === 3) return `<h3>Pliego está instalado</h3><p>Ya puedes abrir tus PDF con doble clic.</p>
+      ${chk(true, "Usar Pliego como visor de PDF predeterminado")}<div style="font-size:12px;color:var(--pl-text-2);margin:-8px 0 0 26px">Se abrirá Configuración de Windows para confirmarlo.</div>
+      <div class="tips"><div>${ic("kbd", "i s")}Pulsa <span class="kbd">Ctrl</span> <span class="kbd">K</span> para encontrar cualquier herramienta</div><div>${ic("upload", "i s")}Suelta archivos en la ventana para abrirlos o combinarlos</div><div>${ic("cert", "i s")}Firma con tu DNIe sin instalar nada más</div></div>
+      <div class="foot"><button class="btn ghost" type="button" data-st="0">Cerrar</button><span class="grow"></span><button class="btn pri bigbtn" type="button">Abrir Pliego</button></div>`;
+    if (i === 4) return `<h3>¿Desinstalar Pliego?</h3><p>Se quitarán el programa, sus accesos directos y la asociación con los PDF. Tus documentos no se tocan.</p>
+      ${chk(true, "Conservar mis ajustes y firmas guardadas")}
+      <div class="foot"><button class="btn ghost" type="button" data-st="0">Cancelar</button><span class="grow"></span><button class="btn danger" type="button">Desinstalar</button></div>`;
+    return `<h3>Pliego está abierto</h3><p>Cierra Pliego para continuar. Si tienes cambios sin guardar, Pliego te preguntará antes.</p>
+      <div class="reply" style="display:flex;gap:10px;align-items:center">${logo(20)}<span>contrato-alquiler.pdf <small style="color:var(--pl-text-2)">· cambios sin guardar</small></span></div>
+      <div class="foot"><button class="btn ghost" type="button" data-st="0">Cancelar</button><span class="grow"></span><button class="btn pri" type="button">Cerrar Pliego por mí</button></div>`;
+  }
+  let progTimer = null;
+  function renderSetup() {
+    const w = $("#setupWin");
+    w.classList.toggle("folding", S.setup === 2);
+    w.innerHTML = `<div class="art">${regMarks}<div style="display:flex;gap:10px;align-items:center">${logo(28)}<span class="name">Pliego</span></div><div style="display:grid;place-items:center">${foldLogo}</div><div class="ver tn">Versión 0.5.0 · x64</div></div>
+      <div class="pane">${setupPane()}</div><div class="wctl" aria-hidden="true"><span>${ic("minus", "i s")}</span><span>${ic("x", "i s")}</span></div>`;
+    $("#setupSteps").innerHTML = SETUP.map(([t, d], k) => `<button type="button" data-st="${k}" aria-pressed="${k === S.setup}">${t}<small>${d}</small></button>`).join("");
+    clearInterval(progTimer);
+    if (S.setup === 2) {
+      const steps = ["Copiando archivos…", "Comprobando la integridad del paquete…", "Registrando Pliego en Windows…", "Creando accesos directos…"];
+      let p = 0;
+      progTimer = setInterval(() => {
+        p = Math.min(100, p + 4);
+        const bar = $("#progBar"), pct = $("#progPct"), txt = $("#stepTxt");
+        if (!bar) return clearInterval(progTimer);
+        bar.style.width = p + "%"; pct.textContent = p + " %"; txt.textContent = steps[Math.min(3, Math.floor(p / 26))];
+        if (p >= 100) { clearInterval(progTimer); setTimeout(() => { if (S.setup === 2) { S.setup = 3; renderSetup(); } }, 600); }
+      }, 160);
+    }
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-st]"); if (!b || !b.closest("#setupWin,#setupSteps")) return;
+    S.setup = +b.dataset.st; renderSetup();
+  });
+
+  /* ── Escalado de las ventanas ── */
+  function fit(stage, scaler, w, h) {
+    const s = Math.min(1, stage.clientWidth / w);
+    scaler.style.transform = `scale(${s})`;
+    stage.style.height = Math.ceil(h * s) + "px";
+  }
+  function fitAll() { fit($("#appStage"), $("#appScaler"), 1282, 802); fit($("#setupStage"), $("#setupScaler"), 682, 442); }
+  window.addEventListener("resize", fitAll);
+
+  /* ── Tema ── */
+  document.querySelectorAll("[data-th]").forEach(b => b.addEventListener("click", () => {
+    const th = b.dataset.th;
+    if (th === "system") document.documentElement.removeAttribute("data-theme"); else document.documentElement.dataset.theme = th;
+    document.querySelectorAll("[data-th]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    try { localStorage.setItem("pliego-proto-theme", th); } catch (_) {}
+  }));
+  try { const th = localStorage.getItem("pliego-proto-theme"); if (th) document.querySelector(`[data-th="${th}"]`)?.click(); } catch (_) {}
+
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (S.screen !== "doc" && S.screen !== "org") S.screen = "doc"; S.overlay = S.overlay === "cmdk" ? null : "cmdk"; renderApp(); }
+    if (e.key === "Escape" && S.overlay) { S.overlay = null; renderApp(); }
+  });
+
+  renderApp(); renderSetup(); fitAll();
+})();
+</script>

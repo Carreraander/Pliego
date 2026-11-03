@@ -5,6 +5,7 @@ interfaces compartidas, prioridades) la lleva el hilo de gestión.
 
 - **Ola 1** (en paralelo desde ya): W01 a W10.
 - **Ola 2**: W11 a W18, cada uno cuando su dependencia esté fusionada en `main`.
+- **Ola 3** (diseño de la app, `docs/design/`): W19 a W22. W19, W21 (con un `pliego-app.exe` de prueba) y W22 (cliente y servidor) pueden empezar ya; W20 tras W19.
 
 | Flujo | Tema | Ola | Depende de | Rutas propias |
 | --- | --- | --- | --- | --- |
@@ -26,5 +27,9 @@ interfaces compartidas, prioridades) la lleva el hilo de gestión.
 | W16 | Producción de impresión | 2 | base existente | `crates/pliego-print`. |
 | W17 | Flujo de firmas local | 2 | W05 fusionado | `crates/pliego-signflow`. |
 | W18 | Asistente IA local | 2 | W01 fusionado | `crates/pliego-assistant`, `app/src/assistant/` (coordinar con W01). |
+| W19 | Armazón de la interfaz y sistema de diseño | 3 | W01 (andamiaje Tauri) | `app/src/styles/`, `app/src/ui/`, `app/src/shell/`, `app/tests/visual/` (W01 conserva viewer, state, api, panels y src-tauri). |
+| W20 | Navegación de herramientas, Inicio y Ajustes | 3 | W19 | `app/src/tools/`, `app/src/navigation/`, `app/src/home/`, `app/src/settings/`, `app/src/jobs/`, `app/src-tauri/src/commands/{settings,jobs,recents}.rs`. |
+| W21 | Instalador Pliego Setup y lanzador | 3 | W01 (puede empezar con una app de prueba) | `crates/pliego-install`, `crates/pliego-launcher`, `crates/pliego-setup`, `installer/setup/` (W10 conserva el MSI, el ZIP y `.github/`). |
+| W22 | Autoactualizaciones centralizadas | 3 | W21 y W20 para integrar; cliente y servidor ya | `crates/pliego-update`, `crates/pliego-release`, `app/src/updates/`, `app/src-tauri/src/commands/updates.rs`, `deploy/updates/`, `docs/releasing.md`. |
 
 Archivos compartidos y reglas de propiedad: ver `docs/CONVENTIONS.md`.

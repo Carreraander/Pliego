@@ -91,6 +91,9 @@ enum Command {
     // [W15 run e índice]
     /// Aplica una acción guardada (secuencia de pasos) a archivos y carpetas de PDFs.
     Run(commands::run::RunArgs),
+    /// Índice de texto de carpetas de PDFs: indexar y buscar.
+    #[command(subcommand)]
+    Index(commands::index::IndexCommand),
     // [W13/W17/W12 extra]
 
     // [libre A]
@@ -136,6 +139,7 @@ fn main() -> anyhow::Result<()> {
 
         // [W15 run e índice]
         Command::Run(a) => commands::run::run(a, cli.json),
+        Command::Index(c) => commands::index::run(c, cli.json),
         // [W13/W17/W12 extra]
 
         // [libre A]

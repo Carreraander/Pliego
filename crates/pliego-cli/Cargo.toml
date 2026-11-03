@@ -48,6 +48,7 @@ pliego-pdfa = { path = "../pliego-pdfa" }
 
 # [W15 run e índice]
 pliego-actions = { path = "../pliego-actions" }
+pliego-index = { path = "../pliego-index" }
 
 # [W13/W17/W12 extra]
 

@@ -21,6 +21,7 @@ pub const OID_SIGNED_DATA: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.
 pub const OID_CONTENT_TYPE: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.3");
 pub const OID_MESSAGE_DIGEST: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.4");
 pub const OID_SIGNING_CERT_V2: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.16.2.47");
+pub const OID_TSTINFO: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.16.1.4");
 pub const OID_TIMESTAMP_TOKEN: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.16.2.14");
 
 pub fn digest_oid(alg: DigestAlg) -> ObjectIdentifier {
@@ -85,7 +86,12 @@ fn attribute(oid: ObjectIdentifier, value_der: &[u8]) -> Result<Attribute> {
 }
 
 /// Atributos firmados de PAdES B-B: tipo de contenido, resumen del documento y certificado firmante (ESS v2).
-fn signed_attributes(leaf: &Certificate, alg: DigestAlg, content_digest: &[u8]) -> Result<SignedAttributes> {
+fn signed_attributes(
+    leaf: &Certificate,
+    alg: DigestAlg,
+    content_type: ObjectIdentifier,
+    content_digest: &[u8],
+) -> Result<SignedAttributes> {
     let ess = SigningCertificateV2 {
         certs: vec![EssCertIdV2 {
             // SHA-256 es el valor por defecto de ESSCertIDv2 y en DER no se codifica.
@@ -99,7 +105,7 @@ fn signed_attributes(leaf: &Certificate, alg: DigestAlg, content_digest: &[u8]) 
     };
     let mut attrs = SetOfVec::new();
     let items = [
-        attribute(OID_CONTENT_TYPE, &OID_DATA.to_der().map_err(der_err)?)?,
+        attribute(OID_CONTENT_TYPE, &content_type.to_der().map_err(der_err)?)?,
         attribute(
             OID_MESSAGE_DIGEST,
             &OctetString::new(content_digest)
@@ -117,11 +123,22 @@ fn signed_attributes(leaf: &Certificate, alg: DigestAlg, content_digest: &[u8]) 
 
 /// Firma CMS desvinculada (`ETSI.CAdES.detached`) sobre `content_digest`, el resumen de los bytes del PDF.
 pub fn build_cms(signer: &dyn Signer, alg: DigestAlg, content_digest: &[u8]) -> Result<Vec<u8>> {
+    build_signed_data(signer, alg, OID_DATA, None, content_digest)
+}
+
+/// SignedData genérico: contenido desvinculado (`econtent` = `None`) o incrustado (p. ej. TSTInfo de un sello).
+pub fn build_signed_data(
+    signer: &dyn Signer,
+    alg: DigestAlg,
+    content_type: ObjectIdentifier,
+    econtent: Option<&[u8]>,
+    content_digest: &[u8],
+) -> Result<Vec<u8>> {
     let chain = signer.certificate_chain();
     let leaf = chain
         .first()
         .ok_or_else(|| Error::InvalidInput("el firmante no tiene certificado".into()))?;
-    let attrs = signed_attributes(leaf, alg, content_digest)?;
+    let attrs = signed_attributes(leaf, alg, content_type, content_digest)?;
     // La firma se calcula sobre la codificación DER del conjunto de atributos (etiqueta SET).
     let to_sign = alg.digest(&attrs.to_der().map_err(der_err)?);
     let signature = signer.sign_digest(alg, &to_sign)?;
@@ -150,11 +167,22 @@ pub fn build_cms(signer: &dyn Signer, alg: DigestAlg, content_digest: &[u8]) -> 
     let mut signer_infos = SetOfVec::new();
     signer_infos.insert(signer_info).map_err(der_err)?;
     let signed = SignedData {
-        version: CmsVersion::V1,
+        version: if content_type == OID_DATA {
+            CmsVersion::V1
+        } else {
+            CmsVersion::V3
+        },
         digest_algorithms: digest_algs,
         encap_content_info: EncapsulatedContentInfo {
-            econtent_type: OID_DATA,
-            econtent: None,
+            econtent_type: content_type,
+            econtent: match econtent {
+                // El campo del crate ya es el elemento [0] EXPLICIT completo: se construye a mano.
+                Some(c) => Some(
+                    Any::from_der(&OctetString::new(c).map_err(der_err)?.to_der().map_err(der_err)?)
+                        .map_err(der_err)?,
+                ),
+                None => None,
+            },
         },
         certificates: Some(CertificateSet(certs)),
         crls: None,
@@ -165,4 +193,42 @@ pub fn build_cms(signer: &dyn Signer, alg: DigestAlg, content_digest: &[u8]) -> 
         content: Any::from_der(&signed.to_der().map_err(der_err)?).map_err(der_err)?,
     };
     info.to_der().map_err(der_err)
+}
+
+/// Añade un atributo no firmado (p. ej. el sello de tiempo) al único firmante de una firma CMS.
+pub fn add_unsigned_attribute(cms_der: &[u8], oid: ObjectIdentifier, value_der: &[u8]) -> Result<Vec<u8>> {
+    let info = ContentInfo::from_der(cms_der).map_err(der_err)?;
+    let mut sd: SignedData = info.content.decode_as().map_err(der_err)?;
+    let mut si = sd
+        .signer_infos
+        .0
+        .iter()
+        .next()
+        .cloned()
+        .ok_or_else(|| Error::Other("la firma no tiene firmante".into()))?;
+    let mut attrs = si.unsigned_attrs.take().unwrap_or_default();
+    attrs.insert(attribute(oid, value_der)?).map_err(der_err)?;
+    si.unsigned_attrs = Some(attrs);
+    let mut infos = SetOfVec::new();
+    infos.insert(si).map_err(der_err)?;
+    sd.signer_infos = SignerInfos(infos);
+    ContentInfo {
+        content_type: OID_SIGNED_DATA,
+        content: Any::from_der(&sd.to_der().map_err(der_err)?).map_err(der_err)?,
+    }
+    .to_der()
+    .map_err(der_err)
+}
+
+/// Valor de la firma del (primer) firmante de una firma CMS.
+pub fn signature_value(cms_der: &[u8]) -> Result<Vec<u8>> {
+    let info = ContentInfo::from_der(cms_der).map_err(der_err)?;
+    let sd: SignedData = info.content.decode_as().map_err(der_err)?;
+    let si = sd
+        .signer_infos
+        .0
+        .iter()
+        .next()
+        .ok_or_else(|| Error::Other("la firma no tiene firmante".into()))?;
+    Ok(si.signature.as_bytes().to_vec())
 }

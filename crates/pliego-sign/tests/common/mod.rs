@@ -18,6 +18,11 @@ pub const PASSWORD: &str = "prueba";
 
 /// CA + certificado de firma. `ecdsa` elige P-256 en vez de RSA-2048.
 pub fn make_pki(ecdsa: bool) -> TestPki {
+    make_pki_for(ecdsa, false)
+}
+
+/// Como `make_pki`; con `tsa` el certificado lleva el uso de clave de sellado de tiempo.
+pub fn make_pki_for(ecdsa: bool, tsa: bool) -> TestPki {
     let alg = if ecdsa {
         &PKCS_ECDSA_P256_SHA256
     } else {
@@ -44,6 +49,9 @@ pub fn make_pki(ecdsa: bool) -> TestPki {
     let mut params = CertificateParams::new(Vec::<String>::new()).unwrap();
     params.distinguished_name.push(DnType::CommonName, "Persona de Prueba");
     params.key_usages = vec![KeyUsagePurpose::DigitalSignature, KeyUsagePurpose::ContentCommitment];
+    if tsa {
+        params.extended_key_usages = vec![rcgen::ExtendedKeyUsagePurpose::TimeStamping];
+    }
     let leaf = params.signed_by(&key, &issuer).unwrap();
 
     let chain = PrivateKeyChain::new(

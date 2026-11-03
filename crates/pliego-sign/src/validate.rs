@@ -46,6 +46,8 @@ pub struct SignatureReport {
     pub chain: ChainStatus,
     /// La firma lleva sello de tiempo RFC 3161.
     pub has_timestamp: bool,
+    /// Detalle del sello de tiempo, si lo hay.
+    pub timestamp: Option<crate::timestamp::TimestampInfo>,
     pub problems: Vec<String>,
 }
 
@@ -143,6 +145,7 @@ fn check_signature(
         covers_whole_document: false,
         chain: ChainStatus::Incomplete,
         has_timestamp: false,
+        timestamp: None,
         problems: Vec::new(),
     };
     if let Err(msg) = check_inner(data, d, opts, &mut r) {
@@ -209,59 +212,32 @@ fn check_inner(
         .decode_as()
         .map_err(|e| format!("firma CMS ilegible: {e}"))?;
     let si = sd.signer_infos.0.iter().next().ok_or("la firma no contiene firmante")?;
-
-    let certs: Vec<Certificate> = sd
-        .certificates
-        .iter()
-        .flat_map(|s| s.0.iter())
-        .filter_map(|c| match c {
-            cms::cert::CertificateChoices::Certificate(c) => Some(c.clone()),
-            _ => None,
-        })
-        .collect();
-    let leaf = certs
-        .iter()
-        .find(|c| match &si.sid {
-            SignerIdentifier::IssuerAndSerialNumber(i) => {
-                c.tbs_certificate.issuer == i.issuer && c.tbs_certificate.serial_number == i.serial_number
-            }
-            SignerIdentifier::SubjectKeyIdentifier(_) => false,
-        })
-        .ok_or("la firma no incluye el certificado del firmante")?;
-    r.signer = subject_name(leaf);
-    r.subject = leaf.tbs_certificate.subject.to_string();
-    r.has_timestamp = si
-        .unsigned_attrs
-        .as_ref()
-        .is_some_and(|u| u.iter().any(|a| a.oid == OID_TIMESTAMP_TOKEN));
-
-    // 1. Resumen del documento == messageDigest firmado.
-    let alg = digest_from_oid(&si.digest_alg.oid).ok_or("algoritmo de resumen no soportado")?;
     let mut covered = data[..l1].to_vec();
     covered.extend_from_slice(&data[s2..s2 + l2]);
-    let actual = alg.digest(&covered);
-    let attrs = si.signed_attrs.as_ref().ok_or("la firma no tiene atributos firmados")?;
-    let expected = attrs
-        .iter()
-        .find(|a| a.oid == OID_MESSAGE_DIGEST)
-        .and_then(|a| a.values.iter().next())
-        .and_then(|v| v.decode_as::<der::asn1::OctetString>().ok())
-        .ok_or("falta el resumen firmado")?;
-    if expected.as_bytes() != actual.as_slice() {
-        return Err("el contenido del documento ha sido modificado desde que se firmó".into());
-    }
-    // 2. Firma sobre los atributos.
-    let signed = attrs.to_der().map_err(|e| e.to_string())?;
-    if !verify_signature(
-        &leaf.tbs_certificate.subject_public_key_info,
-        &si.signature_algorithm.oid,
-        alg,
-        &signed,
-        si.signature.as_bytes(),
-    ) {
-        return Err("la firma digital no corresponde al certificado (firma rota)".into());
-    }
+    let (leaf, certs) = verify_cms(&sd, &covered)?;
+    let leaf = &leaf;
+    r.signer = subject_name(leaf);
+    r.subject = leaf.tbs_certificate.subject.to_string();
     r.integrity = true;
+    if let Some(a) = si
+        .unsigned_attrs
+        .as_ref()
+        .and_then(|u| u.iter().find(|a| a.oid == OID_TIMESTAMP_TOKEN))
+    {
+        r.has_timestamp = true;
+        match a.values.iter().next().and_then(|v| v.to_der().ok()) {
+            Some(token) => match crate::timestamp::check_token(&token, si.signature.as_bytes(), &opts.trust_anchors) {
+                Ok(t) => {
+                    if !t.valid {
+                        r.problems.push("el sello de tiempo no corresponde a esta firma".into());
+                    }
+                    r.timestamp = Some(t);
+                }
+                Err(e) => r.problems.push(format!("el sello de tiempo no es válido: {e}")),
+            },
+            None => r.problems.push("el sello de tiempo es ilegible".into()),
+        }
+    }
 
     r.chain = check_chain(leaf, &certs, &opts.trust_anchors);
     match r.chain {
@@ -349,7 +325,7 @@ fn verify_cert_signed_by(cert: &Certificate, issuer: &Certificate) -> bool {
     )
 }
 
-fn check_chain(leaf: &Certificate, embedded: &[Certificate], anchors: &[Certificate]) -> ChainStatus {
+pub(crate) fn check_chain(leaf: &Certificate, embedded: &[Certificate], anchors: &[Certificate]) -> ChainStatus {
     let mut cur = leaf.clone();
     for _ in 0..10 {
         if let Ok(der) = cert_der(&cur)
@@ -391,4 +367,54 @@ fn check_chain(leaf: &Certificate, embedded: &[Certificate], anchors: &[Certific
         }
     }
     ChainStatus::Invalid
+}
+
+/// Comprueba un SignedData sobre `content` (los bytes firmados): resumen y firma del firmante.
+/// Devuelve el certificado del firmante y los certificados incluidos.
+pub(crate) fn verify_cms(
+    sd: &SignedData,
+    content: &[u8],
+) -> std::result::Result<(Certificate, Vec<Certificate>), String> {
+    let si = sd.signer_infos.0.iter().next().ok_or("la firma no contiene firmante")?;
+    let certs: Vec<Certificate> = sd
+        .certificates
+        .iter()
+        .flat_map(|s| s.0.iter())
+        .filter_map(|c| match c {
+            cms::cert::CertificateChoices::Certificate(c) => Some(c.clone()),
+            _ => None,
+        })
+        .collect();
+    let leaf = certs
+        .iter()
+        .find(|c| match &si.sid {
+            SignerIdentifier::IssuerAndSerialNumber(i) => {
+                c.tbs_certificate.issuer == i.issuer && c.tbs_certificate.serial_number == i.serial_number
+            }
+            SignerIdentifier::SubjectKeyIdentifier(_) => false,
+        })
+        .ok_or("la firma no incluye el certificado del firmante")?
+        .clone();
+    let alg = digest_from_oid(&si.digest_alg.oid).ok_or("algoritmo de resumen no soportado")?;
+    let attrs = si.signed_attrs.as_ref().ok_or("la firma no tiene atributos firmados")?;
+    let expected = attrs
+        .iter()
+        .find(|a| a.oid == OID_MESSAGE_DIGEST)
+        .and_then(|a| a.values.iter().next())
+        .and_then(|v| v.decode_as::<der::asn1::OctetString>().ok())
+        .ok_or("falta el resumen firmado")?;
+    if expected.as_bytes() != alg.digest(content).as_slice() {
+        return Err("el contenido del documento ha sido modificado desde que se firmó".into());
+    }
+    let signed = attrs.to_der().map_err(|e| e.to_string())?;
+    if !verify_signature(
+        &leaf.tbs_certificate.subject_public_key_info,
+        &si.signature_algorithm.oid,
+        alg,
+        &signed,
+        si.signature.as_bytes(),
+    ) {
+        return Err("la firma digital no corresponde al certificado (firma rota)".into());
+    }
+    Ok((leaf, certs))
 }

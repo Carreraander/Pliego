@@ -99,3 +99,57 @@ fn wrong_password_is_a_clear_error() {
     let err = Pkcs12Signer::from_bytes(&pki.p12, "otra").err().unwrap();
     assert!(err.to_string().contains("contraseña"));
 }
+
+mod timestamp {
+    use super::*;
+    use pliego_sign::{LocalTsa, PadesLevel, sign_bytes_with_tsa};
+
+    #[test]
+    fn b_t_signature_carries_a_valid_timestamp() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        // La "TSA" usa su propia clave (otra CA) para comprobar que su cadena se valida aparte.
+        let tsa_pki = make_pki_for(true, true);
+        let tsa = LocalTsa {
+            signer: Pkcs12Signer::from_bytes(&tsa_pki.p12, PASSWORD).unwrap(),
+            digest: pliego_sign::DigestAlg::Sha256,
+        };
+        let opts = SignOptions {
+            level: PadesLevel::BT,
+            ..Default::default()
+        };
+        let signed = sign_bytes_with_tsa(&corpus_pdf(), &signer, &opts, Some(&tsa)).unwrap();
+        if let Ok(dir) = std::env::var("PLIEGO_SIGN_OUT") {
+            std::fs::write(format!("{dir}/firmado-bt.pdf"), &signed).unwrap();
+            std::fs::write(format!("{dir}/ca-bt.der"), &pki.ca_der).unwrap();
+            std::fs::write(format!("{dir}/ca-tsa.der"), &tsa_pki.ca_der).unwrap();
+        }
+        let both = ValidationOptions {
+            trust_anchors: vec![
+                Certificate::from_der(&pki.ca_der).unwrap(),
+                Certificate::from_der(&tsa_pki.ca_der).unwrap(),
+            ],
+        };
+        let r = &validate_bytes(&signed, &both).unwrap()[0];
+        assert!(r.is_valid(), "{:?}", r.problems);
+        assert!(r.has_timestamp);
+        let t = r.timestamp.as_ref().unwrap();
+        assert!(t.valid);
+        assert_eq!(t.chain, ChainStatus::Trusted);
+
+        // Un sello de otra firma no vale: se cambia el valor de la firma sellada.
+        let plain = sign_bytes(&corpus_pdf(), &signer, &SignOptions::default()).unwrap();
+        assert!(!validate_bytes(&plain, &both).unwrap()[0].has_timestamp);
+    }
+
+    #[test]
+    fn b_t_without_tsa_is_an_error() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let opts = SignOptions {
+            level: PadesLevel::BT,
+            ..Default::default()
+        };
+        assert!(sign_bytes(&corpus_pdf(), &signer, &opts).is_err());
+    }
+}

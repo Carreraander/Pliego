@@ -7,8 +7,10 @@ mod cms;
 mod pdfwrite;
 mod sign;
 mod signer;
+mod timestamp;
 mod validate;
 
-pub use sign::{SignOptions, sign, sign_bytes};
+pub use sign::{PadesLevel, SignOptions, sign, sign_bytes, sign_bytes_with_tsa};
 pub use signer::{DigestAlg, Pkcs12Signer, SignatureScheme, Signer, load_certificate, subject_name};
+pub use timestamp::{HttpTsa, LocalTsa, TimestampAuthority, TimestampInfo};
 pub use validate::{ChainStatus, SignatureReport, ValidationOptions, validate, validate_bytes, validate_with};

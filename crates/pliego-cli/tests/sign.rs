@@ -108,3 +108,21 @@ fn sign_refuses_to_overwrite_input() {
         .unwrap();
     assert!(!out.status.success());
 }
+
+#[test]
+fn level_b_t_without_tsa_fails_cleanly() {
+    let dir = tempfile::tempdir().unwrap();
+    make_pki(dir.path());
+    let out = pliego()
+        .arg("sign")
+        .arg(corpus())
+        .arg("-o")
+        .arg(dir.path().join("x.pdf"))
+        .arg("--p12")
+        .arg(dir.path().join("test.p12"))
+        .args(["--password", "prueba", "--level", "b-t"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("sellado de tiempo"));
+}

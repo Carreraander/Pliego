@@ -1,9 +1,17 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, bail};
-use clap::Args;
+use clap::{Args, ValueEnum};
 use pliego_core::JobContext;
-use pliego_sign::{ChainStatus, Pkcs12Signer, SignOptions, ValidationOptions};
+use pliego_sign::{ChainStatus, PadesLevel, Pkcs12Signer, SignOptions, ValidationOptions};
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum Level {
+    #[value(name = "b-b")]
+    BB,
+    #[value(name = "b-t")]
+    BT,
+}
 
 #[derive(Args)]
 pub struct SignArgs {
@@ -21,6 +29,12 @@ pub struct SignArgs {
     /// Página (desde 1) donde se coloca el campo de firma.
     #[arg(long, default_value_t = 1)]
     pub page: usize,
+    /// Nivel PAdES: b-b (básico) o b-t (con sello de tiempo, requiere --tsa).
+    #[arg(long, value_enum, default_value = "b-b")]
+    pub level: Level,
+    /// Dirección http del servidor de sellado de tiempo (RFC 3161).
+    #[arg(long)]
+    pub tsa: Option<String>,
     /// Nombre del campo de firma.
     #[arg(long)]
     pub field: Option<String>,
@@ -54,6 +68,11 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         .unwrap_or_default();
     let signer = Pkcs12Signer::from_file(&a.p12, &password)?;
     let opts = SignOptions {
+        level: match a.level {
+            Level::BB => PadesLevel::BB,
+            Level::BT => PadesLevel::BT,
+        },
+        timestamp_url: a.tsa,
         page: a.page - 1,
         field_name: a.field,
         reason: a.reason,
@@ -109,6 +128,13 @@ pub fn verify(a: VerifyArgs, json: bool) -> anyhow::Result<()> {
                 println!("  fecha: {t}");
             }
             println!("  certificado: {}", chain_text(r.chain));
+            if let Some(t) = &r.timestamp {
+                println!(
+                    "  sello de tiempo: {} ({})",
+                    t.time,
+                    if t.valid { "válido" } else { "no válido" }
+                );
+            }
             for p in &r.problems {
                 println!("  aviso: {p}");
             }

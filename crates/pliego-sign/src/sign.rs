@@ -7,15 +7,33 @@ use lopdf::{Dictionary, Object, ObjectId, dictionary};
 use pliego_core::{Error, JobContext, Report, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::cms::build_cms;
+use crate::cms::{OID_TIMESTAMP_TOKEN, add_unsigned_attribute, build_cms, signature_value};
 use crate::pdfwrite::{text_string, write_dict, write_object};
 use crate::signer::{DigestAlg, Signer, subject_name};
+use crate::timestamp::{HttpTsa, TimestampAuthority, request_token};
+
+/// Nivel PAdES de la firma.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum PadesLevel {
+    #[default]
+    BB,
+    /// Con sello de tiempo de la firma (RFC 3161).
+    BT,
+    /// Con datos de validación a largo plazo (aún no implementado).
+    BLt,
+    /// Con sello de tiempo del documento (aún no implementado).
+    BLta,
+}
 
 /// Opciones de firma. Se pueden guardar en acciones en lote.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SignOptions {
     pub digest: DigestAlg,
+    pub level: PadesLevel,
+    /// Servidor de sellado de tiempo (http) para los niveles B-T o superiores.
+    pub timestamp_url: Option<String>,
     /// Página (desde 0) donde se coloca el campo de firma. Invisible en esta versión.
     pub page: usize,
     pub field_name: Option<String>,
@@ -32,6 +50,8 @@ impl Default for SignOptions {
     fn default() -> Self {
         Self {
             digest: DigestAlg::Sha256,
+            level: PadesLevel::BB,
+            timestamp_url: None,
             page: 0,
             field_name: None,
             reason: None,
@@ -117,6 +137,39 @@ impl Changes<'_> {
 
 /// Firma `input` (bytes de un PDF) y devuelve el PDF firmado.
 pub fn sign_bytes(input: &[u8], signer: &dyn Signer, opts: &SignOptions) -> Result<Vec<u8>> {
+    let http;
+    let tsa: Option<&dyn TimestampAuthority> = match (&opts.timestamp_url, opts.level) {
+        (_, PadesLevel::BB) => None,
+        (Some(url), _) => {
+            http = HttpTsa { url: url.clone() };
+            Some(&http)
+        }
+        (None, _) => {
+            return Err(Error::InvalidInput(
+                "este nivel de firma necesita la dirección de un servidor de sellado de tiempo".into(),
+            ));
+        }
+    };
+    sign_bytes_with_tsa(input, signer, opts, tsa)
+}
+
+/// Como [`sign_bytes`], con la autoridad de sellado de tiempo indicada (p. ej. una local en pruebas).
+pub fn sign_bytes_with_tsa(
+    input: &[u8],
+    signer: &dyn Signer,
+    opts: &SignOptions,
+    tsa: Option<&dyn TimestampAuthority>,
+) -> Result<Vec<u8>> {
+    if opts.level >= PadesLevel::BLt {
+        return Err(Error::Unsupported(
+            "los niveles B-LT y B-LTA todavía no están disponibles".into(),
+        ));
+    }
+    if opts.level == PadesLevel::BT && tsa.is_none() {
+        return Err(Error::InvalidInput(
+            "el nivel B-T necesita un servidor de sellado de tiempo".into(),
+        ));
+    }
     let doc = lopdf::Document::load_mem(input).map_err(pdf_err)?;
     if doc.trailer.has(b"Encrypt") {
         return Err(Error::Unsupported(
@@ -321,7 +374,11 @@ pub fn sign_bytes(input: &[u8], signer: &dyn Signer, opts: &SignOptions) -> Resu
     out[br_pos..br_pos + br.len()].copy_from_slice(br.as_bytes());
     let mut covered = out[..contents_open].to_vec();
     covered.extend_from_slice(&out[contents_close..]);
-    let cms = build_cms(signer, opts.digest, &opts.digest.digest(&covered))?;
+    let mut cms = build_cms(signer, opts.digest, &opts.digest.digest(&covered))?;
+    if let (PadesLevel::BT, Some(tsa)) = (opts.level, tsa) {
+        let token = request_token(tsa, opts.digest, &signature_value(&cms)?)?;
+        cms = add_unsigned_attribute(&cms, OID_TIMESTAMP_TOKEN, &token)?;
+    }
     if cms.len() > opts.contents_size {
         return Err(Error::InvalidInput(format!(
             "la firma ({} bytes) no cabe en el espacio reservado ({} bytes); aumente contents_size",

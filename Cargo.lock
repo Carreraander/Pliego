@@ -3966,8 +3966,10 @@ dependencies = [
  "pliego-core",
  "pliego-engine-mupdf",
  "serde",
+ "sha2 0.10.9",
  "tempfile",
  "tesseract-sys",
+ "ureq",
 ]
 
 [[package]]

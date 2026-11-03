@@ -43,6 +43,9 @@ enum Command {
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
     Export(commands::convert::ExportArgs),
+    /// Exporta a Word, Excel o PowerPoint.
+    #[command(subcommand)]
+    Office(commands::office::OfficeCommand),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -59,5 +62,6 @@ fn main() -> anyhow::Result<()> {
         Command::Annot(c) => commands::annot::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
+        Command::Office(c) => commands::office::run(c, cli.json),
     }
 }

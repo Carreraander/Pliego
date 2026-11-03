@@ -742,6 +742,8 @@ dependencies = [
  "pliego-core",
  "pliego-engine-mupdf",
  "pliego-optimize",
+ "pliego-protect",
+ "serde",
  "serde_json",
  "tempfile",
 ]
@@ -766,6 +768,7 @@ dependencies = [
  "mupdf",
  "pliego-core",
  "serde",
+ "serde_json",
  "tempfile",
  "tiff",
 ]
@@ -807,6 +810,16 @@ dependencies = [
  "pliego-core",
  "serde",
  "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-protect"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
  "tempfile",
 ]
 

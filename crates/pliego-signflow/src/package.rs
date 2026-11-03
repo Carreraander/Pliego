@@ -82,6 +82,7 @@ pub(crate) fn prepare_at(doc: &[u8], signers: &Signers, now: i64) -> Result<Pack
     let spec_id = inc.new_document.add_object(Object::Dictionary(filespec));
 
     register_attachment(&mut inc, root_id, spec_id)?;
+    add_summary_page(&mut inc, root_id, &manifest)?;
     let mut out = Vec::new();
     inc.save_to(&mut out)
         .map_err(|e| Error::Pdf(format!("no se pudo escribir el PDF: {e}")))?;
@@ -194,4 +195,85 @@ pub fn read_manifest(doc: &[u8]) -> Result<Manifest> {
         .ok_or_else(|| Error::InvalidInput("el documento no es un paquete de firmas de Pliego".into()))?;
     serde_json::from_slice(&raw)
         .map_err(|e| Error::InvalidInput(format!("el manifiesto del paquete no es válido: {e}")))
+}
+
+/// Texto en Latin-1 (WinAnsi) escapado para una cadena literal PDF; lo que no cabe se sustituye por «?».
+fn pdf_text(s: &str) -> Vec<u8> {
+    let mut out = Vec::new();
+    for c in s.chars() {
+        let b = if (c as u32) < 256 && (c as u32) >= 32 {
+            c as u8
+        } else {
+            b'?'
+        };
+        if matches!(b, b'(' | b')' | b'\\') {
+            out.push(b'\\');
+        }
+        out.push(b);
+    }
+    out
+}
+
+/// Añade al final una «hoja de firmas» con los firmantes, su orden y la huella del original.
+fn add_summary_page(inc: &mut IncrementalDocument, root_id: lopdf::ObjectId, m: &Manifest) -> Result<()> {
+    let prev = inc.get_prev_documents().clone();
+    let pages_id = prev
+        .get_dictionary(root_id)
+        .and_then(|c| c.get(b"Pages"))
+        .and_then(Object::as_reference)
+        .map_err(pdf_err)?;
+    inc.opt_clone_object_to_new_document(pages_id).map_err(pdf_err)?;
+
+    let mut lines: Vec<(f32, String)> = vec![
+        (18.0, "Hoja de firmas".into()),
+        (10.0, "Flujo de firmas local de Pliego".into()),
+        (
+            10.0,
+            format!("Huella SHA-256 del documento original: {}", m.original_sha256),
+        ),
+        (10.0, String::new()),
+        (12.0, "Firmantes, por orden de firma:".into()),
+    ];
+    for (i, s) in m.signers.0.iter().enumerate() {
+        let mail = s.email.as_deref().map(|e| format!(" <{e}>")).unwrap_or_default();
+        lines.push((11.0, format!("{}. {}{}", i + 1, s.name, mail)));
+    }
+    let mut content = b"BT\n".to_vec();
+    let mut y = 780.0f32;
+    for (size, text) in &lines {
+        content.extend_from_slice(format!("/F1 {size} Tf 1 0 0 1 56 {y} Tm (").as_bytes());
+        content.extend_from_slice(&pdf_text(text));
+        content.extend_from_slice(b") Tj\n");
+        y -= size + 8.0;
+    }
+    content.extend_from_slice(b"ET");
+    let content_id = inc
+        .new_document
+        .add_object(Object::Stream(Stream::new(Dictionary::new(), content)));
+    let font = dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding" };
+    let page = dictionary! {
+        "Type" => "Page",
+        "Parent" => Object::Reference(pages_id),
+        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+        "Contents" => Object::Reference(content_id),
+        "Resources" => dictionary! { "Font" => dictionary! { "F1" => font } },
+    };
+    let page_id = inc.new_document.add_object(Object::Dictionary(page));
+
+    let pages = inc
+        .new_document
+        .get_object_mut(pages_id)
+        .and_then(Object::as_dict_mut)
+        .map_err(pdf_err)?;
+    let count = pages.get(b"Count").and_then(Object::as_i64).unwrap_or(0);
+    pages.set("Count", count + 1);
+    match pages.get_mut(b"Kids") {
+        Ok(Object::Array(k)) => k.push(Object::Reference(page_id)),
+        _ => {
+            return Err(Error::Unsupported(
+                "el árbol de páginas del documento no es compatible".into(),
+            ));
+        }
+    }
+    Ok(())
 }

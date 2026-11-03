@@ -49,7 +49,9 @@ fn three() -> Signers {
 fn three_signers_in_order() {
     let pkg = prepare(&corpus(), &three()).unwrap();
     assert_eq!(read_manifest(&pkg.pdf).unwrap(), pkg.manifest);
+    let before = lopdf::Document::load_mem(&corpus()).unwrap().get_pages().len();
     let mut doc = pkg.pdf;
+    assert_eq!(lopdf::Document::load_mem(&doc).unwrap().get_pages().len(), before + 1);
     for (i, name) in ["Ana", "Beto", "Carla"].iter().enumerate() {
         let p = next_signer(&doc).unwrap().expect("pendiente");
         assert_eq!((p.index, p.spec.name.as_str()), (i, *name));

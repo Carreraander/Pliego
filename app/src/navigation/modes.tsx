@@ -2,7 +2,7 @@
  * Barra de modos: los seis modos por defecto (§4.2) y las herramientas que el usuario fija. Los modos de los demás flujos
  * se registran con `registerMode` (shell/slots) con el mismo id que su manifiesto y sustituyen al marcador de aquí.
  */
-import { createEffect, createRoot } from "solid-js";
+import { createEffect, createRoot, untrack } from "solid-js";
 import { Button } from "../ui";
 import { modes, registerMode, type ModeDef } from "../shell";
 import { settings, updateSettings } from "../settings/store";
@@ -42,18 +42,22 @@ export function installModes(): () => void {
     DEFAULT_MODE_IDS.forEach((id, i) => { if (id !== "viewer.read" && !modes().some((m) => m.id === id)) registerMode(placeholderMode(id, (i + 1) * 10)); });
     let offs: (() => void)[] = [];
     createEffect(() => {
-      offs.forEach((off) => off());
-      offs = [];
-      pinnedIds().forEach((id, i) => {
-        const tool = tools().find((t) => t.id === id);
-        if (!tool || (DEFAULT_MODE_IDS as readonly string[]).includes(id)) return;
-        const order = 100 + i;
-        const existing = modes().find((m) => m.id === (tool.modeId ?? tool.id));
-        if (tool.kind === "mode" && existing) return;
-        offs.push(registerMode({
-          id: `pin:${tool.id}`, title: toolTitle(tool), icon: tool.icon, order,
-          toolbar: () => <Button variant="ghost" icon={tool.icon} onClick={() => void activateTool(tool)}>{nt("nav.mode.open", { title: toolTitle(tool) })}</Button>,
-        }));
+      const pinned = pinnedIds();
+      // Registrar y retirar modos escribe en el registro: no debe volver a disparar este efecto.
+      untrack(() => {
+        offs.forEach((off) => off());
+        offs = [];
+        pinned.forEach((id, i) => {
+          const tool = tools().find((t) => t.id === id);
+          if (!tool || (DEFAULT_MODE_IDS as readonly string[]).includes(id)) return;
+          const order = 100 + i;
+          const existing = modes().find((m) => m.id === (tool.modeId ?? tool.id));
+          if (tool.kind === "mode" && existing) return;
+          offs.push(registerMode({
+            id: `pin:${tool.id}`, title: toolTitle(tool), icon: tool.icon, order,
+            toolbar: () => <Button variant="ghost" icon={tool.icon} onClick={() => void activateTool(tool)}>{nt("nav.mode.open", { title: toolTitle(tool) })}</Button>,
+          }));
+        });
       });
     });
     return () => { offs.forEach((off) => off()); dispose(); };

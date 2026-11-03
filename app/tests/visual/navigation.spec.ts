@@ -55,7 +55,29 @@ test.describe("navegación (W20)", () => {
     await palette.locator('[data-tool="edit.watermark"]').click({ button: "right", force: true });
     await page.getByRole("menuitem", { name: "Fijar en la barra" }).click();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("tab", { name: "Marca de agua" })).toBeVisible();
+    await expect(palette).toBeHidden();
+    // Alt+7 sigue la posición visible (el modo fijado es el séptimo) y el clic derecho lo quita.
+    const pinned = page.getByRole("tab", { name: "Marca de agua" });
+    await expect(pinned).toBeVisible();
+    await pinned.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Quitar de la barra" }).click();
+    await expect(pinned).toBeHidden();
+  });
+
+  test("la paleta de herramientas se abre y cierra con Ctrl+Mayús+A, con clic fuera y devuelve el foco", async ({ page }) => {
+    const opener = page.getByRole("button", { name: /^Herramientas/ });
+    await opener.focus();
+    await page.keyboard.press("Control+Shift+A");
+    const palette = page.getByRole("dialog", { name: "Todas las herramientas" });
+    await expect(palette).toBeVisible();
+    await expect(palette).not.toHaveAttribute("aria-modal", "true");
+    await expect(page.getByRole("searchbox", { name: "Buscar herramientas…" })).toBeFocused();
+    await page.keyboard.press("Control+Shift+A");
+    await expect(palette).toBeHidden();
+    await expect(opener).toBeFocused();
+    await page.keyboard.press("Control+Shift+A");
+    await page.mouse.click(10, 300);
+    await expect(palette).toBeHidden();
   });
 
   test("F1 abre la hoja de atajos y permite cambiar uno sin conflictos", async ({ page }) => {

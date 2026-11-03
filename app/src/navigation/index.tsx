@@ -6,11 +6,12 @@ import { activateTool } from "./activate";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { installCommandProviders } from "./commands";
 import { installModes } from "./modes";
+import { PinnedModeMenu } from "./PinnedModeMenu";
 import { registerReferenceShortcuts } from "./reference";
 import { openShortcutSheet, ShortcutSheet } from "./ShortcutSheet";
 import { installShortcuts, registerShortcut } from "./shortcuts";
 import { nt } from "./strings";
-import { openToolsPalette, ToolsPalette } from "./ToolsPalette";
+import { ToolsPalette, toggleToolsPalette } from "./ToolsPalette";
 import "./navigation.css";
 
 export { activateTool } from "./activate";
@@ -24,7 +25,7 @@ export { pinTool, unpinTool, isPinned } from "./modes";
 
 /** Monta paletas y hoja de atajos. Va una sola vez dentro de la ventana (App.tsx). */
 export function NavigationHost() {
-  return <><CommandPalette /><ToolsPalette /><ShortcutSheet /></>;
+  return <><CommandPalette /><ToolsPalette /><ShortcutSheet /><PinnedModeMenu /></>;
 }
 
 /** Arranca la navegación: iconos, herramientas de base, proveedores de la paleta, modos, atajos y los enganches del armazón. */
@@ -32,7 +33,7 @@ export function installNavigation(): () => void {
   registerToolIcons();
   registerBaseTools();
   setPaletteOpener((q) => openCommandPalette(q ?? ""));
-  setToolsOpener(openToolsPalette);
+  setToolsOpener(toggleToolsPalette);
   const offs = [
     installCommandProviders(),
     installModes(),

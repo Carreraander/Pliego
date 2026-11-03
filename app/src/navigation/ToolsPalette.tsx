@@ -11,6 +11,8 @@ import { nt } from "./strings";
 
 const [open, setOpen] = createSignal(false);
 export function openToolsPalette(): void { setOpen(true); }
+/** `Ctrl+Mayús+A` la abre y la cierra. */
+export function toggleToolsPalette(): void { setOpen((o) => !o); }
 export const closeToolsPalette = (): void => { setOpen(false); };
 
 /** Paleta «Herramientas» (`Ctrl+Mayús+A`): todas las herramientas por grupo (§4.3), con buscador; las desactivadas dicen por qué. */
@@ -20,9 +22,27 @@ export function ToolsPalette() {
   const [q, setQ] = createSignal("");
   const [menu, setMenu] = createSignal<{ point: Point; tool: ToolManifest } | null>(null);
 
+  let opener: HTMLElement | null = null;
+  const onPointerDown = (e: PointerEvent) => {
+    const target = e.target as HTMLElement;
+    if (!dialog.contains(target) && !target.closest(".pl-popover, .pl-modetab--tools")) setOpen(false);
+  };
+  const onEscape = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector(".pl-popover")) { e.preventDefault(); setOpen(false); }
+  };
   createEffect(on(open, (isOpen) => {
-    if (isOpen && !dialog.open) { setQ(""); dialog.show(); queueMicrotask(() => input.focus()); }
-    else if (!isOpen && dialog.open) dialog.close();
+    if (isOpen && !dialog.open) {
+      opener = document.activeElement as HTMLElement | null;
+      setQ(""); dialog.show(); queueMicrotask(() => input.focus());
+      addEventListener("pointerdown", onPointerDown, true);
+      addEventListener("keydown", onEscape);
+    } else if (!isOpen && dialog.open) {
+      dialog.close();
+      removeEventListener("pointerdown", onPointerDown, true);
+      removeEventListener("keydown", onEscape);
+      if (opener?.isConnected) opener.focus();
+      opener = null;
+    }
   }));
 
   const groups = createMemo(() => toolsByGroup().map((g) => ({
@@ -52,10 +72,9 @@ export function ToolsPalette() {
   };
 
   return (
-    <dialog ref={dialog} class="pl-palette pl-palette--tools" aria-modal="true" aria-label={nt("nav.tools")}
-      onKeyDown={(e) => { if (e.key === "Escape" && !e.defaultPrevented) { e.preventDefault(); setOpen(false); } }}
+    <dialog ref={dialog} class="pl-palette pl-palette--tools" role="dialog" aria-label={nt("nav.tools")}
       onFocusOut={(e) => { const next = e.relatedTarget as HTMLElement | null; if (next && !dialog.contains(next) && !next.closest(".pl-popover")) setOpen(false); }} onCancel={(e) => { e.preventDefault(); setOpen(false); }} onClose={() => setOpen(false)}
-      onClick={(e) => { if (e.target === dialog) setOpen(false); }}>
+      >
       <div class="pl-palette__search">
         <Icon name="search" size={18} />
         <input ref={input} type="search" aria-label={nt("nav.tools.search")} placeholder={nt("nav.tools.search")} autocomplete="off" value={q()} onInput={(e) => setQ(e.currentTarget.value)} />

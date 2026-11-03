@@ -19,10 +19,10 @@ regex = "1"
 sha2 = { version = "0.10", optional = true }
 ureq = { version = "3", default-features = false, features = ["rustls"], optional = true }
 serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-serde_json.workspace = true
 
 [lints]
 workspace = true

@@ -56,6 +56,7 @@ pub fn run() {
             let service = DocumentService::discover()?.on_document_changed(move |ev| {
                 let _ = handle.emit("document-changed", ev);
             });
+            app.manage(commands::assistant::AssistantState::default());
             app.manage(AppState {
                 service: Arc::new(service),
                 startup_files: Mutex::new(commands::startup::pdf_args(std::env::args())),

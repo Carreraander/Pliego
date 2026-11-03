@@ -1,6 +1,6 @@
 [package]
 name = "pliego-app-service"
-description = "Servicio de documentos de la app: hilo por documento, caché y servidor de teselas (sin Tauri)"
+description = "Servicio de documentos de la app: motor aislado (pliego-worker), teselas PNG y revisiones (sin Tauri)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,10 +8,12 @@ repository.workspace = true
 
 [dependencies]
 pliego-core.workspace = true
-pliego-engine-mupdf.workspace = true
+pliego-worker = { path = "../../crates/pliego-worker" }
+png = "0.17"
 serde.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
 tempfile.workspace = true
 
 [lints]

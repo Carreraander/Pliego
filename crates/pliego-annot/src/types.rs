@@ -81,6 +81,87 @@ pub enum Geometry {
     Ink {
         strokes: Vec<Vec<PointPts>>,
     },
+    /// Sello: predefinido en español, texto propio o imagen.
+    Stamp {
+        rect: RectPts,
+        source: StampSource,
+    },
+    /// Enlace a una dirección web o a una página del documento.
+    Link {
+        rect: RectPts,
+        target: LinkTarget,
+    },
+    /// Archivo adjunto con icono de clip en un punto de la página.
+    Attachment {
+        at: PointPts,
+        path: String,
+    },
+}
+
+/// Sellos predefinidos (texto en español).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StampPreset {
+    Aprobado,
+    Rechazado,
+    Borrador,
+    Confidencial,
+    Revisado,
+    Urgente,
+    Copia,
+    Final,
+}
+
+impl StampPreset {
+    pub fn text(self) -> &'static str {
+        match self {
+            StampPreset::Aprobado => "APROBADO",
+            StampPreset::Rechazado => "RECHAZADO",
+            StampPreset::Borrador => "BORRADOR",
+            StampPreset::Confidencial => "CONFIDENCIAL",
+            StampPreset::Revisado => "REVISADO",
+            StampPreset::Urgente => "URGENTE",
+            StampPreset::Copia => "COPIA",
+            StampPreset::Final => "FINAL",
+        }
+    }
+    pub fn color(self) -> Rgb {
+        match self {
+            StampPreset::Aprobado | StampPreset::Final => [0.1, 0.5, 0.2],
+            StampPreset::Rechazado | StampPreset::Urgente => [0.75, 0.1, 0.1],
+            StampPreset::Confidencial => [0.55, 0.1, 0.1],
+            StampPreset::Borrador | StampPreset::Copia => [0.35, 0.35, 0.4],
+            StampPreset::Revisado => [0.1, 0.3, 0.7],
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum StampSource {
+    Preset {
+        preset: StampPreset,
+    },
+    Text {
+        text: String,
+        color: Rgb,
+    },
+    /// Imagen (PNG o JPEG) escalada para caber en el recuadro conservando la proporción.
+    Image {
+        path: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum LinkTarget {
+    Uri {
+        uri: String,
+    },
+    /// Página de destino (desde 0).
+    Page {
+        page: usize,
+    },
 }
 
 /// Resultado de una revisión (respuesta de estado).
@@ -223,4 +304,6 @@ pub struct AnnotInfo {
     pub line: Option<(PointPts, PointPts)>,
     pub reply_to: Option<i32>,
     pub state: Option<ReviewState>,
+    /// Destino de un enlace: dirección web o `#página` (desde 1).
+    pub link: Option<String>,
 }

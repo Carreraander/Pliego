@@ -53,7 +53,7 @@ Hacer que todas las funciones de Pliego se encuentren y se usen igual: registro 
 - Barra de modos: seis modos por defecto, "Herramientas ▾", fijar/soltar/reordenar (persistido en ajustes),
   `Alt+1…9`, plegado a desplegable en ventanas estrechas. Barra de herramientas del modo generada desde el manifiesto
   del modo, con atajos de una letra cuando el foco está en el lienzo.
-- Paleta "Herramientas" (`Ctrl+Mayús+T`): grupos de §4.3, buscador, herramientas desactivadas con motivo.
+- Paleta "Herramientas" (`Ctrl+Mayús+A`): grupos de §4.3, buscador, herramientas desactivadas con motivo.
 - Paleta de órdenes (`Ctrl+K`): proveedores enchufables (órdenes, documentos abiertos, recientes, "ir a página N",
   buscar texto en el documento, ajustes); búsqueda aproximada sin tildes ni mayúsculas; atajo visible; navegación con
   flechas, `Enter`, `Tab`, `Esc`.

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "app/service"]
+members = ["crates/*", "app/service", "app/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,7 +14,12 @@ authors = ["Proyecto Pliego"]
 pliego-core = { path = "crates/pliego-core" }
 pliego-engine-mupdf = { path = "crates/pliego-engine-mupdf" }
 pliego-organize = { path = "crates/pliego-organize" }
-mupdf = { version = "0.8", default-features = true }
+pliego-stamp = { path = "crates/pliego-stamp" }
+# Sin la característica `tesseract` de MuPDF: incluye su propio Tesseract/Leptonica estático y choca por símbolos
+# con el Tesseract que enlaza `pliego-ocr` (provoca SIGSEGV al iniciar el OCR). El resto son las de por defecto.
+mupdf = { version = "0.8", default-features = false, features = [
+  "js", "xps", "svg", "cbz", "img", "html", "epub", "system-fonts", "brotli", "docx-output", "base14-fonts",
+] }
 anyhow = "1"
 thiserror = "2"
 clap = { version = "4.6", features = ["derive"] }

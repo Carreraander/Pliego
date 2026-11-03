@@ -1,0 +1,52 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 777 >>
+stream
+BT /F1 16 Tf 50 790 Td (ENCUESTA) Tj ET
+0.8 w 60 740 11 11 re S
+BT /F1 10 Tf 76 742 Td (Acepto las condiciones) Tj ET
+0.8 w 60 710 11 11 re S
+BT /F1 10 Tf 76 712 Td (Deseo recibir informacion) Tj ET
+0.8 w 60 680 11 11 re S
+BT /F1 10 Tf 76 682 Td (Soy mayor de edad) Tj ET
+0.8 w 60 650 11 11 re S
+BT /F1 10 Tf 76 652 Td (Resido en Espana) Tj ET
+0.8 w 60 620 11 11 re S
+BT /F1 10 Tf 76 622 Td (Tengo vehiculo) Tj ET
+0.8 w 60 590 11 11 re S
+BT /F1 10 Tf 76 592 Td (Tengo mascota) Tj ET
+0.8 w 60 560 11 11 re S
+BT /F1 10 Tf 76 562 Td (Trabajo por cuenta propia) Tj ET
+0.8 w 60 530 11 11 re S
+BT /F1 10 Tf 76 532 Td (Otra situacion) Tj ET
+BT /F1 10 Tf 60 462 Td (Observacion:) Tj ET
+0.8 w 123.0 460 m 403.0 460 l S
+BT /F1 10 Tf 60 422 Td (Otra:) Tj ET
+0.8 w 88.0 420 m 368.0 420 l S
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1166
+%%EOF

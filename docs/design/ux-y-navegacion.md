@@ -45,7 +45,7 @@ Sustituye al boceto del PR #1.
 | Raíl | 48 px | Paneles: Miniaturas, Marcadores, Comentarios, Adjuntos, Capas, Firmas, Búsqueda | Clic en el activo pliega el panel. `F4` alterna panel. |
 | Panel lateral | 264 px (200–480) | El panel elegido en el raíl | Redimensionable, recuerda ancho por panel. |
 | Lienzo | resto | Páginas por teselas, zoom flotante abajo a la derecha | Fondo `--pl-canvas`. Barra de aviso del documento pegada arriba del lienzo. |
-| Inspector | 320 px (280–480) | Propiedades de lo seleccionado o el panel de la tarea en curso | Se abre solo cuando hay algo que mostrar; `F6` alterna. |
+| Inspector | 320 px (280–480) | Propiedades de lo seleccionado o el panel de la tarea en curso | Se abre solo cuando hay algo que mostrar; `F9` alterna. |
 | Barra de estado | 28 px | Página y tamaño de papel, centro de tareas, estado del documento (firma, protección, PDF/A), zoom y modo de vista | Cada elemento es clicable (ir a página, abrir centro de tareas, panel de firmas…). |
 
 Ventana mínima 720 × 480. Por debajo de 900 px de ancho el panel lateral y el inspector se superponen al lienzo en
@@ -114,7 +114,7 @@ Seis fijos por defecto + "Herramientas". El usuario puede fijar cualquier herram
 | **Proteger** | Contraseña…, Permisos…, Cifrar con certificado…, Redactar ▸ (marcar, buscar datos personales, aplicar), Sanear documento…, Quitar protección | Panel de la tarea | W07 |
 
 ### 4.3 Paleta "Herramientas" (todas)
-Panel grande desplegado desde "Herramientas ▾" (o `Ctrl+Mayús+T`): buscador arriba y herramientas por grupo,
+Panel grande desplegado desde "Herramientas ▾" (o `Ctrl+Mayús+A`): buscador arriba y herramientas por grupo,
 cada una con icono, nombre y una línea de descripción. Las desactivadas (p. ej. "Validar firmas" sin firmas) se muestran
 atenuadas con el motivo en el tooltip, no se ocultan.
 
@@ -219,7 +219,7 @@ dañado y no se puede reparar. Prueba a descargarlo de nuevo." Nunca códigos in
 | Navegación | `Ctrl+Tab`/`Ctrl+Mayús+Tab` pestañas, `Ctrl+G` ir a página, `Inicio`/`Fin`, `RePág`/`AvPág`, `Alt+←/→` atrás/adelante en la historia de saltos |
 | Zoom y vista | `Ctrl++`/`Ctrl+-`, `Ctrl+0` ajustar página, `Ctrl+1` 100 %, `Ctrl+2` ajustar ancho, `Ctrl+rueda`, `Ctrl+R`/`Ctrl+Mayús+R` rotar vista, `F11` presentación |
 | Buscar | `Ctrl+K` paleta, `Ctrl+F` buscar en el documento, `F3`/`Mayús+F3` siguiente/anterior |
-| Paneles | `F4` panel lateral, `F6` inspector, `Ctrl+Mayús+T` herramientas |
+| Paneles | `F4` panel lateral, `F9` inspector, `F6`/`Mayús+F6` recorrer regiones, `Ctrl+Mayús+A` todas las herramientas |
 | Modos | `Alt+1`…`Alt+9` según posición en la barra |
 | Herramientas de modo | Una letra cuando el foco está en el lienzo (ver §4.2); `Esc` vuelve a Seleccionar |
 | Edición | `Ctrl+Z`, `Ctrl+Y`, `Supr`, `Ctrl+C`, `Ctrl+A` (página/selección) |

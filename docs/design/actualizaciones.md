@@ -109,7 +109,7 @@ por hora. Con conexión de uso medido de Windows, solo comprueba; no descarga si
 **Modos** (Ajustes > Actualizaciones):
 - *Automático* (por defecto): descarga en segundo plano y prepara la versión. Se aplica al cerrar Pliego.
 - *Solo avisar*: muestra que hay versión nueva; descarga al pulsar "Descargar".
-- *Desactivadas*.
+- *Desactivadas*: no hace ninguna petición (tampoco para avisar de obligatorias).
 Canal: Estable / Beta ("Recibe antes las novedades; puede tener fallos").
 
 **Cuando hay una versión preparada:** aparece en la barra de título una pastilla discreta "Actualización lista"
@@ -119,7 +119,7 @@ Pliego **nunca** se reinicia solo.
 
 **Obligatorias** (crítica, versión no soportada o bloqueada): barra de aviso en el documento, en tono de aviso,
 "Esta versión tiene un fallo de seguridad corregido en 0.5.1. [Reiniciar y actualizar]". Se puede cerrar la barra,
-pero vuelve en el siguiente arranque. Con modo *Solo avisar* se descarga igualmente; con *Desactivadas* solo avisa.
+pero vuelve en el siguiente arranque. Con modo *Solo avisar* se descarga igualmente; con *Desactivadas* no se comprueba nada, así que tampoco se avisa.
 
 **Ajustes > Actualizaciones** muestra: estado ("Pliego está al día · 0.4.0 · comprobado hace 2 h"; "Descargando
 0.5.0 · 34 %"; "0.5.0 lista para instalar"), botón "Buscar ahora", modo, canal, "Novedades de esta versión",
@@ -195,7 +195,11 @@ actualizaciones.ejemplo.es {
 Configuración de la app: compilar la versión oficial con `PLIEGO_UPDATE_URL=https://actualizaciones.ejemplo.es`.
 Hasta entonces, las pruebas usan `pliego-release serve` y `PLIEGO_UPDATE_URL=http://127.0.0.1:8787`.
 
-## 10. Prueba local hecha (2026-11-03, Linux de la sesión; repetir en acr12)
+## 10. Pruebas hechas (2026-11-03)
 `keygen` → `publish 0.2.0` (paquete de 2 MB) → `verify` → `serve` en `127.0.0.1:8787` → `check --current 0.1.0
 --download-to` (detecta 0.2.0, descarga con progreso y verifica SHA-256) → `check --current 0.2.0` ("al día").
 18 pruebas automáticas en verde (`cargo test -p pliego-update -p pliego-release`).
+
+En acr12 (Windows 10 Pro 22H2, 19045): las mismas 18 pruebas en verde (sin compilar MuPDF) y el mismo recorrido con
+`serve` en `127.0.0.1:8787`: descarga de 2 MB verificada, «al día» con 0.2.0, y un paquete con un byte cambiado se
+rechaza («la descarga no coincide…») sin dejar archivos; `verify` también lo detecta.

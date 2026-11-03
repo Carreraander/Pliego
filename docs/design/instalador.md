@@ -24,7 +24,8 @@ Instalación por usuario por defecto, sin UAC (como los navegadores y editores m
 ```
 %LOCALAPPDATA%\Programs\Pliego\
   Pliego.exe            lanzador (~300 KB): lee `current`, ejecuta app-<v>\pliego-app.exe con los mismos argumentos
-  pliego.exe            lanzador de la CLI (a app-<v>\pliego.exe); es lo que se añade al PATH
+  bin\pliego.exe        lanzador de la CLI (a app-<v>\pliego.exe); `bin\` es lo que se añade al PATH
+                        (no puede estar junto a Pliego.exe: NTFS no distingue mayúsculas)
   Uninstall.exe         copia de pliego-setup.exe (desinstalar y tareas posteriores a actualizar)
   current               texto: "0.4.0"
   pending               (solo si hay actualización preparada) texto: "0.5.0"
@@ -101,7 +102,7 @@ Por usuario (HKCU; por máquina, HKLM):
 - Menú contextual del Explorador y vista previa: los registra `pliego-shell` (W10). El instalador llama a su
   registro y desregistro.
 - Tras cambiar asociaciones: `SHChangeNotify(SHCNE_ASSOCCHANGED)`.
-- PATH (opcional): añade `%LOCALAPPDATA%\Programs\Pliego` al PATH del usuario y difunde `WM_SETTINGCHANGE`.
+- PATH (opcional): añade `%LOCALAPPDATA%\Programs\Pliego\bin` al PATH del usuario y difunde `WM_SETTINGCHANGE`.
 
 ## 7. Línea de órdenes del instalador
 

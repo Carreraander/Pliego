@@ -1,0 +1,40 @@
+[package]
+name = "pliego-app"
+description = "App de escritorio de Pliego (Tauri 2): capa fina sobre pliego-app-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+# Sin pruebas propias: el código con lógica vive en `pliego-app-service`. En Windows, WebView2 (CRT estático) y
+# MuPDF (CRT dinámico) no pueden enlazarse en un ejecutable de pruebas.
+[lib]
+name = "pliego_app_lib"
+test = false
+doctest = false
+
+[[bin]]
+name = "pliego-app"
+path = "src/main.rs"
+test = false
+
+[features]
+# Motor llama.cpp para el asistente (compila C++ con CMake). Desactivado por defecto.
+llama = ["pliego-assistant/llama"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+pliego-core.workspace = true
+pliego-app-service = { path = "../service" }
+pliego-assistant = { path = "../../crates/pliego-assistant", features = ["download"] }
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+
+[lints]
+workspace = true

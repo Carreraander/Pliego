@@ -6,10 +6,10 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Result, anyhow};
 use tiny_http::{Header, Response, Server};
 
-pub fn serve(root: &Path, addr: &str) -> Result<()> {
-    let root = std::fs::canonicalize(root)?;
+pub fn serve(root_arg: &Path, addr: &str) -> Result<()> {
+    let root = std::fs::canonicalize(root_arg)?;
     let server = Server::http(addr).map_err(|e| anyhow!("no se pudo escuchar en {addr}: {e}"))?;
-    println!("Sirviendo {} en http://{addr} (Ctrl+C para parar)", root.display());
+    println!("Sirviendo {} en http://{addr} (Ctrl+C para parar)", root_arg.display());
     for req in server.incoming_requests() {
         let url = req.url().to_owned();
         let status;

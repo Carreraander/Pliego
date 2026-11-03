@@ -3,8 +3,9 @@ use std::path::PathBuf;
 use anyhow::{Context, bail};
 use clap::{Args, ValueEnum};
 use pliego_convert::{
-    ExportImageFormat, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions, TextExportOptions,
-    images_to_pdf, pdf_to_images, pdf_to_text,
+    ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
+    TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, pdf_to_html,
+    pdf_to_images, pdf_to_svg, pdf_to_text, structured_text_pages, text_to_pdf,
 };
 use pliego_core::{JobContext, PageRange, Report};
 
@@ -19,7 +20,7 @@ pub enum OrientationArg {
 
 #[derive(Args)]
 pub struct CreateArgs {
-    /// Archivos de entrada (imágenes: JPG, PNG, TIFF, WebP, GIF, BMP).
+    /// Archivos de entrada: imágenes (JPG, PNG, TIFF, WebP, GIF, BMP) o un único .txt, .md o .html.
     #[arg(required = true)]
     pub inputs: Vec<PathBuf>,
     /// PDF de salida.
@@ -47,6 +48,12 @@ pub enum ExportTarget {
     Jpg,
     Tiff,
     Txt,
+    Html,
+    Svg,
+    /// Imágenes incrustadas, en su formato original.
+    Images,
+    /// Texto estructurado (bloques, líneas, fuentes) en JSON.
+    Json,
 }
 
 #[derive(Args)]
@@ -88,6 +95,38 @@ pub fn create(a: CreateArgs, json: bool) -> anyhow::Result<()> {
     if a.inputs.is_empty() {
         bail!("indica al menos un archivo de entrada");
     }
+    let kind = a.inputs[0]
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_lowercase)
+        .unwrap_or_default();
+    let doc_fn: Option<fn(&_, &_, &TextToPdfOptions, &JobContext) -> pliego_core::Result<Report>> = match kind.as_str()
+    {
+        "txt" => Some(text_to_pdf),
+        "md" | "markdown" => Some(markdown_to_pdf),
+        "html" | "htm" => Some(html_to_pdf),
+        _ => None,
+    };
+    if let Some(convert) = doc_fn {
+        if a.inputs.len() != 1 {
+            bail!("los archivos de texto, Markdown y HTML se convierten de uno en uno");
+        }
+        let opts = TextToPdfOptions {
+            page_size: if a.page_size == PageSizeSpec::Fit {
+                PageSizeSpec::A4
+            } else {
+                a.page_size
+            },
+            margin_pt: if a.margin_mm > 0.0 {
+                a.margin_mm * 72.0 / 25.4
+            } else {
+                TextToPdfOptions::default().margin_pt
+            },
+            ..Default::default()
+        };
+        let report = convert(&a.inputs[0], &a.output, &opts, &JobContext::silent())?;
+        return show(&report, json);
+    }
     let opts = ImagesToPdfOptions {
         page_size: a.page_size,
         margin_pt: a.margin_mm * 72.0 / 25.4,
@@ -103,6 +142,19 @@ pub fn create(a: CreateArgs, json: bool) -> anyhow::Result<()> {
     show(&report, json)
 }
 
+fn structured_json(a: &ExportArgs) -> pliego_core::Result<Report> {
+    let pages = structured_text_pages(&a.open.input, a.open.password.as_deref(), &a.pages)?;
+    let json = serde_json::to_vec_pretty(&pages).map_err(|e| pliego_core::Error::Other(e.to_string()))?;
+    if let Some(dir) = a.output.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(dir).map_err(|e| pliego_core::Error::io_at(dir, e))?;
+    }
+    std::fs::write(&a.output, json).map_err(|e| pliego_core::Error::io_at(&a.output, e))?;
+    Ok(Report::with_output(
+        &a.output,
+        format!("{} página(s) en JSON", pages.len()),
+    ))
+}
+
 pub fn export(a: ExportArgs, json: bool) -> anyhow::Result<()> {
     let ctx = JobContext::silent();
     let report = match a.to {
@@ -114,6 +166,17 @@ pub fn export(a: ExportArgs, json: bool) -> anyhow::Result<()> {
             &TextExportOptions::default(),
             &ctx,
         ),
+        ExportTarget::Html => pdf_to_html(&a.open.input, a.open.password.as_deref(), &a.pages, &a.output, &ctx),
+        ExportTarget::Svg => pdf_to_svg(&a.open.input, a.open.password.as_deref(), &a.pages, &a.output, &ctx),
+        ExportTarget::Images => extract_images(
+            &a.open.input,
+            a.open.password.as_deref(),
+            &a.pages,
+            &a.output,
+            &ExtractImagesOptions::default(),
+            &ctx,
+        ),
+        ExportTarget::Json => structured_json(&a),
         ExportTarget::Png | ExportTarget::Jpg | ExportTarget::Tiff => {
             let format = match a.to {
                 ExportTarget::Png => ExportImageFormat::Png,

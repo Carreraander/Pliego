@@ -67,3 +67,53 @@ fn create_with_missing_file_fails_cleanly() {
     assert!(!out.status.success());
     assert!(!dir.path().join("x.pdf").exists());
 }
+
+#[test]
+fn export_html_svg_and_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let html = dir.path().join("o.html");
+    let out = pliego()
+        .arg("export")
+        .arg(corpus())
+        .args(["--to", "html", "-o"])
+        .arg(&html)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(std::fs::read_to_string(&html).unwrap().contains("Hola"));
+
+    let svgs = dir.path().join("svg");
+    let out = pliego()
+        .arg("export")
+        .arg(corpus())
+        .args(["--to", "svg", "-p", "1", "-o"])
+        .arg(&svgs)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(svgs.join("hola-001.svg").exists());
+
+    let json = dir.path().join("o.json");
+    let out = pliego()
+        .arg("export")
+        .arg(corpus())
+        .args(["--to", "json", "-o"])
+        .arg(&json)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
+    assert_eq!(v.as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn create_from_markdown() {
+    let dir = tempfile::tempdir().unwrap();
+    let md = dir.path().join("n.md");
+    std::fs::write(&md, "# Hola\n\nTexto de prueba.\n").unwrap();
+    let pdf = dir.path().join("n.pdf");
+    let out = pliego().arg("create").arg(&md).arg("-o").arg(&pdf).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = pliego().arg("text").arg(&pdf).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).contains("Texto de prueba"));
+}

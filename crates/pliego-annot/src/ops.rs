@@ -214,6 +214,7 @@ fn info_of(page_no: usize, a: &PdfAnnotation) -> Result<Option<AnnotInfo>> {
         strokes: Vec::new(),
         line: None,
         reply_to,
+        link: None,
         state: dict_string(&obj, "State").and_then(|s| ReviewState::from_pdf_name(&s)),
     };
     match kind {
@@ -256,6 +257,7 @@ pub fn list(doc: &mut PdfDocument, page: Option<usize>) -> Result<Vec<AnnotInfo>
                 out.push(i);
             }
         }
+        crate::stamp::list_links(doc, &pg, p, &mut out)?;
     }
     Ok(out)
 }
@@ -319,6 +321,7 @@ fn apply_meta(
 /// Crea una anotación, genera su apariencia y devuelve su identificador.
 pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
     let mut page = page_of(doc, spec.page)?;
+    let mut custom_appearance = false;
     let mut a = match &spec.geometry {
         Geometry::Note { at } => {
             let r = Rect::new(at[0], at[1], at[0] + 20.0, at[1] + 20.0);
@@ -367,6 +370,11 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
         Geometry::PolyLine { points } => page
             .add_polyline_annotation(points.iter().map(|p| pt(*p)).collect::<Vec<_>>())
             .map_err(pe)?,
+        Geometry::Stamp { .. } | Geometry::Link { .. } | Geometry::Attachment { .. } => {
+            let (a, custom_ap) = crate::stamp::create(doc, &mut page, &spec.geometry)?;
+            custom_appearance = custom_ap;
+            a
+        }
         Geometry::Ink { strokes } => page
             .add_ink_annotation(
                 strokes
@@ -380,8 +388,8 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
     apply_meta(&mut a, &spec.author, &spec.subject, &spec.contents)?;
     let mut obj = a.object();
     let now = pdf_now();
-    put_string(&mut obj, "NM", &new_nm())?;
-    put_string(&mut obj, "CreationDate", &now)?;
+    put_string(&mut obj, "NM", &spec.nm.clone().unwrap_or_else(new_nm))?;
+    put_string(&mut obj, "CreationDate", spec.date.as_deref().unwrap_or(&now))?;
     put_string(&mut obj, "M", &now)?;
     if let Some(parent) = spec.reply_to {
         let ind = doc.new_indirect(parent.xref, 0).map_err(pe)?;
@@ -392,7 +400,9 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
             put_string(&mut obj, "State", s.pdf_name())?;
         }
     }
-    a.update().map_err(pe)?;
+    if !custom_appearance {
+        a.update().map_err(pe)?;
+    }
     let id = AnnotId {
         page: spec.page,
         xref: a.xref().map_err(pe)?,

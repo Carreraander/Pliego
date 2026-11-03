@@ -25,6 +25,7 @@ pliego-annot = { path = "../pliego-annot" }
 pliego-forms = { path = "../pliego-forms" }
 pliego-formdesign = { path = "../pliego-formdesign" }
 mupdf.workspace = true
+pliego-print = { path = "../pliego-print" }
 pliego-assistant = { path = "../pliego-assistant" }
 pliego-convert = { path = "../pliego-convert" }
 pliego-office-export = { path = "../pliego-office-export" }

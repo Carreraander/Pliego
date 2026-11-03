@@ -64,6 +64,9 @@ enum Command {
     /// Exporta a Word, Excel o PowerPoint.
     #[command(subcommand)]
     Office(commands::office::OfficeCommand),
+    /// Producción de impresión: tintas, preflight y separaciones.
+    #[command(subcommand)]
+    Print(commands::print::PrintCommand),
     /// Asistente local: resumir, preguntar y datos clave.
     #[command(subcommand)]
     Assistant(commands::assistant::AssistantCommand),
@@ -100,6 +103,7 @@ fn main() -> anyhow::Result<()> {
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
         Command::Office(c) => commands::office::run(c, cli.json),
+        Command::Print(c) => commands::print::run(c, cli.json),
         Command::Assistant(c) => commands::assistant::run(c, cli.json),
         Command::Redact(a) => commands::redact::run(a, cli.json),
         Command::A11y(c) => commands::a11y::run(c, cli.json),

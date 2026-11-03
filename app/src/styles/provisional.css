@@ -20,8 +20,10 @@ button:hover { background: var(--surface); border-color: var(--line); }
 button.primary { background: var(--accent); color: #fff; }
 .icon-btn { padding: 0 6px; }
 .zoom-label { min-width: 52px; text-align: center; }
-main { position: relative; min-height: 0; background: var(--canvas); }
+main { position: relative; min-height: 0; background: var(--canvas); display: flex; }
+.viewer-host { position: relative; flex: 1; min-width: 0; }
 .viewer { position: absolute; inset: 0; overflow: auto; }
+.empty { flex: 1; }
 .viewer-content { position: relative; margin: 0 auto; min-width: 100%; }
 .page { position: absolute; left: 50%; transform: translateX(-50%); background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .3); }
 .page-rot { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
@@ -36,3 +38,19 @@ main { position: relative; min-height: 0; background: var(--canvas); }
 .modal input { display: block; width: 100%; margin-top: 4px; padding: 6px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .field-error { color: #b3261e; margin: 0; }
+.toolbar-sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; }
+button.on { background: var(--surface); border-color: var(--line); }
+.sidebar { width: 168px; flex: none; overflow: auto; background: var(--surface); border-right: 1px solid var(--line); padding: 8px; }
+.thumbs { display: grid; gap: 10px; justify-items: center; }
+.thumb { display: grid; justify-items: center; gap: 2px; padding: 4px; }
+.thumb img { background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .3); }
+.thumb.active { border-color: var(--accent); }
+.thumb span { font-size: 11px; color: var(--text-2); }
+.outline ul { list-style: none; margin: 0; padding-left: 12px; }
+.outline > ul { padding-left: 0; }
+.outline-item { text-align: left; width: 100%; padding: 2px 6px; }
+.muted { color: var(--text-2); font-size: 12px; }
+.searchbox { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.searchbox input { padding: 3px 8px; min-width: 200px; }
+.hit { position: absolute; background: rgb(242 199 68 / .45); mix-blend-mode: multiply; pointer-events: none; }
+.hit.current { background: rgb(242 140 40 / .6); outline: 2px solid rgb(242 140 40); }

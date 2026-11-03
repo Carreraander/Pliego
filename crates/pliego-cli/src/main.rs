@@ -52,6 +52,9 @@ enum Command {
     /// Formularios: campos, rellenar, aplanar, importar/exportar, relleno masivo.
     #[command(subcommand)]
     Form(commands::form::FormCommand),
+    /// Diseñador de formularios: añadir, modificar y borrar campos, orden de tabulación.
+    #[command(subcommand)]
+    Formdesign(commands::formdesign::FormDesignCommand),
     /// Crea un PDF desde imágenes.
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
@@ -87,6 +90,7 @@ fn main() -> anyhow::Result<()> {
         Command::Protect(c) => commands::protect::run(c, cli.json),
         Command::Annot(c) => commands::annot::run(c, cli.json),
         Command::Form(c) => commands::form::run(c, cli.json),
+        Command::Formdesign(c) => commands::formdesign::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
         Command::Assistant(c) => commands::assistant::run(c, cli.json),

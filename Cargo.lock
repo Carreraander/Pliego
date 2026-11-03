@@ -3742,6 +3742,7 @@ dependencies = [
  "pliego-convert",
  "pliego-core",
  "pliego-engine-mupdf",
+ "pliego-formdesign",
  "pliego-forms",
  "pliego-optimize",
  "pliego-organize",
@@ -3806,6 +3807,17 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-formdesign"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 

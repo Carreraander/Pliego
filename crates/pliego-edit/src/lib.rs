@@ -4,9 +4,9 @@
 //! revisión y se puede deshacer. Las coordenadas son puntos PDF en el espacio de página de MuPDF
 //! (origen arriba a la izquierda, `y` hacia abajo, con la rotación de página aplicada).
 //!
-//! De momento el texto se reescribe con fuentes estándar (Helvetica, Times, Courier): al editar un bloque se
-//! retira el texto original y se compone el nuevo con reflujo dentro del bloque. Siempre se avisa de la
-//! sustitución de fuente en el [`Report`](pliego_core::Report).
+//! Al editar un bloque se retira el texto original y se compone el nuevo con reflujo dentro del bloque. Si la
+//! fuente original (incrustada o no) tiene todos los caracteres nuevos se reutiliza; si no, se sustituye por una
+//! estándar (Helvetica, Times, Courier) o una del sistema. Siempre se avisa en el [`Report`](pliego_core::Report).
 
 mod blocks;
 mod content;
@@ -15,6 +15,7 @@ mod fonts;
 mod images;
 mod links;
 mod objects;
+mod original;
 mod text;
 mod types;
 mod unicode;

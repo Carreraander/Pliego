@@ -735,6 +735,7 @@ dependencies = [
  "pliego-core",
  "pliego-engine-mupdf",
  "pliego-protect",
+ "pliego-redact",
  "serde",
  "serde_json",
  "tempfile",
@@ -785,6 +786,17 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
+ "serde",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-redact"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "regex",
  "serde",
  "tempfile",
 ]

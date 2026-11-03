@@ -72,7 +72,7 @@ pub fn html_string_to_pdf(html: &str, output: &Path, options: &TextToPdfOptions,
     }
     let (w, h) = options.page_size.size_pt().unwrap_or((595.28, 841.89));
     let m = options.margin_pt;
-    if !(options.font_size_pt.is_finite() && options.font_size_pt > 0.0) || !m.is_finite() || m < 0.0 {
+    if !options.font_size_pt.is_finite() || options.font_size_pt <= 0.0 || !m.is_finite() || m < 0.0 {
         return Err(Error::InvalidInput("tamaño de letra o margen no válidos".into()));
     }
     if w - 2.0 * m < 36.0 || h - 2.0 * m < 36.0 {

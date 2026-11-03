@@ -29,7 +29,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfontconfig1-dev libfreetype-dev \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev patchelf \
-            libtesseract-dev libleptonica-dev tesseract-ocr-eng tesseract-ocr-spa
+            libtesseract-dev libleptonica-dev tesseract-ocr-eng tesseract-ocr-spa tesseract-ocr-osd
       - name: Caché de vcpkg (Tesseract, Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/cache@v4
@@ -39,7 +39,7 @@ jobs:
       - name: Tesseract (Windows, vcpkg)
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        run: ./tools/ocr/setup-tesseract-windows.ps1 -GithubEnv $env:GITHUB_ENV -GithubPath $env:GITHUB_PATH
+        run: ./tools/ocr/setup-tesseract-windows.ps1 -GithubEnv $env:GITHUB_ENV -GithubPath $env:GITHUB_PATH -TessdataDir "$env:RUNNER_TEMP\tessdata"
       - name: Formato
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all --check

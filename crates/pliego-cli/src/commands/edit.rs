@@ -16,6 +16,82 @@ pub enum EditCommand {
     InsertText(InsertTextArgs),
     /// Crea un enlace externo o a otra página.
     Link(LinkArgs),
+    /// Lista las imágenes colocadas en una página.
+    Images(BlocksArgs),
+    /// Inserta una imagen (PNG, JPEG...) en un recuadro.
+    ImageInsert(ImageInsertArgs),
+    /// Sustituye una imagen por otra conservando su hueco.
+    ImageReplace(ImageReplaceArgs),
+    /// Borra una imagen.
+    ImageDelete(ImageIdArgs),
+    /// Mueve, redimensiona o gira una imagen.
+    ImageMove(ImageMoveArgs),
+    /// Recorta una imagen a un recuadro.
+    ImageCrop(ImageCropArgs),
+}
+
+#[derive(Args)]
+pub struct ImageInsertArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
+    /// Recuadro `x0,y0,x1,y1` en puntos, origen arriba a la izquierda.
+    #[arg(long)]
+    pub rect: String,
+    /// Archivo de imagen.
+    #[arg(long)]
+    pub image: PathBuf,
+}
+
+#[derive(Args)]
+pub struct ImageIdArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
+    /// Identificador de la imagen (el `id` que muestra `edit images`).
+    #[arg(long)]
+    pub id: usize,
+}
+
+#[derive(Args)]
+pub struct ImageReplaceArgs {
+    #[command(flatten)]
+    pub target: ImageIdArgs,
+    /// Archivo de la imagen nueva.
+    #[arg(long)]
+    pub image: PathBuf,
+}
+
+#[derive(Args)]
+pub struct ImageMoveArgs {
+    #[command(flatten)]
+    pub target: ImageIdArgs,
+    /// Desplazamiento horizontal en puntos.
+    #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
+    pub dx: f32,
+    /// Desplazamiento vertical en puntos (hacia abajo es positivo).
+    #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
+    pub dy: f32,
+    /// Factor de escala horizontal.
+    #[arg(long, default_value_t = 1.0)]
+    pub scale_x: f32,
+    /// Factor de escala vertical.
+    #[arg(long, default_value_t = 1.0)]
+    pub scale_y: f32,
+    /// Giro en grados, sentido horario.
+    #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
+    pub rotate: f32,
+}
+
+#[derive(Args)]
+pub struct ImageCropArgs {
+    #[command(flatten)]
+    pub target: ImageIdArgs,
+    /// Recuadro `x0,y0,x1,y1` que se conserva.
+    #[arg(long)]
+    pub rect: String,
 }
 
 #[derive(Args)]
@@ -133,6 +209,41 @@ pub fn run(cmd: EditCommand, json: bool) -> anyhow::Result<()> {
         EditCommand::Replace(a) => replace(a, json),
         EditCommand::InsertText(a) => insert_text(a, json),
         EditCommand::Link(a) => link(a, json),
+        EditCommand::Images(a) => images(a, json),
+        EditCommand::ImageInsert(a) => {
+            let (mut doc, page) = open(&a.doc)?;
+            let data = read_image(&a.image)?;
+            let report = pliego_edit::insert_image(&mut doc, page, parse_rect(&a.rect)?, &data)?;
+            finish(doc, &a.doc.input, &a.out, &report, json)
+        }
+        EditCommand::ImageReplace(a) => {
+            let (mut doc, page) = open(&a.target.doc)?;
+            let data = read_image(&a.image)?;
+            let report = pliego_edit::replace_image(&mut doc, page, a.target.id, &data)?;
+            finish(doc, &a.target.doc.input, &a.target.out, &report, json)
+        }
+        EditCommand::ImageDelete(a) => {
+            let (mut doc, page) = open(&a.doc)?;
+            let report = pliego_edit::delete_object(&mut doc, page, a.id)?;
+            finish(doc, &a.doc.input, &a.out, &report, json)
+        }
+        EditCommand::ImageMove(a) => {
+            let (mut doc, page) = open(&a.target.doc)?;
+            let t = pliego_edit::Transform {
+                dx: a.dx,
+                dy: a.dy,
+                scale_x: a.scale_x,
+                scale_y: a.scale_y,
+                rotate_degrees: a.rotate,
+            };
+            let report = pliego_edit::transform_object(&mut doc, page, a.target.id, &t)?;
+            finish(doc, &a.target.doc.input, &a.target.out, &report, json)
+        }
+        EditCommand::ImageCrop(a) => {
+            let (mut doc, page) = open(&a.target.doc)?;
+            let report = pliego_edit::crop_image(&mut doc, page, a.target.id, parse_rect(&a.rect)?)?;
+            finish(doc, &a.target.doc.input, &a.target.out, &report, json)
+        }
     }
 }
 
@@ -259,4 +370,26 @@ fn link(a: LinkArgs, json: bool) -> anyhow::Result<()> {
     };
     let report = pliego_edit::add_link(&mut doc, page, parse_rect(&a.rect)?, &target)?;
     finish(doc, &a.doc.input, &a.out, &report, json)
+}
+
+fn read_image(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+    std::fs::read(path).with_context(|| format!("no se pudo leer {}", path.display()))
+}
+
+fn images(a: BlocksArgs, json: bool) -> anyhow::Result<()> {
+    let (doc, page) = open(&a.doc)?;
+    let list = pliego_edit::images(&doc, page)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&list)?);
+    } else if list.is_empty() {
+        println!("Sin imágenes.");
+    } else {
+        for i in &list {
+            println!(
+                "id={} {} [{:.0},{:.0},{:.0},{:.0}]",
+                i.id, i.name, i.bbox[0], i.bbox[1], i.bbox[2], i.bbox[3]
+            );
+        }
+    }
+    Ok(())
 }

@@ -30,7 +30,11 @@ impl PdfEngine for MupdfEngine {
         if !path.exists() {
             return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
         }
-        let doc = Document::open(path).map_err(pdf_err)?;
+        // MuPDF recibe rutas UTF-8 (en Windows `AsRef<FilePath>` no está implementado para `Path`).
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| Error::InvalidInput(format!("ruta no representable en UTF-8: {}", path.display())))?;
+        let doc = Document::open(path_str).map_err(pdf_err)?;
         MupdfDocument::unlock(doc, password)
     }
 

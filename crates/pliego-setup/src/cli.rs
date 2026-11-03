@@ -344,7 +344,7 @@ pub fn silent_install(source: &Source, opts: &Options, sys: &dyn System) -> Resu
         ));
     }
     let manifest = source.manifest()?;
-    let installed = engine::read_info(&opts.dir).map(|i| i.version);
+    let installed = engine::active_version(&opts.dir);
     if engine::classify(installed.as_deref(), &manifest.version) == Existing::Newer {
         logging::info(&format!(
             "ya hay una versión más reciente ({}); no se hace nada",

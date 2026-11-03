@@ -263,9 +263,9 @@ fn edit_path(scope: Scope, f: impl Fn(&str) -> Option<String>) -> Result<()> {
 pub fn installed() -> Option<(Scope, String, PathBuf)> {
     for scope in [Scope::User, Scope::Machine] {
         if let Some(k) = Key::open(hive(scope), UNINSTALL_KEY) {
-            let version = k.get_string("DisplayVersion")?;
-            let dir = k.get_string("InstallLocation")?;
-            return Some((scope, version, PathBuf::from(dir)));
+            let dir = PathBuf::from(k.get_string("InstallLocation")?);
+            let version = crate::engine::active_version(&dir).or_else(|| k.get_string("DisplayVersion"))?;
+            return Some((scope, version, dir));
         }
     }
     None

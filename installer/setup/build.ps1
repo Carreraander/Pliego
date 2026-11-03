@@ -41,7 +41,8 @@ $target = if ($env:CARGO_TARGET_DIR) { Join-Path $env:CARGO_TARGET_DIR 'release'
 Write-Host "Pliego $Version -> $OutDir"
 
 function Invoke-Checked([string]$exe, [string[]]$argv) {
-  & $exe @argv
+  # Canalizar la salida obliga a PowerShell a esperar también a los ejecutables de subsistema GUI (pliego-setup.exe).
+  & $exe @argv | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "$exe terminó con código $LASTEXITCODE" }
 }
 

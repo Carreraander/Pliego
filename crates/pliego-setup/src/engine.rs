@@ -182,6 +182,16 @@ pub fn read_info(root: &Path) -> Option<InstallInfo> {
     serde_json::from_slice(&fs::read(root.join(INFO_FILE)).ok()?).ok()
 }
 
+/// Versión activa (`current`). Tras una vuelta atrás del lanzador `install.json` y el registro siguen
+/// nombrando la versión descartada, así que para decidir entre reparar, actualizar o no hacer nada manda esta.
+pub fn active_version(root: &Path) -> Option<String> {
+    Layout::new(root)
+        .current()
+        .ok()
+        .flatten()
+        .or_else(|| read_info(root).map(|i| i.version))
+}
+
 fn write_info(root: &Path, info: &InstallInfo) -> Result<()> {
     let json = serde_json::to_vec_pretty(info).map_err(|e| SetupError::Other(e.to_string()))?;
     fs::write(root.join(INFO_FILE), json)?;
@@ -626,6 +636,27 @@ mod tests {
         assert_eq!(classify(Some("0.5.0"), "0.5.0"), Existing::Same);
         assert_eq!(classify(Some("0.4.0"), "0.5.0"), Existing::Older);
         assert_eq!(classify(Some("0.10.0"), "0.9.0"), Existing::Newer);
+    }
+
+    #[test]
+    fn active_version_follows_rollback() {
+        let d = tempfile::tempdir().unwrap();
+        let root = d.path().join("P");
+        let sys = FakeSystem::new();
+        for v in ["0.4.0", "0.5.0"] {
+            let paq_file = make_paq(d.path(), v, "app");
+            install(
+                &Source::from_file(paq_file).unwrap(),
+                &opts(&root),
+                &sys,
+                &AtomicBool::new(false),
+                &mut |_| {},
+            )
+            .unwrap();
+        }
+        Layout::new(&root).rollback().unwrap();
+        assert_eq!(read_info(&root).unwrap().version, "0.5.0");
+        assert_eq!(active_version(&root).as_deref(), Some("0.4.0"));
     }
 
     #[test]

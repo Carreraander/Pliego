@@ -180,8 +180,9 @@ fn parse_rect(s: &str) -> Result<[f32; 4], String> {
 }
 
 fn open(a: &DocArgs) -> anyhow::Result<PdfDocument> {
-    let path = a.input.to_str().context("la ruta no es válida")?;
-    let mut doc = PdfDocument::open(path).with_context(|| format!("no se pudo abrir {}", a.input.display()))?;
+    // Se lee a memoria para no dejar el archivo abierto: en Windows no se puede renombrar sobre él (`--in-place`).
+    let bytes = std::fs::read(&a.input).with_context(|| format!("no se pudo abrir {}", a.input.display()))?;
+    let mut doc = PdfDocument::from_bytes(&bytes).with_context(|| format!("no se pudo abrir {}", a.input.display()))?;
     if doc.needs_password()? && !doc.authenticate(a.password.as_deref().unwrap_or(""))? {
         bail!("el documento necesita contraseña o la contraseña no es válida");
     }

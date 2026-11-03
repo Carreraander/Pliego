@@ -23,5 +23,9 @@
   "password.submit": "Abrir",
   "password.cancel": "Cancelar",
   "password.wrong": "La contraseña no es correcta",
-  "error.open": "No se pudo abrir el documento"
+  "menu.home": "Inicio",
+  "menu.settings": "Ajustes",
+  "menu.shortcuts": "Atajos de teclado",
+  "error.open": "No se pudo abrir el documento",
+  "mode.read": "Leer"
 }

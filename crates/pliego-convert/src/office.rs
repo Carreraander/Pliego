@@ -128,6 +128,19 @@ pub fn office_to_pdf(input: &Path, output: &Path, ctx: &JobContext) -> Result<Re
     Ok(Report::with_output(output, "documento convertido a PDF"))
 }
 
+/// Quita el prefijo `\\?\` (o `\\?\UNC\`) de una ruta de Windows; en otras rutas no hace nada.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn strip_verbatim_prefix(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{rest}"))
+    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+        PathBuf::from(rest)
+    } else {
+        path.to_path_buf()
+    }
+}
+
 /// Intenta convertir con Microsoft Office; `false` si la aplicación necesaria no está instalada.
 #[cfg(windows)]
 fn try_microsoft_office(fam: Family, input: &Path, output: &Path) -> Result<bool> {
@@ -141,7 +154,8 @@ fn try_microsoft_office(fam: Family, input: &Path, output: &Path) -> Result<bool
         return Ok(false);
     }
     let abs_in = std::fs::canonicalize(input).map_err(|e| Error::io_at(input, e))?;
-    convert(app, &abs_in, output)?;
+    // Office por COM rechaza el prefijo de ruta verbatim que añade `canonicalize` en Windows.
+    convert(app, &strip_verbatim_prefix(&abs_in), output)?;
     Ok(true)
 }
 
@@ -211,4 +225,18 @@ fn libreoffice_convert(soffice: &Path, input: &Path, work: &Path, expected: &Pat
     }
     std::fs::rename(&produced, expected).map_err(|e| Error::io_at(&produced, e))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verbatim_prefix_is_removed() {
+        let f = |s: &str| strip_verbatim_prefix(Path::new(s)).to_string_lossy().into_owned();
+        assert_eq!(f(r"\\?\C:\Users\a\x.docx"), r"C:\Users\a\x.docx");
+        assert_eq!(f(r"\\?\UNC\srv\share\x.docx"), r"\\srv\share\x.docx");
+        assert_eq!(f(r"C:\Users\a\x.docx"), r"C:\Users\a\x.docx");
+        assert_eq!(f("/tmp/x.docx"), "/tmp/x.docx");
+    }
 }

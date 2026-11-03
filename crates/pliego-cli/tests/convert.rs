@@ -125,9 +125,12 @@ fn create_from_office_without_backend_or_with_it() {
     std::fs::write(&csv, "a,b\n1,2\n").unwrap();
     let pdf = dir.path().join("d.pdf");
     let out = pliego().arg("create").arg(&csv).arg("-o").arg(&pdf).output().unwrap();
-    if out.status.success() {
+    // Con cualquier backend (Word/Excel, LibreOffice) debe funcionar; sin ninguno, el error lo explica.
+    if pliego_convert::office_backend().is_some() {
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         assert!(pdf.exists());
     } else {
+        assert!(!out.status.success());
         assert!(String::from_utf8_lossy(&out.stderr).contains("LibreOffice"));
     }
 }

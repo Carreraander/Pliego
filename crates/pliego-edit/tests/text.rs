@@ -166,3 +166,18 @@ fn enlaces_externo_e_interno() {
     assert_eq!(links.len(), 2, "{links:?}");
     assert!(links.iter().any(|l| l.uri == "https://example.org"));
 }
+
+#[test]
+fn saltos_de_linea_no_fuerzan_otra_fuente_y_el_aviso_es_claro() {
+    let mut doc = open();
+    let b = text_blocks(&doc, 0).unwrap().remove(0);
+    let report = replace_text(&mut doc, 0, b.id, "Primera línea\nsegunda línea", &Style::default()).unwrap();
+    assert!(
+        report.warnings.iter().all(|w| !w.contains("no tienen")),
+        "usó fuente de reserva: {report:?}"
+    );
+    assert!(
+        report.warnings.iter().all(|w| !w.contains("en lugar de «Helvetica»")),
+        "{report:?}"
+    );
+}

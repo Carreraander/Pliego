@@ -29,6 +29,7 @@ pub fn prepare(doc: &[u8], signers: &Signers) -> Result<Package> {
 
 pub(crate) fn prepare_at(doc: &[u8], signers: &Signers, now: i64) -> Result<Package> {
     signers.validate()?;
+    check_xref_offset(doc)?;
     let prev = lopdf::Document::load_mem(doc).map_err(pdf_err)?;
     if prev.trailer.has(b"Encrypt") {
         return Err(Error::Unsupported(
@@ -276,4 +277,35 @@ fn add_summary_page(inc: &mut IncrementalDocument, root_id: lopdf::ObjectId, m: 
         }
     }
     Ok(())
+}
+
+/// Rechaza un PDF cuyo `startxref` no apunta a una tabla de referencias: una actualización incremental
+/// encima de él quedaría rota (suele ocurrir si un `git` con `autocrlf` convirtió los saltos de línea).
+fn check_xref_offset(data: &[u8]) -> Result<()> {
+    let bad = || {
+        Error::InvalidInput(
+            "el PDF tiene la tabla de referencias dañada (¿se han convertido sus saltos de línea?); \
+             restaure el archivo original antes de prepararlo"
+                .into(),
+        )
+    };
+    let pos = data.windows(9).rposition(|w| w == b"startxref").ok_or_else(bad)?;
+    let digits: String = data[pos + 9..]
+        .iter()
+        .skip_while(|b| b.is_ascii_whitespace())
+        .take_while(|b| b.is_ascii_digit())
+        .map(|&b| b as char)
+        .collect();
+    let offset: usize = digits.parse().map_err(|_| bad())?;
+    let at = data.get(offset..).ok_or_else(bad)?;
+    // Tabla clásica («xref») o flujo de referencias («N G obj»).
+    let is_stream = at
+        .iter()
+        .position(|b| !b.is_ascii_digit() && *b != b' ')
+        .is_some_and(|i| i > 0 && at[i..].starts_with(b"obj"));
+    if at.starts_with(b"xref") || is_stream {
+        Ok(())
+    } else {
+        Err(bad())
+    }
 }

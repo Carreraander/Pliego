@@ -1,0 +1,117 @@
+//! Perfil ICC sRGB generado por código (ICC v2, matriz/TRC), sin depender de ningún archivo de terceros.
+
+fn s15f16(v: f64) -> [u8; 4] {
+    ((v * 65536.0).round() as i32).to_be_bytes()
+}
+
+fn xyz_tag(x: f64, y: f64, z: f64) -> Vec<u8> {
+    let mut t = b"XYZ \0\0\0\0".to_vec();
+    for v in [x, y, z] {
+        t.extend(s15f16(v));
+    }
+    t
+}
+
+/// Curva de transferencia sRGB muestreada en 1024 puntos (tipo `curv`).
+fn srgb_curve() -> Vec<u8> {
+    const N: usize = 1024;
+    let mut t = b"curv\0\0\0\0".to_vec();
+    t.extend((N as u32).to_be_bytes());
+    for i in 0..N {
+        let x = i as f64 / (N - 1) as f64;
+        let y = if x <= 0.04045 {
+            x / 12.92
+        } else {
+            ((x + 0.055) / 1.055).powf(2.4)
+        };
+        t.extend(((y * 65535.0).round() as u16).to_be_bytes());
+    }
+    t
+}
+
+fn text_tag(s: &str) -> Vec<u8> {
+    let mut t = b"text\0\0\0\0".to_vec();
+    t.extend(s.as_bytes());
+    t.push(0);
+    t
+}
+
+fn desc_tag(s: &str) -> Vec<u8> {
+    let mut t = b"desc\0\0\0\0".to_vec();
+    t.extend(((s.len() + 1) as u32).to_be_bytes());
+    t.extend(s.as_bytes());
+    t.push(0);
+    // Unicode (vacío) y ScriptCode (vacío), tal como pide ICC v2.
+    t.extend([0u8; 4 + 4]);
+    t.extend([0u8; 2 + 1 + 67]);
+    t
+}
+
+/// Devuelve un perfil ICC sRGB válido (v2.1, clase monitor, espacio RGB, PCS XYZ).
+pub fn srgb_profile() -> Vec<u8> {
+    let tags: Vec<(&[u8; 4], Vec<u8>)> = vec![
+        (b"desc", desc_tag("sRGB IEC61966-2.1 (Pliego)")),
+        (b"cprt", text_tag("Sin copyright; generado por Pliego")),
+        (b"wtpt", xyz_tag(0.9642, 1.0, 0.8249)),
+        (b"rXYZ", xyz_tag(0.4360, 0.2225, 0.0139)),
+        (b"gXYZ", xyz_tag(0.3851, 0.7169, 0.0971)),
+        (b"bXYZ", xyz_tag(0.1431, 0.0606, 0.7141)),
+        (b"rTRC", srgb_curve()),
+        (b"gTRC", srgb_curve()),
+        (b"bTRC", srgb_curve()),
+    ];
+    let table_len = 4 + tags.len() * 12;
+    let mut offset = 128 + table_len;
+    let mut table = (tags.len() as u32).to_be_bytes().to_vec();
+    let mut data = Vec::new();
+    for (sig, body) in &tags {
+        let pad = (4 - body.len() % 4) % 4;
+        table.extend(*sig);
+        table.extend((offset as u32).to_be_bytes());
+        table.extend((body.len() as u32).to_be_bytes());
+        data.extend(body);
+        data.extend(std::iter::repeat_n(0u8, pad));
+        offset += body.len() + pad;
+    }
+    let total = 128 + table.len() + data.len();
+    let mut h = vec![0u8; 128];
+    h[0..4].copy_from_slice(&(total as u32).to_be_bytes());
+    h[8..12].copy_from_slice(&[2, 0x10, 0, 0]); // versión 2.1.0
+    h[12..16].copy_from_slice(b"mntr");
+    h[16..20].copy_from_slice(b"RGB ");
+    h[20..24].copy_from_slice(b"XYZ ");
+    // Fecha de creación fija (reproducible): 2026-01-01 00:00:00.
+    h[24..26].copy_from_slice(&2026u16.to_be_bytes());
+    h[26..28].copy_from_slice(&1u16.to_be_bytes());
+    h[28..30].copy_from_slice(&1u16.to_be_bytes());
+    h[36..40].copy_from_slice(b"acsp");
+    h[64..68].copy_from_slice(&0u32.to_be_bytes()); // intención perceptual
+    h[68..72].copy_from_slice(&s15f16(0.9642));
+    h[72..76].copy_from_slice(&s15f16(1.0));
+    h[76..80].copy_from_slice(&s15f16(0.8249));
+    let mut out = h;
+    out.extend(table);
+    out.extend(data);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_is_well_formed() {
+        let p = srgb_profile();
+        assert_eq!(u32::from_be_bytes(p[0..4].try_into().unwrap()) as usize, p.len());
+        assert_eq!(&p[36..40], b"acsp");
+        assert_eq!(&p[16..20], b"RGB ");
+        assert_eq!(p.len() % 4, 0);
+        let n = u32::from_be_bytes(p[128..132].try_into().unwrap()) as usize;
+        for i in 0..n {
+            let e = 132 + i * 12;
+            let off = u32::from_be_bytes(p[e + 4..e + 8].try_into().unwrap()) as usize;
+            let len = u32::from_be_bytes(p[e + 8..e + 12].try_into().unwrap()) as usize;
+            assert!(off.is_multiple_of(4) && off + len <= p.len());
+        }
+    }
+}

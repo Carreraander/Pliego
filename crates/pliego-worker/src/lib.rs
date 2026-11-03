@@ -7,6 +7,7 @@
 
 pub mod cache;
 pub mod client;
+pub mod platform;
 pub mod protocol;
 
 pub use cache::{TileCache, TileKey};

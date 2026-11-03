@@ -562,11 +562,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
+name = "pliego-annot"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pliego-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "mupdf",
+ "pliego-annot",
  "pliego-core",
  "pliego-engine-mupdf",
  "serde_json",

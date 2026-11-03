@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
     "lint": "eslint .",
+    "test:e2e": "playwright test",
     "test:visual": "playwright test"
   },
   "dependencies": {

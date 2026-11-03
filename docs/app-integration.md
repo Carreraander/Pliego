@@ -19,7 +19,7 @@ Este documento lo comparten W01 (visor y estado), W19 (armazón) y W20 (navegaci
 ### Componentes (`app/src/ui/`)
 `Icon`, `Button` (`primary`, `normal`, `ghost`, `danger`), `IconButton` (nombre accesible obligatorio), `Field` +
 `TextInput`/`Select`/`Slider`, `Checkbox`, `Switch`, `RadioGroup`/`Radio`, `ToggleGroup`, `Kbd`, `Chip`, `Notice`,
-`EmptyState`. Iconos por nombre (los de `ToolManifest.icon`): Lucide más los propios (`redact`, `bates`, `pdf-a`,
+`EmptyState`, `Popover`, `Tooltip` (con atajo), `Menu`/`ContextMenu`/`MenuButton` (teclado completo, submenús, entradas desactivadas con motivo), `Tabs`/`TabPanel`, `Toolbar`, `toast()` + `ToastRegion`, `Inspector`, `TaskPanel` (título, opciones, avanzado plegado, estimación, pie con acciones y progreso), `ProgressBar`, `WizardSteps`. Iconos por nombre (los de `ToolManifest.icon`): Lucide más los propios (`redact`, `bates`, `pdf-a`,
 `ocr`, `timestamp`, `sign-digital`); un flujo puede añadir más con `registerIcon`.
 
 ### Catálogo

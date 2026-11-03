@@ -4,3 +4,11 @@ export { Button, IconButton, type ButtonProps, type IconButtonProps, type Button
 export { Field, TextInput, Select, Slider, type SelectOption } from "./Field";
 export { Checkbox, Switch, Radio, RadioGroup, ToggleGroup, type ToggleOption } from "./Toggles";
 export { Kbd, Chip, Notice, EmptyState, type Tone, type NoticeTone, type NoticeAction } from "./Display";
+export { Popover } from "./Popover";
+export { Tooltip } from "./Tooltip";
+export { Menu, ContextMenu, MenuButton, contextPoint, type MenuEntry } from "./Menu";
+export { Tabs, TabPanel, type TabDef } from "./Tabs";
+export { toast, dismiss, clearToasts, ToastRegion, type ToastOptions } from "./Toast";
+export { computePosition, computePointPosition, type Placement, type Point } from "./overlay";
+export { Inspector, TaskPanel, ProgressBar, WizardSteps, type TaskAction, type TaskProgress } from "./Panels";
+export { Toolbar, ToolbarSeparator } from "./Toolbar";

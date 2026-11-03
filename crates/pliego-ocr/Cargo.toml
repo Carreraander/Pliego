@@ -12,6 +12,8 @@ tesseract-sys = { path = "../tesseract-sys" }
 mupdf.workspace = true
 serde.workspace = true
 tempfile.workspace = true
+sha2 = "0.10"
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 
 [dev-dependencies]
 pliego-engine-mupdf.workspace = true

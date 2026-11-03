@@ -27,6 +27,7 @@ pub mod ocr;
 // [W14 office]
 
 // [W15 run e índice]
+pub mod index;
 pub mod run;
 
 // [W13/W17/W12 extra]

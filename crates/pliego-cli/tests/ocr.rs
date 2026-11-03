@@ -75,3 +75,14 @@ fn missing_model_is_explained() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+#[test]
+fn download_of_unverified_language_is_refused() {
+    let out = pliego().args(["ocr", "--download", "zzz"]).output().unwrap();
+    assert!(!out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("catálogo"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}

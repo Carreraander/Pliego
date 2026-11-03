@@ -76,7 +76,8 @@ fn text(d: &lopdf::Dictionary, key: &[u8]) -> Option<String> {
     match d.get(key).ok()? {
         Object::String(b, _) if b.starts_with(&[0xFE, 0xFF]) => {
             let u: Vec<u16> = b[2..]
-                .chunks_exact(2)
+                .chunks(2)
+                .filter(|c| c.len() == 2)
                 .map(|c| u16::from_be_bytes([c[0], c[1]]))
                 .collect();
             Some(String::from_utf16_lossy(&u))

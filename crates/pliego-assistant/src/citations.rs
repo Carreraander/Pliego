@@ -6,8 +6,9 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 static CITE: LazyLock<Regex> = LazyLock::new(|| {
-    // [p. 3] [p.3] [pág. 3] [págs. 3, 5-6] [p. 3; p. 7] [page 3]
-    Regex::new(r"(?i)\[\s*(?:p\.|pp\.|pág\.|págs\.|pag\.|pags\.|page|pages)\s*([0-9][0-9\s,;\-–y]*)").unwrap()
+    // [p. 3] [p.3] (pág. 3) págs. 3, 5-6 página 47 page 3. Los corchetes son opcionales porque los modelos
+    // pequeños suelen escribir "en la página 47"; la página se valida luego contra los fragmentos entregados.
+    Regex::new(r"(?i)\b(?:pp?\.|págs?\.|pags?\.|páginas?|paginas?|pages?)\s*([0-9][0-9\s,;\-–y]*)").unwrap()
 });
 static NUM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([0-9]+)(?:\s*[-–]\s*([0-9]+))?").unwrap());
 
@@ -37,11 +38,12 @@ mod tests {
         assert_eq!(cited_pages("Ver [pág. 3] y [p.7]"), [3, 7]);
         assert_eq!(cited_pages("[págs. 3, 5-6]"), [3, 5, 6]);
         assert_eq!(cited_pages("[page 2][p. 2]"), [2]);
+        assert_eq!(cited_pages("Como se menciona en la página 47."), [47]);
+        assert_eq!(cited_pages("(pág. 12 de 50)"), [12]);
     }
 
     #[test]
     fn ignores_non_citations() {
-        assert!(cited_pages("en la p. 4 del texto").is_empty());
         assert!(cited_pages("[p. 0]").is_empty());
         assert!(cited_pages("[p. 1-9999999]").is_empty());
     }

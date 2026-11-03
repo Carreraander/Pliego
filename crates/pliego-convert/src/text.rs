@@ -6,14 +6,13 @@
 
 use std::path::Path;
 
-use mupdf::Document;
-use mupdf::pdf::PdfObject;
+use mupdf::{Document, DocumentWriter, Matrix, Rect};
 use pliego_core::{Error, JobContext, Report, Result};
 use pulldown_cmark::{Options, Parser, html};
 use serde::{Deserialize, Serialize};
 
 use crate::images::PageSizeSpec;
-use crate::util::{ensure_not_same, pdf_err, write_atomic};
+use crate::util::{ensure_not_same, path_utf8, pdf_err, write_atomic};
 
 /// Quién renderiza el HTML.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -85,25 +84,33 @@ pub fn html_string_to_pdf(html: &str, output: &Path, options: &TextToPdfOptions,
     let mut doc = Document::from_bytes(html.as_bytes(), "text/html").map_err(pdf_err)?;
     doc.layout(w - 2.0 * m, h - 2.0 * m, options.font_size_pt)
         .map_err(pdf_err)?;
-    // Rango explícito: con `-1` (hasta el final) MuPDF corrompía la memoria en documentos de varias páginas.
-    let last = doc.page_count().map_err(pdf_err)? - 1;
-    let pdf = doc.convert_to_pdf(0, last, 0).map_err(pdf_err)?;
-    // El PDF resultante mide solo el área útil: se amplía la MediaBox para que quede el margen alrededor.
-    for i in 0..=last {
-        let mut page = pdf.find_page(i).map_err(pdf_err)?;
-        let mut mb = pdf.new_array().map_err(pdf_err)?;
-        for v in [-m, -m, w - m, h - m] {
-            mb.array_push(PdfObject::new_real(v).map_err(pdf_err)?)
+    let pages = doc.page_count().map_err(pdf_err)?;
+
+    // Se escribe con el `DocumentWriter` de MuPDF (página completa y contenido desplazado por el margen).
+    // `Document::convert_to_pdf` se descartó: libera memoria dos veces en documentos de varias páginas.
+    let tmp = tempfile::tempdir().map_err(Error::from)?;
+    let tmp_pdf = tmp.path().join("salida.pdf");
+    {
+        let mut writer = DocumentWriter::new(path_utf8(&tmp_pdf)?, "pdf", "").map_err(pdf_err)?;
+        for i in 0..pages {
+            let page = doc.load_page(i).map_err(pdf_err)?;
+            let dev = writer
+                .begin_page(Rect {
+                    x0: 0.0,
+                    y0: 0.0,
+                    x1: w,
+                    y1: h,
+                })
                 .map_err(pdf_err)?;
+            page.run(&dev, &Matrix::new_translate(m, m)).map_err(pdf_err)?;
+            writer.end_page(dev).map_err(pdf_err)?;
         }
-        page.dict_put("MediaBox", mb).map_err(pdf_err)?;
+        // Al salir de este bloque se cierra el escritor y el PDF queda completo.
     }
-    let mut buf = Vec::new();
-    pdf.write_to(&mut buf).map_err(pdf_err)?;
     ctx.step(1, 2, "guardando")?;
-    write_atomic(output, &buf)?;
+    let bytes = std::fs::read(&tmp_pdf).map_err(|e| Error::io_at(&tmp_pdf, e))?;
+    write_atomic(output, &bytes)?;
     ctx.step(2, 2, "listo")?;
-    let pages = pdf.page_count().map_err(pdf_err)?;
     Ok(Report::with_output(output, format!("{pages} página(s) creadas")))
 }
 

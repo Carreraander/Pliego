@@ -80,3 +80,49 @@ fn internal_links_point_to_their_own_pages() {
     // No se arrastran páginas de origen: el número de páginas es el esperado.
     assert_eq!(page_count(&doc).unwrap(), 7);
 }
+
+#[test]
+fn extract_and_split_keep_annotations() {
+    let doc = open(&corpus("form1.pdf"), None).unwrap();
+    // Extraer la página 2 (campo "email") lleva su campo.
+    let out = extract(&doc, &[1]).unwrap();
+    assert_eq!(fields(&out), vec![vec![pair("email", "valor1")]]);
+    // El original no se modifica.
+    assert_eq!(
+        fields(&doc),
+        vec![vec![pair("nombre", "valor0")], vec![pair("email", "valor1")]]
+    );
+
+    let links = open(&corpus("links.pdf"), None).unwrap();
+    // Con las dos páginas el enlace interno sigue apuntando a la 2; solo con la 1 queda sin destino interno.
+    let both = extract(&links, &[0, 1]).unwrap();
+    let l: Vec<_> = both.load_page(0).unwrap().links().unwrap().collect();
+    assert_eq!(
+        l.iter()
+            .find(|l| l.dest.is_some())
+            .unwrap()
+            .dest
+            .unwrap()
+            .loc
+            .page_number,
+        1
+    );
+    let only_first = extract(&links, &[0]).unwrap();
+    assert_eq!(page_count(&only_first).unwrap(), 1);
+    let l: Vec<_> = only_first.load_page(0).unwrap().links().unwrap().collect();
+    assert!(l.iter().all(|l| l.dest.is_none()) && l.iter().any(|l| l.uri == "https://example.org/"));
+
+    let dir = tempfile::tempdir().unwrap();
+    let rep = split(
+        &doc,
+        "f",
+        &SplitRule::EveryN { n: 1 },
+        dir.path(),
+        &JobContext::silent(),
+    )
+    .unwrap();
+    assert_eq!(
+        fields(&open(&rep.outputs[0], None).unwrap()),
+        vec![vec![pair("nombre", "valor0")]]
+    );
+}

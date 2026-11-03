@@ -31,19 +31,37 @@ fn subtype(obj: &PdfObject) -> Result<String> {
     })
 }
 
-/// Sustituye en `dest` (array de destino) la referencia a página por su índice (entero directo) para que el
-/// injerto no arrastre la página de origen entera.
-fn detach_dest(arr: &mut PdfObject, page_of: &HashMap<i32, u32>) -> Result<Option<u32>> {
+/// Sustituye en el array de destino la referencia a página por el índice de la página de resultado (entero
+/// directo), para que el injerto no arrastre la página de origen entera. `false` si esa página no se copia.
+fn detach_dest(arr: &mut PdfObject, page_of: &HashMap<i32, u32>) -> Result<bool> {
     let Some(first) = arr.get_array(0).map_err(pdf_err)? else {
-        return Ok(None);
+        return Ok(true);
     };
-    let Ok(xref) = first.as_indirect() else { return Ok(None) };
+    let Ok(xref) = first.as_indirect() else { return Ok(true) };
     let Some(&idx) = page_of.get(&xref) else {
-        return Ok(None);
+        return Ok(false);
     };
     arr.array_put(0, PdfObject::new_int(idx as i32).map_err(pdf_err)?)
         .map_err(pdf_err)?;
-    Ok(Some(idx))
+    Ok(true)
+}
+
+/// Prepara un enlace del origen: los destinos a páginas que no se copian se eliminan (el enlace queda inerte).
+fn detach_link(annot: &mut PdfObject, page_of: &HashMap<i32, u32>) -> Result<()> {
+    if let Some(mut d) = annot.get_dict("Dest").map_err(pdf_err)?
+        && d.is_array().map_err(pdf_err)?
+        && !detach_dest(&mut d, page_of)?
+    {
+        annot.dict_delete("Dest").map_err(pdf_err)?;
+    }
+    if let Some(action) = annot.get_dict("A").map_err(pdf_err)?
+        && let Some(mut d) = action.get_dict("D").map_err(pdf_err)?
+        && d.is_array().map_err(pdf_err)?
+        && !detach_dest(&mut d, page_of)?
+    {
+        annot.dict_delete("A").map_err(pdf_err)?;
+    }
+    Ok(())
 }
 
 /// Arrays de destino de un enlace: `/Dest` y `/A /D`.
@@ -62,7 +80,7 @@ fn link_dests(annot: &PdfObject) -> Result<Vec<PdfObject>> {
 }
 
 /// Tras el injerto, vuelve a poner la página de destino real donde había un índice.
-fn attach_dest(dest: &PdfDocument, arr: &mut PdfObject, offset: u32) -> Result<()> {
+fn attach_dest(dest: &PdfDocument, arr: &mut PdfObject) -> Result<()> {
     let Some(first) = arr.get_array(0).map_err(pdf_err)? else {
         return Ok(());
     };
@@ -70,7 +88,7 @@ fn attach_dest(dest: &PdfDocument, arr: &mut PdfObject, offset: u32) -> Result<(
         return Ok(());
     }
     let idx = first.as_int().map_err(pdf_err)?.max(0) as u32;
-    let page = dest.find_page((offset + idx) as i32).map_err(pdf_err)?;
+    let page = dest.find_page(idx as i32).map_err(pdf_err)?;
     arr.array_put(0, page).map_err(pdf_err)
 }
 
@@ -86,29 +104,34 @@ fn field_root(widget: &PdfObject) -> Result<PdfObject> {
     Ok(cur)
 }
 
-/// Copia las anotaciones de las `count` páginas de `src` (ya insertadas en `dest` desde `offset`).
+/// Copia las anotaciones de páginas de `src` a páginas de `dest` ya creadas: `pairs` son parejas
+/// `(página de origen, página de destino)`. Si una página de origen aparece varias veces, solo la primera
+/// copia conserva las anotaciones.
 pub(crate) fn carry_annotations(
     dest: &mut PdfDocument,
     src: &mut PdfDocument,
-    offset: u32,
-    count: u32,
+    pairs: &[(u32, u32)],
     form: &mut FormState,
 ) -> Result<()> {
     let mut page_of: HashMap<i32, u32> = HashMap::new();
     let mut src_pages = Vec::new();
-    for i in 0..count {
-        let page = src.find_page(i as i32).map_err(pdf_err)?;
+    for &(from, to) in pairs {
+        let page = src.find_page(from as i32).map_err(pdf_err)?;
         if let Ok(x) = page.as_indirect() {
-            page_of.insert(x, i);
+            page_of.entry(x).or_insert(to);
         }
-        src_pages.push(page);
+        src_pages.push((page, to));
     }
     let mut map = dest.new_graft_map().map_err(pdf_err)?;
     let mut roots: Vec<PdfObject> = Vec::new();
     let mut root_seen: HashSet<i32> = HashSet::new();
     let mut src_acro: Option<PdfObject> = None;
 
-    for (i, src_page) in src_pages.iter().enumerate() {
+    let mut done: HashSet<i32> = HashSet::new();
+    for (src_page, to) in &src_pages {
+        if src_page.as_indirect().is_ok_and(|x| !done.insert(x)) {
+            continue;
+        }
         let Some(annots) = src_page.get_dict("Annots").map_err(pdf_err)? else {
             continue;
         };
@@ -127,14 +150,12 @@ pub(crate) fn carry_annotations(
             // Se corta el vínculo a la página de origen para que el injerto no la copie entera.
             let _ = annot.dict_delete("P");
             if kind == "Link" {
-                for mut d in link_dests(&annot)? {
-                    detach_dest(&mut d, &page_of)?;
-                }
+                detach_link(&mut annot, &page_of)?;
             }
             let g = map.graft_object(&annot).map_err(pdf_err)?;
             if kind == "Link" {
                 for mut d in link_dests(&g)? {
-                    attach_dest(dest, &mut d, offset)?;
+                    attach_dest(dest, &mut d)?;
                 }
             }
             if kind == "Widget" {
@@ -146,7 +167,7 @@ pub(crate) fn carry_annotations(
             copied.array_push(g).map_err(pdf_err)?;
         }
         if copied.len().map_err(pdf_err)? > 0 {
-            let mut page = dest.find_page((offset + i as u32) as i32).map_err(pdf_err)?;
+            let mut page = dest.find_page(*to as i32).map_err(pdf_err)?;
             page.dict_put("Annots", copied).map_err(pdf_err)?;
         }
     }

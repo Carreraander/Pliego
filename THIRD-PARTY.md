@@ -8,9 +8,9 @@ Este software se basa en parte en el trabajo del Independent JPEG Group.
 
 Afecta a `jpeg-encoder` (codificación JPEG en `pliego-optimize`) y a la libjpeg que incluye MuPDF.
 
-## rustybuzz y ttf-parser
+## rustybuzz, ttf-parser y subsetter
 
-`rustybuzz` (MIT, port a Rust de HarfBuzz) y `ttf-parser` (MIT o Apache-2.0) dan forma al texto Unicode que
+`subsetter` (MIT o Apache-2.0, de Typst) reduce la fuente incrustada a los glifos usados. `rustybuzz` (MIT, port a Rust de HarfBuzz) y `ttf-parser` (MIT o Apache-2.0) dan forma al texto Unicode que
 `pliego-edit` compone con fuentes no estándar. Sus dependencias (`unicode-script`, `unicode-ccc`,
 `unicode-bidi-mirroring`, `core_maths`) son MIT o Apache-2.0.
 

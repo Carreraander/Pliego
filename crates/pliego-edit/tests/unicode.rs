@@ -40,6 +40,12 @@ fn roundtrip(nuevo: &str) {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("u.pdf");
     doc.save(&out, &SaveOptions::default()).unwrap();
+    // Solo se incrustan los glifos usados: el PDF no crece con el tamaño de la fuente.
+    let size = std::fs::metadata(&out).unwrap().len();
+    assert!(
+        size < 100_000,
+        "el PDF pesa {size} bytes: ¿se incrustó la fuente entera?"
+    );
     let re = Document::open(&out, None).unwrap();
     let t = texto(&re).replace('\n', " ");
     let esperado: String = nuevo.chars().filter(|c| !c.is_whitespace()).collect();

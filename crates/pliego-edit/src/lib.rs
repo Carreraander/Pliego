@@ -10,6 +10,7 @@
 
 mod blocks;
 mod content;
+mod embed;
 mod fonts;
 mod images;
 mod links;

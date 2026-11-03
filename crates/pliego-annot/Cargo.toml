@@ -1,0 +1,16 @@
+[package]
+name = "pliego-annot"
+description = "Anotaciones PDF: crear, editar, listar, borrar y aplanar"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+mupdf.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

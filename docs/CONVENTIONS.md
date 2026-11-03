@@ -42,7 +42,7 @@
 ## Ramas y PRs
 - Rama `wNN-<tema-corto>` desde `main` actualizado. PRs pequeños (< 800 líneas de diff salvo código generado).
 - Título en español, descripción con qué hace, cómo se probó (incluido acr12 si aplica) y qué falta.
-- CI verde antes de pedir revisión. Rebase sobre `main`, sin merges de `main` en la rama.
+- CI verde antes de pedir revisión. Para actualizar la rama, **merge de `main` en tu rama** (nunca rebase ni force-push); los PRs se fusionan con squash.
 - Al abrir un PR, avisar al hilo de gestión con el enlace.
 
 ## Estilo

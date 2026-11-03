@@ -339,16 +339,16 @@ mod http {
     }
 
     #[test]
-    fn https_tsa_is_rejected_with_a_clear_message() {
+    fn https_tsa_is_attempted_and_failure_is_clear() {
         let pki = make_pki(true);
         let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
         let opts = SignOptions {
             level: PadesLevel::BT,
-            timestamp_url: Some("https://tsa.example/ts".into()),
+            timestamp_url: Some("https://127.0.0.1:1/ts".into()),
             ..Default::default()
         };
         let err = sign_bytes(&corpus_pdf(), &signer, &opts).unwrap_err();
-        assert!(err.to_string().contains("https"), "{err}");
+        assert!(err.to_string().contains("no se pudo contactar"), "{err}");
     }
 }
 

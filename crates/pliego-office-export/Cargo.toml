@@ -1,0 +1,25 @@
+[package]
+name = "pliego-office-export"
+description = "Exportar PDF a Word (DOCX), Excel (XLSX) y PowerPoint (PPTX)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+# Texto estructurado (W09): bloques, líneas y tramos con fuente, tamaño, color y caja.
+pliego-convert = { path = "../pliego-convert" }
+mupdf.workspace = true
+serde.workspace = true
+tempfile.workspace = true
+# Escritura de contenedores OOXML (MIT).
+zip = { version = "2", default-features = false, features = ["deflate"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+roxmltree = "0.20"
+
+[lints]
+workspace = true

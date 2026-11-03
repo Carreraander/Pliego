@@ -139,3 +139,14 @@ fn report_serializes_to_json() {
 fn missing_file_is_an_error() {
     assert!(check_file(&corpus("no-existe.pdf"), None).is_err());
 }
+
+#[test]
+fn low_contrast_text_is_reported_once_per_page() {
+    let r = check_file(&corpus("malo_contraste.pdf"), None).unwrap();
+    let low: Vec<_> = r.issues.iter().filter(|i| i.code == IssueCode::LowContrast).collect();
+    assert_eq!(low.len(), 1, "{:?}", r.issues);
+    assert_eq!(low[0].page, Some(0));
+    assert!(low[0].message.starts_with("2 fragmento"), "{}", low[0].message);
+    let good = check_file(&corpus("bueno.pdf"), None).unwrap();
+    assert!(good.issues.iter().all(|i| i.code != IssueCode::LowContrast));
+}

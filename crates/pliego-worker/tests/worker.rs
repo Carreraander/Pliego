@@ -128,18 +128,15 @@ fn reload_bytes_changes_content() {
     );
 }
 
-/// PDF hallado por el fuzzing: un marcador sin /Title hace que mupdf-rs 0.8.0 lea un NULL y aborte el
-/// proceso. En el worker eso no afecta a la aplicación: el documento se reabre y sigue siendo usable.
+/// PDF hallado por el fuzzing: un marcador sin /Title tumbaba `Document::outlines` de mupdf-rs 0.8.0.
+/// Ya no ocurre (recorrido propio de marcadores), y el documento sigue usable sin reinicios.
 #[test]
-fn hostile_outline_crashes_worker_not_host() {
+fn outline_without_title_is_handled() {
     let hostile = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/worker/outline-null-title.pdf");
     let w = engine().open(&hostile, None).unwrap();
-    assert!(w.outline().is_err(), "el worker cae al leer los marcadores");
-    assert!(w.restarts() >= 1 && w.take_recovered());
-    assert_eq!(
-        w.page_count().unwrap(),
-        2,
-        "el documento sigue utilizable tras la recuperación"
-    );
+    let outline = w.outline().expect("los marcadores sin /Title ya no abortan el motor");
+    assert!(!outline.is_empty());
+    assert_eq!(w.restarts(), 0);
+    assert_eq!(w.page_count().unwrap(), 2);
     assert!(w.page_text(0).unwrap().contains("Hola"));
 }

@@ -78,6 +78,18 @@ Ensure-Tool 'Node LTS' 'node' @('--version') 'OpenJS.NodeJS.LTS'
 Ensure-Tool 'LLVM (clang)' 'clang' @('--version') 'LLVM.LLVM'
 Ensure-Tool 'WiX Toolset' 'candle' @('-?') 'WiXToolset.WiXToolset'
 
+# --- LLVM 19 en paralelo (para mupdf-sys) -------------------------------------------------------------
+# MuPDF (bindgen) no compila con clang 23 en MSVC (falta max_align_t). Se instala LLVM 19, como el runner
+# de GitHub, en C:\LLVM19 sin tocar el LLVM instalado ni variables globales. Los flujos activan
+# LIBCLANG_PATH solo en su terminal con:  . .\tools\acr12-env.ps1
+$llvm19 = 'C:\LLVM19'
+if (Test-Path "$llvm19\bin\libclang.dll") { Add-Result 'LLVM 19 (libclang)' 'ya estaba' $llvm19 }
+elseif (-not $CheckOnly) {
+    Install-Winget 'LLVM.LLVM' @('--version', '19.1.7', '--location', $llvm19, '--force') | Out-Null
+    Add-Result 'LLVM 19 (libclang)' $(if (Test-Path "$llvm19\bin\libclang.dll") { 'instalado' } else { 'FALTA' }) $llvm19
+}
+else { Add-Result 'LLVM 19 (libclang)' 'FALTA' '' }
+
 # --- Visual Studio Build Tools (C++) --------------------------------------------------------------------
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 function Get-VcTools {

@@ -306,3 +306,55 @@ fn summary_groups_threads() {
     let t = s.to_text();
     assert!(t.contains("3 comentario(s)") && t.contains("[aceptado]"), "{t}");
 }
+
+#[test]
+fn xfdf_roundtrip_between_documents() {
+    let mut a = blank();
+    let mut ids = Vec::new();
+    for (g, _) in geometries() {
+        ids.push(add(&mut a, &styled(AnnotSpec::new(0, g))).unwrap());
+    }
+    let mut reply = AnnotSpec::new(0, Geometry::Note { at: [40.0, 40.0] });
+    reply.reply_to = Some(ids[0]);
+    reply.contents = Some("Acuerdo <&> \"ok\"".into());
+    reply.state = Some(ReviewState::Rejected);
+    add(&mut a, &reply).unwrap();
+    let xml = export_xfdf(&mut a).unwrap();
+    assert!(xml.contains("<highlight") && xml.contains("inreplyto="), "{xml}");
+
+    let mut b = blank();
+    assert_eq!(import_xfdf(&mut b, &xml).unwrap(), 13);
+    // Reimportar no duplica.
+    assert_eq!(import_xfdf(&mut b, &xml).unwrap(), 0);
+
+    let la = list(&mut a, None).unwrap();
+    let lb = list(&mut b, None).unwrap();
+    assert_eq!(la.len(), lb.len());
+    for x in &la {
+        let y = lb
+            .iter()
+            .find(|y| y.nm == x.nm)
+            .unwrap_or_else(|| panic!("falta {:?}", x.nm));
+        assert_eq!(x.kind, y.kind);
+        assert_eq!(x.contents, y.contents);
+        assert_eq!(x.author, y.author);
+        assert_eq!(x.state, y.state);
+        assert_eq!(x.created, y.created);
+        // MuPDF ensancha el rect del texto libre según el borde al regenerar la apariencia: tolerancia de 3 pt.
+        assert!(
+            (x.rect[0] - y.rect[0]).abs() < 3.0 && (x.rect[1] - y.rect[1]).abs() < 3.0,
+            "{:?}: {:?} vs {:?}",
+            x.kind,
+            x.rect,
+            y.rect
+        );
+        assert_eq!(x.reply_to.is_some(), y.reply_to.is_some());
+    }
+}
+
+#[test]
+fn xfdf_rejects_garbage() {
+    let mut d = blank();
+    assert!(import_xfdf(&mut d, "<html></html>").is_err());
+    assert!(import_xfdf(&mut d, "<xfdf><annots><square page=\"0\"></xfdf>").is_err());
+}

@@ -742,6 +742,7 @@ dependencies = [
  "pliego-core",
  "pliego-engine-mupdf",
  "pliego-optimize",
+ "pliego-organize",
  "pliego-protect",
  "serde",
  "serde_json",
@@ -814,12 +815,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-organize"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "pliego-protect"
 version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
  "serde",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-worker"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 

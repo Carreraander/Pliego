@@ -106,3 +106,47 @@ fn summary_and_flatten() {
     let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
     assert!(v.as_array().unwrap().is_empty());
 }
+
+#[test]
+fn xfdf_export_import() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("s.json");
+    std::fs::write(
+        &spec,
+        r#"{"page":0,"geometry":{"type":"circle","rect":[50,50,150,120]},"author":"Ana","contents":"Ojo"}"#,
+    )
+    .unwrap();
+    let a = dir.path().join("a.pdf");
+    let r = pliego()
+        .args(["annot", "add"])
+        .arg(corpus())
+        .arg("--spec")
+        .arg(&spec)
+        .arg("-o")
+        .arg(&a)
+        .output()
+        .unwrap();
+    assert!(r.status.success());
+    let x = dir.path().join("c.xfdf");
+    let r = pliego()
+        .args(["annot", "export"])
+        .arg(&a)
+        .arg("-o")
+        .arg(&x)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    assert!(std::fs::read_to_string(&x).unwrap().contains("<circle"));
+    let b = dir.path().join("b.pdf");
+    let r = pliego()
+        .args(["--json", "annot", "import"])
+        .arg(corpus())
+        .arg(&x)
+        .arg("-o")
+        .arg(&b)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
+    assert_eq!(v["imported"], 1);
+}

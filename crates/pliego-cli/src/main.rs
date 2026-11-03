@@ -31,6 +31,9 @@ enum Command {
     Compare(commands::compare::CompareArgs),
     /// Reduce el tamaño de un PDF o analiza dónde se va el espacio.
     Optimize(commands::optimize::OptimizeArgs),
+    /// Anotaciones: listar, añadir, borrar.
+    #[command(subcommand)]
+    Annot(commands::annot::AnnotCommand),
     /// Crea un PDF desde imágenes.
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
@@ -46,6 +49,7 @@ fn main() -> anyhow::Result<()> {
         Command::Search(a) => commands::view::search(a, cli.json),
         Command::Compare(a) => commands::compare::compare(a, cli.json),
         Command::Optimize(a) => commands::optimize::optimize(a, cli.json),
+        Command::Annot(c) => commands::annot::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
     }

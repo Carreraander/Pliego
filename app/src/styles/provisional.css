@@ -1,0 +1,38 @@
+/* Variables PROVISIONALES: el sistema de diseño definitivo (tokens.css) lo aporta el flujo de diseño. */
+:root {
+  --bg: #f4f1ea; --surface: #fbf9f4; --line: #d9d3c4; --text: #25241f; --text-2: #6b675b; --accent: #1f6f6b;
+  --canvas: #d7d3c8; --space: 8px; --radius: 6px;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; color: var(--text);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1b1c1a; --surface: #242623; --line: #3a3d37; --text: #ebe8df; --text-2: #a09c90; --accent: #5cc0b8; --canvas: #2a2c29; }
+}
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; background: var(--bg); }
+.shell { display: grid; grid-template-rows: auto auto 1fr 26px; height: 100%; }
+.tabs { display: flex; gap: 2px; padding: 4px 8px 0; background: var(--surface); border-bottom: 1px solid var(--line); min-height: 34px; }
+.tab { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px 8px 0 0; color: var(--text-2); cursor: default; max-width: 220px; }
+.tab.active { background: var(--bg); color: var(--text); }
+.tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolbar { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-bottom: 1px solid var(--line); }
+button { font: inherit; color: inherit; background: transparent; border: 1px solid transparent; border-radius: var(--radius); padding: 3px 9px; cursor: pointer; }
+button:hover { background: var(--surface); border-color: var(--line); }
+button.primary { background: var(--accent); color: #fff; }
+.icon-btn { padding: 0 6px; }
+.zoom-label { min-width: 52px; text-align: center; }
+main { position: relative; min-height: 0; background: var(--canvas); }
+.viewer { position: absolute; inset: 0; overflow: auto; }
+.viewer-content { position: relative; margin: 0 auto; min-width: 100%; }
+.page { position: absolute; left: 50%; transform: translateX(-50%); background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .3); }
+.page-rot { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.tile { position: absolute; user-select: none; }
+.tile.low { left: 0; top: 0; }
+.empty { display: grid; place-content: center; height: 100%; text-align: center; color: var(--text-2); }
+.status { display: flex; align-items: center; padding: 0 12px; font-size: 12px; color: var(--text-2); border-top: 1px solid var(--line); background: var(--surface); }
+.toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--line); padding: 8px 14px; border-radius: var(--radius); }
+.modal-backdrop { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / .35); }
+.modal { background: var(--surface); padding: 20px; border-radius: 10px; min-width: 320px; display: grid; gap: 12px; }
+.modal h2 { margin: 0; font-size: 16px; }
+.modal input { display: block; width: 100%; margin-top: 4px; padding: 6px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.field-error { color: #b3261e; margin: 0; }

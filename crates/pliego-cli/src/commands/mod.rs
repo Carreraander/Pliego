@@ -4,6 +4,7 @@ pub mod compare;
 pub mod convert;
 pub mod optimize;
 pub mod pages;
+pub mod pdfa;
 pub mod protect;
 pub mod redact;
 pub mod stamp;

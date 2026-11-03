@@ -14,7 +14,10 @@ pub(crate) fn open(path: &std::path::Path, password: Option<&str>) -> Result<Doc
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
-    let mut doc = Document::open(path).map_err(pdf_err)?;
+    let name = path
+        .to_str()
+        .ok_or_else(|| Error::InvalidInput(format!("ruta no válida: {}", path.display())))?;
+    let mut doc = Document::open(name).map_err(pdf_err)?;
     if doc.needs_password().map_err(pdf_err)? {
         let ok = match password {
             Some(p) => doc.authenticate(p).map_err(pdf_err)?,

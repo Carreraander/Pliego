@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Level;
 use crate::io::{name_of, open_pdf, pdf_err, xref_of};
+use crate::util::{array_items, entries, get};
 
 const MAX_DEPTH: usize = 32;
 const MAX_OBJECTS: usize = 200_000;
@@ -75,34 +76,6 @@ pub(crate) fn xmp_value(xmp: &str, name: &str) -> Option<String> {
     let i = xmp.find(&open)?;
     let rest = &xmp[i + open.len()..];
     rest.find('<').map(|e| rest[..e].trim().to_string())
-}
-
-fn entries(obj: &PdfObject) -> Vec<(String, PdfObject)> {
-    let mut v = Vec::new();
-    if let Ok(it) = obj.dict_iter() {
-        for (k, val) in it.flatten() {
-            if let Ok(k) = k.as_name() {
-                v.push((String::from_utf8_lossy(&k).into_owned(), val));
-            }
-        }
-    }
-    v
-}
-
-fn array_items(obj: &PdfObject) -> Vec<PdfObject> {
-    let mut v = Vec::new();
-    if obj.is_array().unwrap_or(false) {
-        for i in 0..obj.len().unwrap_or(0).min(100_000) {
-            if let Ok(Some(x)) = obj.get_array(i as i32) {
-                v.push(x);
-            }
-        }
-    }
-    v
-}
-
-fn get(obj: &PdfObject, key: &str) -> Option<PdfObject> {
-    obj.get_dict(key).ok().flatten()
 }
 
 struct Ctx<'a> {

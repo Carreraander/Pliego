@@ -5,6 +5,7 @@
 //! Las páginas empiezan en 0.
 
 mod ap;
+mod detect;
 mod edit;
 mod js;
 mod objects;
@@ -12,6 +13,7 @@ mod read;
 mod spec;
 mod tab;
 
+pub use detect::detect_fields;
 pub use edit::{add_field, delete_field, update_field};
 pub use js::{
     CalcOp, Calculation, FieldFormat, NumberFormat, Validation, get_calculation, recalculate, set_calculation,

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand, ValueEnum};
 use mupdf::pdf::PdfDocument;
+use pliego_core::JobContext;
 use pliego_formdesign::{CalcOp, Calculation, FieldFormat, FieldPatch, FieldSpec, FieldType, NumberFormat, Validation};
 
 #[derive(Subcommand)]
@@ -25,6 +26,20 @@ pub enum FormDesignCommand {
     Format(FormatArgs),
     /// Recalcula los campos calculados y guarda los valores.
     Recalc(RecalcArgs),
+    /// Detecta campos en un PDF plano o escaneado; con `-o` los crea.
+    Detect(DetectArgs),
+}
+
+#[derive(Args)]
+pub struct DetectArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    /// Páginas (desde 1), p. ej. `1-3,5`; por defecto, todas.
+    #[arg(long)]
+    pub pages: Option<String>,
+    /// Crea los campos detectados y guarda el resultado en este archivo.
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -465,6 +480,63 @@ pub fn run(cmd: FormDesignCommand, json: bool) -> anyhow::Result<()> {
                 println!("{}", serde_json::json!({ "recalculated": names, "output": dest }));
             } else {
                 println!("{} campo(s) recalculado(s): {}", names.len(), dest.display());
+            }
+            Ok(())
+        }
+        FormDesignCommand::Detect(a) => {
+            let mut doc = open(&a.doc)?;
+            let total = doc.page_count()? as usize;
+            let range: Vec<usize> = match &a.pages {
+                Some(s) => s
+                    .parse::<pliego_core::PageRange>()?
+                    .resolve(total as u32)?
+                    .into_iter()
+                    .map(|p| p as usize)
+                    .collect(),
+                None => (0..total).collect(),
+            };
+            let ctx = JobContext::silent();
+            let mut found = Vec::new();
+            for p in range {
+                found.extend(pliego_formdesign::detect_fields(&doc, p, &ctx)?);
+            }
+            if let Some(out) = &a.output {
+                for f in &found {
+                    pliego_formdesign::add_field(&mut doc, f)?;
+                }
+                let dest = save(
+                    &doc,
+                    &a.doc.input,
+                    &OutArgs {
+                        output: Some(out.clone()),
+                        in_place: false,
+                    },
+                )?;
+                if !json {
+                    println!("{} campo(s) creado(s): {}", found.len(), dest.display());
+                    return Ok(());
+                }
+            }
+            if json {
+                println!("{}", serde_json::to_string_pretty(&found)?);
+            } else {
+                for f in &found {
+                    let kind = serde_json::to_value(f.kind)?;
+                    println!(
+                        "pág. {:<3} {:<24} {:<10} [{:.0} {:.0} {:.0} {:.0}]",
+                        f.page + 1,
+                        f.name,
+                        kind.as_str().unwrap_or(""),
+                        f.rect[0],
+                        f.rect[1],
+                        f.rect[2],
+                        f.rect[3]
+                    );
+                }
+                println!(
+                    "{} campo(s) detectado(s). Usa -o <salida.pdf> para crearlos.",
+                    found.len()
+                );
             }
             Ok(())
         }

@@ -258,3 +258,51 @@ fn nm_is_unique_and_survives_save() {
     assert_eq!(nms.len(), 3);
     assert!(nms.iter().all(|n| n.len() == 36 && n.as_bytes()[14] == b'4'));
 }
+
+#[test]
+fn flatten_removes_annotations_but_keeps_ink_on_page() {
+    let mut doc = blank();
+    for (g, _) in geometries() {
+        add(&mut doc, &styled(AnnotSpec::new(0, g))).unwrap();
+    }
+    assert_eq!(flatten(&mut doc).unwrap(), 12);
+    let mut doc = reopen(&doc);
+    assert!(list(&mut doc, None).unwrap().is_empty());
+    assert_eq!(flatten(&mut doc).unwrap(), 0);
+    // La página ahora tiene contenido (antes estaba en blanco).
+    let page = doc.load_pdf_page(0).unwrap();
+    assert!(page.contents().unwrap().is_some());
+}
+
+#[test]
+fn summary_groups_threads() {
+    let mut doc = blank();
+    let p = add(
+        &mut doc,
+        &styled(AnnotSpec::new(0, Geometry::Note { at: [40.0, 40.0] })),
+    )
+    .unwrap();
+    let mut reply = AnnotSpec::new(0, Geometry::Note { at: [40.0, 40.0] });
+    reply.reply_to = Some(p);
+    reply.author = Some("Luis".into());
+    reply.contents = Some("De acuerdo".into());
+    reply.state = Some(ReviewState::Accepted);
+    add(&mut doc, &reply).unwrap();
+    add(
+        &mut doc,
+        &AnnotSpec::new(
+            1,
+            Geometry::Square {
+                rect: [10.0, 10.0, 50.0, 50.0],
+            },
+        ),
+    )
+    .unwrap();
+    let s = summary(&mut doc).unwrap();
+    assert_eq!(s.total, 3);
+    assert_eq!(s.threads.len(), 2);
+    assert_eq!(s.threads[0].replies.len(), 1);
+    assert_eq!(s.by_author["Ana"], 1);
+    let t = s.to_text();
+    assert!(t.contains("3 comentario(s)") && t.contains("[aceptado]"), "{t}");
+}

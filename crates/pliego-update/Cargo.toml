@@ -1,0 +1,39 @@
+[package]
+name = "pliego-update"
+description = "Cliente de autoactualizaciones de Pliego: manifiestos firmados (Ed25519), canales, despliegue gradual y descarga verificada"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+# Firma de manifiestos: solo la necesita la herramienta de publicación (pliego-release), no la app.
+sign = ["dep:getrandom"]
+
+[dependencies]
+pliego-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+base64 = "0.22"
+ed25519-dalek = "2.2"
+getrandom = { version = "0.3", optional = true }
+semver = { version = "1", features = ["serde"] }
+sha2 = "0.10"
+time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "gzip"] }
+
+[target.'cfg(windows)'.dependencies]
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "gzip", "win-system-proxy"] }
+
+[dev-dependencies]
+# Las pruebas firman manifiestos de prueba con claves generadas al vuelo.
+pliego-update = { path = ".", features = ["sign"] }
+tempfile.workspace = true
+tiny_http = "0.12"
+sha2 = "0.10"
+getrandom = "0.3"
+
+[lints]
+workspace = true

@@ -8,6 +8,7 @@ pub mod formdesign;
 pub mod optimize;
 pub mod pages;
 pub mod pdfa;
+pub mod print;
 pub mod protect;
 pub mod redact;
 pub mod sign;

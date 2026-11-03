@@ -12,3 +12,4 @@
 .pl-jobs__anchor { display: inline-flex; align-items: center; gap: var(--pl-space-2); }
 /* Se ancla arriba de la barra de estado y crece hacia arriba cuando llegan tareas con el popover abierto. */
 .pl-popover.pl-jobs__popover { top: auto !important; bottom: calc(var(--pl-statusbar-h) + var(--pl-space-2)); }
+.pl-jobs__head { display: flex; align-items: center; justify-content: space-between; } .pl-jobs__head h2 { margin: 0; font-size: var(--pl-text-subtitle); }

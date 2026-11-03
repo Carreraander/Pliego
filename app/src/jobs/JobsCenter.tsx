@@ -6,6 +6,7 @@ import { cancelJob, clearFinished, dismissJob, jobs, runningJobs, type Job } fro
 import { jt } from "./strings";
 import "./jobs.css";
 
+const [open, setOpen] = createSignal(false);
 let openResult: ((path: string) => void) | null = null;
 /** La app dice cómo abrir un PDF resultado en una pestaña. */
 export const setResultOpener = (f: ((path: string) => void) | null): void => { openResult = f; };
@@ -47,6 +48,7 @@ export function JobsList() {
   const group = (status: (s: Job["status"]) => boolean) => jobs().filter((j) => status(j.status));
   return (
     <div class="pl-jobs">
+      <div class="pl-jobs__head"><h2>{jt("jobs.title")}</h2><IconButton icon="x" label={jt("jobs.close")} onClick={() => setOpen(false)} /></div>
       <Show when={jobs().length} fallback={<p class="pl-jobs__empty">{jt("jobs.none")}</p>}>
         <For each={[
           { key: "jobs.running", items: group((s) => s === "running") },
@@ -64,7 +66,6 @@ export function JobsList() {
   );
 }
 
-const [open, setOpen] = createSignal(false);
 export const openJobsCenter = (): void => { setOpen(true); };
 
 /** Elemento de la barra de estado: resumen de tareas y popover con el centro de tareas. */

@@ -36,12 +36,12 @@ function RecentRow(props: { item: Recent; onOpen: (path: string) => void; onMenu
     <li class="pl-recent" classList={{ "pl-recent--missing": !r().exists }} onContextMenu={(e) => props.onMenu(contextPoint(e), r())}>
       <button type="button" class="pl-recent__main" onClick={activate}>
         <Thumb path={r().path} exists={r().exists} />
-        <span class="pl-recent__name"><Show when={r().pinned}><Icon name="star" size={14} aria-label={ht("recent.pinned")} /></Show><b>{r().name}</b></span>
+        <span class="pl-recent__name"><b>{r().name}</b></span>
         <span class="pl-recent__folder pl-muted">{r().folder}</span>
         <span class="pl-recent__date pl-muted pl-num">{formatOpened(r().opened_at)}</span>
         <span class="pl-recent__state"><Show when={!r().exists}><Chip tone="warn">{ht("recent.missing")}</Chip></Show></span>
       </button>
-      <Show when={!r().exists}><Button variant="ghost" onClick={() => void find()}>{ht("recent.find")}</Button></Show>
+      <span>{!r().exists && <Button variant="ghost" onClick={() => void find()}>{ht("recent.find")}</Button>}</span>
       <IconButton icon="star" label={`${r().pinned ? ht("recent.unpin") : ht("recent.pin")}: ${r().name}`} pressed={r().pinned} onClick={() => void pinRecent(r().path, !r().pinned)} />
     </li>
   );

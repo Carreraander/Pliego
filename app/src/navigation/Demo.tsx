@@ -23,6 +23,7 @@ function CompressPanel(p: { onClose: () => void }) {
 
 /** Navegación con un documento falso, para probar paletas, modos y atajos sin Tauri (solo desarrollo): `/nav-demo`. */
 export function NavigationDemo() {
+  const onHome = () => currentScreen()?.id === "home";
   const day = 86_400;
   const nowSec = Math.floor(Date.now() / 1000);
   setRecentsBackend(memoryBackend([
@@ -36,7 +37,7 @@ export function NavigationDemo() {
     // Ganchos para las pruebas: simulan los eventos de Tauri de los trabajos.
     (window as unknown as Record<string, unknown>).__demo = {
       progress: (id: number, done: number, total: number, label: string) => onProgress({ job_id: id, done, total, label }),
-      finished: (id: number, ok: boolean) => onFinished({ job_id: id, result: ok ? { outputs: ["C:\\Docs\\contrato (comprimido).pdf"], warnings: [], summary: "12,4 MB → 3,1 MB" } : null, error: ok ? null : { code: "other", message: "No se pudo comprimir: archivo dañado", cancelled: false } }),
+      finished: (id: number, ok: boolean) => onFinished({ job_id: id, result: ok ? { outputs: ["C:\\Docs\\contrato (comprimido).pdf"], warnings: [], summary: "12,4 MB → 3,1 MB" } : null, error: ok ? null : { code: "other", message: "No se pudo reconocer el texto: archivo dañado", cancelled: false } }),
       track: (id: number, title: string) => trackJob(id, { title }),
       home: openHome, settings: openSettings,
     };
@@ -48,7 +49,7 @@ export function NavigationDemo() {
     setDocFacts({ document: true });
     const offs = [
       registerMode({ id: "read", title: "Leer", icon: "mouse-pointer", order: 10, toolbar: () => <span class="pl-muted">Barra de Leer</span> }),
-      registerStatusItem({ id: "demo.page", slot: "start", text: () => "Pág. 1 de 12" }),
+      registerStatusItem({ id: "demo.page", slot: "start", text: () => (currentScreen()?.id === "home" ? "" : "Pág. 1 de 12") }),
       // Una herramienta nueva = un manifiesto + una línea de registro (sustituye a la fantasma con el mismo id).
       registerTool({ id: "optimize.compress", group: "compare-optimize", kind: "task", title: "tools.optimize.compress.title", description: "tools.optimize.compress.description",
         icon: "file-down", keywords: ["reducir", "tamaño"], when: { document: true }, pinnable: true, load: async () => ({ default: CompressPanel }) }),
@@ -60,7 +61,7 @@ export function NavigationDemo() {
     onCleanup(() => offs.forEach((off) => off()));
   });
   return (
-    <AppWindow tabs={[{ id: "1", title: "contrato.pdf" }, { id: "2", title: "factura-octubre.pdf" }]} activeId="1" onSelectTab={() => {}} onCloseTab={() => {}} onNewTab={() => {}} onReorderTabs={() => {}} appMenu={[]}>
+    <AppWindow tabs={onHome() ? [{ id: "home", title: "Inicio" }, { id: "1", title: "contrato.pdf" }] : [{ id: "1", title: "contrato.pdf" }, { id: "2", title: "factura-octubre.pdf" }]} activeId={onHome() ? "home" : "1"} onSelectTab={() => {}} onCloseTab={() => {}} onNewTab={() => {}} onReorderTabs={() => {}} appMenu={[]}>
       <NavigationHost />
       <Show when={currentScreen()} keyed fallback={<EmptyState icon="file-text" title="Documento de ejemplo" hint="Prueba Ctrl+K, Ctrl+Mayús+A, Alt+1…9 y F1." />}>{(s) => <Dynamic component={s.component} />}</Show>
     </AppWindow>

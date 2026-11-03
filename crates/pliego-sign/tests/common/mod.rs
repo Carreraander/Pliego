@@ -88,3 +88,33 @@ pub fn corpus_pdf() -> Vec<u8> {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/basic/hola.pdf");
     std::fs::read(p).unwrap()
 }
+
+/// PDF mínimo de una página con un campo de firma vacío llamado `Firma1` (recuadro 200 × 60).
+pub fn pdf_with_empty_field() -> Vec<u8> {
+    let objs = [
+        "<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[5 0 R]>>>>",
+        "<</Type/Pages/Kids[3 0 R]/Count 1>>",
+        "<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Annots[5 0 R]>>",
+        "<</Length 0>>\nstream\n\nendstream",
+        "<</Type/Annot/Subtype/Widget/FT/Sig/T(Firma1)/Rect[50 50 250 110]/P 3 0 R/F 132>>",
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offs = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offs.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offs {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!(
+            "trailer\n<</Size {}/Root 1 0 R>>\nstartxref\n{xref}\n%%EOF\n",
+            objs.len() + 1
+        )
+        .as_bytes(),
+    );
+    out
+}

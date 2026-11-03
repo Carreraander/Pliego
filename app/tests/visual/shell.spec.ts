@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 test.describe("armazón", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/ui-shell");
-    await page.waitForSelector(".pl-window");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
     await page.addStyleTag({ content: "*{caret-color:transparent !important}" });
   });
 

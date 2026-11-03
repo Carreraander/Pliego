@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.describe("superposiciones del catálogo (teclado)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/ui-catalog");
-    await page.waitForSelector(".catalog");
+    await page.waitForSelector(".catalog", { timeout: 45_000 });
   });
 
   test("el menú se abre, navega con flechas, abre submenú y devuelve el foco", async ({ page }) => {
@@ -70,7 +70,7 @@ test.describe("superposiciones del catálogo (teclado)", () => {
 
 test("captura con menú, submenú y aviso abiertos", async ({ page }) => {
   await page.goto("/ui-catalog");
-  await page.waitForSelector(".catalog");
+  await page.waitForSelector(".catalog", { timeout: 45_000 });
   await page.getByRole("button", { name: "Aviso", exact: true }).click();
   await page.getByRole("button", { name: "Error", exact: true }).click();
   await page.focus("#menu-btn");

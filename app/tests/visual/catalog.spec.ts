@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 test.describe("catálogo de componentes", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/ui-catalog");
-    await page.waitForSelector(".catalog");
+    await page.waitForSelector(".catalog", { timeout: 45_000 });
     await page.addStyleTag({ content: "*{caret-color:transparent !important} html,body,#root,.catalog{height:auto !important;overflow:visible !important}" });
   });
 

@@ -45,7 +45,7 @@ export function App() {
       registerPanel({ id: "viewer.outline", title: t("panel.outline"), icon: "bookmark", order: 20,
         component: (p) => <Show when={docs().find((d) => String(d.id) === p.docId)} keyed>{(d) => <Outline doc={d} />}</Show> }),
       registerAssistantPanel(),
-      registerMode({ id: "read", title: "Leer", icon: "mouse-pointer", order: 10, toolbar: () => (
+      registerMode({ id: "read", title: t("mode.read"), icon: "mouse-pointer", order: 10, toolbar: () => (
         <>
           <IconButton icon="zoom-out" label={t("toolbar.zoomOut")} disabled={!activeDoc()} onClick={() => setZoom(stepZoom(zoom(), -1))} />
           <span class="pl-num pl-muted" style={{ "min-width": "52px", "text-align": "center" }}>{Math.round(zoom() * 100)} %</span>

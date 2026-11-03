@@ -27,6 +27,9 @@ enum Command {
     Text(commands::view::TextArgs),
     /// Busca texto y lista las coincidencias.
     Search(commands::view::SearchArgs),
+    /// Cifrar, permisos y saneado.
+    #[command(subcommand)]
+    Protect(commands::protect::ProtectCommand),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -36,5 +39,6 @@ fn main() -> anyhow::Result<()> {
         Command::Render(a) => commands::view::render(a, cli.json),
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
+        Command::Protect(c) => commands::protect::run(c, cli.json),
     }
 }

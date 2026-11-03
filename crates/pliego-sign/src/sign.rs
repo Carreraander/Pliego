@@ -8,21 +8,25 @@ use pliego_core::{Error, JobContext, Report, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::cms::{OID_TIMESTAMP_TOKEN, add_unsigned_attribute, build_cms, signature_value};
+use crate::dss::{HttpRevocation, RevocationData, RevocationSource, StaticRevocation, add_dss, collect_revocation};
 use crate::pdfwrite::{text_string, write_dict, write_object};
 use crate::signer::{DigestAlg, Signer, subject_name};
-use crate::timestamp::{HttpTsa, TimestampAuthority, request_token};
+use crate::timestamp::{HttpTsa, TimestampAuthority, request_token, token_certificates};
 
 /// Nivel PAdES de la firma.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
 pub enum PadesLevel {
     #[default]
+    #[serde(rename = "b-b")]
     BB,
     /// Con sello de tiempo de la firma (RFC 3161).
+    #[serde(rename = "b-t")]
     BT,
-    /// Con datos de validación a largo plazo (aún no implementado).
+    /// Con sello de tiempo y datos de validación a largo plazo (DSS con certificados y revocación).
+    #[serde(rename = "b-lt")]
     BLt,
     /// Con sello de tiempo del documento (aún no implementado).
+    #[serde(rename = "b-lta")]
     BLta,
 }
 
@@ -34,6 +38,8 @@ pub struct SignOptions {
     pub level: PadesLevel,
     /// Servidor de sellado de tiempo (http) para los niveles B-T o superiores.
     pub timestamp_url: Option<String>,
+    /// Listas CRL (DER) para el nivel B-LT; si no hay, se descargan de los certificados.
+    pub crl_files: Vec<std::path::PathBuf>,
     /// Página (desde 0) donde se coloca el campo de firma. Invisible en esta versión.
     pub page: usize,
     pub field_name: Option<String>,
@@ -52,6 +58,7 @@ impl Default for SignOptions {
             digest: DigestAlg::Sha256,
             level: PadesLevel::BB,
             timestamp_url: None,
+            crl_files: Vec::new(),
             page: 0,
             field_name: None,
             reason: None,
@@ -73,7 +80,7 @@ fn pdf_date(unix: i64) -> String {
 }
 
 /// Última posición indicada por `startxref` y si la sección anterior es una tabla clásica.
-fn last_startxref(data: &[u8]) -> Result<(usize, bool)> {
+pub(crate) fn last_startxref(data: &[u8]) -> Result<(usize, bool)> {
     let pos = data
         .windows(9)
         .rposition(|w| w == b"startxref")
@@ -135,6 +142,80 @@ impl Changes<'_> {
     }
 }
 
+/// Escribe la sección de referencias cruzadas y la cola del archivo para una actualización incremental.
+/// `offsets` lleva las posiciones de los objetos escritos; `size` es el nuevo número de objetos.
+pub(crate) fn write_xref(
+    out: &mut Vec<u8>,
+    doc: &lopdf::Document,
+    prev: usize,
+    prev_is_table: bool,
+    offsets: &mut BTreeMap<u32, (usize, u16)>,
+    new_size: u32,
+) {
+    let xref_start = out.len();
+    let mut trailer = Dictionary::new();
+    for key in [&b"Root"[..], b"Info", b"ID"] {
+        if let Ok(v) = doc.trailer.get(key) {
+            trailer.set(key.to_vec(), v.clone());
+        }
+    }
+    trailer.set("Prev", prev as i64);
+    if prev_is_table {
+        trailer.set("Size", new_size as i64);
+        out.extend_from_slice(b"xref\n");
+        let nums: Vec<u32> = offsets.keys().copied().collect();
+        let mut i = 0;
+        while i < nums.len() {
+            let mut j = i;
+            while j + 1 < nums.len() && nums[j + 1] == nums[j] + 1 {
+                j += 1;
+            }
+            out.extend_from_slice(format!("{} {}\n", nums[i], j - i + 1).as_bytes());
+            for n in &nums[i..=j] {
+                let (off, gen_) = offsets[n];
+                out.extend_from_slice(format!("{off:010} {gen_:05} n \r\n").as_bytes());
+            }
+            i = j + 1;
+        }
+        out.extend_from_slice(b"trailer\n");
+        write_dict(&trailer, out);
+        out.extend_from_slice(format!("\nstartxref\n{xref_start}\n%%EOF\n").as_bytes());
+    } else {
+        // Flujo de referencias (PDF 1.5): entradas de tipo 1 con campos de 1, 4 y 2 bytes.
+        let xref_id = new_size;
+        offsets.insert(xref_id, (xref_start, 0));
+        let nums: Vec<u32> = offsets.keys().copied().collect();
+        let mut data = Vec::new();
+        let mut index = Vec::new();
+        let mut i = 0;
+        while i < nums.len() {
+            let mut j = i;
+            while j + 1 < nums.len() && nums[j + 1] == nums[j] + 1 {
+                j += 1;
+            }
+            index.push(Object::Integer(nums[i] as i64));
+            index.push(Object::Integer((j - i + 1) as i64));
+            for n in &nums[i..=j] {
+                let (off, gen_) = offsets[n];
+                data.push(1);
+                data.extend_from_slice(&(off as u32).to_be_bytes());
+                data.extend_from_slice(&gen_.to_be_bytes());
+            }
+            i = j + 1;
+        }
+        trailer.set("Type", Object::Name(b"XRef".to_vec()));
+        trailer.set("Size", (xref_id + 1) as i64);
+        trailer.set("W", vec![1.into(), 4.into(), 2.into()]);
+        trailer.set("Index", Object::Array(index));
+        trailer.set("Length", data.len() as i64);
+        out.extend_from_slice(format!("{xref_id} 0 obj\n").as_bytes());
+        write_dict(&trailer, out);
+        out.extend_from_slice(b"\nstream\n");
+        out.extend_from_slice(&data);
+        out.extend_from_slice(format!("\nendstream\nendobj\nstartxref\n{xref_start}\n%%EOF\n").as_bytes());
+    }
+}
+
 /// Firma `input` (bytes de un PDF) y devuelve el PDF firmado.
 pub fn sign_bytes(input: &[u8], signer: &dyn Signer, opts: &SignOptions) -> Result<Vec<u8>> {
     let http;
@@ -150,7 +231,24 @@ pub fn sign_bytes(input: &[u8], signer: &dyn Signer, opts: &SignOptions) -> Resu
             ));
         }
     };
-    sign_bytes_with_tsa(input, signer, opts, tsa)
+    let static_rev;
+    let rev: Option<&dyn RevocationSource> = if opts.level < PadesLevel::BLt {
+        None
+    } else if opts.crl_files.is_empty() {
+        Some(&HttpRevocation)
+    } else {
+        let crls = opts
+            .crl_files
+            .iter()
+            .map(|p| std::fs::read(p).map_err(|e| Error::io_at(p, e)))
+            .collect::<Result<Vec<_>>>()?;
+        static_rev = StaticRevocation(RevocationData {
+            crls,
+            ocsps: Vec::new(),
+        });
+        Some(&static_rev)
+    };
+    sign_bytes_with(input, signer, opts, tsa, rev)
 }
 
 /// Como [`sign_bytes`], con la autoridad de sellado de tiempo indicada (p. ej. una local en pruebas).
@@ -160,14 +258,28 @@ pub fn sign_bytes_with_tsa(
     opts: &SignOptions,
     tsa: Option<&dyn TimestampAuthority>,
 ) -> Result<Vec<u8>> {
-    if opts.level >= PadesLevel::BLt {
-        return Err(Error::Unsupported(
-            "los niveles B-LT y B-LTA todavía no están disponibles".into(),
+    sign_bytes_with(input, signer, opts, tsa, None)
+}
+
+/// Firma con las autoridades de tiempo y de revocación indicadas (necesarias según el nivel).
+pub fn sign_bytes_with(
+    input: &[u8],
+    signer: &dyn Signer,
+    opts: &SignOptions,
+    tsa: Option<&dyn TimestampAuthority>,
+    revocation: Option<&dyn RevocationSource>,
+) -> Result<Vec<u8>> {
+    if opts.level == PadesLevel::BLta {
+        return Err(Error::Unsupported("el nivel B-LTA todavía no está disponible".into()));
+    }
+    if opts.level >= PadesLevel::BT && tsa.is_none() {
+        return Err(Error::InvalidInput(
+            "este nivel necesita un servidor de sellado de tiempo".into(),
         ));
     }
-    if opts.level == PadesLevel::BT && tsa.is_none() {
+    if opts.level == PadesLevel::BLt && revocation.is_none() {
         return Err(Error::InvalidInput(
-            "el nivel B-T necesita un servidor de sellado de tiempo".into(),
+            "el nivel B-LT necesita un origen de datos de revocación".into(),
         ));
     }
     let doc = lopdf::Document::load_mem(input).map_err(pdf_err)?;
@@ -295,68 +407,7 @@ pub fn sign_bytes_with_tsa(
 
     // Tabla de referencias cruzadas y cola.
     let new_size = field_id.0.max(sig_id.0) + 1;
-    let xref_start = out.len();
-    let mut trailer = Dictionary::new();
-    for key in [&b"Root"[..], b"Info", b"ID"] {
-        if let Ok(v) = doc.trailer.get(key) {
-            trailer.set(key.to_vec(), v.clone());
-        }
-    }
-    trailer.set("Prev", prev as i64);
-    if prev_is_table {
-        trailer.set("Size", new_size as i64);
-        out.extend_from_slice(b"xref\n");
-        let nums: Vec<u32> = offsets.keys().copied().collect();
-        let mut i = 0;
-        while i < nums.len() {
-            let mut j = i;
-            while j + 1 < nums.len() && nums[j + 1] == nums[j] + 1 {
-                j += 1;
-            }
-            out.extend_from_slice(format!("{} {}\n", nums[i], j - i + 1).as_bytes());
-            for n in &nums[i..=j] {
-                let (off, gen_) = offsets[n];
-                out.extend_from_slice(format!("{off:010} {gen_:05} n \r\n").as_bytes());
-            }
-            i = j + 1;
-        }
-        out.extend_from_slice(b"trailer\n");
-        write_dict(&trailer, &mut out);
-        out.extend_from_slice(format!("\nstartxref\n{xref_start}\n%%EOF\n").as_bytes());
-    } else {
-        // Flujo de referencias (PDF 1.5): entradas de tipo 1 con campos de 1, 4 y 2 bytes.
-        let xref_id = new_size;
-        offsets.insert(xref_id, (xref_start, 0));
-        let nums: Vec<u32> = offsets.keys().copied().collect();
-        let mut data = Vec::new();
-        let mut index = Vec::new();
-        let mut i = 0;
-        while i < nums.len() {
-            let mut j = i;
-            while j + 1 < nums.len() && nums[j + 1] == nums[j] + 1 {
-                j += 1;
-            }
-            index.push(Object::Integer(nums[i] as i64));
-            index.push(Object::Integer((j - i + 1) as i64));
-            for n in &nums[i..=j] {
-                let (off, gen_) = offsets[n];
-                data.push(1);
-                data.extend_from_slice(&(off as u32).to_be_bytes());
-                data.extend_from_slice(&gen_.to_be_bytes());
-            }
-            i = j + 1;
-        }
-        trailer.set("Type", Object::Name(b"XRef".to_vec()));
-        trailer.set("Size", (xref_id + 1) as i64);
-        trailer.set("W", vec![1.into(), 4.into(), 2.into()]);
-        trailer.set("Index", Object::Array(index));
-        trailer.set("Length", data.len() as i64);
-        out.extend_from_slice(format!("{xref_id} 0 obj\n").as_bytes());
-        write_dict(&trailer, &mut out);
-        out.extend_from_slice(b"\nstream\n");
-        out.extend_from_slice(&data);
-        out.extend_from_slice(format!("\nendstream\nendobj\nstartxref\n{xref_start}\n%%EOF\n").as_bytes());
-    }
+    write_xref(&mut out, &doc, prev, prev_is_table, &mut offsets, new_size);
 
     // ByteRange definitivo, resumen del documento y firma CMS.
     let total = out.len();
@@ -375,8 +426,10 @@ pub fn sign_bytes_with_tsa(
     let mut covered = out[..contents_open].to_vec();
     covered.extend_from_slice(&out[contents_close..]);
     let mut cms = build_cms(signer, opts.digest, &opts.digest.digest(&covered))?;
-    if let (PadesLevel::BT, Some(tsa)) = (opts.level, tsa) {
+    let mut token_certs = Vec::new();
+    if let (true, Some(tsa)) = (opts.level >= PadesLevel::BT, tsa) {
         let token = request_token(tsa, opts.digest, &signature_value(&cms)?)?;
+        token_certs = token_certificates(&token)?;
         cms = add_unsigned_attribute(&cms, OID_TIMESTAMP_TOKEN, &token)?;
     }
     if cms.len() > opts.contents_size {
@@ -388,6 +441,17 @@ pub fn sign_bytes_with_tsa(
     }
     let hex = hex::encode_upper(&cms);
     out[contents_open + 1..contents_open + 1 + hex.len()].copy_from_slice(hex.as_bytes());
+    if let (PadesLevel::BLt, Some(source)) = (opts.level, revocation) {
+        let mut certs = chain.clone();
+        certs.extend(token_certs);
+        let data = collect_revocation(&certs, source)?;
+        if data.crls.is_empty() && data.ocsps.is_empty() {
+            return Err(Error::Other(
+                "no se obtuvieron datos de revocación (CRL u OCSP) para los certificados de la firma".into(),
+            ));
+        }
+        return add_dss(&out, &certs, &data);
+    }
     Ok(out)
 }
 

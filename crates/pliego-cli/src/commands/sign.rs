@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, bail};
 use clap::{Args, ValueEnum};
 use pliego_core::JobContext;
-use pliego_sign::{ChainStatus, PadesLevel, Pkcs12Signer, SignOptions, ValidationOptions};
+use pliego_sign::{ChainStatus, PadesLevel, Pkcs12Signer, SignOptions, ValidationOptions, VisibleSignature};
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum Level {
@@ -11,6 +11,8 @@ pub enum Level {
     BB,
     #[value(name = "b-t")]
     BT,
+    #[value(name = "b-lt")]
+    BLt,
 }
 
 #[derive(Args)]
@@ -29,13 +31,22 @@ pub struct SignArgs {
     /// Página (desde 1) donde se coloca el campo de firma.
     #[arg(long, default_value_t = 1)]
     pub page: usize,
-    /// Nivel PAdES: b-b (básico) o b-t (con sello de tiempo, requiere --tsa).
+    /// Nivel PAdES: b-b (básico), b-t (con sello de tiempo, requiere --tsa) o b-lt (además, con certificados y CRL incrustados).
     #[arg(long, value_enum, default_value = "b-b")]
     pub level: Level,
     /// Dirección http del servidor de sellado de tiempo (RFC 3161).
     #[arg(long)]
     pub tsa: Option<String>,
-    /// Nombre del campo de firma.
+    /// Lista CRL (DER) para b-lt; se puede repetir. Sin ella se descargan de los certificados.
+    #[arg(long = "crl")]
+    pub crl: Vec<PathBuf>,
+    /// Firma visible: `pagina,x,y,ancho,alto` (página desde 1; medidas en puntos desde la esquina inferior izquierda).
+    #[arg(long, value_parser = parse_visible)]
+    pub visible: Option<VisibleSignature>,
+    /// Firma de certificación (DocMDP): 1 = sin cambios, 2 = rellenar formularios y firmar, 3 = además anotar.
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=3))]
+    pub certify: Option<u8>,
+    /// Nombre del campo de firma: si ya existe un campo de firma vacío con ese nombre, se firma ese.
     #[arg(long)]
     pub field: Option<String>,
     #[arg(long)]
@@ -58,6 +69,22 @@ pub struct VerifyArgs {
     pub strict: bool,
 }
 
+fn parse_visible(s: &str) -> Result<VisibleSignature, String> {
+    let parts: Vec<&str> = s.split(',').map(str::trim).collect();
+    let [page, x, y, w, h] = parts[..] else {
+        return Err("use pagina,x,y,ancho,alto".into());
+    };
+    let page: usize = page.parse().map_err(|_| "la página debe ser un número")?;
+    if page == 0 {
+        return Err("las páginas se numeran desde 1".into());
+    }
+    let num = |v: &str| v.parse::<f32>().map_err(|_| format!("{v} no es un número"));
+    Ok(VisibleSignature {
+        page: page - 1,
+        rect: [num(x)?, num(y)?, num(w)?, num(h)?],
+    })
+}
+
 pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
     if a.page == 0 {
         bail!("las páginas se numeran desde 1");
@@ -71,9 +98,13 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         level: match a.level {
             Level::BB => PadesLevel::BB,
             Level::BT => PadesLevel::BT,
+            Level::BLt => PadesLevel::BLt,
         },
         timestamp_url: a.tsa,
+        crl_files: a.crl,
         page: a.page - 1,
+        visible: a.visible,
+        certify: a.certify,
         field_name: a.field,
         reason: a.reason,
         location: a.location,
@@ -88,6 +119,15 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         println!("{}: {}", report.summary, a.output.display());
     }
     Ok(())
+}
+
+fn level_text(l: PadesLevel) -> &'static str {
+    match l {
+        PadesLevel::BB => "B-B",
+        PadesLevel::BT => "B-T (con sello de tiempo)",
+        PadesLevel::BLt => "B-LT (validación a largo plazo)",
+        PadesLevel::BLta => "B-LTA",
+    }
 }
 
 fn chain_text(c: ChainStatus) -> &'static str {
@@ -128,6 +168,10 @@ pub fn verify(a: VerifyArgs, json: bool) -> anyhow::Result<()> {
                 println!("  fecha: {t}");
             }
             println!("  certificado: {}", chain_text(r.chain));
+            println!("  nivel: {}", level_text(r.level));
+            if let Some(p) = r.certification {
+                println!("  certificación DocMDP: nivel {p}");
+            }
             if let Some(t) = &r.timestamp {
                 println!(
                     "  sello de tiempo: {} ({})",

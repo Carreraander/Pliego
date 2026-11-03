@@ -2,6 +2,7 @@
 bueno.pdf: etiquetado, idioma, título, encabezados H1>H2, figura con Alt, tabla con TH, campo con TU.
 malo.pdf: sin etiquetar ni idioma ni título; con campo sin descripción y enlace sin descripción.
 malo_etiquetado.pdf: etiquetado pero con figura sin Alt, salto H1>H3, tabla sin TH e idioma no válido.
+malo_contraste.pdf: gris claro sobre blanco y blanco sobre blanco, más un texto correcto (blanco sobre azul oscuro).
 Sin dependencias. Uso: python tools/gen_a11y_corpus.py"""
 import pathlib
 
@@ -84,10 +85,27 @@ def make_untagged():
     return p.build(catalog)
 
 
+def make_low_contrast():
+    p = Pdf()
+    font = p.add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    content = p.add(p.stream("", "0.8 g BT /F1 12 Tf 72 760 Td (Gris claro sobre blanco) Tj ET "
+                                  "1 g BT /F1 12 Tf 72 730 Td (Blanco sobre blanco) Tj ET "
+                                  "0 0 0.4 rg 50 650 300 40 re f "
+                                  "1 g BT /F1 12 Tf 72 665 Td (Blanco sobre azul oscuro) Tj ET"))
+    page_id = len(p.objs) + 1
+    pages_id = page_id + 1
+    p.add(f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 {font} 0 R >> >> "
+          f"/Contents {content} 0 R >>")
+    p.add(f"<< /Type /Pages /Kids [{page_id} 0 R] /Count 1 >>")
+    catalog = p.add(f"<< /Type /Catalog /Pages {pages_id} 0 R >>")
+    return p.build(catalog)
+
+
 if __name__ == "__main__":
     out = pathlib.Path(__file__).resolve().parent.parent / "tests" / "corpus" / "a11y"
     out.mkdir(parents=True, exist_ok=True)
     (out / "bueno.pdf").write_bytes(make(True))
     (out / "malo_etiquetado.pdf").write_bytes(make(False))
     (out / "malo.pdf").write_bytes(make_untagged())
+    (out / "malo_contraste.pdf").write_bytes(make_low_contrast())
     print(out)

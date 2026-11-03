@@ -3,6 +3,7 @@
 //! - [`convert`]: convierte un PDF al nivel pedido (o explica por qué no puede).
 //! - [`validate`] / [`validate_doc`]: comprueba un documento contra un [`Level`].
 //! - [`icc::srgb_profile`]: perfil ICC sRGB generado por código para la intención de salida.
+//! - [`verapdf`]: validación completa opcional con veraPDF (descarga aparte, necesita Java).
 //!
 //! # Fuentes
 //! PDF/A exige incrustar todas las fuentes. El motor trae las 14 fuentes estándar (Helvetica, Times,
@@ -21,6 +22,7 @@ mod level;
 mod substitute;
 mod util;
 mod validate;
+pub mod verapdf;
 mod xmp;
 
 pub use convert::convert;

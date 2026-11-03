@@ -19,7 +19,7 @@ pub trait TimestampAuthority {
     fn timestamp(&self, request: &[u8]) -> Result<Vec<u8>>;
 }
 
-/// Cliente HTTP (RFC 3161 sobre HTTP). Los servicios https necesitan una versión con TLS.
+/// Cliente HTTP/HTTPS (RFC 3161); TLS con rustls y ring.
 pub struct HttpTsa {
     pub url: String,
 }
@@ -31,11 +31,6 @@ impl TimestampAuthority for HttpTsa {
                 "no se pudo contactar con el servidor de sellado de tiempo: {e}"
             ))
         };
-        if self.url.starts_with("https://") {
-            return Err(Error::Unsupported(
-                "los servidores de sellado de tiempo https todavía no están soportados; use una dirección http".into(),
-            ));
-        }
         let mut resp = ureq::post(&self.url)
             .header("Content-Type", "application/timestamp-query")
             .send(request)
@@ -224,4 +219,19 @@ impl<S: Signer> TimestampAuthority for LocalTsa<S> {
         .to_der()
         .map_err(der_err)
     }
+}
+
+/// Certificados incluidos en un token de sello de tiempo (para el DSS).
+pub fn token_certificates(token: &[u8]) -> Result<Vec<Certificate>> {
+    let info = ContentInfo::from_der(token).map_err(der_err)?;
+    let sd: SignedData = info.content.decode_as().map_err(der_err)?;
+    Ok(sd
+        .certificates
+        .iter()
+        .flat_map(|s| s.0.iter())
+        .filter_map(|c| match c {
+            cms::cert::CertificateChoices::Certificate(c) => Some(c.clone()),
+            _ => None,
+        })
+        .collect())
 }

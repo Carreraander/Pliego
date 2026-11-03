@@ -12,6 +12,8 @@ use rcgen::{
 pub struct TestPki {
     pub ca_der: Vec<u8>,
     pub p12: Vec<u8>,
+    /// CRL vacía firmada por la CA.
+    pub crl_der: Vec<u8>,
 }
 
 pub const PASSWORD: &str = "prueba";
@@ -54,6 +56,16 @@ pub fn make_pki_for(ecdsa: bool, tsa: bool) -> TestPki {
     }
     let leaf = params.signed_by(&key, &issuer).unwrap();
 
+    let crl = rcgen::CertificateRevocationListParams {
+        this_update: rcgen::date_time_ymd(2026, 1, 1),
+        next_update: rcgen::date_time_ymd(2040, 1, 1),
+        crl_number: rcgen::SerialNumber::from(1u64),
+        issuing_distribution_point: None,
+        revoked_certs: vec![],
+        key_identifier_method: rcgen::KeyIdMethod::Sha256,
+    }
+    .signed_by(&issuer)
+    .unwrap();
     let chain = PrivateKeyChain::new(
         b"k1".to_vec(),
         PrivateKey::from_der(&key.serialize_der()).unwrap(),
@@ -66,6 +78,7 @@ pub fn make_pki_for(ecdsa: bool, tsa: bool) -> TestPki {
     store.add_entry("firma", KeyStoreEntry::PrivateKeyChain(chain));
     let p12 = store.writer(PASSWORD).write().unwrap();
     TestPki {
+        crl_der: crl.der().to_vec(),
         ca_der: ca.der().to_vec(),
         p12,
     }
@@ -74,4 +87,34 @@ pub fn make_pki_for(ecdsa: bool, tsa: bool) -> TestPki {
 pub fn corpus_pdf() -> Vec<u8> {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/basic/hola.pdf");
     std::fs::read(p).unwrap()
+}
+
+/// PDF mínimo de una página con un campo de firma vacío llamado `Firma1` (recuadro 200 × 60).
+pub fn pdf_with_empty_field() -> Vec<u8> {
+    let objs = [
+        "<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[5 0 R]>>>>",
+        "<</Type/Pages/Kids[3 0 R]/Count 1>>",
+        "<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Annots[5 0 R]>>",
+        "<</Length 0>>\nstream\n\nendstream",
+        "<</Type/Annot/Subtype/Widget/FT/Sig/T(Firma1)/Rect[50 50 250 110]/P 3 0 R/F 132>>",
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offs = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offs.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offs {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!(
+            "trailer\n<</Size {}/Root 1 0 R>>\nstartxref\n{xref}\n%%EOF\n",
+            objs.len() + 1
+        )
+        .as_bytes(),
+    );
+    out
 }

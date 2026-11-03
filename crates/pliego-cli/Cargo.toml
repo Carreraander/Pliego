@@ -10,10 +10,15 @@ repository.workspace = true
 name = "pliego"
 path = "src/main.rs"
 
+[features]
+# Motor llama.cpp para `pliego assistant ask|summarize` (compila C++ con CMake).
+llama = ["pliego-assistant/llama"]
+
 [dependencies]
 pliego-core.workspace = true
 pliego-engine-mupdf.workspace = true
 pliego-sign = { path = "../pliego-sign" }
+pliego-signflow = { path = "../pliego-signflow" }
 pliego-compare = { path = "../pliego-compare" }
 pliego-optimize = { path = "../pliego-optimize" }
 pliego-organize.workspace = true
@@ -22,11 +27,31 @@ pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }
 pliego-forms = { path = "../pliego-forms" }
+pliego-formdesign = { path = "../pliego-formdesign" }
 mupdf.workspace = true
+pliego-print = { path = "../pliego-print" }
+pliego-assistant = { path = "../pliego-assistant" }
 pliego-convert = { path = "../pliego-convert" }
+pliego-office-export = { path = "../pliego-office-export" }
 pliego-redact = { path = "../pliego-redact" }
 pliego-a11y = { path = "../pliego-a11y" }
 pliego-pdfa = { path = "../pliego-pdfa" }
+
+# ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
+# [W06 ocr]
+
+# [W11 edit]
+
+# [W14 office]
+
+# [W15 run e índice]
+
+# [W13/W17/W12 extra]
+
+# [libre A]
+
+# [libre B]
+
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true

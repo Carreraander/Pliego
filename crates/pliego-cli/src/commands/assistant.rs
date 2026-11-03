@@ -4,7 +4,10 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::{Args, Subcommand};
-use pliego_assistant::{Assistant, DocIndex, DocumentText, catalog, extract_key_data};
+use pliego_assistant::{
+    Assistant, DocIndex, DocumentText, ModelSpec, catalog, default_models_dir, download_model, extract_key_data,
+    installed_path,
+};
 use pliego_core::JobContext;
 
 use super::view::OpenArgs;
@@ -13,6 +16,8 @@ use super::view::OpenArgs;
 pub enum AssistantCommand {
     /// Lista los modelos disponibles con su licencia y requisitos.
     Models,
+    /// Descarga un modelo del catálogo (única operación con red; comprueba tamaño y SHA-256).
+    Download(DownloadArgs),
     /// Fechas e importes del documento, con su página (no necesita modelo).
     Keydata(DocArgs),
     /// Pasajes más relevantes para una pregunta (búsqueda local, sin modelo).
@@ -21,6 +26,15 @@ pub enum AssistantCommand {
     Ask(AskArgs),
     /// Resume el documento (requiere un modelo GGUF).
     Summarize(SummarizeArgs),
+}
+
+#[derive(Args)]
+pub struct DownloadArgs {
+    /// Identificador del modelo (ver `pliego assistant models`).
+    pub model: String,
+    /// Carpeta de destino (por defecto, la carpeta de modelos de Pliego).
+    #[arg(long)]
+    pub dir: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -60,6 +74,7 @@ pub struct SummarizeArgs {
 pub fn run(cmd: AssistantCommand, json: bool) -> anyhow::Result<()> {
     match cmd {
         AssistantCommand::Models => models(json),
+        AssistantCommand::Download(a) => download(a, json),
         AssistantCommand::Keydata(a) => keydata(a, json),
         AssistantCommand::Passages(a) => passages(a, json),
         AssistantCommand::Ask(a) => ask(a, json),
@@ -73,17 +88,63 @@ fn text_of(open: &OpenArgs) -> anyhow::Result<DocumentText> {
 }
 
 fn models(json: bool) -> anyhow::Result<()> {
+    let dir = default_models_dir();
     if json {
-        println!("{}", serde_json::to_string_pretty(catalog())?);
+        let v: Vec<_> = catalog()
+            .iter()
+            .map(|m| {
+                let mut v = serde_json::to_value(m).unwrap_or_default();
+                v["installed_path"] = serde_json::json!(installed_path(m, &dir));
+                v
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&v)?);
     } else {
         for m in catalog() {
+            let state = if installed_path(m, &dir).is_some() {
+                "instalado"
+            } else {
+                ""
+            };
             println!(
-                "{:<28} {:<10} {:>5} MB  RAM {:.0} GB  {}",
-                m.id, m.license, m.requirements.download_mb, m.requirements.ram_gb, m.name
+                "{:<28} {:<10} {:>5} MB  RAM {:.0} GB  {}{} {state}",
+                m.id,
+                m.license,
+                m.requirements.download_mb,
+                m.requirements.ram_gb,
+                m.name,
+                if m.recommended { " ★" } else { "" }
             );
         }
+        println!("\nCarpeta de modelos: {}", dir.display());
     }
     Ok(())
+}
+
+fn download(a: DownloadArgs, json: bool) -> anyhow::Result<()> {
+    let spec = ModelSpec::find(&a.model).with_context(|| format!("no existe el modelo «{}»", a.model))?;
+    let dir = a.dir.unwrap_or_else(default_models_dir);
+    let progress = Stderr(json);
+    let ctx = JobContext::new(&progress, pliego_core::CancelToken::new());
+    let path = download_model(spec, &dir, &ctx)?;
+    if json {
+        println!("{}", serde_json::json!({ "model": spec.id, "path": path }));
+    } else {
+        eprintln!();
+        println!("{}", path.display());
+    }
+    Ok(())
+}
+
+/// Progreso de la descarga en la terminal (no se muestra con `--json`).
+struct Stderr(bool);
+
+impl pliego_core::Progress for Stderr {
+    fn report(&self, done: u64, total: u64, message: &str) {
+        if !self.0 && total > 0 {
+            eprint!("\r{message}: {} %", done * 100 / total);
+        }
+    }
 }
 
 fn keydata(a: DocArgs, json: bool) -> anyhow::Result<()> {

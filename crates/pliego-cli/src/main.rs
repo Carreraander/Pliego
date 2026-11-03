@@ -27,6 +27,22 @@ enum Command {
     Text(commands::view::TextArgs),
     /// Busca texto y lista las coincidencias.
     Search(commands::view::SearchArgs),
+    /// Combina varios PDFs en uno.
+    Merge(commands::pages::MergeArgs),
+    /// Divide un PDF en varios.
+    Split(commands::pages::SplitArgs),
+    /// Operaciones sobre páginas: extraer, insertar, borrar, girar, mover, recortar, etiquetas.
+    Pages(commands::pages::PagesArgs),
+    /// Cifrar, permisos y saneado.
+    #[command(subcommand)]
+    Protect(commands::protect::ProtectCommand),
+    /// Anotaciones: listar, añadir, borrar.
+    #[command(subcommand)]
+    Annot(commands::annot::AnnotCommand),
+    /// Crea un PDF desde imágenes.
+    Create(commands::convert::CreateArgs),
+    /// Exporta un PDF a imágenes o texto.
+    Export(commands::convert::ExportArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -36,5 +52,12 @@ fn main() -> anyhow::Result<()> {
         Command::Render(a) => commands::view::render(a, cli.json),
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
+        Command::Merge(a) => commands::pages::merge(a, cli.json),
+        Command::Split(a) => commands::pages::split(a, cli.json),
+        Command::Pages(a) => commands::pages::pages(a, cli.json),
+        Command::Protect(c) => commands::protect::run(c, cli.json),
+        Command::Annot(c) => commands::annot::run(c, cli.json),
+        Command::Create(a) => commands::convert::create(a, cli.json),
+        Command::Export(a) => commands::convert::export(a, cli.json),
     }
 }

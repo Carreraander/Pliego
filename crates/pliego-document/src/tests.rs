@@ -119,6 +119,8 @@ fn atomic_save_and_roundtrip() {
     assert_eq!(names.len(), 2, "{names:?}");
     let reopened = Document::open(&out, None).unwrap();
     assert_eq!(title(&reopened).as_deref(), Some("Guardado"));
+    // Windows no deja reemplazar un archivo abierto: se suelta antes de volver a guardar.
+    drop(reopened);
     // Se puede seguir editando y guardando tras guardar.
     set_title(&mut doc, "Otra vez");
     doc.save(&out, &SaveOptions::default()).unwrap();

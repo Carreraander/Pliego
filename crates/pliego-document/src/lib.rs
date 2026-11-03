@@ -367,7 +367,10 @@ impl Document {
             self.pdf
                 .save_with_options(tmp_str, Self::write_options(&SaveOptions::default(), true))
                 .map_err(pdf_err)?;
-            fs::File::open(&tmp)
+            // Abrir con permiso de escritura: en Windows `sync_all` falla sobre un handle de solo lectura.
+            fs::OpenOptions::new()
+                .write(true)
+                .open(&tmp)
                 .and_then(|f| f.sync_all())
                 .map_err(|e| Error::io_at(&tmp, e))?;
             self.release_file_handle()?;

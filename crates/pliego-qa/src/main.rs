@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 use clap::Parser;
 use pliego_core::{EngineDocument, PdfEngine};
 use pliego_engine_mupdf::MupdfEngine;
+use pliego_worker::{WorkerConfig, WorkerEngine};
 
 /// Código de salida del hijo cuando el motor devuelve un error limpio.
 const EXIT_REJECTED: u8 = 3;
@@ -30,6 +31,11 @@ struct Args {
     /// Se listan pero no hacen fallar; un fallo fuera de la lista sí.
     #[arg(long, default_value = "tests/corpus/known-issues.txt")]
     known: PathBuf,
+    /// Renderiza mediante `pliego-worker` (proceso auxiliar que corta por tiempo y relanza), como hace la app.
+    /// Con esto los fallos del motor deben quedar contenidos (error limpio) en lugar de caída o bloqueo.
+    /// Requiere `pliego-worker` junto a este ejecutable o en `PLIEGO_WORKER`.
+    #[arg(long)]
+    worker: bool,
     /// Modo interno: procesa un solo archivo.
     #[arg(long, hide = true)]
     one: Option<PathBuf>,
@@ -38,8 +44,8 @@ struct Args {
 fn main() -> ExitCode {
     let args = Args::parse();
     match args.one {
-        Some(file) => worker(&file),
-        None => match run_all(&args.dir, &args.known, Duration::from_secs(args.timeout)) {
+        Some(file) => worker(&file, args.worker),
+        None => match run_all(&args.dir, &args.known, Duration::from_secs(args.timeout), args.worker) {
             Ok(true) => ExitCode::SUCCESS,
             Ok(false) => ExitCode::FAILURE,
             Err(e) => {
@@ -50,14 +56,29 @@ fn main() -> ExitCode {
     }
 }
 
-fn worker(file: &Path) -> ExitCode {
-    let result: pliego_core::Result<()> = (|| {
-        let doc = MupdfEngine.open(file, None)?;
-        if doc.page_count()? > 0 {
-            doc.render_page(0, 0.5)?;
+fn open_and_render<E: PdfEngine>(engine: &E, file: &Path) -> pliego_core::Result<()> {
+    let doc = engine.open(file, None)?;
+    if doc.page_count()? > 0 {
+        doc.render_page(0, 0.5)?;
+    }
+    Ok(())
+}
+
+fn worker(file: &Path, use_worker: bool) -> ExitCode {
+    let result = if use_worker {
+        match WorkerConfig::discover() {
+            Ok(mut cfg) => {
+                cfg.timeout = Duration::from_secs(10);
+                open_and_render(&WorkerEngine::new(cfg), file)
+            }
+            Err(e) => {
+                eprintln!("error: {e}");
+                return ExitCode::from(2);
+            }
         }
-        Ok(())
-    })();
+    } else {
+        open_and_render(&MupdfEngine, file)
+    };
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(_) => ExitCode::from(EXIT_REJECTED),
@@ -83,8 +104,12 @@ enum Outcome {
     Hang,
 }
 
-fn run_one(exe: &Path, file: &Path, timeout: Duration) -> std::io::Result<Outcome> {
-    let mut child = Command::new(exe)
+fn run_one(exe: &Path, file: &Path, timeout: Duration, use_worker: bool) -> std::io::Result<Outcome> {
+    let mut cmd = Command::new(exe);
+    if use_worker {
+        cmd.arg("--worker");
+    }
+    let mut child = cmd
         .arg("--one")
         .arg(file)
         .stdin(Stdio::null())
@@ -110,7 +135,7 @@ fn run_one(exe: &Path, file: &Path, timeout: Duration) -> std::io::Result<Outcom
 }
 
 /// Devuelve `true` si no hubo caídas ni bloqueos.
-fn run_all(dir: &Path, known_file: &Path, timeout: Duration) -> anyhow::Result<bool> {
+fn run_all(dir: &Path, known_file: &Path, timeout: Duration, use_worker: bool) -> anyhow::Result<bool> {
     let mut files = Vec::new();
     collect_pdfs(dir, &mut files)?;
     files.sort();
@@ -125,7 +150,7 @@ fn run_all(dir: &Path, known_file: &Path, timeout: Duration) -> anyhow::Result<b
         .collect();
     let (mut bad, mut known_bad) = (Vec::new(), Vec::new());
     for file in &files {
-        match run_one(&exe, file, timeout)? {
+        match run_one(&exe, file, timeout, use_worker)? {
             Outcome::Ok => ok += 1,
             Outcome::Rejected => rejected.push(file.clone()),
             Outcome::Crash(why) => classify(&mut bad, &mut known_bad, &known, file, format!("caída ({why})")),

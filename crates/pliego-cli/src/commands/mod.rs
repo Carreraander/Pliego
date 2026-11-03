@@ -5,5 +5,6 @@ pub mod convert;
 pub mod optimize;
 pub mod pages;
 pub mod protect;
+pub mod redact;
 pub mod stamp;
 pub mod view;

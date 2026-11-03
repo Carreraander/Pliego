@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pliego</title>
+<meta name="viewport" content="width=680, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="setup.css">
+</head>
+<body>
+<div class="setup" id="win">
+  <aside class="art" id="art" data-drag>
+    <svg class="reg-marks" viewBox="0 0 260 440" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1">
+      <circle cx="232" cy="28" r="7"/><path d="M232 16v24M220 28h24"/><circle cx="232" cy="412" r="7"/><path d="M232 400v24M220 412h24"/><path d="M0 220h10M250 220h10"/>
+    </svg>
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></svg>
+      <span class="name">Pliego</span>
+    </div>
+    <div class="sheet" aria-hidden="true">
+      <svg id="fold" viewBox="0 0 140 120" class="fold-logo">
+        <g id="p0"><rect x="0" y="14" width="34" height="92" rx="2" class="pn pn-a"/>
+          <g id="p1" transform="translate(34 0)"><rect x="0" y="14" width="34" height="92" rx="2" class="pn pn-b"/>
+            <g id="p2" transform="translate(34 0)"><rect x="0" y="14" width="34" height="92" rx="2" class="pn pn-a"/>
+              <g id="p3" transform="translate(34 0)"><rect x="0" y="14" width="34" height="92" rx="2" class="pn pn-b"/></g>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <div class="ver" id="ver"></div>
+  </aside>
+  <main class="pane" id="pane" aria-live="off"></main>
+  <div class="wctl">
+    <button type="button" id="btn-min" aria-label="Minimizar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button type="button" id="btn-close" aria-label="Cerrar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="overlay" id="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ov-title">
+    <div class="sheetbox"><h3 id="ov-title"></h3><pre id="ov-body" tabindex="0"></pre><div class="foot"><span class="grow"></span><button type="button" class="btn pri" id="ov-close"></button></div></div>
+  </div>
+</div>
+<div class="sr-only" id="live" role="status" aria-live="polite"></div>
+<script src="setup.js"></script>
+</body>
+</html>

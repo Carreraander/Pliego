@@ -135,13 +135,28 @@ impl Layout {
             self.remove_file("pending")?;
             return Ok(None);
         }
-        if let Some(cur) = &current {
-            self.write_atomic("previous", cur)?;
-        }
-        let _ = fs::remove_file(self.app_dir(&pending).join("launch-failures"));
-        self.write_atomic("current", &pending)?;
-        self.remove_file("pending")?;
+        self.activate(&pending)?;
         Ok(Some(pending))
+    }
+
+    /// Activa `app-<version>` ya extraída (instalación, reparación o actualización directa): la actual pasa a
+    /// `previous`, se limpia `pending` y se reinicia el contador de arranques fallidos.
+    pub fn activate(&self, version: &str) -> Result<()> {
+        check_version(version)?;
+        if !self.app_dir(version).is_dir() {
+            return Err(Error::MissingVersion(self.app_dir(version)));
+        }
+        if let Some(cur) = self.current()?
+            && cur != version
+        {
+            self.write_atomic("previous", &cur)?;
+        }
+        let _ = fs::remove_file(self.app_dir(version).join("launch-failures"));
+        self.write_atomic("current", version)?;
+        if self.pending()?.as_deref() == Some(version) {
+            self.remove_file("pending")?;
+        }
+        Ok(())
     }
 
     /// Vuelve a la versión anterior y marca la actual como omitida. Devuelve la versión restaurada.

@@ -1,7 +1,8 @@
 //! Automatización COM de Microsoft Office en Windows.
 //!
 //! Se hace a través de `powershell.exe` (`New-Object -ComObject`), así que no hay código `unsafe` ni dependencias
-//! nuevas. Las rutas viajan en variables de entorno para no depender del entrecomillado.
+//! nuevas. Las macros se desactivan siempre (`AutomationSecurity = 3`, msoAutomationSecurityForceDisable): un
+//! documento no confiable no puede ejecutar código al convertirse. Las rutas viajan en variables de entorno para no depender del entrecomillado.
 
 use std::path::Path;
 use std::process::Command;
@@ -51,17 +52,17 @@ pub fn installed(app: App) -> bool {
 fn script(app: App) -> &'static str {
     match app {
         App::Word => {
-            "$ErrorActionPreference='Stop'; $a=New-Object -ComObject Word.Application; $a.Visible=$false; $a.DisplayAlerts=0; \
+            "$ErrorActionPreference='Stop'; $a=New-Object -ComObject Word.Application; $a.Visible=$false; $a.AutomationSecurity=3; $a.DisplayAlerts=0; \
              try { $d=$a.Documents.Open($env:PLIEGO_IN,$false,$true); try { $d.ExportAsFixedFormat($env:PLIEGO_OUT,17) } finally { $d.Close($false) } } \
              finally { $a.Quit() }"
         }
         App::Excel => {
-            "$ErrorActionPreference='Stop'; $a=New-Object -ComObject Excel.Application; $a.Visible=$false; $a.DisplayAlerts=$false; \
+            "$ErrorActionPreference='Stop'; $a=New-Object -ComObject Excel.Application; $a.Visible=$false; $a.AutomationSecurity=3; $a.DisplayAlerts=$false; \
              try { $w=$a.Workbooks.Open($env:PLIEGO_IN,0,$true); try { $w.ExportAsFixedFormat(0,$env:PLIEGO_OUT) } finally { $w.Close($false) } } \
              finally { $a.Quit() }"
         }
         App::PowerPoint => {
-            "$ErrorActionPreference='Stop'; $a=New-Object -ComObject PowerPoint.Application; \
+            "$ErrorActionPreference='Stop'; $a=New-Object -ComObject PowerPoint.Application; $a.AutomationSecurity=3; \
              try { $p=$a.Presentations.Open($env:PLIEGO_IN,-1,0,0); try { $p.SaveAs($env:PLIEGO_OUT,32) } finally { $p.Close() } } \
              finally { $a.Quit() }"
         }
@@ -70,6 +71,8 @@ fn script(app: App) -> &'static str {
 
 /// Convierte `input` en `output` (PDF) con la aplicación indicada.
 pub fn convert(app: App, input: &Path, output: &Path) -> Result<()> {
+    // Evita un falso éxito si ya existía un archivo de salida de una ejecución anterior.
+    let _ = std::fs::remove_file(output);
     let out = powershell()
         .args(["-Command", script(app)])
         .env("PLIEGO_IN", input)

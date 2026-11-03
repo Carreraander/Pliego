@@ -1,7 +1,7 @@
 //! `pliego`: la misma funcionalidad que la app, para scripts y lotes.
 //!
 //! Cada módulo añade su subcomando en `src/commands/<modulo>.rs` y UNA línea en `Command`
-//! y en `run` (ver docs/CONVENTIONS.md).
+//! y en el `match`, debajo de la marca de su flujo en las ranuras del final (ver docs/CONVENTIONS.md).
 
 use clap::{Parser, Subcommand};
 
@@ -64,6 +64,12 @@ enum Command {
     /// Edita el contenido de las páginas: texto y enlaces.
     #[command(subcommand)]
     Edit(commands::edit::EditCommand),
+    /// Exporta a Word, Excel o PowerPoint.
+    #[command(subcommand)]
+    Office(commands::office::OfficeCommand),
+    /// Producción de impresión: tintas, preflight y separaciones.
+    #[command(subcommand)]
+    Print(commands::print::PrintCommand),
     /// Asistente local: resumir, preguntar y datos clave.
     #[command(subcommand)]
     Assistant(commands::assistant::AssistantCommand),
@@ -75,6 +81,20 @@ enum Command {
     /// PDF/A: validar (y próximamente convertir).
     #[command(subcommand)]
     Pdfa(commands::pdfa::PdfaCommand),
+    // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
+    // [W06 ocr]
+
+    // [W11 edit]
+
+    // [W14 office]
+
+    // [W15 run e índice]
+
+    // [W13/W17/W12 extra]
+
+    // [libre A]
+
+    // [libre B]
 }
 
 fn main() -> anyhow::Result<()> {
@@ -100,9 +120,25 @@ fn main() -> anyhow::Result<()> {
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
         Command::Edit(c) => commands::edit::run(c, cli.json),
+        Command::Office(c) => commands::office::run(c, cli.json),
+        Command::Print(c) => commands::print::run(c, cli.json),
         Command::Assistant(c) => commands::assistant::run(c, cli.json),
         Command::Redact(a) => commands::redact::run(a, cli.json),
         Command::A11y(c) => commands::a11y::run(c, cli.json),
         Command::Pdfa(c) => commands::pdfa::run(c, cli.json),
+        // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
+        // [W06 ocr]
+
+        // [W11 edit]
+
+        // [W14 office]
+
+        // [W15 run e índice]
+
+        // [W13/W17/W12 extra]
+
+        // [libre A]
+
+        // [libre B]
     }
 }

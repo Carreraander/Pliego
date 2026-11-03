@@ -13,6 +13,8 @@ mod chunk;
 mod citations;
 mod config;
 mod keydata;
+#[cfg(feature = "llama")]
+mod llama;
 mod models;
 mod retrieve;
 mod text;
@@ -22,5 +24,7 @@ pub use backend::{GenerateRequest, LlmBackend, Message, Role};
 pub use chunk::{Chunk, DocumentText};
 pub use config::AssistantConfig;
 pub use keydata::{KeyDatum, KeyKind, extract_key_data};
+#[cfg(feature = "llama")]
+pub use llama::LlamaCppBackend;
 pub use models::{ModelSpec, Requirements, catalog};
 pub use retrieve::{DocIndex, Passage};

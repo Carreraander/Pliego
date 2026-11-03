@@ -54,7 +54,21 @@ impl Assistant {
         Self { backend, config }
     }
 
-    /// Carga un modelo GGUF del disco. Disponible con la característica `llama`.
+    /// Carga un modelo GGUF del disco con el motor llama.cpp (característica `llama`).
+    #[cfg(feature = "llama")]
+    pub fn load(model: &std::path::Path) -> Result<Self> {
+        let backend = crate::llama::LlamaCppBackend::load(model, None)?;
+        Ok(Self::with_backend(
+            Arc::new(backend),
+            AssistantConfig {
+                enabled: true,
+                ..AssistantConfig::default()
+            },
+        ))
+    }
+
+    /// Sin la característica `llama` no hay motor: devuelve un error claro.
+    #[cfg(not(feature = "llama"))]
     pub fn load(_model: &std::path::Path) -> Result<Self> {
         Err(Error::Unsupported(
             "esta compilación no incluye el motor llama.cpp (característica `llama`)".into(),

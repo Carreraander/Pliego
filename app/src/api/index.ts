@@ -44,6 +44,8 @@ export const api = {
   search: (docId: DocId, query: string, maxResults?: number) =>
     invoke<SearchHit[]>("search", { docId, query, maxResults }),
   startupFiles: () => invoke<string[]>("startup_files"),
+  /** Selector nativo de PDF; devuelve las rutas elegidas (vacío si se cancela). */
+  pickPdfFiles: (title?: string) => invoke<string[]>("pick_pdf_files", { title }),
 };
 
 export const events = {

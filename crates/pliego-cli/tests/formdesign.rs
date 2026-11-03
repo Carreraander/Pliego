@@ -123,3 +123,65 @@ fn add_update_order_delete() {
     let out = run(&["--json", "form", "fields", &e]);
     assert!(String::from_utf8_lossy(&out.stdout).contains("apellidos"));
 }
+
+#[test]
+fn calc_validate_format_recalc() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = dir.path().join("a.pdf");
+    std::fs::write(&a, blank_pdf()).unwrap();
+    let p = |n: &str| dir.path().join(n).to_str().unwrap().to_string();
+    let a_s = a.to_str().unwrap().to_string();
+    let mut cur = a_s;
+    let mut n = 0;
+    let mut step = |args: &[&str]| {
+        n += 1;
+        let next = p(&format!("s{n}.pdf"));
+        let mut v: Vec<&str> = vec!["formdesign", args[0], &cur];
+        v.extend(["-o", &next]);
+        v.extend(&args[1..]);
+        run(&v);
+        cur = next;
+    };
+    step(&["add", "--name", "a", "--type", "text", "--rect", "50,700,150,720"]);
+    step(&["add", "--name", "b", "--type", "text", "--rect", "50,670,150,690"]);
+    step(&["add", "--name", "total", "--type", "text", "--rect", "50,640,150,660"]);
+    step(&[
+        "calc",
+        "--field",
+        "total",
+        "--op",
+        "sum",
+        "--inputs",
+        "a,b",
+        "--decimals",
+        "2",
+    ]);
+    step(&[
+        "validate", "--field", "a", "--kind", "range", "--min", "0", "--max", "100",
+    ]);
+    step(&["format", "--field", "total", "--kind", "number", "--currency", "€"]);
+    step(&["update", "--field", "a", "--value", "1.5"]);
+    step(&["update", "--field", "b", "--value", "2.25"]);
+    step(&["recalc"]);
+    let out = run(&["--json", "form", "fields", &cur]);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let total = v.as_array().unwrap().iter().find(|f| f["name"] == "total").unwrap();
+    assert_eq!(total["value"], "3.75");
+    // Fórmula inválida: ciclo.
+    let bad = pliego()
+        .args([
+            "formdesign",
+            "calc",
+            &cur,
+            "--in-place",
+            "--field",
+            "a",
+            "--op",
+            "sum",
+            "--inputs",
+            "total",
+        ])
+        .output()
+        .unwrap();
+    assert!(!bad.status.success());
+}

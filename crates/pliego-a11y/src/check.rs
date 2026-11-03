@@ -157,6 +157,25 @@ fn check_pages(doc: &PdfDocument, report: &mut A11yReport, out: &mut Collector) 
     let pages = report.pages;
     for p in 0..pages {
         let page = doc.find_page(p as i32).map_err(pdf_err)?;
+        if let Ok(bytes) = crate::autotag::read_contents(&page)
+            && let Some(low) = crate::contrast::scan(&bytes)
+        {
+            out.add(
+                IssueCode::LowContrast,
+                Severity::Warning,
+                Some(p),
+                None,
+                format!(
+                    "{} fragmento(s) de texto tienen poco contraste con el fondo (el peor, {:.1}:1, «{}»; se pide {}:1, o {}:1 en texto grande).",
+                    low.count,
+                    low.worst_ratio,
+                    low.text,
+                    crate::contrast::MIN_RATIO,
+                    crate::contrast::MIN_RATIO_LARGE
+                ),
+                "Oscurece el texto o aclara el fondo hasta alcanzar la razón de contraste mínima.",
+            );
+        }
         let Some(annots) = page.get_dict("Annots").map_err(pdf_err)? else {
             continue;
         };

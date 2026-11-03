@@ -5,6 +5,7 @@ use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::{Error, Result};
 
 use crate::ap::rebuild_ap;
+use crate::js::{FieldFormat, Validation, set_calculation, set_format, set_validation};
 use crate::objects::*;
 use crate::pe;
 use crate::read::page_widgets;
@@ -334,7 +335,7 @@ pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
             put(&mut parent, "DV", obj(doc, &pdf_name(&on))?)?;
         }
         append_unique(&mut page_annots(doc, spec.page)?, ind)?;
-        return Ok(());
+        return apply_scripts(doc, spec);
     }
 
     let ind = doc.add_object(&widget).map_err(pe)?;
@@ -350,6 +351,20 @@ pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
         if let Some(w) = page.load_widget(x).map_err(pe)? {
             rebuild_ap(doc, &mut w.annotation().object())?;
         }
+    }
+    apply_scripts(doc, spec)
+}
+
+/// Formato, validación y cálculo del `FieldSpec` (solo si vienen definidos).
+fn apply_scripts(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
+    if spec.format != FieldFormat::None {
+        set_format(doc, &spec.name, &spec.format)?;
+    }
+    if spec.validation != Validation::None {
+        set_validation(doc, &spec.name, &spec.validation)?;
+    }
+    if let Some(c) = &spec.calculation {
+        set_calculation(doc, &spec.name, Some(c))?;
     }
     Ok(())
 }

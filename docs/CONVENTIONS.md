@@ -13,6 +13,10 @@
 - Archivos compartidos que cualquier flujo puede tocar, con cambios mínimos:
   - `crates/pliego-cli/src/main.rs`: una variante en `Command` y una línea en `match` por subcomando.
   - `crates/pliego-cli/src/commands/mod.rs`: una línea `pub mod <modulo>;`.
+  - En `main.rs`, `commands/mod.rs` y `crates/pliego-cli/Cargo.toml` hay **ranuras** al final, una marca por flujo
+    (`// [W11 edit]`, `# [W14 office]`...). Añade tus líneas justo debajo de tu marca, nunca al final de la lista:
+    así dos flujos no tocan líneas contiguas y git fusiona sin conflicto. Si tu flujo no tiene marca, usa una `libre`
+    y renómbrala en tu PR.
   - `crates/pliego-cli/Cargo.toml`: una dependencia a tu crate.
   - `Cargo.lock`: regenerar tras rebase, nunca resolver a mano.
 - `pliego-core` y `pliego-engine-mupdf` son de gestión/W02. Si necesitas algo nuevo ahí, pídelo (mensaje al hilo

@@ -2,7 +2,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand};
-use pliego_a11y::{FixOptions, Severity};
+use pliego_a11y::{AutotagOptions, FixOptions, Severity};
+use pliego_core::JobContext;
 
 #[derive(Subcommand)]
 pub enum A11yCommand {
@@ -10,6 +11,23 @@ pub enum A11yCommand {
     Check(CheckArgs),
     /// Corrige idioma, título, texto alternativo y orden de tabulación.
     Fix(FixArgs),
+    /// Etiqueta un documento sin etiquetar (encabezados, listas, párrafos y figuras).
+    Autotag(AutotagArgs),
+}
+
+#[derive(Args)]
+pub struct AutotagArgs {
+    /// PDF de entrada (sin etiquetar).
+    pub input: PathBuf,
+    /// PDF de salida (no se sobrescribe la entrada).
+    #[arg(short, long)]
+    pub output: PathBuf,
+    /// Idioma principal (es, es-ES, en-US...).
+    #[arg(long)]
+    pub lang: Option<String>,
+    /// Título del documento.
+    #[arg(long)]
+    pub title: Option<String>,
 }
 
 #[derive(Args)]
@@ -59,6 +77,23 @@ fn parse_alt(s: &str) -> anyhow::Result<(i32, String)> {
 pub fn run(cmd: A11yCommand, json: bool) -> anyhow::Result<()> {
     match cmd {
         A11yCommand::Check(a) => check(&a.input, a.password.as_deref(), json),
+        A11yCommand::Autotag(a) => {
+            let opts = AutotagOptions {
+                language: a.lang,
+                title: a.title,
+            };
+            let rep = pliego_a11y::autotag_file(&a.input, &a.output, &opts, &JobContext::silent())?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&rep)?);
+            } else {
+                println!("{}", rep.summary);
+                println!("-> {}", a.output.display());
+                for w in &rep.warnings {
+                    eprintln!("aviso: {w}");
+                }
+            }
+            Ok(())
+        }
         A11yCommand::Fix(a) => {
             let alt_texts = a.alt.iter().map(|s| parse_alt(s)).collect::<anyhow::Result<Vec<_>>>()?;
             let opts = FixOptions {

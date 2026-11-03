@@ -29,6 +29,7 @@ pub enum IssueCode {
     LinkWithoutDescription,
     NoTabOrder,
     NoBookmarks,
+    LowContrast,
     CopyRestricted,
     TruncatedStructure,
 }

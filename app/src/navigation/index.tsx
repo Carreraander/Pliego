@@ -22,6 +22,7 @@ export { registerCommand, registerCommandProvider, type Command, type CommandPro
 export { registerShortcut, type ShortcutDef } from "./shortcuts";
 export { currentScreen, openScreen, closeScreen } from "./screen";
 export { pinTool, unpinTool, isPinned } from "./modes";
+export { bestScore } from "./fuzzy";
 
 /** Monta paletas y hoja de atajos. Va una sola vez dentro de la ventana (App.tsx). */
 export function NavigationHost() {

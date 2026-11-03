@@ -4198,6 +4198,7 @@ name = "pliego-app"
 version = "0.1.0"
 dependencies = [
  "pliego-app-service",
+ "pliego-appdata",
  "pliego-assistant",
  "pliego-core",
  "serde",
@@ -4215,6 +4216,16 @@ dependencies = [
  "pliego-core",
  "pliego-worker",
  "png 0.17.16",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-appdata"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
  "serde",
  "serde_json",
  "tempfile",

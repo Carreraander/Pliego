@@ -29,6 +29,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 pliego-core.workspace = true
 pliego-app-service = { path = "../service" }
+pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-assistant = { path = "../../crates/pliego-assistant", features = ["download"] }
 serde.workspace = true
 serde_json.workspace = true

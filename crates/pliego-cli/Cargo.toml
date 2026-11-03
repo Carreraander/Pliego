@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 pliego-core.workspace = true
 pliego-engine-mupdf.workspace = true
+pliego-organize.workspace = true
 pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }

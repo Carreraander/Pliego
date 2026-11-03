@@ -1,0 +1,63 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 1089 >>
+stream
+BT /F1 14 Tf 50 800 Td (MODELO DE AUTORIZACION) Tj ET
+0.8 w 40 30 515 760 re S
+BT /F1 11 Tf 50 770 Td (1. DATOS DEL INTERESADO) Tj ET
+BT /F1 10 Tf 50 742 Td (Nombre:) Tj ET
+0.8 w 88.0 740 m 338.0 740 l S
+BT /F1 10 Tf 50 712 Td (Apellidos:) Tj ET
+0.8 w 103.0 710 m 353.0 710 l S
+BT /F1 8 Tf 50 679 Td (NIF) Tj ET
+0.8 w 50 660 16 16 re S
+0.8 w 66 660 16 16 re S
+0.8 w 82 660 16 16 re S
+0.8 w 98 660 16 16 re S
+0.8 w 114 660 16 16 re S
+0.8 w 130 660 16 16 re S
+0.8 w 146 660 16 16 re S
+0.8 w 162 660 16 16 re S
+0.8 w 178 660 16 16 re S
+0.8 w 300 660 230 22 re S
+BT /F1 8 Tf 300 685 Td (Correo electronico) Tj ET
+BT /F1 11 Tf 50 620 Td (2. AUTORIZACIONES) Tj ET
+0.8 w 60 590 11 11 re S
+BT /F1 10 Tf 76 592 Td (Autorizo la consulta) Tj ET
+0.8 w 60 565 11 11 re S
+BT /F1 10 Tf 76 567 Td (Autorizo la notificacion) Tj ET
+0.8 w 300 590 11 11 re S
+BT /F1 10 Tf 316 592 Td (No autorizo) Tj ET
+BT /F1 11 Tf 50 520 Td (3. EXPONE) Tj ET
+0.8 w 50 400 480 100 re S
+BT /F1 10 Tf 50 362 Td (Lugar:) Tj ET
+0.8 w 83.0 360 m 283.0 360 l S
+BT /F1 10 Tf 300 362 Td (Fecha:) Tj ET
+0.8 w 333.0 360 m 533.0 360 l S
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1479
+%%EOF

@@ -183,3 +183,61 @@ fn calc_validate_format_recalc() {
         .unwrap();
     assert!(!bad.status.success());
 }
+
+#[test]
+fn detect_creates_fields_in_flat_pdf() {
+    // Formulario plano: tres subrayados con su etiqueta.
+    let mut ops = String::new();
+    for (i, l) in ["Nombre", "Apellidos", "Ciudad"].iter().enumerate() {
+        let y = 700 - i * 40;
+        ops.push_str(&format!(
+            "BT /F1 10 Tf 50 {} Td ({l}:) Tj ET 0.8 w 130 {y} m 400 {y} l S\n",
+            y + 2
+        ));
+    }
+    let objs = [
+        "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>".to_string(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
+        format!("<< /Length {} >>\nstream\n{ops}\nendstream", ops.len()),
+    ];
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    let mut offs = vec![];
+    for (i, o) in objs.iter().enumerate() {
+        offs.push(pdf.len());
+        pdf.extend(format!("{} 0 obj\n{o}\nendobj\n", i + 1).into_bytes());
+    }
+    let x = pdf.len();
+    pdf.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).into_bytes());
+    for o in offs {
+        pdf.extend(format!("{o:010} 00000 n \n").into_bytes());
+    }
+    pdf.extend(
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n",
+            objs.len() + 1
+        )
+        .into_bytes(),
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let a = dir.path().join("plano.pdf");
+    std::fs::write(&a, pdf).unwrap();
+    let out = dir.path().join("con-campos.pdf");
+    let (a_s, o_s) = (a.to_str().unwrap(), out.to_str().unwrap());
+
+    let v: serde_json::Value = serde_json::from_slice(&run(&["--json", "formdesign", "detect", a_s]).stdout).unwrap();
+    let names: Vec<_> = v
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(names, ["Nombre", "Apellidos", "Ciudad"]);
+    assert!(!out.exists(), "sin -o no escribe nada");
+
+    run(&["formdesign", "detect", a_s, "-o", o_s, "--pages", "1"]);
+    let v: serde_json::Value = serde_json::from_slice(&run(&["--json", "formdesign", "list", o_s]).stdout).unwrap();
+    assert_eq!(v.as_array().unwrap().len(), 3);
+}

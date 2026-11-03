@@ -9,12 +9,17 @@
 //! sustitución de fuente en el [`Report`](pliego_core::Report).
 
 mod blocks;
+mod content;
 mod fonts;
+mod images;
 mod links;
 mod text;
 mod types;
 
 pub use blocks::text_blocks;
+pub use images::{
+    ImageObject, Transform, crop_image, delete_object, images, insert_image, replace_image, transform_object,
+};
 pub use links::add_link;
 pub use text::{insert_text, replace_text};
 pub use types::*;

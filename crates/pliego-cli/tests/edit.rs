@@ -75,3 +75,30 @@ fn enlace_uri() {
     assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
     assert!(out.exists());
 }
+
+#[test]
+fn imagenes_listar_mover_borrar() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/edit/imagenes.pdf");
+    let out = dir.path().join("m.pdf");
+    let r = pliego()
+        .args(["edit", "image-move"])
+        .arg(&base)
+        .args(["--id", "0", "--dx", "-10", "--rotate", "90", "-o"])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    let out2 = dir.path().join("b.pdf");
+    let r = pliego()
+        .args(["edit", "image-delete"])
+        .arg(&out)
+        .args(["--id", "1", "-o"])
+        .arg(&out2)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    let r = pliego().args(["--json", "edit", "images"]).arg(&out2).output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
+    assert_eq!(v.as_array().unwrap().len(), 1);
+}

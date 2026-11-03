@@ -41,6 +41,16 @@ pub(crate) struct FontUse {
     pub embedded: bool,
 }
 
+/// Cambio propuesto sobre un operador `w` demasiado fino.
+#[derive(Debug, Clone)]
+pub(crate) struct WidthEdit {
+    /// Número de objeto del formulario XObject, o 0 para el contenido de la página.
+    pub key: i32,
+    /// Posición del operando dentro del flujo.
+    pub span: (usize, usize),
+    pub new_width: f32,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct PageScan {
     /// Grosor efectivo (pt) de cada trazo pintado.
@@ -51,9 +61,12 @@ pub(crate) struct PageScan {
     pub rgb: u32,
     pub cmyk: u32,
     pub spots: BTreeSet<String>,
+    pub edits: Vec<WidthEdit>,
 }
 
 type Matrix = [f32; 6];
+type Span = (usize, usize);
+type Saved = (Matrix, f32, Option<Span>);
 const IDENTITY: Matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 
 /// `a × b` (primero `a`, luego `b`), como `cm` en PDF.
@@ -147,11 +160,23 @@ pub(crate) fn parse_cs(cs: &PdfObject, resources: Option<&PdfObject>, depth: usi
 
 struct Scanner {
     out: PageScan,
+    /// Si se indica, los trazos más finos que esto generan un [`WidthEdit`].
+    min_width: Option<f32>,
     stack: Vec<i32>,
     seen_fonts: BTreeSet<String>,
 }
 
 pub(crate) fn scan_page(doc: &PdfDocument, page_index: usize) -> Result<PageScan> {
+    scan_page_with(doc, page_index, None)
+}
+
+/// Une los flujos de contenido de una página tal como los lee el escáner.
+pub(crate) fn page_content(doc: &PdfDocument, page_index: usize) -> Result<Vec<u8>> {
+    let page = doc.find_page(page_index as i32).map_err(pdf_err)?;
+    Ok(get(&page, "Contents").map(|c| stream_bytes(&c)).unwrap_or_default())
+}
+
+pub(crate) fn scan_page_with(doc: &PdfDocument, page_index: usize, min_width: Option<f32>) -> Result<PageScan> {
     let page = doc.find_page(page_index as i32).map_err(pdf_err)?;
     let resources = page.get_dict_inheritable("Resources").map_err(pdf_err)?;
     let data = match get(&page, "Contents") {
@@ -160,10 +185,11 @@ pub(crate) fn scan_page(doc: &PdfDocument, page_index: usize) -> Result<PageScan
     };
     let mut s = Scanner {
         out: PageScan::default(),
+        min_width,
         stack: Vec::new(),
         seen_fonts: BTreeSet::new(),
     };
-    s.run(&data, resources.as_ref(), IDENTITY, 0);
+    s.run(&data, resources.as_ref(), IDENTITY, 0, 0);
     Ok(s.out)
 }
 
@@ -194,18 +220,20 @@ impl Scanner {
         }
     }
 
-    fn run(&mut self, data: &[u8], resources: Option<&PdfObject>, base: Matrix, depth: usize) {
+    fn run(&mut self, data: &[u8], resources: Option<&PdfObject>, base: Matrix, depth: usize, key: i32) {
         let ops = content::parse(data);
         let mut ctm = base;
-        let mut gstack: Vec<(Matrix, f32)> = Vec::new();
+        let mut gstack: Vec<Saved> = Vec::new();
         let mut width = 1.0f32;
+        let mut width_src: Option<(usize, usize)> = None;
         for op in &ops {
             match op.name.as_str() {
-                "q" => gstack.push((ctm, width)),
+                "q" => gstack.push((ctm, width, width_src)),
                 "Q" => {
-                    if let Some((m, w)) = gstack.pop() {
+                    if let Some((m, w, src)) = gstack.pop() {
                         ctm = m;
                         width = w;
+                        width_src = src;
                     }
                 }
                 "cm" => {
@@ -213,7 +241,10 @@ impl Scanner {
                         ctm = mul([a, b, c, d, e, f], ctm);
                     }
                 }
-                "w" => width = op.num(0).unwrap_or(width),
+                "w" => {
+                    width = op.num(0).unwrap_or(width);
+                    width_src = op.spans.first().copied();
+                }
                 "g" | "G" => self.color(&Cs::Gray),
                 "rg" | "RG" => self.color(&Cs::Rgb),
                 "k" | "K" => self.color(&Cs::Cmyk),
@@ -235,7 +266,18 @@ impl Scanner {
                 }
                 "S" | "s" | "B" | "B*" | "b" | "b*" => {
                     let scale = (ctm[0] * ctm[3] - ctm[1] * ctm[2]).abs().sqrt();
-                    self.out.strokes.push(width * scale);
+                    let effective = width * scale;
+                    self.out.strokes.push(effective);
+                    if let (Some(min), Some(span)) = (self.min_width, width_src)
+                        && effective < min
+                        && scale > 0.0
+                    {
+                        self.out.edits.push(WidthEdit {
+                            key,
+                            span,
+                            new_width: min / scale,
+                        });
+                    }
                 }
                 "Tf" => self.font(op, resources),
                 "Do" => self.xobject(op, resources, ctm, depth),
@@ -308,7 +350,7 @@ impl Scanner {
                     .unwrap_or(IDENTITY);
                 let own = get(&xobj, "Resources").filter(is_dict_like);
                 let data = xobj.read_stream().unwrap_or_default();
-                self.run(&data, own.as_ref().or(resources), mul(m, ctm), depth + 1);
+                self.run(&data, own.as_ref().or(resources), mul(m, ctm), depth + 1, id);
                 self.stack.pop();
             }
             _ => {}

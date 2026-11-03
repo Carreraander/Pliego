@@ -72,3 +72,72 @@ fn separations_write_four_plates() {
     }
     assert!(String::from_utf8_lossy(&out.stdout).contains("Cyan"));
 }
+
+#[test]
+fn hairlines_then_preflight_is_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let fixed = dir.path().join("fino.pdf");
+    let out = pliego()
+        .args(["print", "hairlines"])
+        .arg(corpus("defectos.pdf"))
+        .arg("-o")
+        .arg(&fixed)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("1 línea"));
+    let pf = pliego()
+        .args(["--json", "print", "preflight", "--profile", "basic"])
+        .arg(&fixed)
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&pf.stdout).unwrap();
+    assert!(
+        !v["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["code"] == "hair_line")
+    );
+}
+
+#[test]
+fn marks_command_and_bad_pages() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_pdf = dir.path().join("marcas.pdf");
+    let out = pliego()
+        .args(["print", "marks"])
+        .arg(corpus("limpio.pdf"))
+        .arg("-o")
+        .arg(&out_pdf)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(out_pdf.exists());
+    let bad = pliego()
+        .args(["print", "marks", "--pages", "4"])
+        .arg(corpus("limpio.pdf"))
+        .arg("-o")
+        .arg(dir.path().join("x.pdf"))
+        .output()
+        .unwrap();
+    assert!(!bad.status.success());
+}
+
+#[test]
+fn pdfx_without_valid_profile_fails_clearly() {
+    let dir = tempfile::tempdir().unwrap();
+    let fake = dir.path().join("no.icc");
+    std::fs::write(&fake, b"no es un perfil").unwrap();
+    let out = pliego()
+        .args(["print", "pdfx"])
+        .arg(corpus("limpio.pdf"))
+        .arg("-o")
+        .arg(dir.path().join("x.pdf"))
+        .arg("--icc")
+        .arg(&fake)
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("perfil ICC"));
+}

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand};
-use pliego_core::JobContext;
+use pliego_core::{JobContext, Report};
 use pliego_print::{InkKind, Profile, Severity};
 
 #[derive(Subcommand)]
@@ -13,6 +13,75 @@ pub enum PrintCommand {
     Preflight(PreflightArgs),
     /// Genera las planchas CMYK de una página como imágenes.
     Separations(SeparationsArgs),
+    /// Sube al mínimo el grosor de las líneas demasiado finas.
+    Hairlines(HairlinesArgs),
+    /// Añade marcas de corte y de registro, y amplía las cajas de sangrado.
+    Marks(MarksArgs),
+    /// Convierte a PDF/X (requiere Ghostscript y un perfil ICC CMYK).
+    Pdfx(PdfxArgs),
+}
+
+#[derive(Args)]
+pub struct HairlinesArgs {
+    pub input: PathBuf,
+    #[arg(short, long)]
+    pub output: PathBuf,
+    /// Grosor mínimo en puntos.
+    #[arg(long, default_value_t = 0.25)]
+    pub min: f32,
+    #[arg(long)]
+    pub password: Option<String>,
+}
+
+#[derive(Args)]
+pub struct MarksArgs {
+    pub input: PathBuf,
+    #[arg(short, long)]
+    pub output: PathBuf,
+    /// Sangrado en milímetros.
+    #[arg(long, default_value_t = 3.0)]
+    pub bleed_mm: f32,
+    /// Separación entre el sangrado y las marcas, en milímetros.
+    #[arg(long, default_value_t = 3.0)]
+    pub gap_mm: f32,
+    /// Longitud de las marcas, en milímetros.
+    #[arg(long, default_value_t = 6.0)]
+    pub length_mm: f32,
+    /// No dibujar marcas de registro.
+    #[arg(long)]
+    pub no_registration: bool,
+    /// Páginas (desde 1), p. ej. `1-3,5`. Por defecto, todas.
+    #[arg(long)]
+    pub pages: Option<String>,
+    #[arg(long)]
+    pub password: Option<String>,
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+pub enum Level {
+    X1a,
+    X4,
+}
+
+#[derive(Args)]
+pub struct PdfxArgs {
+    pub input: PathBuf,
+    #[arg(short, long)]
+    pub output: PathBuf,
+    /// Perfil ICC CMYK de la condición de impresión.
+    #[arg(long)]
+    pub icc: PathBuf,
+    #[arg(long, value_enum, default_value = "x1a")]
+    pub level: Level,
+    /// Identificador de la condición de impresión (FOGRA39, SWOP...).
+    #[arg(long, default_value = "FOGRA39")]
+    pub condition_id: String,
+    /// Descripción de la condición de impresión.
+    #[arg(long, default_value = "Impresión comercial")]
+    pub condition: String,
+    /// Ruta de Ghostscript si no está en el PATH.
+    #[arg(long)]
+    pub ghostscript: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -53,6 +122,9 @@ pub fn run(cmd: PrintCommand, json: bool) -> anyhow::Result<()> {
         PrintCommand::Inks(a) => inks(a, json),
         PrintCommand::Preflight(a) => preflight(a, json),
         PrintCommand::Separations(a) => separations(a, json),
+        PrintCommand::Hairlines(a) => hairlines(a, json),
+        PrintCommand::Marks(a) => marks(a, json),
+        PrintCommand::Pdfx(a) => pdfx(a, json),
     }
 }
 
@@ -145,4 +217,70 @@ fn separations(a: SeparationsArgs, json: bool) -> anyhow::Result<()> {
         println!("Cobertura total máxima de tinta: {:.0} %", seps.max_total_ink * 100.0);
     }
     Ok(())
+}
+
+fn print_report(rep: &Report, json: bool) -> anyhow::Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(rep)?);
+    } else {
+        println!("{}", rep.summary);
+        for w in &rep.warnings {
+            eprintln!("Aviso: {w}");
+        }
+    }
+    Ok(())
+}
+
+fn hairlines(a: HairlinesArgs, json: bool) -> anyhow::Result<()> {
+    let mut doc = pliego_print::open(&a.input, a.password.as_deref())?;
+    let fix = pliego_print::fix_hairlines(&mut doc, a.min, &JobContext::silent())?;
+    pliego_print::save(&doc, &a.output)?;
+    let summary = format!(
+        "{} línea(s) corregidas en {} página(s); mínimo {} pt.",
+        fix.widths_changed, fix.pages_changed, a.min
+    );
+    print_report(&Report::with_output(&a.output, summary), json)
+}
+
+fn marks(a: MarksArgs, json: bool) -> anyhow::Result<()> {
+    const MM: f32 = 72.0 / 25.4;
+    let mut doc = pliego_print::open(&a.input, a.password.as_deref())?;
+    let total = doc.page_count().map_err(|e| anyhow::anyhow!(e.to_string()))?.max(0) as usize;
+    let pages = match &a.pages {
+        Some(spec) => Some(
+            spec.parse::<pliego_core::PageRange>()?
+                .resolve(total as u32)?
+                .into_iter()
+                .map(|i| i as usize)
+                .collect::<Vec<usize>>(),
+        ),
+        None => None,
+    };
+    let opts = pliego_print::MarkOptions {
+        bleed: a.bleed_mm * MM,
+        gap: a.gap_mm * MM,
+        length: a.length_mm * MM,
+        registration_marks: !a.no_registration,
+        ..Default::default()
+    };
+    let n = pliego_print::add_printer_marks(&mut doc, &opts, pages.as_deref(), &JobContext::silent())?;
+    pliego_print::save(&doc, &a.output)?;
+    let summary = format!("Marcas añadidas en {n} página(s); sangrado de {} mm.", a.bleed_mm);
+    print_report(&Report::with_output(&a.output, summary), json)
+}
+
+fn pdfx(a: PdfxArgs, json: bool) -> anyhow::Result<()> {
+    let opts = pliego_print::PdfxOptions {
+        level: match a.level {
+            Level::X1a => pliego_print::PdfxLevel::X1a,
+            Level::X4 => pliego_print::PdfxLevel::X4,
+        },
+        icc_profile: a.icc,
+        condition_identifier: a.condition_id,
+        condition: a.condition,
+        title: None,
+        ghostscript: a.ghostscript,
+    };
+    let report = pliego_print::to_pdfx(&a.input, &a.output, &opts, &JobContext::silent())?;
+    print_report(&report, json)
 }

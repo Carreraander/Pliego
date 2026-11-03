@@ -12,6 +12,8 @@ pub(crate) enum Arg {
 pub(crate) struct Op {
     pub name: String,
     pub args: Vec<Arg>,
+    /// Posición (inicio, fin) en bytes de cada operando dentro del flujo.
+    pub spans: Vec<(usize, usize)>,
 }
 
 impl Op {
@@ -45,9 +47,12 @@ fn is_delim(b: u8) -> bool {
 pub(crate) fn parse(data: &[u8]) -> Vec<Op> {
     let mut ops = Vec::new();
     let mut args: Vec<Arg> = Vec::new();
+    let mut spans: Vec<(usize, usize)> = Vec::new();
+    let mut start;
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
+        start = i;
         if is_space(b) {
             i += 1;
         } else if b == b'%' {
@@ -72,6 +77,7 @@ pub(crate) fn parse(data: &[u8]) -> Vec<Op> {
             }
             i += 1;
             args.push(Arg::Other);
+            spans.push((start, i));
         } else if b == b'<' {
             if data.get(i + 1) == Some(&b'<') {
                 i += 2;
@@ -81,24 +87,26 @@ pub(crate) fn parse(data: &[u8]) -> Vec<Op> {
                 }
                 i += 1;
                 args.push(Arg::Other);
+                spans.push((start, i));
             }
         } else if matches!(b, b'>' | b'[' | b']' | b'{' | b'}' | b')') {
             i += 1;
         } else if b == b'/' {
-            let start = i + 1;
-            i = start;
+            let name_start = i + 1;
+            i = name_start;
             while i < data.len() && !is_space(data[i]) && !is_delim(data[i]) {
                 i += 1;
             }
-            args.push(Arg::Name(decode_name(&data[start..i])));
+            args.push(Arg::Name(decode_name(&data[name_start..i])));
+            spans.push((start, i));
         } else {
-            let start = i;
             while i < data.len() && !is_space(data[i]) && !is_delim(data[i]) {
                 i += 1;
             }
             let word = &data[start..i];
             if let Some(n) = std::str::from_utf8(word).ok().and_then(parse_number) {
                 args.push(Arg::Num(n));
+                spans.push((start, i));
             } else {
                 let name = String::from_utf8_lossy(word).into_owned();
                 if name == "BI" {
@@ -107,6 +115,7 @@ pub(crate) fn parse(data: &[u8]) -> Vec<Op> {
                 ops.push(Op {
                     name,
                     args: std::mem::take(&mut args),
+                    spans: std::mem::take(&mut spans),
                 });
             }
         }
@@ -176,6 +185,14 @@ mod tests {
         let ops = parse(b"% w\nBI /W 1 /H 1 /BPC 8 /CS /G ID \x01w EI\n2 w S");
         let names: Vec<_> = ops.iter().map(|o| o.name.as_str()).collect();
         assert_eq!(names, ["BI", "w", "S"]);
+    }
+
+    #[test]
+    fn records_operand_positions() {
+        let data = b"q 0.05 w S";
+        let ops = parse(data);
+        let (a, b) = ops[1].spans[0];
+        assert_eq!(&data[a..b], b"0.05");
     }
 
     #[test]

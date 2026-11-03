@@ -835,6 +835,7 @@ dependencies = [
  "pliego-core",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

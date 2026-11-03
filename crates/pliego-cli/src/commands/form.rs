@@ -28,6 +28,8 @@ pub enum FormCommand {
 pub enum DataFormat {
     Json,
     Csv,
+    Fdf,
+    Xfdf,
 }
 
 impl From<DataFormat> for Format {
@@ -35,6 +37,8 @@ impl From<DataFormat> for Format {
         match f {
             DataFormat::Json => Format::Json,
             DataFormat::Csv => Format::Csv,
+            DataFormat::Fdf => Format::Fdf,
+            DataFormat::Xfdf => Format::Xfdf,
         }
     }
 }
@@ -287,11 +291,13 @@ fn import(a: ImportArgs, json: bool) -> anyhow::Result<()> {
         {
             Some("csv") => Format::Csv,
             Some("json") => Format::Json,
-            _ => bail!("no se reconoce el formato de datos; indica --format json|csv"),
+            Some("fdf") => Format::Fdf,
+            Some("xfdf") => Format::Xfdf,
+            _ => bail!("no se reconoce el formato de datos; indica --format json|csv|fdf|xfdf"),
         },
     };
-    let text = std::fs::read_to_string(&a.data).with_context(|| format!("no se pudo leer {}", a.data.display()))?;
-    let res = pliego_forms::import_data(&mut doc, &text, format)?;
+    let bytes = std::fs::read(&a.data).with_context(|| format!("no se pudo leer {}", a.data.display()))?;
+    let res = pliego_forms::import_data_bytes(&mut doc, &bytes, format)?;
     let dest = save(&doc, &a.doc.input, &a.out)?;
     report_fill(&res, &dest, json)
 }

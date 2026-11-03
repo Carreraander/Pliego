@@ -3,8 +3,8 @@
   Instala Tesseract + Leptonica con vcpkg y deja listas las variables que lee `tesseract-sys`.
 
 .DESCRIPTION
-  Reproducible: usa el vcpkg del equipo (VCPKG_ROOT o C:\vcpkg) con el triplete x64-windows
-  (DLL dinámicas): evita choques de símbolos y de runtime con el MuPDF estático. Las DLL de `<vcpkg>\installed\x64-windows\bin`
+  Reproducible: usa el vcpkg del equipo (VCPKG_ROOT o C:\vcpkg) con el triplete x64-windows-release
+  (DLL dinámicas): evita choques de símbolos y de runtime con el MuPDF estático. Las DLL de `<vcpkg>\installed\x64-windows-release\bin`
   (tesseract55.dll y dependencias) son las que hay que empaquetar con la aplicación.
   Con -GithubEnv escribe las variables en el archivo de entorno de GitHub Actions; si no, las deja en la sesión.
   Con -TessdataDir descarga eng, spa y osd (tessdata_fast) en esa carpeta.
@@ -15,7 +15,7 @@
 param(
     [string]$GithubEnv = "",
     [string]$GithubPath = "",
-    [string]$Triplet = "x64-windows",
+    [string]$Triplet = "x64-windows-release",
     [string]$TessdataDir = ""
 )
 $ErrorActionPreference = "Stop"

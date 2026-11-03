@@ -5,3 +5,5 @@
 .DS_Store
 /tests/corpus/private/
 /tests/output/
+/app/test-results/
+/app/playwright-report/

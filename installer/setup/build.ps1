@@ -37,7 +37,7 @@ if (-not $Version) {
   $m = Select-String -Path (Join-Path $repo 'Cargo.toml') -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
   $Version = $m.Matches[0].Groups[1].Value
 }
-$target = Join-Path $repo 'target\release'
+$target = if ($env:CARGO_TARGET_DIR) { Join-Path $env:CARGO_TARGET_DIR 'release' } else { Join-Path $repo 'target\release' }
 Write-Host "Pliego $Version -> $OutDir"
 
 function Invoke-Checked([string]$exe, [string[]]$argv) {
@@ -95,7 +95,7 @@ foreach ($n in 'pliego.exe', 'pliego-worker.exe') {
 }
 Copy-Item (Join-Path $target 'pliego-setup.exe')         (Join-Path $stage 'pliego-setup.exe')
 Copy-Item (Join-Path $target 'pliego-launcher.exe')      (Join-Path $stage 'launcher\Pliego.exe')
-Copy-Item (Join-Path $target 'pliego-launcher-cli.exe')  (Join-Path $stage 'launcher\pliego.exe')
+Copy-Item (Join-Path $target 'pliego-launcher-cli.exe')  (Join-Path $stage 'launcher\pliego-cli.exe')  # NTFS no distingue Pliego.exe/pliego.exe
 Copy-Item (Join-Path $repo 'LICENSE') (Join-Path $stage 'LICENSE') -ErrorAction SilentlyContinue
 
 # 3. Firma (opcional): todo lo ejecutable antes de empaquetar

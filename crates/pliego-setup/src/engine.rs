@@ -278,7 +278,7 @@ pub fn install(
         let launcher = root.join("Pliego.exe");
         replace_file(&app_dir.join("launcher").join("Pliego.exe"), &launcher)
             .map_err(|e| SetupError::Other(format!("lanzador: {e}")))?;
-        let cli = app_dir.join("launcher").join("pliego.exe");
+        let cli = app_dir.join("launcher").join("pliego-cli.exe");
         if cli.is_file() {
             replace_file(&cli, &root.join("bin").join("pliego.exe"))?;
         }
@@ -450,7 +450,7 @@ fn refresh_files(root: &Path, app_dir: &Path) {
     let pairs = [
         (app_dir.join("launcher").join("Pliego.exe"), root.join("Pliego.exe")),
         (
-            app_dir.join("launcher").join("pliego.exe"),
+            app_dir.join("launcher").join("pliego-cli.exe"),
             root.join("bin").join("pliego.exe"),
         ),
         (app_dir.join("pliego-setup.exe"), root.join("Uninstall.exe")),
@@ -501,7 +501,7 @@ mod tests {
         let src = dir.join(format!("src-{version}"));
         fs::create_dir_all(src.join("launcher")).unwrap();
         fs::write(src.join("launcher/Pliego.exe"), "launcher-app").unwrap();
-        fs::write(src.join("launcher/pliego.exe"), "launcher-cli").unwrap();
+        fs::write(src.join("launcher/pliego-cli.exe"), "launcher-cli").unwrap();
         fs::write(src.join("pliego-setup.exe"), format!("setup {version}")).unwrap();
         fs::write(src.join("pliego-app.exe"), app_marker).unwrap();
         fs::write(src.join("pliego.exe"), "cli").unwrap();

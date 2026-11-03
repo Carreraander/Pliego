@@ -445,7 +445,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let dest = d.path().join("app-0.4.0");
         let r = unpack_verified(bytes, &dest);
-        assert!(r.is_err() == !dest.exists(), "no debe quedar nada si falla");
+        assert_eq!(r.is_err(), !dest.exists(), "no debe quedar nada si falla");
         assert!(!partial_path(&dest).exists());
         r
     }

@@ -10,6 +10,7 @@ export default defineConfig({
   fullyParallel: true,
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled" } },
   use: {
+    locale: "es-ES",
     baseURL: "http://127.0.0.1:1420",
     launchOptions: existsSync(preinstalled) ? { executablePath: preinstalled, args: ["--no-sandbox"] } : {},
   },

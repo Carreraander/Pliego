@@ -30,16 +30,26 @@ jobs:
           sudo apt-get install -y libfontconfig1-dev libfreetype-dev \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev patchelf \
             libtesseract-dev libleptonica-dev tesseract-ocr-eng tesseract-ocr-spa tesseract-ocr-osd
+      # Compilar Tesseract con vcpkg tarda ~20 min: se restaura el árbol `installed` con una clave fija (no depende de
+      # la rama ni del script) y se guarda justo tras instalar, aunque fallen los pasos siguientes. Los PR leen la caché
+      # de main (la que guarda su push a main); la de un PR solo la ven sus propios pushes.
       - name: Caché de vcpkg (Tesseract, Windows)
+        id: vcpkg-cache
         if: matrix.os == 'windows-latest'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: C:\vcpkg\installed
-          key: vcpkg-tesseract-${{ runner.os }}-${{ hashFiles('tools/ocr/setup-tesseract-windows.ps1') }}
+          key: vcpkg-tesseract-x64-windows-release-v1
       - name: Tesseract (Windows, vcpkg)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: ./tools/ocr/setup-tesseract-windows.ps1 -GithubEnv $env:GITHUB_ENV -GithubPath $env:GITHUB_PATH -TessdataDir "$env:RUNNER_TEMP\tessdata"
+      - name: Guardar caché de vcpkg
+        if: matrix.os == 'windows-latest' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-tesseract-x64-windows-release-v1
       - name: Formato
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all --check

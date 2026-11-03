@@ -16,7 +16,7 @@ se incluyen en el instalador; los demás idiomas se descargan bajo demanda y sol
 SHA-256 (`crates/pliego-ocr/src/models.rs`). Una descarga que no coincide se descarta.
 
 ## Compilar en Windows (reproducible)
-Tesseract se usa como DLL (vcpkg, triplete `x64-windows`): así no choca con el MuPDF estático (símbolos duplicados y
+Tesseract se usa como DLL (vcpkg, triplete `x64-windows-release` (DLL, solo release: tarda la mitad)): así no choca con el MuPDF estático (símbolos duplicados y
 runtime de MSVC distinto en debug).
 
 ```powershell
@@ -26,7 +26,7 @@ cargo build --release -p pliego-cli
 
 El script instala `tesseract` y `leptonica` con vcpkg (`VCPKG_ROOT`, `C:\vcpkg` o lo clona), define
 `TESSERACT_LIB_DIR`, `TESSERACT_LIB_NAME`, `LEPTONICA_LIB_NAME` (los lee `crates/tesseract-sys/build.rs`) y añade
-`<vcpkg>\installed\x64-windows\bin` al `PATH`. **Para empaquetar**, copiar de esa carpeta `bin` junto a `pliego.exe`
+`<vcpkg>\installed\x64-windows-release\bin` al `PATH`. **Para empaquetar**, copiar de esa carpeta `bin` junto a `pliego.exe`
 (o al instalador) las DLL de Tesseract y sus dependencias: `tesseract55.dll`, `leptonica-*.dll` y las que cargan
 (`libpng16.dll`, `tiff.dll`, `zlib1.dll`, etc.; `dumpbin /dependents tesseract55.dll` las lista).
 

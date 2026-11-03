@@ -226,8 +226,11 @@ pub fn apply(
     doc.save_with_options(tmp_str, write).map_err(pdf_err)?;
 
     let needles: Vec<String> = matches.iter().map(|m| m.text.clone()).collect();
-    let reopened = open_pdf(tmp.path(), None)?;
-    let left = verify(&reopened, &needles)?;
+    // El documento reabierto se cierra antes de renombrar: en Windows no se puede mover un archivo abierto.
+    let left = {
+        let reopened = open_pdf(tmp.path(), None)?;
+        verify(&reopened, &needles)?
+    };
     if !left.is_empty() {
         return Err(Error::Other(format!(
             "la verificación falló: {} cadena(s) redactada(s) todavía se pueden extraer (p. ej. «{}» en la página {}); no se ha escrito el archivo",

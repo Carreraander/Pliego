@@ -73,8 +73,61 @@ fn hung_worker_times_out_and_recovers() {
     cfg.debug = true;
     let w = WorkerEngine::new(cfg).open(&hola(), None).unwrap();
     w.debug_request_hang();
-    assert_eq!(w.page_count().unwrap(), 2);
-    assert!(w.restarts() >= 1);
+    // Un cuelgue no se reintenta (suele ser determinista): la petición falla y el worker se relanza.
+    assert!(w.page_count().is_err());
+    assert_eq!(w.restarts(), 1);
+    assert_eq!(w.page_count().unwrap(), 2, "la siguiente petición reabre el documento");
+}
+
+fn hostile(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/corpus/worker")
+        .join(name)
+}
+
+/// PDF con un patrón de mosaico de paso 0,001: MuPDF no termina nunca. El worker lo corta por tiempo.
+#[test]
+fn tiling_pattern_hang_is_contained() {
+    let mut cfg = WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"));
+    cfg.timeout = Duration::from_secs(2);
+    let w = WorkerEngine::new(cfg).open(&hostile("tiling-hang.pdf"), None).unwrap();
+    let t = std::time::Instant::now();
+    assert!(w.render_page(0, 1.0).is_err());
+    assert!(t.elapsed() < Duration::from_secs(8), "se corta cerca del tiempo límite");
+    assert_eq!(w.restarts(), 1);
+    assert!(w.take_recovered());
+    assert_eq!(w.page_count().unwrap(), 1, "el documento sigue abierto tras el corte");
+}
+
+/// Con `PLIEGO_HOSTILE_DIR=<carpeta con PDFs>` renderiza cada uno a través del worker (p. ej. los de
+/// pdf.js que fallan en proceso: bomb_giant, bug_jpx, tiling-pattern-tiny-steps*). Ninguno puede
+/// tumbar el proceso de pruebas ni dejar el worker inutilizable.
+#[test]
+fn external_hostile_files_are_contained() {
+    let Some(dir) = std::env::var_os("PLIEGO_HOSTILE_DIR") else {
+        return;
+    };
+    let mut cfg = WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"));
+    cfg.timeout = Duration::from_secs(5);
+    let engine = WorkerEngine::new(cfg);
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_none_or(|e| e != "pdf") {
+            continue;
+        }
+        let Ok(doc) = engine.open(&path, None) else {
+            println!("{}: rechazado al abrir", path.display());
+            continue;
+        };
+        let res = doc.render_page(0, 0.5);
+        println!(
+            "{}: {} (reinicios: {})",
+            path.display(),
+            if res.is_ok() { "ok" } else { "error contenido" },
+            doc.restarts()
+        );
+        assert!(doc.info().is_ok(), "{} deja el worker inutilizable", path.display());
+    }
 }
 
 #[test]

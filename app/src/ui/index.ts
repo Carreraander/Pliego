@@ -12,3 +12,4 @@ export { toast, dismiss, clearToasts, ToastRegion, type ToastOptions } from "./T
 export { computePosition, computePointPosition, type Placement, type Point } from "./overlay";
 export { Inspector, TaskPanel, ProgressBar, WizardSteps, type TaskAction, type TaskProgress } from "./Panels";
 export { Toolbar, ToolbarSeparator } from "./Toolbar";
+export { Dialog } from "./Dialog";

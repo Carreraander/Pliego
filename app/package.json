@@ -13,7 +13,8 @@
     "tauri": "tauri",
     "lint": "eslint .",
     "test:e2e": "playwright test",
-    "test:visual": "playwright test"
+    "test:visual": "playwright test",
+    "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

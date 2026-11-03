@@ -18,7 +18,7 @@ function files(dir: string): string[] {
 }
 
 describe("colores literales", () => {
-  const targets = dirs.flatMap(files).filter((f) => !f.endsWith(join("styles", "tokens.css")) && !f.endsWith("provisional.css")); // provisional.css (W01) desaparece con el armazón nuevo
+  const targets = dirs.flatMap(files).filter((f) => !f.endsWith(join("styles", "tokens.css")));
   it("hay archivos que comprobar", () => expect(targets.length).toBeGreaterThan(5));
   for (const f of targets) {
     it(relative(root, f), () => {

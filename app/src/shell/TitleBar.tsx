@@ -5,7 +5,13 @@ import { openPalette, titleItems } from "./slots";
 import { isTauri, tauriWindow } from "./platform";
 import { st } from "./strings";
 
-export interface DocTab { id: string; title: string; dirty?: boolean }
+export interface DocTab {
+  id: string;
+  title: string;
+  dirty?: boolean;
+  /** `document` (por defecto) o `screen` (Inicio, Ajustes): una pantalla oculta la barra de modos y el estado de documento. */
+  kind?: "document" | "screen";
+}
 
 export interface TitleBarProps {
   tabs: DocTab[];

@@ -84,4 +84,15 @@ test.describe("armazón", () => {
     await page.keyboard.press("F9");
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
   });
+
+  test("una pestaña de tipo pantalla oculta la barra de modos y «Pág.»", async ({ page }) => {
+    await expect(page.getByRole("tablist", { name: "Modos" })).toBeVisible();
+    await expect(page.getByText("Pág. 2 de 48")).toBeVisible();
+    await page.getByRole("tab", { name: "Inicio" }).click();
+    await expect(page.getByRole("tablist", { name: "Modos" })).toBeHidden();
+    await expect(page.getByText("Pág. 2 de 48")).toBeHidden();
+    await expect(page.getByText("Firmado · válido")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Buscar o ejecutar/ })).toBeVisible();
+    await expect(page).toHaveScreenshot("armazon-inicio.png");
+  });
 });

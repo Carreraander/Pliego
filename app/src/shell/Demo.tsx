@@ -4,7 +4,7 @@ import { AppWindow, openInspector, registerMode, registerPanel, registerStatusIt
 
 /** Armazón con contenido de ejemplo para revisar el diseño (solo desarrollo): `/ui-shell`. */
 export function ShellDemo() {
-  const [tabs, setTabs] = createSignal<DocTab[]>([{ id: "a", title: "contrato.pdf", dirty: true }, { id: "b", title: "factura-octubre.pdf" }, { id: "c", title: "informe-anual-2026.pdf" }]);
+  const [tabs, setTabs] = createSignal<DocTab[]>([{ id: "a", title: "contrato.pdf", dirty: true }, { id: "b", title: "factura-octubre.pdf" }, { id: "c", title: "informe-anual-2026.pdf" }, { id: "home", title: "Inicio", kind: "screen" }]);
   const [active, setActive] = createSignal<string | null>("a");
   const [view, setView] = createSignal("continuous");
 
@@ -28,7 +28,7 @@ export function ShellDemo() {
       registerPanel({ id: "demo.thumbs", title: "Miniaturas", icon: "layout-grid", order: 1, shortcut: "F4", component: () => <EmptyState title="Miniaturas" hint="Aquí van las páginas" /> }),
       registerPanel({ id: "demo.outline", title: "Marcadores", icon: "bookmark", order: 2, component: () => <EmptyState title="Marcadores" /> }),
       registerPanel({ id: "demo.comments", title: "Comentarios", icon: "message-square", order: 3, component: () => <EmptyState title="Sin comentarios" /> }),
-      registerStatusItem({ id: "demo.page", slot: "start", text: () => "Pág. 2 de 48 · A4 · 210 × 297 mm", label: "Página 2 de 48, A4", onClick: () => {} }),
+      registerStatusItem({ id: "demo.page", slot: "start", hideOnHome: true, text: () => "Pág. 2 de 48 · A4 · 210 × 297 mm", label: "Página 2 de 48, A4", onClick: () => {} }),
       registerStatusItem({ id: "demo.task", slot: "center", text: () => "◷ OCR de informe.pdf 42 %", label: "OCR en curso, 42 por ciento", onClick: () => {} }),
       registerStatusItem({ id: "demo.sign", slot: "center", text: () => "✓ Firmado · válido", tone: "ok", label: "Firmado, válido", onClick: () => {} }),
       registerStatusItem({ id: "demo.zoom", slot: "end", text: () => "100 %", label: "Zoom 100 por ciento", onClick: () => {} }),

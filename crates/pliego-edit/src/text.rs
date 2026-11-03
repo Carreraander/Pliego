@@ -10,6 +10,7 @@ use pliego_core::{Error, Report, Result};
 use pliego_document::Document;
 
 use crate::blocks::extract;
+use crate::embed::embed_subset;
 use crate::fonts::{Metrics, base14_name, encode};
 use crate::types::{Align, FontFamily, RectPts, Style};
 use crate::unicode::{LoadedFont, Shaper, find_font, is_wide};
@@ -66,30 +67,48 @@ impl Face<'_> {
         }
     }
 
-    /// Cadena hexadecimal del texto con los códigos que usa la fuente en el PDF.
-    fn hex(&self, line: &str) -> Result<String> {
-        Ok(match self {
-            Face::Std { .. } => encode(line)?.iter().map(|b| format!("{b:02X}")).collect(),
-            Face::Uni { shaper, .. } => shaper
-                .shape(line, 1.0)
-                .gids
-                .iter()
-                .map(|g| format!("{g:04X}"))
-                .collect(),
-        })
+    /// Prepara la fuente en la página para dibujar `lines`: nombre del recurso y, con fuente Unicode, el paso de
+    /// glifo original a código del subconjunto incrustado.
+    fn prepare(
+        &self,
+        page: &mut PdfPage,
+        doc: &mut mupdf::pdf::PdfDocument,
+        lines: &[String],
+        label: &str,
+    ) -> Result<Prepared> {
+        match self {
+            Face::Std { name, .. } => Ok(Prepared {
+                resource: page.insert_font(doc, &InsertFontOptions::new(name)).map_err(pe)?.0,
+                codes: None,
+            }),
+            Face::Uni { bytes, .. } => {
+                let e = embed_subset(doc, page, bytes, label, lines)?;
+                Ok(Prepared {
+                    resource: e.resource,
+                    codes: Some(e.codes),
+                })
+            }
+        }
     }
 
-    fn register(&self, page: &mut PdfPage, doc: &mut mupdf::pdf::PdfDocument) -> Result<String> {
-        let opts = match self {
-            Face::Std { name, .. } => InsertFontOptions::new(name),
-            Face::Uni { bytes, .. } => InsertFontOptions {
-                fontfile: Some(bytes),
-                simple: false,
-                ..InsertFontOptions::new("PliegoUnicode")
-            },
-        };
-        Ok(page.insert_font(doc, &opts).map_err(pe)?.0)
+    /// Cadena hexadecimal del texto con los códigos que usa la fuente en el PDF.
+    fn hex(&self, line: &str, prepared: &Prepared) -> Result<String> {
+        Ok(match (self, &prepared.codes) {
+            (Face::Uni { shaper, .. }, Some(codes)) => shaper
+                .shape(line, 1.0)
+                .glyphs
+                .iter()
+                .map(|(g, _)| format!("{:04X}", codes.get(g).copied().unwrap_or(0)))
+                .collect(),
+            _ => encode(line)?.iter().map(|b| format!("{b:02X}")).collect(),
+        })
     }
+}
+
+/// Fuente lista en la página.
+struct Prepared {
+    resource: String,
+    codes: Option<std::collections::HashMap<u16, u16>>,
 }
 
 /// Trozos de una línea: cada uno puede ir tras un espacio. Los ideogramas, kana y hangul se pueden partir
@@ -166,8 +185,10 @@ fn draw(
     baseline: f32,
     leading: f32,
     face: &Face,
+    label: &str,
 ) -> Result<()> {
-    let font_res = face.register(page, doc)?;
+    let prepared = face.prepare(page, doc, lines, label)?;
+    let font_res = &prepared.resource;
     let inv = page
         .object()
         .page_ctm()
@@ -189,7 +210,7 @@ fn draw(
             Align::Right => x1 - w,
         };
         let (ux, uy) = inv.transform_xy(x, baseline + leading * i as f32);
-        let hex = face.hex(line)?;
+        let hex = face.hex(line, &prepared)?;
         let _ = writeln!(s, "1 0 0 1 {} {} Tm <{hex}> Tj", pdf_num(ux), pdf_num(uy));
     }
     s.push_str("ET\nQ\n");
@@ -203,6 +224,10 @@ fn load_unicode(text: &str, style: &Style) -> Result<Option<LoadedFont>> {
         return Ok(None);
     }
     find_font(text, style.font_file.as_deref()).map(Some)
+}
+
+fn label(loaded: &Option<LoadedFont>) -> &str {
+    loaded.as_ref().map_or("", |l| l.label.as_str())
 }
 
 fn make_face<'a>(res: &Resolved, loaded: &'a Option<LoadedFont>) -> Result<Face<'a>> {
@@ -287,6 +312,7 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
             raw.first_origin.1,
             leading,
             &face,
+            label(&loaded),
         )?;
 
         let new_bottom = raw.first_origin.1 + leading * (lines.len().saturating_sub(1)) as f32;
@@ -328,6 +354,7 @@ pub fn insert_text(doc: &mut Document, page: usize, rect: RectPts, text: &str, s
             rect[1] + ascent,
             leading,
             &face,
+            label(&loaded),
         )?;
         let bottom = rect[1] + ascent + leading * (lines.len().saturating_sub(1)) as f32;
         if bottom > rect[3] + 0.5 {

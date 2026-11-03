@@ -13,19 +13,29 @@ path = "src/main.rs"
 [dependencies]
 pliego-core.workspace = true
 pliego-engine-mupdf.workspace = true
+pliego-sign = { path = "../pliego-sign" }
+pliego-compare = { path = "../pliego-compare" }
+pliego-optimize = { path = "../pliego-optimize" }
 pliego-organize.workspace = true
+pliego-stamp.workspace = true
 pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }
+pliego-forms = { path = "../pliego-forms" }
 mupdf.workspace = true
 pliego-assistant = { path = "../pliego-assistant" }
 pliego-convert = { path = "../pliego-convert" }
+pliego-redact = { path = "../pliego-redact" }
+pliego-a11y = { path = "../pliego-a11y" }
+pliego-pdfa = { path = "../pliego-pdfa" }
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+rcgen = "0.14"
+p12-keystore = "0.4"
 
 [lints]
 workspace = true

@@ -73,8 +73,61 @@ fn hung_worker_times_out_and_recovers() {
     cfg.debug = true;
     let w = WorkerEngine::new(cfg).open(&hola(), None).unwrap();
     w.debug_request_hang();
-    assert_eq!(w.page_count().unwrap(), 2);
-    assert!(w.restarts() >= 1);
+    // Un cuelgue no se reintenta (suele ser determinista): la petición falla y el worker se relanza.
+    assert!(w.page_count().is_err());
+    assert_eq!(w.restarts(), 1);
+    assert_eq!(w.page_count().unwrap(), 2, "la siguiente petición reabre el documento");
+}
+
+fn hostile(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/corpus/worker")
+        .join(name)
+}
+
+/// PDF con un patrón de mosaico de paso 0,001: MuPDF no termina nunca. El worker lo corta por tiempo.
+#[test]
+fn tiling_pattern_hang_is_contained() {
+    let mut cfg = WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"));
+    cfg.timeout = Duration::from_secs(2);
+    let w = WorkerEngine::new(cfg).open(&hostile("tiling-hang.pdf"), None).unwrap();
+    let t = std::time::Instant::now();
+    assert!(w.render_page(0, 1.0).is_err());
+    assert!(t.elapsed() < Duration::from_secs(8), "se corta cerca del tiempo límite");
+    assert_eq!(w.restarts(), 1);
+    assert!(w.take_recovered());
+    assert_eq!(w.page_count().unwrap(), 1, "el documento sigue abierto tras el corte");
+}
+
+/// Con `PLIEGO_HOSTILE_DIR=<carpeta con PDFs>` renderiza cada uno a través del worker (p. ej. los de
+/// pdf.js que fallan en proceso: bomb_giant, bug_jpx, tiling-pattern-tiny-steps*). Ninguno puede
+/// tumbar el proceso de pruebas ni dejar el worker inutilizable.
+#[test]
+fn external_hostile_files_are_contained() {
+    let Some(dir) = std::env::var_os("PLIEGO_HOSTILE_DIR") else {
+        return;
+    };
+    let mut cfg = WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"));
+    cfg.timeout = Duration::from_secs(5);
+    let engine = WorkerEngine::new(cfg);
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_none_or(|e| e != "pdf") {
+            continue;
+        }
+        let Ok(doc) = engine.open(&path, None) else {
+            println!("{}: rechazado al abrir", path.display());
+            continue;
+        };
+        let res = doc.render_page(0, 0.5);
+        println!(
+            "{}: {} (reinicios: {})",
+            path.display(),
+            if res.is_ok() { "ok" } else { "error contenido" },
+            doc.restarts()
+        );
+        assert!(doc.info().is_ok(), "{} deja el worker inutilizable", path.display());
+    }
 }
 
 #[test]
@@ -139,4 +192,47 @@ fn outline_without_title_is_handled() {
     assert_eq!(w.restarts(), 0);
     assert_eq!(w.page_count().unwrap(), 2);
     assert!(w.page_text(0).unwrap().contains("Hola"));
+}
+
+/// Solo Windows: el job object limita la memoria del worker, así que un render enorme falla sin afectar a la app.
+#[cfg(windows)]
+#[test]
+fn job_object_memory_limit_stops_huge_render() {
+    let mut cfg = WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"));
+    cfg.memory_limit = Some(256 * 1024 * 1024);
+    let w = WorkerEngine::new(cfg).open(&hola(), None).unwrap();
+    assert!(w.render_page(0, 1.0).is_ok(), "un render normal cabe en el límite");
+    // 595x842 pt a zoom 30 son ~1,5 GB de píxeles: no cabe en 256 MB.
+    assert!(w.render_page(0, 30.0).is_err());
+    assert_eq!(w.page_count().unwrap(), 2, "la app y el documento siguen utilizables");
+}
+
+/// Medida de rendimiento (objetivo: < 30 ms de media por tesela de 512 px en páginas de texto).
+/// Uso: `cargo test -p pliego-worker --release --test worker tile_perf -- --ignored --nocapture`
+#[test]
+#[ignore = "medida manual de rendimiento"]
+fn tile_perf() {
+    let w = engine().open(&hola(), None).unwrap();
+    let req = |col| TileRequest {
+        page: 0,
+        zoom: 1.5,
+        col,
+        row: 0,
+        size: 512,
+    };
+    for _ in 0..20 {
+        let _ = w.render_tile(req(0)).unwrap(); // calentamiento (tesela cacheada tras la primera)
+    }
+    // Sin caché: tesela distinta en cada iteración variando el zoom.
+    let n = 200;
+    let t = std::time::Instant::now();
+    for i in 0..n {
+        let r = TileRequest {
+            zoom: 1.0 + i as f32 * 0.001,
+            ..req(0)
+        };
+        let _ = w.render_tile(r).unwrap();
+    }
+    let ms = t.elapsed().as_secs_f64() * 1000.0 / n as f64;
+    println!("tesela 512 px sin caché a través del worker: {ms:.2} ms de media ({n} teselas)");
 }

@@ -13,6 +13,7 @@ use pliego_core::{
 };
 
 use crate::cache::{TileCache, TileKey};
+use crate::platform::Sandbox;
 use crate::protocol::{MAX_BINARY_FRAME, MAX_JSON_FRAME, Request, Response, read_frame, write_frame, write_json};
 
 #[derive(Debug, Clone)]
@@ -25,6 +26,8 @@ pub struct WorkerConfig {
     pub cache_bytes: usize,
     /// Activa las peticiones de depuración del worker (solo pruebas).
     pub debug: bool,
+    /// Límite de memoria del proceso worker (solo Windows, mediante job object). `None` = sin límite.
+    pub memory_limit: Option<usize>,
 }
 
 impl WorkerConfig {
@@ -34,6 +37,7 @@ impl WorkerConfig {
             timeout: Duration::from_secs(30),
             cache_bytes: 256 * 1024 * 1024,
             debug: false,
+            memory_limit: Some(2 * 1024 * 1024 * 1024),
         }
     }
 
@@ -120,6 +124,8 @@ struct Proc {
     stdin: BufWriter<ChildStdin>,
     /// Marcos que lee un hilo desde stdout del worker; `Err` cuando el flujo se corta.
     rx: Receiver<io::Result<Vec<u8>>>,
+    /// Job object (Windows): se cierra después de matar al proceso.
+    _sandbox: Option<Sandbox>,
 }
 
 impl Drop for Proc {
@@ -150,6 +156,8 @@ pub struct WorkerDocument {
 /// Fallo de transporte (worker caído o colgado), distinto de un error de la operación.
 enum CallError {
     Transport(String),
+    /// El worker no respondió a tiempo: casi siempre es determinista (PDF patológico), no se reintenta.
+    Timeout(String),
     Op(Error),
 }
 
@@ -165,6 +173,15 @@ fn spawn(config: &WorkerConfig) -> io::Result<Proc> {
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
     let mut child = cmd.spawn()?;
+    // Si no se puede restringir el proceso no se usa: un worker sin límites no cumple el aislamiento.
+    let sandbox = match Sandbox::attach(&child, config.memory_limit) {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(e);
+        }
+    };
     let stdin = BufWriter::new(child.stdin.take().expect("stdin del worker"));
     let mut stdout = BufReader::new(child.stdout.take().expect("stdout del worker"));
     let (tx, rx) = mpsc::channel();
@@ -187,7 +204,12 @@ fn spawn(config: &WorkerConfig) -> io::Result<Proc> {
             }
         }
     });
-    Ok(Proc { child, stdin, rx })
+    Ok(Proc {
+        child,
+        stdin,
+        rx,
+        _sandbox: sandbox,
+    })
 }
 
 impl Proc {
@@ -195,7 +217,7 @@ impl Proc {
         match self.rx.recv_timeout(timeout) {
             Ok(Ok(f)) => Ok(f),
             Ok(Err(e)) => Err(CallError::Transport(format!("el proceso del motor se cerró ({e})"))),
-            Err(RecvTimeoutError::Timeout) => Err(CallError::Transport("el motor tardó demasiado en responder".into())),
+            Err(RecvTimeoutError::Timeout) => Err(CallError::Timeout("el motor tardó demasiado en responder".into())),
             Err(RecvTimeoutError::Disconnected) => Err(CallError::Transport("el proceso del motor se cerró".into())),
         }
     }
@@ -322,7 +344,7 @@ impl WorkerDocument {
                 Ok(())
             }
             Err(CallError::Op(e)) => Err(e),
-            Err(CallError::Transport(m)) => Err(Error::Pdf(m)),
+            Err(CallError::Transport(m) | CallError::Timeout(m)) => Err(Error::Pdf(m)),
         }
     }
 
@@ -350,11 +372,16 @@ impl WorkerDocument {
             match res {
                 Ok(r) => return Ok(r),
                 Err(CallError::Op(e)) => return Err(e),
-                Err(CallError::Transport(msg)) => {
-                    st.proc = None; // Drop mata el proceso
+                Err(err) => {
+                    let (msg, retry) = match err {
+                        CallError::Transport(m) => (m, attempt == 0),
+                        CallError::Timeout(m) => (m, false),
+                        CallError::Op(_) => unreachable!("tratado arriba"),
+                    };
+                    st.proc = None; // Drop mata el proceso; la siguiente petición lo relanza
                     self.restarts.fetch_add(1, Ordering::Relaxed);
                     self.recovered.store(true, Ordering::Relaxed);
-                    if attempt == 1 {
+                    if !retry {
                         return Err(Error::Pdf(format!(
                             "{msg}. El documento puede estar dañado o ser malicioso; se aisló sin afectar a la aplicación"
                         )));

@@ -26,5 +26,6 @@
   "menu.home": "Home",
   "menu.settings": "Settings",
   "menu.shortcuts": "Keyboard shortcuts",
-  "error.open": "The document could not be opened"
+  "error.open": "The document could not be opened",
+  "mode.read": "Read"
 }

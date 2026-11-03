@@ -8,23 +8,31 @@
   . .\tools\acr12-env.ps1
   .\tools\acr12-turno.ps1 -Flujo w09 -- cargo test --workspace
   .\tools\acr12-turno.ps1 -Flujo w09 -EsperaMaxMinutos 60 -- cargo build --release -p pliego-app
-  El `--` es obligatorio (si no, PowerShell toma -p, --release... como parámetros del script).
-  PositionalBinding está desactivado para que lo que va tras `--` acabe en la orden y no en
-  -EsperaMaxMinutos. Alternativa: -Orden @('cargo','build','--release').
+  powershell -File .\tools\acr12-turno.ps1 -Flujo w09 -- cargo build -p pliego-cli
+
+  Todo lo que va tras `--` es la orden, tal cual. Antes de `--` solo se aceptan -Flujo (obligatorio)
+  y -EsperaMaxMinutos; el primer argumento distinto empieza la orden (a veces PowerShell se come el `--`). El script no declara param() a propósito: lee $args a mano para que -p,
+  --release, etc. lleguen intactos a la orden, se invoque con `&`, con `.\` o con `powershell -File`.
 
 .NOTES
   Usa un mutex con nombre (Global\PliegoAcr12Turno1). Si una sesión muere con el turno cogido,
   Windows libera el mutex (queda "abandonado") y el siguiente lo toma: no hay turnos huérfanos.
   El estado se escribe en D:\dev-cache\turnos\turno<N>.txt (quién y desde cuándo) para poder consultarlo.
 #>
-[CmdletBinding(PositionalBinding = $false)]
-param(
-    [Parameter(Mandatory = $true)][string]$Flujo,
-    [int]$EsperaMaxMinutos = 240,
-    [Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$Orden
-)
 $ErrorActionPreference = 'Stop'
-if ($Orden.Count -gt 0 -and $Orden[0] -eq '--') { $Orden = $Orden[1..($Orden.Count - 1)] }
+$Flujo = $null
+$EsperaMaxMinutos = 240
+$Orden = @()
+$i = 0
+while ($i -lt $args.Count) {
+    $a = [string]$args[$i]
+    if ($a -eq '--') { $Orden = @($args | Select-Object -Skip ($i + 1) | ForEach-Object { [string]$_ }); break }
+    elseif ($a -ieq '-Flujo') { $Flujo = [string]$args[$i + 1]; $i += 2 }
+    elseif ($a -ieq '-EsperaMaxMinutos') { $EsperaMaxMinutos = [int]$args[$i + 1]; $i += 2 }
+    else { $Orden = @($args | Select-Object -Skip $i | ForEach-Object { [string]$_ }); break }  # PowerShell ya se comió el `--`
+}
+if (-not $Flujo) { throw "Falta -Flujo. Uso: acr12-turno.ps1 -Flujo wNN [-EsperaMaxMinutos N] -- <orden>" }
+if ($Orden.Count -eq 0) { throw "Falta la orden tras '--'. Uso: acr12-turno.ps1 -Flujo wNN [-EsperaMaxMinutos N] -- <orden>" }
 if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '4' }
 
 $estado = 'D:\dev-cache\turnos'

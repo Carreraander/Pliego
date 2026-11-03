@@ -36,7 +36,7 @@ test.describe("navegación (W20)", () => {
     await box.fill("7");
     await expect(page.getByRole("option").first()).toContainText("Ir a la página 7");
     await box.fill("factura");
-    await expect(page.getByRole("option", { name: /factura-octubre/ })).toBeVisible();
+    await expect(page.getByRole("option", { name: /factura-octubre/ }).first()).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(box).toBeHidden();
   });

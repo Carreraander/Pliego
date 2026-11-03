@@ -25,7 +25,7 @@ export async function activateTool(tool: ToolManifest): Promise<void> {
     }
     case "screen": {
       const mod = await tool.load?.();
-      if (mod) openScreen({ id: tool.id, component: mod.default });
+      if (mod) openScreen({ id: tool.id, title: () => toolTitle(tool), component: mod.default });
     }
   }
 }

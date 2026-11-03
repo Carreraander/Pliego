@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   closeInspector, inspector, noticeFor, openInspector, panels, pickNotice, registerPanel, registerStatusItem, resetSlots, showNotice,
-  statusItems,
+  statusItems, setHomeActive,
 } from "./slots";
 
 const C = () => null;
@@ -61,5 +61,17 @@ describe("barra de estado", () => {
     registerStatusItem({ id: "s.a", slot: "end", order: 1, text: () => "a" });
     registerStatusItem({ id: "s.c", slot: "start", text: () => "c" });
     expect(statusItems("end").filter((i) => i.id.startsWith("s.")).map((i) => i.id)).toEqual(["s.a", "s.b"]);
+  });
+});
+
+describe("pestaña Inicio", () => {
+  it("oculta los elementos de estado con hideOnHome", () => {
+    registerStatusItem({ id: "h.page", slot: "start", hideOnHome: true, text: () => "Pág." });
+    registerStatusItem({ id: "h.zoom", slot: "end", text: () => "100 %" });
+    setHomeActive(true);
+    expect(statusItems("start").some((i) => i.id === "h.page")).toBe(false);
+    expect(statusItems("end").some((i) => i.id === "h.zoom")).toBe(true);
+    setHomeActive(false);
+    expect(statusItems("start").some((i) => i.id === "h.page")).toBe(true);
   });
 });

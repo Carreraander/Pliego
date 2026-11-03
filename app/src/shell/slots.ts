@@ -98,6 +98,11 @@ export function pickNotice<T extends { kind?: NoticeKind }>(list: T[]): T | null
   return best;
 }
 
+// ── Pestaña Inicio ─────────────────────────────────────────────────────────────────
+/** Con una pantalla activa (pestaña `kind: "screen"`, p. ej. Inicio) se oculta la barra de modos y los elementos de estado con `hideOnHome`. */
+const [homeActive, setHomeActive] = createSignal(false);
+export { homeActive, setHomeActive };
+
 // ── Barra de estado ──────────────────────────────────────────────────────────────────
 export interface StatusItem {
   id: string;
@@ -112,10 +117,12 @@ export interface StatusItem {
   /** Si existe, el elemento es un botón. */
   onClick?: () => void;
   tone?: NoticeTone;
+  /** No se muestra con una pantalla activa (Inicio, Ajustes) (p. ej. «Pág. 2 de 48»). */
+  hideOnHome?: boolean;
 }
 const statusReg = makeRegistry<StatusItem>();
 export const registerStatusItem = (item: StatusItem) => statusReg.add(item);
-export const statusItems = (slot: StatusItem["slot"]) => statusReg.items().filter((i) => i.slot === slot).sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+export const statusItems = (slot: StatusItem["slot"]) => statusReg.items().filter((i) => i.slot === slot && !(i.hideOnHome && homeActive())).sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 
 // ── Hueco de la barra de título (antes de los botones de ventana) ───────────────────────
 export interface TitleItem { id: string; order?: number; component: Component }

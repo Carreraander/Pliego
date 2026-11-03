@@ -10,10 +10,13 @@ import { Viewer } from "./viewer/Viewer";
 import { Thumbnails } from "./panels/Thumbnails";
 import { Outline } from "./panels/Outline";
 import { SearchBox } from "./components/SearchBox";
-import { installNavigation, NavigationHost, currentScreen } from "./navigation";
+import { closeScreen, currentScreen, installNavigation, NavigationHost, openShortcutSheet } from "./navigation";
+import { Home, installHome, openHome, openSettings, recordOpened } from "./home";
+import { installJobs } from "./jobs";
+import { initSettings } from "./settings";
 import { Dynamic } from "solid-js/web";
-import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode } from "./shell";
-import { Button, Dialog, EmptyState, Field, IconButton, TextInput, toast, ToolbarSeparator } from "./ui";
+import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode, type DocTab } from "./shell";
+import { Button, Dialog, Field, IconButton, TextInput, toast, ToolbarSeparator } from "./ui";
 
 export function App() {
   let canvas!: HTMLDivElement;
@@ -27,7 +30,7 @@ export function App() {
       setWrongPassword(pw !== undefined);
       setPasswordFor(path);
     } else if (result !== "ok") toast({ tone: "danger", text: `${t("error.open")}: ${result}` });
-    else { setPasswordFor(null); setPassword(""); }
+    else { setPasswordFor(null); setPassword(""); closeScreen(); recordOpened(path); }
   };
 
   const first = () => activeDoc()?.sizes[0];
@@ -35,6 +38,7 @@ export function App() {
   onMount(async () => {
     // Raíl, modo «Leer» y barra de estado del visor: se montan en las ranuras del armazón (docs/app-integration.md).
     const offs = [
+      await initSettings(),
       registerPanel({ id: "viewer.thumbnails", title: t("panel.thumbnails"), icon: "layout-grid", order: 10, shortcut: "F4",
         component: (p) => <Show when={docs().find((d) => String(d.id) === p.docId)} keyed>{(d) => <Thumbnails doc={d} />}</Show> }),
       registerPanel({ id: "viewer.outline", title: t("panel.outline"), icon: "bookmark", order: 20,
@@ -51,9 +55,10 @@ export function App() {
           <SearchBox />
         </>
       ) }),
-      registerStatusItem({ id: "viewer.page", slot: "start", text: () => (activeDoc() ? t("status.page", { page: currentPageIndex() + 1, total: activeDoc()!.sizes.length }) : "") }),
+      registerStatusItem({ id: "viewer.page", slot: "start", hideOnHome: true, text: () => (activeDoc() ? t("status.page", { page: currentPageIndex() + 1, total: activeDoc()!.sizes.length }) : "") }),
     ];
-    offs.push(installNavigation());
+    offs.push(installNavigation(), installHome((p) => void open(p)));
+    offs.push(await installJobs((p) => void open(p)));
     setMode("read");
     setActivePanel("viewer.thumbnails");
     const unlisten = await Promise.all([
@@ -69,17 +74,23 @@ export function App() {
 
   return (
     <AppWindow
-      tabs={docs().map((d) => ({ id: String(d.id), title: d.title }))}
-      activeId={activeId() === null ? null : String(activeId())}
-      onSelectTab={(id) => setActiveId(Number(id))}
-      onCloseTab={(id) => void closeDoc(Number(id))}
-      onNewTab={() => toast({ tone: "info", text: t("empty.hint") })}
-      onReorderTabs={(from, to) => setDocs((all) => { const n = [...all]; n.splice(to, 0, n.splice(from, 1)[0]!); return n; })}
-      appMenu={[{ id: "open", label: t("toolbar.open"), icon: "folder-open", shortcut: "Ctrl+O", disabled: true, reason: t("empty.hint") }]}
+      tabs={[...docs().map((d): DocTab => ({ id: String(d.id), title: d.title })), ...(currentScreen() ? [{ id: `screen:${currentScreen()!.id}`, title: currentScreen()!.title?.() ?? currentScreen()!.id, kind: "screen" as const }] : [])]}
+      activeId={currentScreen() ? `screen:${currentScreen()!.id}` : activeId() === null ? null : String(activeId())}
+      onSelectTab={(id) => { if (id.startsWith("screen:")) return; closeScreen(); setActiveId(Number(id)); }}
+      onCloseTab={(id) => (id.startsWith("screen:") ? closeScreen() : void closeDoc(Number(id)))}
+      onNewTab={openHome}
+      onReorderTabs={(from, to) => from < docs().length && to < docs().length && setDocs((all) => { const n = [...all]; n.splice(to, 0, n.splice(from, 1)[0]!); return n; })}
+      appMenu={[
+        { id: "open", label: t("toolbar.open"), icon: "folder-open", shortcut: "Ctrl+O", onSelect: () => void api.pickPdfFiles().then((ps) => ps.forEach((p) => void open(p))) },
+        { id: "home", label: t("menu.home"), icon: "home", onSelect: openHome },
+        { type: "separator" },
+        { id: "settings", label: t("menu.settings"), icon: "settings", shortcut: "Ctrl+,", onSelect: () => openSettings() },
+        { id: "shortcuts", label: t("menu.shortcuts"), icon: "keyboard", shortcut: "F1", onSelect: openShortcutSheet },
+      ]}
     >
       <NavigationHost />
       <div ref={canvas} class="viewer-host">
-        <Show when={currentScreen()} keyed fallback={<Show when={activeDoc()} keyed fallback={<EmptyState icon="file-text" title={t("empty.title")} hint={t("empty.hint")} />}>
+        <Show when={currentScreen()} keyed fallback={<Show when={activeDoc()} keyed fallback={<Home onOpen={(p) => void open(p)} />}>
           {(d) => <Viewer doc={d} zoom={zoom()} rotation={rotation()} />}
         </Show>}>{(s) => <Dynamic component={s.component} />}</Show>
       </div>

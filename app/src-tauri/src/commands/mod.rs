@@ -6,7 +6,10 @@
 pub mod assistant;
 pub mod dialog;
 pub mod document;
+pub mod jobs;
+pub mod recents;
 pub mod search;
+pub mod settings;
 pub mod startup;
 pub mod text;
 
@@ -20,6 +23,16 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         document::page_sizes,
         document::bump_revision,
         search::search,
+        settings::get_settings,
+        settings::set_settings,
+        recents::recents_list,
+        recents::recents_add,
+        recents::recents_remove,
+        recents::recents_pin,
+        recents::recent_thumbnail,
+        recents::reveal_path,
+        recents::about_info,
+        jobs::cancel_job,
         text::outline,
         text::page_text,
         startup::startup_files,

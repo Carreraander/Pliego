@@ -1,9 +1,10 @@
-import { onMount, type JSX } from "solid-js";
+import { createEffect, onMount, Show, type JSX } from "solid-js";
 import { ToastRegion, type MenuEntry } from "../ui";
 import { InspectorColumn, NoticeBar, Rail, SidePanel, StatusBar } from "./Regions";
 import { ModeBar } from "./ModeBar";
 import { TitleBar, type DocTab } from "./TitleBar";
 import { isTauri, isWindows11 } from "./platform";
+import { setHomeActive } from "./slots";
 import { installShellShortcuts } from "./shortcuts";
 import { st } from "./strings";
 import "./shell.css";
@@ -27,15 +28,18 @@ export interface AppWindowProps {
  */
 export function AppWindow(props: AppWindowProps) {
   installShellShortcuts();
+  // Pestaña activa de tipo pantalla (Inicio, Ajustes): sin barra de modos ni estado de documento (§3.1 del diseño).
+  const screen = () => props.tabs.find((t) => t.id === props.activeId)?.kind === "screen";
+  createEffect(() => setHomeActive(screen()));
   onMount(async () => {
     // Mica solo en Windows 11 dentro de Tauri (`windowEffects: ["mica"]` en tauri.conf.json); si no, la barra queda opaca.
     if (isTauri() && (await isWindows11())) document.documentElement.setAttribute("data-mica", "");
   });
   return (
-    <div class="pl-window">
+    <div class="pl-window" classList={{ "pl-window--home": screen() }}>
       <TitleBar tabs={props.tabs} activeId={props.activeId} onSelect={props.onSelectTab} onClose={props.onCloseTab} onNew={props.onNewTab}
         onReorder={props.onReorderTabs} onDetach={props.onDetachTab} appMenu={props.appMenu} />
-      <ModeBar docId={props.activeId} />
+      <Show when={!screen()}><ModeBar docId={props.activeId} /></Show>
       <div class="pl-body">
         <Rail docId={props.activeId} />
         <SidePanel docId={props.activeId} />

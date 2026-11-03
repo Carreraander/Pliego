@@ -47,6 +47,8 @@ pub struct SignatureReport {
     pub modifications_allowed: bool,
     /// El documento tiene datos de validación a largo plazo (DSS).
     pub has_dss: bool,
+    /// Nivel de certificación (DocMDP 1, 2 o 3) si es una firma de certificación.
+    pub certification: Option<u8>,
     /// Nivel PAdES detectado.
     pub level: crate::PadesLevel,
     pub chain: ChainStatus,
@@ -159,6 +161,7 @@ fn check_signature(
         covers_whole_document: false,
         modifications_allowed: false,
         has_dss: false,
+        certification: docmdp_level(d),
         level: crate::PadesLevel::BB,
         chain: ChainStatus::Incomplete,
         has_timestamp: false,
@@ -207,7 +210,7 @@ fn check_inner(
     r.modifications_allowed = true;
     if !r.covers_whole_document {
         // Cambios posteriores: permitidos si solo añaden DSS, firmas o anotaciones de campos.
-        if let Err(m) = crate::changes::check_updates(data, s2 + l2) {
+        if let Err(m) = crate::changes::check_updates(data, s2 + l2, r.certification) {
             r.modifications_allowed = false;
             r.problems.push(format!("cambios no permitidos tras la firma: {m}"));
         }
@@ -438,4 +441,23 @@ pub(crate) fn verify_cms(
         return Err("la firma digital no corresponde al certificado (firma rota)".into());
     }
     Ok((leaf, certs))
+}
+
+/// Nivel P de la referencia DocMDP de una firma de certificación.
+fn docmdp_level(sig: &lopdf::Dictionary) -> Option<u8> {
+    let refs = sig.get(b"Reference").ok()?.as_array().ok()?;
+    refs.iter().find_map(|r| {
+        let d = r.as_dict().ok()?;
+        if d.get(b"TransformMethod").ok()? != &Object::Name(b"DocMDP".to_vec()) {
+            return None;
+        }
+        let p = d
+            .get(b"TransformParams")
+            .ok()?
+            .as_dict()
+            .ok()
+            .and_then(|t| t.get(b"P").ok()?.as_i64().ok())
+            .unwrap_or(2);
+        Some(p.clamp(1, 3) as u8)
+    })
 }

@@ -112,6 +112,31 @@ fn pdf_now() -> String {
     )
 }
 
+/// Identificador único (formato UUID v4) para `/NM`, sin depender de otra librería.
+fn new_nm() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+    h.write_u128(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0),
+    );
+    let a = h.finish();
+    let mut h2 = std::collections::hash_map::RandomState::new().build_hasher();
+    h2.write_u64(a);
+    let b = h2.finish();
+    let (a, b) = ((a & !0xF000 | 0x4000), (b & !(0xC000 << 48) | (0x8000 << 48)));
+    format!(
+        "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+        a >> 32,
+        (a >> 16) & 0xffff,
+        a & 0xffff,
+        b >> 48,
+        b & 0xffff_ffff_ffff
+    )
+}
+
 fn dict_string(obj: &PdfObject, key: &str) -> Option<String> {
     let v = obj.get_dict(key).ok()??;
     if v.is_string().ok()? {
@@ -181,6 +206,7 @@ fn info_of(page_no: usize, a: &PdfAnnotation) -> Result<Option<AnnotInfo>> {
         author: a.author().map_err(pe)?.map(str::to_owned),
         subject: dict_string(&obj, "Subj"),
         contents: a.contents().map_err(pe)?.map(str::to_owned),
+        nm: dict_string(&obj, "NM"),
         created: dict_string(&obj, "CreationDate"),
         modified: dict_string(&obj, "M"),
         quads: Vec::new(),
@@ -354,6 +380,7 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
     apply_meta(&mut a, &spec.author, &spec.subject, &spec.contents)?;
     let mut obj = a.object();
     let now = pdf_now();
+    put_string(&mut obj, "NM", &new_nm())?;
     put_string(&mut obj, "CreationDate", &now)?;
     put_string(&mut obj, "M", &now)?;
     if let Some(parent) = spec.reply_to {

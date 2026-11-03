@@ -199,6 +199,8 @@ pub enum AnnotKind {
 pub struct AnnotInfo {
     pub id: AnnotId,
     pub kind: AnnotKind,
+    /// Nombre único (`/NM`), estable entre guardados; úsalo para casar anotaciones (XFDF).
+    pub nm: Option<String>,
     pub rect: RectPts,
     pub style: Style,
     pub author: Option<String>,

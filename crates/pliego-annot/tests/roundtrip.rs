@@ -233,8 +233,28 @@ fn appearances_are_generated() {
     let page = doc.load_pdf_page(0).unwrap();
     let mut n = 0;
     for a in page.annotations() {
-        assert!(a.object().get_dict("AP").unwrap().is_some(), "{:?} sin apariencia", a.r#type());
+        assert!(
+            a.object().get_dict("AP").unwrap().is_some(),
+            "{:?} sin apariencia",
+            a.r#type()
+        );
         n += 1;
     }
     assert_eq!(n, 12);
+}
+
+#[test]
+fn nm_is_unique_and_survives_save() {
+    let mut doc = blank();
+    for _ in 0..3 {
+        add(&mut doc, &AnnotSpec::new(0, Geometry::Note { at: [10.0, 10.0] })).unwrap();
+    }
+    let mut doc = reopen(&doc);
+    let nms: std::collections::HashSet<_> = list(&mut doc, None)
+        .unwrap()
+        .into_iter()
+        .map(|i| i.nm.unwrap())
+        .collect();
+    assert_eq!(nms.len(), 3);
+    assert!(nms.iter().all(|n| n.len() == 36 && n.as_bytes()[14] == b'4'));
 }

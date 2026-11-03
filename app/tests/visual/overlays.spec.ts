@@ -26,8 +26,10 @@ test.describe("superposiciones del catálogo (teclado)", () => {
     await page.focus("#menu-btn");
     await page.keyboard.press("Enter");
     await page.getByRole("menuitemcheckbox", { name: "Ajustar líneas" }).click();
+    await page.mouse.move(0, 0); // el menú reabierto no debe quedar bajo el puntero (el hover mueve el foco)
     await page.focus("#menu-btn");
     await page.keyboard.press("Enter");
+    await expect(page.getByRole("menuitem", { name: "Abrir…" })).toBeFocused();
     await expect(page.getByRole("menuitemcheckbox", { name: "Ajustar líneas" })).toHaveAttribute("aria-checked", "false");
     await page.keyboard.press("End");
     await expect(page.getByRole("menuitem", { name: "Eliminar" })).toBeFocused();

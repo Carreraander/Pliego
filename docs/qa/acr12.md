@@ -28,4 +28,13 @@ El script es idempotente (instala lo que falte con winget y cargo; `-CheckOnly` 
 
 ## Resultados de comprobaciones y rendimiento
 
-Pendiente: segunda pasada de idempotencia, `cargo fmt/clippy/test` en Windows y benchmarks por versión.
+- Segunda pasada de `setup-acr12.ps1`: todo "ya estaba", código de salida 0 (idempotente).
+- `cargo fmt --all --check`: correcto.
+- `cargo clippy --workspace --all-targets -- -D warnings`: **falla** al compilar `mupdf` 0.8.0 con
+  `error[E0425]: cannot find type max_align_t` (`mupdf-0.8.0\src\device\native.rs:599`).
+  Causa probable: con el objetivo MSVC y clang 23, `bindgen` no genera `max_align_t` (clang solo lo define en modo C11 o superior).
+  Es un fallo del entorno de acr12 (la CI de Windows pasa con el clang del runner), no del código de Pliego.
+  Soluciones por probar: `$env:BINDGEN_EXTRA_CLANG_ARGS="-std=c11"` con recompilación limpia de `mupdf-sys`, o instalar un LLVM más antiguo.
+- `cargo test --workspace`: pendiente hasta resolver lo anterior.
+- `CARGO_TARGET_DIR` en acr12 es `D:\dev-cache\cargo-target`, compartido por todos los flujos: las compilaciones no quedan dentro de cada carpeta.
+- Benchmarks por versión: pendiente.

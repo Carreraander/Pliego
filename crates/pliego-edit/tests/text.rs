@@ -101,11 +101,11 @@ fn reflujo_largo_y_aviso_de_desborde() {
 }
 
 #[test]
-fn caracteres_sin_fuente_estandar_fallan_con_mensaje() {
+fn caracteres_que_ninguna_fuente_tiene_fallan_con_mensaje() {
     let mut doc = open();
     let b = text_blocks(&doc, 0).unwrap().remove(0);
-    let err = replace_text(&mut doc, 0, b.id, "日本語", &Style::default()).unwrap_err();
-    assert!(err.to_string().contains("日"), "{err}");
+    let err = replace_text(&mut doc, 0, b.id, "\u{10FFFD}", &Style::default()).unwrap_err();
+    assert!(err.to_string().contains("ninguna fuente"), "{err}");
     assert!(!doc.is_modified());
 }
 

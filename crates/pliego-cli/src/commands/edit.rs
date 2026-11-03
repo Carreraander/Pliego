@@ -171,6 +171,9 @@ pub struct StyleArgs {
     pub italic: Option<bool>,
     #[arg(long, default_value = "left")]
     pub align: AlignArg,
+    /// Fuente TTF/OTF/TTC para texto no latino (por defecto se busca una del sistema).
+    #[arg(long)]
+    pub font_file: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -330,6 +333,7 @@ fn style(a: &StyleArgs) -> anyhow::Result<Style> {
             AlignArg::Center => Align::Center,
             AlignArg::Right => Align::Right,
         },
+        font_file: a.font_file.clone(),
     })
 }
 

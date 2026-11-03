@@ -38,6 +38,8 @@ pub struct Style {
     pub bold: Option<bool>,
     pub italic: Option<bool>,
     pub align: Align,
+    /// Fuente (TTF/OTF/TTC) para texto fuera de WinAnsi; si falta se busca una del sistema.
+    pub font_file: Option<std::path::PathBuf>,
 }
 
 /// Bloque de texto editable (aproximadamente un párrafo).

@@ -16,6 +16,7 @@ mod links;
 mod objects;
 mod text;
 mod types;
+mod unicode;
 
 pub use blocks::text_blocks;
 pub use images::{

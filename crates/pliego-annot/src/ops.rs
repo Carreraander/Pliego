@@ -388,8 +388,8 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
     apply_meta(&mut a, &spec.author, &spec.subject, &spec.contents)?;
     let mut obj = a.object();
     let now = pdf_now();
-    put_string(&mut obj, "NM", &new_nm())?;
-    put_string(&mut obj, "CreationDate", &now)?;
+    put_string(&mut obj, "NM", &spec.nm.clone().unwrap_or_else(new_nm))?;
+    put_string(&mut obj, "CreationDate", spec.date.as_deref().unwrap_or(&now))?;
     put_string(&mut obj, "M", &now)?;
     if let Some(parent) = spec.reply_to {
         let ind = doc.new_indirect(parent.xref, 0).map_err(pe)?;

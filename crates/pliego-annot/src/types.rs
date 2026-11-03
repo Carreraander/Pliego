@@ -223,6 +223,12 @@ pub struct AnnotSpec {
     pub reply_to: Option<AnnotId>,
     /// Estado de revisión (solo tiene sentido en respuestas).
     pub state: Option<ReviewState>,
+    /// Nombre único (`/NM`) a usar; si falta se genera uno. Útil al importar XFDF.
+    #[serde(default)]
+    pub nm: Option<String>,
+    /// Fecha de creación PDF a conservar; si falta se usa la actual.
+    #[serde(default)]
+    pub date: Option<String>,
 }
 
 impl AnnotSpec {
@@ -236,6 +242,8 @@ impl AnnotSpec {
             contents: None,
             reply_to: None,
             state: None,
+            nm: None,
+            date: None,
         }
     }
 }

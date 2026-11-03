@@ -37,6 +37,8 @@ if (-not $tess -or -not $lept) { throw "No se encontraron las bibliotecas de Tes
 # Dependencias transitivas de una instalación estática (zlib, png, jpeg, tiff, webp, ...): se enlazan todas las .lib.
 $extra = (Get-ChildItem $libDir -Filter "*.lib" | Where-Object { $_.Name -notin @($tess.Name, $lept.Name) } |
     ForEach-Object { $_.BaseName }) -join ","
+# libcurl (dependencia de Tesseract en vcpkg) y las demás estáticas necesitan estas bibliotecas del sistema.
+$extra += ",crypt32,ws2_32,wldap32,normaliz,bcrypt,advapi32,secur32,user32"
 $vars = @{
     TESSERACT_LIB_DIR    = $libDir
     TESSERACT_LIB_NAME   = $tess.BaseName

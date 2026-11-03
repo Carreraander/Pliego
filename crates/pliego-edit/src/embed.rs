@@ -43,7 +43,8 @@ fn to_unicode_cmap(entries: &[(u16, String)]) -> String {
     s
 }
 
-fn font_tag(label: &str) -> String {
+/// Etiqueta de subconjunto: seis mayúsculas distintas para cada combinación de fuente y glifos (como pide la norma).
+fn font_tag(label: &str, glyphs: &[u16]) -> String {
     let base: String = label
         .split('.')
         .next()
@@ -51,7 +52,13 @@ fn font_tag(label: &str) -> String {
         .chars()
         .filter(char::is_ascii_alphanumeric)
         .collect();
-    format!("PLIEGO+{}", if base.is_empty() { "Fuente".into() } else { base })
+    // FNV-1a sobre la fuente y sus glifos.
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in label.bytes().chain(glyphs.iter().flat_map(|g| g.to_le_bytes())) {
+        h = (h ^ u64::from(b)).wrapping_mul(0x100000001b3);
+    }
+    let prefix: String = (0..6).map(|i| char::from(b'A' + ((h >> (i * 5)) % 26) as u8)).collect();
+    format!("{prefix}+{}", if base.is_empty() { "Fuente".into() } else { base })
 }
 
 /// Crea el subconjunto con los glifos de `lines` y lo registra en los recursos de la página.
@@ -101,7 +108,9 @@ pub fn embed_subset(
         let _ = write!(w, "{g} [{v}] ");
     }
 
-    let tag = font_tag(label);
+    let mut used: Vec<u16> = codes.keys().copied().collect();
+    used.sort_unstable();
+    let tag = font_tag(label, &used);
     let buf = Buffer::from_bytes(&bytes).map_err(pe)?;
     let file_dict = doc
         .new_object_from_str(&format!("<< /Length1 {} >>", bytes.len()))

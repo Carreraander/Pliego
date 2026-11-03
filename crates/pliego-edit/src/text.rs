@@ -251,7 +251,7 @@ fn draw(
 
 /// Carga la fuente Unicode si el texto no cabe en WinAnsi o si se indicó una fuente concreta.
 fn load_unicode(text: &str, style: &Style) -> Result<Option<LoadedFont>> {
-    if style.font_file.is_none() && encode(text).is_ok() {
+    if style.font_file.is_none() && encode(&text.replace('\n', "")).is_ok() {
         return Ok(None);
     }
     find_font(text, style.font_file.as_deref()).map(Some)
@@ -274,12 +274,22 @@ fn make_face<'a>(res: &Resolved, loaded: &'a Option<LoadedFont>) -> Result<Face<
     })
 }
 
-fn font_warning(res: &Resolved, loaded: &Option<LoadedFont>, original: Option<&str>) -> String {
+fn font_warning(res: &Resolved, loaded: &Option<LoadedFont>, original: Option<&str>, text: &str) -> String {
     match loaded {
+        Some(l) if encode(&text.replace('\n', "")).is_ok() => format!(
+            "el texto se compuso con la fuente indicada «{}» (negrita y cursiva no se aplican)",
+            l.label
+        ),
         Some(l) => format!(
             "el texto usa caracteres que las fuentes estándar no tienen: se compuso con la fuente «{}» (negrita y cursiva no se aplican)",
             l.label
         ),
+        None if original.is_some_and(|o| o.eq_ignore_ascii_case(res.font)) => {
+            format!(
+                "se compuso con la fuente estándar {}, la misma que el original",
+                res.font
+            )
+        }
         None => format!(
             "se usó la fuente estándar {} en lugar de «{}»: el aspecto del texto puede variar ligeramente",
             res.font,
@@ -371,7 +381,7 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
         } else {
             report
                 .warnings
-                .push(font_warning(&res, &loaded, b.font_name.as_deref()));
+                .push(font_warning(&res, &loaded, b.font_name.as_deref(), new_text));
         }
         report.summary = format!("Texto del bloque {block} reemplazado en la página {}", page + 1);
         Ok(())
@@ -412,7 +422,7 @@ pub fn insert_text(doc: &mut Document, page: usize, rect: RectPts, text: &str, s
                 .push("el texto no cabe en el recuadro y se sale por abajo".into());
         }
         if loaded.is_some() {
-            report.warnings.push(font_warning(&res, &loaded, None));
+            report.warnings.push(font_warning(&res, &loaded, None, text));
         }
         report.summary = format!("Texto añadido en la página {}", page + 1);
         Ok(())

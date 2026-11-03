@@ -12,6 +12,7 @@ use pliego_document::Document;
 use crate::blocks::extract;
 use crate::embed::embed_subset;
 use crate::fonts::{Metrics, base14_name, encode};
+use crate::original::{self, Original};
 use crate::types::{Align, FontFamily, RectPts, Style};
 use crate::unicode::{LoadedFont, Shaper, find_font, is_wide};
 use crate::{load_page, pe};
@@ -45,8 +46,16 @@ fn resolve(style: &Style, base: Option<(&crate::TextBlock, ())>) -> Resolved {
 
 /// Fuente de composición: estándar (WinAnsi) o Unicode formada con rustybuzz.
 enum Face<'a> {
-    Std { name: &'static str, metrics: Metrics },
-    Uni { shaper: Box<Shaper<'a>>, bytes: &'a [u8] },
+    Std {
+        name: &'static str,
+        metrics: Metrics,
+    },
+    Uni {
+        shaper: Box<Shaper<'a>>,
+        bytes: &'a [u8],
+    },
+    /// La fuente que ya usa el bloque original.
+    Orig(Original),
 }
 
 impl Face<'_> {
@@ -54,6 +63,7 @@ impl Face<'_> {
         match self {
             Face::Std { metrics, .. } => metrics.width(text, size),
             Face::Uni { shaper, .. } => shaper.width(text, size),
+            Face::Orig(o) => o.width(text, size).unwrap_or(0.0),
         }
     }
 
@@ -64,6 +74,7 @@ impl Face<'_> {
                 .map(|f| f.ascender().clamp(0.5, 1.2))
                 .unwrap_or(0.8),
             Face::Uni { shaper, .. } => shaper.ascender().clamp(0.5, 1.2),
+            Face::Orig(_) => 0.8,
         }
     }
 
@@ -81,6 +92,10 @@ impl Face<'_> {
                 resource: page.insert_font(doc, &InsertFontOptions::new(name)).map_err(pe)?.0,
                 codes: None,
             }),
+            Face::Orig(o) => Ok(Prepared {
+                resource: o.resource.clone(),
+                codes: None,
+            }),
             Face::Uni { bytes, .. } => {
                 let e = embed_subset(doc, page, bytes, label, lines)?;
                 Ok(Prepared {
@@ -94,6 +109,7 @@ impl Face<'_> {
     /// Cadena hexadecimal del texto con los códigos que usa la fuente en el PDF.
     fn hex(&self, line: &str, prepared: &Prepared) -> Result<String> {
         Ok(match (self, &prepared.codes) {
+            (Face::Orig(o), _) => o.hex(line),
             (Face::Uni { shaper, .. }, Some(codes)) => shaper
                 .shape(line, 1.0)
                 .glyphs
@@ -282,7 +298,6 @@ fn rect_of(r: RectPts) -> Rect {
 /// con reflujo dentro del ancho del bloque, empezando donde empezaba el original. Lo que queda fuera del
 /// bloque no cambia. La fuente se sustituye por una estándar parecida y se avisa en el informe.
 pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &str, style: &Style) -> Result<Report> {
-    let loaded = load_unicode(new_text, style)?;
     let mut report = Report::default();
     doc.with_pdf_mut(|pdf| {
         let mut p = load_page(pdf, page)?;
@@ -294,7 +309,19 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
             })?;
         let b = &raw.block;
         let res = resolve(style, Some((b, ())));
-        let face = make_face(&res, &loaded)?;
+        // Si el estilo no pide otra fuente y la original tiene todos los caracteres, se compone con ella.
+        let keep_font =
+            style.font_file.is_none() && style.family.is_none() && style.bold.is_none() && style.italic.is_none();
+        let original = match (&b.font_name, keep_font) {
+            (Some(n), true) => original::find(&p, n)?.filter(|o| o.covers(new_text)),
+            _ => None,
+        };
+        let reused = original.is_some();
+        let loaded = if reused { None } else { load_unicode(new_text, style)? };
+        let face = match original {
+            Some(o) => Face::Orig(o),
+            None => make_face(&res, &loaded)?,
+        };
 
         // Retirar el texto original. El recuadro se encoge un poco para no arrastrar líneas vecinas.
         let inset_y = (b.font_size * 0.15).min((b.bbox[3] - b.bbox[1]) / 4.0);
@@ -336,9 +363,16 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
                 "el texto nuevo ocupa más líneas que el original y puede invadir el contenido que hay debajo".into(),
             );
         }
-        report
-            .warnings
-            .push(font_warning(&res, &loaded, b.font_name.as_deref()));
+        if reused {
+            report.warnings.push(format!(
+                "se reutilizó la fuente original «{}»: el aspecto del texto se conserva",
+                b.font_name.as_deref().unwrap_or("desconocida")
+            ));
+        } else {
+            report
+                .warnings
+                .push(font_warning(&res, &loaded, b.font_name.as_deref()));
+        }
         report.summary = format!("Texto del bloque {block} reemplazado en la página {}", page + 1);
         Ok(())
     })?;

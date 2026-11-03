@@ -51,7 +51,7 @@ export function App() {
           <SearchBox />
         </>
       ) }),
-      registerStatusItem({ id: "viewer.page", slot: "start", text: () => (activeDoc() ? t("status.page", { page: currentPageIndex() + 1, total: activeDoc()!.sizes.length }) : "") }),
+      registerStatusItem({ id: "viewer.page", slot: "start", hideOnHome: true, text: () => (activeDoc() ? t("status.page", { page: currentPageIndex() + 1, total: activeDoc()!.sizes.length }) : "") }),
     ];
     offs.push(installNavigation());
     setMode("read");

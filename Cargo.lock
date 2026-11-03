@@ -749,6 +749,7 @@ dependencies = [
  "mupdf",
  "pliego-core",
  "serde",
+ "serde_json",
  "tempfile",
  "tiff",
 ]
@@ -798,6 +799,17 @@ dependencies = [
  "mupdf",
  "pliego-core",
  "serde",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-worker"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 

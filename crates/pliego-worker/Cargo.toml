@@ -1,0 +1,26 @@
+[package]
+name = "pliego-worker"
+description = "Proceso aislado que ejecuta MuPDF y cliente WorkerEngine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "pliego_worker"
+
+[[bin]]
+name = "pliego-worker"
+path = "src/main.rs"
+
+[dependencies]
+pliego-core.workspace = true
+pliego-engine-mupdf.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -13,7 +13,7 @@
    se reconstruye de las firmas, así que no puede falsearse sin romper alguna.
 
 ## Límites actuales
-- Los campos de firma son invisibles y no hay página de resumen todavía.
+- Los campos de firma son invisibles. `prepare` añade al final una «Hoja de firmas» con los firmantes, el orden y la huella del original.
 - No se comprueba la confianza del certificado (usa `pliego verify --trust`).
 - Documentos cifrados no admitidos.
 - Pendiente de verificar en Acrobat Reader (acr12).

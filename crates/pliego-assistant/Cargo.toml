@@ -6,7 +6,12 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# Motor llama.cpp (compila C++ con CMake). Desactivado por defecto.
+llama = ["dep:llama-cpp-2"]
+
 [dependencies]
+llama-cpp-2 = { version = "0.1.160", optional = true }
 pliego-core.workspace = true
 regex = "1"
 serde.workspace = true

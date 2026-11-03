@@ -36,6 +36,22 @@ pliego-office-export = { path = "../pliego-office-export" }
 pliego-redact = { path = "../pliego-redact" }
 pliego-a11y = { path = "../pliego-a11y" }
 pliego-pdfa = { path = "../pliego-pdfa" }
+
+# ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
+# [W06 ocr]
+
+# [W11 edit]
+
+# [W14 office]
+
+# [W15 run e índice]
+
+# [W13/W17/W12 extra]
+
+# [libre A]
+
+# [libre B]
+
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true

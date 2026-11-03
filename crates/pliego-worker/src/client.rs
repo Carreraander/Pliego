@@ -13,6 +13,7 @@ use pliego_core::{
 };
 
 use crate::cache::{TileCache, TileKey};
+use crate::platform::Sandbox;
 use crate::protocol::{MAX_BINARY_FRAME, MAX_JSON_FRAME, Request, Response, read_frame, write_frame, write_json};
 
 #[derive(Debug, Clone)]
@@ -25,6 +26,8 @@ pub struct WorkerConfig {
     pub cache_bytes: usize,
     /// Activa las peticiones de depuración del worker (solo pruebas).
     pub debug: bool,
+    /// Límite de memoria del proceso worker (solo Windows, mediante job object). `None` = sin límite.
+    pub memory_limit: Option<usize>,
 }
 
 impl WorkerConfig {
@@ -34,6 +37,7 @@ impl WorkerConfig {
             timeout: Duration::from_secs(30),
             cache_bytes: 256 * 1024 * 1024,
             debug: false,
+            memory_limit: Some(2 * 1024 * 1024 * 1024),
         }
     }
 
@@ -120,6 +124,8 @@ struct Proc {
     stdin: BufWriter<ChildStdin>,
     /// Marcos que lee un hilo desde stdout del worker; `Err` cuando el flujo se corta.
     rx: Receiver<io::Result<Vec<u8>>>,
+    /// Job object (Windows): se cierra después de matar al proceso.
+    _sandbox: Option<Sandbox>,
 }
 
 impl Drop for Proc {
@@ -165,6 +171,15 @@ fn spawn(config: &WorkerConfig) -> io::Result<Proc> {
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
     let mut child = cmd.spawn()?;
+    // Si no se puede restringir el proceso no se usa: un worker sin límites no cumple el aislamiento.
+    let sandbox = match Sandbox::attach(&child, config.memory_limit) {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(e);
+        }
+    };
     let stdin = BufWriter::new(child.stdin.take().expect("stdin del worker"));
     let mut stdout = BufReader::new(child.stdout.take().expect("stdout del worker"));
     let (tx, rx) = mpsc::channel();
@@ -187,7 +202,12 @@ fn spawn(config: &WorkerConfig) -> io::Result<Proc> {
             }
         }
     });
-    Ok(Proc { child, stdin, rx })
+    Ok(Proc {
+        child,
+        stdin,
+        rx,
+        _sandbox: sandbox,
+    })
 }
 
 impl Proc {

@@ -6,12 +6,17 @@
 .EXAMPLE
   . .\tools\acr12-env.ps1
   .\tools\acr12-turno.ps1 -Flujo w09 -- cargo test --workspace
+  .\tools\acr12-turno.ps1 -Flujo w09 -EsperaMaxMinutos 60 -- cargo build --release -p pliego-app
+  El `--` es obligatorio (si no, PowerShell toma -p, --release... como parámetros del script).
+  PositionalBinding está desactivado para que lo que va tras `--` acabe en la orden y no en
+  -EsperaMaxMinutos. Alternativa: -Orden @('cargo','build','--release').
 
 .NOTES
   Usa dos mutex con nombre (Global\PliegoAcr12Turno1 y ...2). Si una sesión muere con el turno cogido,
   Windows libera el mutex (queda "abandonado") y el siguiente lo toma: no hay turnos huérfanos.
   El estado se escribe en D:\dev-cache\turnos\turno<N>.txt (quién y desde cuándo) para poder consultarlo.
 #>
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [Parameter(Mandatory = $true)][string]$Flujo,
     [int]$EsperaMaxMinutos = 240,

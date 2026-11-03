@@ -72,14 +72,14 @@ pub struct Target {
 }
 
 impl Target {
-    fn out(&self) -> anyhow::Result<&Path> {
+    pub(super) fn out(&self) -> anyhow::Result<&Path> {
         match (&self.output, self.in_place) {
             (Some(o), false) => Ok(o),
             (None, true) => Ok(&self.input),
             _ => bail!("indica -o <salida> o --in-place"),
         }
     }
-    fn open(&self) -> anyhow::Result<PdfDocument> {
+    pub(super) fn open(&self) -> anyhow::Result<PdfDocument> {
         pliego_organize::open(&self.input, self.password.as_deref())
             .with_context(|| format!("no se pudo abrir {}", self.input.display()))
     }
@@ -177,7 +177,7 @@ pub enum PagesOp {
     },
 }
 
-fn finish(report: Report, json: bool) -> anyhow::Result<()> {
+pub(super) fn finish(report: Report, json: bool) -> anyhow::Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {

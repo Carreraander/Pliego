@@ -4,6 +4,7 @@
 
 mod flatten;
 mod ops;
+mod stamp;
 mod summary;
 mod types;
 mod xfdf;

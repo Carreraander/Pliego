@@ -19,6 +19,7 @@ const MAX_OBJECTS: usize = 200_000;
 #[serde(rename_all = "snake_case")]
 pub enum Rule {
     Encrypted,
+    NoTrailerId,
     NoXmp,
     XmpWithoutPdfaId,
     XmpLevelMismatch,
@@ -374,6 +375,22 @@ fn check_catalog(ctx: &mut Ctx) -> Result<()> {
             Rule::Encrypted,
             None,
             "El documento está cifrado, y PDF/A no permite cifrado.",
+        );
+    }
+
+    let id_ok = get(&trailer, "ID").is_some_and(|id| {
+        id.is_array().unwrap_or(false)
+            && array_items(&id)
+                .iter()
+                .filter(|s| s.is_string().unwrap_or(false))
+                .count()
+                >= 2
+    });
+    if !id_ok {
+        ctx.add(
+            Rule::NoTrailerId,
+            None,
+            "El trailer del archivo no tiene identificador (/ID) con dos cadenas, que PDF/A exige.",
         );
     }
 

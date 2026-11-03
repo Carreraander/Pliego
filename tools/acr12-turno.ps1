@@ -42,25 +42,19 @@ if (Test-Path 'D:\') { New-Item -ItemType Directory -Force -Path $estado | Out-N
 # Nombre nuevo a propósito: Global\PliegoAcr12Turno1 quedó retenido por un proceso vivo sin fichero de estado.
 $mutexes = @(New-Object System.Threading.Mutex($false, 'Global\PliegoAcr12TurnoUnico'))
 $mio = $null
-$limite = (Get-Date).AddMinutes($EsperaMaxMinutos)
-while ($null -eq $mio) {
-    for ($i = 0; $i -lt $mutexes.Count -and $null -eq $mio; $i++) {
-        try {
-            if ($mutexes[$i].WaitOne(0)) { $mio = $i }
-        } catch [System.Threading.AbandonedMutexException] {
-            $mio = $i   # la sesión anterior murió con el turno: lo heredamos
-        }
-    }
-    if ($null -eq $mio) {
-        if ((Get-Date) -gt $limite) {
-            Write-Host "[turno] Sin turno en acr12 tras $EsperaMaxMinutos min; no se ha ejecutado nada."
-            $mutexes | ForEach-Object { $_.Dispose() }
-            exit 75
-        }
-        $ocupado = Get-ChildItem $estado -Filter 'turno.txt' -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Raw }
-        Write-Host "[turno] acr12 ocupado ($($ocupado -join ' | ')). Reintento en 30 s..."
-        Start-Sleep -Seconds 30
-    }
+# Espera bloqueante (no sondeo): Windows atiende a quien espera un mutex aproximadamente por orden de llegada,
+# así nadie se queda sin turno porque otro llegó justo cuando se soltaba (aviso de W20).
+$ocupado = Get-Content (Join-Path $estado 'turno.txt') -Raw -ErrorAction SilentlyContinue
+if ($ocupado) { Write-Host "[turno] acr12 ocupado ($($ocupado.Trim())). En cola desde $(Get-Date -Format HH:mm)..." }
+try {
+    if ($mutexes[0].WaitOne([TimeSpan]::FromMinutes($EsperaMaxMinutos))) { $mio = 0 }
+} catch [System.Threading.AbandonedMutexException] {
+    $mio = 0   # la sesión anterior murió con el turno: lo heredamos
+}
+if ($null -eq $mio) {
+    Write-Host "[turno] Sin turno en acr12 tras $EsperaMaxMinutos min; no se ha ejecutado nada."
+    $mutexes | ForEach-Object { $_.Dispose() }
+    exit 75
 }
 $codigo = 1
 $fichero = Join-Path $estado 'turno.txt'

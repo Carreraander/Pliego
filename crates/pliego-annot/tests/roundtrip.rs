@@ -258,3 +258,103 @@ fn nm_is_unique_and_survives_save() {
     assert_eq!(nms.len(), 3);
     assert!(nms.iter().all(|n| n.len() == 36 && n.as_bytes()[14] == b'4'));
 }
+
+#[test]
+fn flatten_removes_annotations_but_keeps_ink_on_page() {
+    let mut doc = blank();
+    for (g, _) in geometries() {
+        add(&mut doc, &styled(AnnotSpec::new(0, g))).unwrap();
+    }
+    assert_eq!(flatten(&mut doc).unwrap(), 12);
+    let mut doc = reopen(&doc);
+    assert!(list(&mut doc, None).unwrap().is_empty());
+    assert_eq!(flatten(&mut doc).unwrap(), 0);
+    // La página ahora tiene contenido (antes estaba en blanco).
+    let page = doc.load_pdf_page(0).unwrap();
+    assert!(page.contents().unwrap().is_some());
+}
+
+#[test]
+fn summary_groups_threads() {
+    let mut doc = blank();
+    let p = add(
+        &mut doc,
+        &styled(AnnotSpec::new(0, Geometry::Note { at: [40.0, 40.0] })),
+    )
+    .unwrap();
+    let mut reply = AnnotSpec::new(0, Geometry::Note { at: [40.0, 40.0] });
+    reply.reply_to = Some(p);
+    reply.author = Some("Luis".into());
+    reply.contents = Some("De acuerdo".into());
+    reply.state = Some(ReviewState::Accepted);
+    add(&mut doc, &reply).unwrap();
+    add(
+        &mut doc,
+        &AnnotSpec::new(
+            1,
+            Geometry::Square {
+                rect: [10.0, 10.0, 50.0, 50.0],
+            },
+        ),
+    )
+    .unwrap();
+    let s = summary(&mut doc).unwrap();
+    assert_eq!(s.total, 3);
+    assert_eq!(s.threads.len(), 2);
+    assert_eq!(s.threads[0].replies.len(), 1);
+    assert_eq!(s.by_author["Ana"], 1);
+    let t = s.to_text();
+    assert!(t.contains("3 comentario(s)") && t.contains("[aceptado]"), "{t}");
+}
+
+#[test]
+fn xfdf_roundtrip_between_documents() {
+    let mut a = blank();
+    let mut ids = Vec::new();
+    for (g, _) in geometries() {
+        ids.push(add(&mut a, &styled(AnnotSpec::new(0, g))).unwrap());
+    }
+    let mut reply = AnnotSpec::new(0, Geometry::Note { at: [40.0, 40.0] });
+    reply.reply_to = Some(ids[0]);
+    reply.contents = Some("Acuerdo <&> \"ok\"".into());
+    reply.state = Some(ReviewState::Rejected);
+    add(&mut a, &reply).unwrap();
+    let xml = export_xfdf(&mut a).unwrap();
+    assert!(xml.contains("<highlight") && xml.contains("inreplyto="), "{xml}");
+
+    let mut b = blank();
+    assert_eq!(import_xfdf(&mut b, &xml).unwrap(), 13);
+    // Reimportar no duplica.
+    assert_eq!(import_xfdf(&mut b, &xml).unwrap(), 0);
+
+    let la = list(&mut a, None).unwrap();
+    let lb = list(&mut b, None).unwrap();
+    assert_eq!(la.len(), lb.len());
+    for x in &la {
+        let y = lb
+            .iter()
+            .find(|y| y.nm == x.nm)
+            .unwrap_or_else(|| panic!("falta {:?}", x.nm));
+        assert_eq!(x.kind, y.kind);
+        assert_eq!(x.contents, y.contents);
+        assert_eq!(x.author, y.author);
+        assert_eq!(x.state, y.state);
+        assert_eq!(x.created, y.created);
+        // MuPDF ensancha el rect del texto libre según el borde al regenerar la apariencia: tolerancia de 3 pt.
+        assert!(
+            (x.rect[0] - y.rect[0]).abs() < 3.0 && (x.rect[1] - y.rect[1]).abs() < 3.0,
+            "{:?}: {:?} vs {:?}",
+            x.kind,
+            x.rect,
+            y.rect
+        );
+        assert_eq!(x.reply_to.is_some(), y.reply_to.is_some());
+    }
+}
+
+#[test]
+fn xfdf_rejects_garbage() {
+    let mut d = blank();
+    assert!(import_xfdf(&mut d, "<html></html>").is_err());
+    assert!(import_xfdf(&mut d, "<xfdf><annots><square page=\"0\"></xfdf>").is_err());
+}

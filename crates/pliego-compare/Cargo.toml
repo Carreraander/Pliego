@@ -1,0 +1,20 @@
+[package]
+name = "pliego-compare"
+description = "Comparación de documentos PDF: texto, formato y diferencias visuales"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+mupdf.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+flate2 = "1"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

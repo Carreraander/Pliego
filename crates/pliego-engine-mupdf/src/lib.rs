@@ -15,8 +15,24 @@ const MAX_PIXELS: u64 = 100_000_000;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct MupdfEngine;
 
+/// Documento abierto: los PDF se guardan como `PdfDocument` para poder recorrer sus objetos.
+enum Doc {
+    Pdf(mupdf::pdf::PdfDocument),
+    Other(Document),
+}
+
+impl std::ops::Deref for Doc {
+    type Target = Document;
+    fn deref(&self) -> &Document {
+        match self {
+            Doc::Pdf(p) => p,
+            Doc::Other(d) => d,
+        }
+    }
+}
+
 pub struct MupdfDocument {
-    doc: Document,
+    doc: Doc,
 }
 
 fn pdf_err(e: mupdf::Error) -> Error {
@@ -55,6 +71,11 @@ impl MupdfDocument {
                 return Err(Error::Password);
             }
         }
+        let doc = if doc.is_pdf() {
+            Doc::Pdf(mupdf::pdf::PdfDocument::try_from(doc).map_err(pdf_err)?)
+        } else {
+            Doc::Other(doc)
+        };
         Ok(Self { doc })
     }
 
@@ -218,7 +239,11 @@ impl EngineDocument for MupdfDocument {
     }
 
     fn outline(&self) -> Result<Vec<OutlineItem>> {
-        Ok(self.convert_outline(self.doc.outlines().map_err(pdf_err)?))
+        match &self.doc {
+            // `Document::outlines` de mupdf-rs 0.8 aborta con un marcador sin /Title: se recorre a mano.
+            Doc::Pdf(pdf) => outline::pdf_outline(pdf),
+            Doc::Other(d) => Ok(self.convert_outline(d.outlines().map_err(pdf_err)?)),
+        }
     }
 }
 
@@ -243,6 +268,8 @@ pub fn encode_png(img: &RgbaImage) -> Result<Vec<u8>> {
     pix.write_to(&mut out, mupdf::ImageFormat::PNG).map_err(pdf_err)?;
     Ok(out)
 }
+
+mod outline;
 
 #[cfg(test)]
 mod tests;

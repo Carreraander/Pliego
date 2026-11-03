@@ -1,6 +1,8 @@
-import { createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { tileUrl } from "../api";
 import { currentPageIndex, setCurrentPageIndex, type OpenDoc } from "../state/documents";
+import { clearGoTo, goToRequest } from "../state/navigation";
+import { matchIndex, matchesOnPage } from "../state/search";
 import {
   computeLayout, currentPage, lowResZoom, rotationTransform, TILE_SIZE, tilesFor, unrotateRect, visiblePages,
   type Rotation,
@@ -27,6 +29,18 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
     onCleanup(() => ro.disconnect());
     // Al volver a esta pestaña o cambiar la página desde fuera, mantiene la posición.
     box.scrollTop = layout().tops[currentPageIndex()] ?? 0;
+  });
+
+  // Atiende "ir a página" (miniaturas, marcadores, búsqueda).
+  createEffect(() => {
+    const req = goToRequest();
+    if (!req || !box) return;
+    const size = props.doc.sizes[req.page];
+    if (!size) return clearGoTo();
+    const top = layout().tops[req.page] ?? 0;
+    // El desplazamiento vertical interno solo es fiable sin rotación; con rotación se va al inicio de la página.
+    box.scrollTop = Math.max(0, top - 8 + (props.rotation === 0 ? (req.y ?? 0) * props.zoom : 0));
+    clearGoTo();
   });
 
   return (
@@ -71,6 +85,11 @@ function PageView(props: {
           <img class="tile" alt="" draggable={false}
             src={tileUrl(props.doc.id, props.index, q(props.zoom), t.col, t.row, props.doc.revision)}
             style={{ left: `${t.col * TILE_SIZE}px`, top: `${t.row * TILE_SIZE}px` }} />
+        )}</For>
+        <For each={matchesOnPage(props.index)}>{({ match, index }) => (
+          <div class="hit" classList={{ current: index === matchIndex() }}
+            style={{ left: `${match.rect.left * props.zoom}px`, top: `${match.rect.top * props.zoom}px`,
+              width: `${(match.rect.right - match.rect.left) * props.zoom}px`, height: `${(match.rect.bottom - match.rect.top) * props.zoom}px` }} />
         )}</For>
       </div>
     </div>

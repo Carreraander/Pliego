@@ -3718,6 +3718,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-assistant"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pliego-cli"
 version = "0.1.0"
 dependencies = [
@@ -3727,10 +3737,12 @@ dependencies = [
  "p12-keystore",
  "pliego-a11y",
  "pliego-annot",
+ "pliego-assistant",
  "pliego-compare",
  "pliego-convert",
  "pliego-core",
  "pliego-engine-mupdf",
+ "pliego-formdesign",
  "pliego-forms",
  "pliego-optimize",
  "pliego-organize",
@@ -3800,6 +3812,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-formdesign"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "pliego-forms"
 version = "0.1.0"
 dependencies = [
@@ -3853,6 +3876,17 @@ dependencies = [
  "pliego-core",
  "serde",
  "tempfile",
+]
+
+[[package]]
+name = "pliego-qa"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "pliego-worker",
 ]
 
 [[package]]

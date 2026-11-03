@@ -43,6 +43,12 @@ pub struct SignatureReport {
     pub integrity: bool,
     /// La firma cubre el documento hasta el final; si no, hay cambios posteriores.
     pub covers_whole_document: bool,
+    /// No hay cambios posteriores o son solo de los permitidos (DSS, nuevas firmas).
+    pub modifications_allowed: bool,
+    /// El documento tiene datos de validación a largo plazo (DSS).
+    pub has_dss: bool,
+    /// Nivel PAdES detectado.
+    pub level: crate::PadesLevel,
     pub chain: ChainStatus,
     /// La firma lleva sello de tiempo RFC 3161.
     pub has_timestamp: bool,
@@ -54,7 +60,7 @@ pub struct SignatureReport {
 impl SignatureReport {
     /// Firma íntegra, sin cambios posteriores y con cadena de confianza.
     pub fn is_valid(&self) -> bool {
-        self.integrity && self.covers_whole_document && self.chain == ChainStatus::Trusted
+        self.integrity && self.modifications_allowed && self.chain == ChainStatus::Trusted
     }
 }
 
@@ -112,6 +118,7 @@ fn parse_pdf_date(s: &str) -> Option<String> {
 
 pub fn validate_bytes(data: &[u8], opts: &ValidationOptions) -> Result<Vec<SignatureReport>> {
     let doc = lopdf::Document::load_mem(data).map_err(|e| Error::Pdf(format!("no se pudo leer el PDF: {e}")))?;
+    let has_dss = doc.catalog().is_ok_and(|c| c.has(b"DSS"));
     let mut reports = Vec::new();
     for (&id, obj) in &doc.objects {
         let Object::Dictionary(d) = obj else { continue };
@@ -123,7 +130,14 @@ pub fn validate_bytes(data: &[u8], opts: &ValidationOptions) -> Result<Vec<Signa
             Object::Dictionary(f) if f.get(b"V").and_then(Object::as_reference).ok() == Some(id) => text(f, b"T"),
             _ => None,
         });
-        reports.push(check_signature(data, d, field, opts));
+        let mut r = check_signature(data, d, field, opts);
+        r.has_dss = has_dss;
+        r.level = match (r.has_timestamp, has_dss) {
+            (true, true) => crate::PadesLevel::BLt,
+            (true, false) => crate::PadesLevel::BT,
+            _ => crate::PadesLevel::BB,
+        };
+        reports.push(r);
     }
     Ok(reports)
 }
@@ -143,6 +157,9 @@ fn check_signature(
         location: text(d, b"Location"),
         integrity: false,
         covers_whole_document: false,
+        modifications_allowed: false,
+        has_dss: false,
+        level: crate::PadesLevel::BB,
         chain: ChainStatus::Incomplete,
         has_timestamp: false,
         timestamp: None,
@@ -187,9 +204,13 @@ fn check_inner(
         return Err("ByteRange fuera del documento".into());
     }
     r.covers_whole_document = s2 + l2 == data.len();
+    r.modifications_allowed = true;
     if !r.covers_whole_document {
-        r.problems
-            .push("el documento tiene cambios posteriores a la firma".into());
+        // Cambios posteriores: permitidos si solo añaden DSS, firmas o anotaciones de campos.
+        if let Err(m) = crate::changes::check_updates(data, s2 + l2) {
+            r.modifications_allowed = false;
+            r.problems.push(format!("cambios no permitidos tras la firma: {m}"));
+        }
     }
     let contents = match d.get(b"Contents") {
         Ok(Object::String(b, _)) => b.clone(),

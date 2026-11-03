@@ -79,6 +79,9 @@ fn appended_changes_are_reported() {
     let r = &validate_bytes(&signed, &anchors(&pki)).unwrap()[0];
     assert!(r.integrity);
     assert!(!r.covers_whole_document);
+    // Datos añadidos que no son una actualización del documento no son un cambio permitido.
+    assert!(!r.modifications_allowed);
+    assert!(!r.is_valid());
 }
 
 #[test]
@@ -91,6 +94,11 @@ fn second_signature_keeps_first_valid() {
     assert_eq!(reports.len(), 2);
     assert!(reports.iter().all(|r| r.integrity), "{reports:?}");
     assert_eq!(reports.iter().filter(|r| r.covers_whole_document).count(), 1);
+    // La segunda firma es un cambio permitido para la primera.
+    assert!(
+        reports.iter().all(|r| r.modifications_allowed && r.is_valid()),
+        "{reports:?}"
+    );
 }
 
 #[test]
@@ -151,5 +159,195 @@ mod timestamp {
             ..Default::default()
         };
         assert!(sign_bytes(&corpus_pdf(), &signer, &opts).is_err());
+    }
+}
+
+mod long_term {
+    use super::*;
+    use pliego_sign::{LocalTsa, PadesLevel, RevocationData, StaticRevocation, sign_bytes_with};
+
+    #[test]
+    fn b_lt_adds_dss_and_stays_valid() {
+        let pki = make_pki(true);
+        let tsa_pki = make_pki_for(true, true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let tsa = LocalTsa {
+            signer: Pkcs12Signer::from_bytes(&tsa_pki.p12, PASSWORD).unwrap(),
+            digest: pliego_sign::DigestAlg::Sha256,
+        };
+        let rev = StaticRevocation(RevocationData {
+            crls: vec![pki.crl_der.clone(), tsa_pki.crl_der.clone()],
+            ocsps: vec![],
+        });
+        let opts = SignOptions {
+            level: PadesLevel::BLt,
+            ..Default::default()
+        };
+        let signed = sign_bytes_with(&corpus_pdf(), &signer, &opts, Some(&tsa), Some(&rev)).unwrap();
+        if let Ok(dir) = std::env::var("PLIEGO_SIGN_OUT") {
+            std::fs::write(format!("{dir}/firmado-blt.pdf"), &signed).unwrap();
+            std::fs::write(format!("{dir}/ca-blt.der"), &pki.ca_der).unwrap();
+            std::fs::write(format!("{dir}/ca-blt-tsa.der"), &tsa_pki.ca_der).unwrap();
+        }
+        let both = ValidationOptions {
+            trust_anchors: vec![
+                Certificate::from_der(&pki.ca_der).unwrap(),
+                Certificate::from_der(&tsa_pki.ca_der).unwrap(),
+            ],
+        };
+        let r = &validate_bytes(&signed, &both).unwrap()[0];
+        assert!(r.has_dss && r.has_timestamp);
+        assert_eq!(r.level, PadesLevel::BLt);
+        assert!(!r.covers_whole_document, "el DSS va después de la firma");
+        assert!(r.modifications_allowed && r.is_valid(), "{:?}", r.problems);
+    }
+
+    #[test]
+    fn b_lt_without_any_revocation_data_fails() {
+        let pki = make_pki(true);
+        let tsa_pki = make_pki_for(true, true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let tsa = LocalTsa {
+            signer: Pkcs12Signer::from_bytes(&tsa_pki.p12, PASSWORD).unwrap(),
+            digest: pliego_sign::DigestAlg::Sha256,
+        };
+        let rev = StaticRevocation(RevocationData::default());
+        let opts = SignOptions {
+            level: PadesLevel::BLt,
+            ..Default::default()
+        };
+        let err = sign_bytes_with(&corpus_pdf(), &signer, &opts, Some(&tsa), Some(&rev)).unwrap_err();
+        assert!(err.to_string().contains("revocación"));
+    }
+
+    #[test]
+    fn dss_after_signing_is_allowed_but_content_edits_are_not() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let signed = sign_bytes(&corpus_pdf(), &signer, &SignOptions::default()).unwrap();
+
+        // Un DSS legítimo sobre el mismo documento es un cambio permitido.
+        let rev = StaticRevocation(RevocationData {
+            crls: vec![pki.crl_der.clone()],
+            ocsps: vec![],
+        });
+        let chain = pliego_sign::Signer::certificate_chain(&signer);
+        let data = pliego_sign::collect_revocation(&chain, &rev).unwrap();
+        let with_dss = pliego_sign::add_dss(&signed, &chain, &data).unwrap();
+        let r = &validate_bytes(&with_dss, &anchors(&pki)).unwrap()[0];
+        assert!(r.modifications_allowed, "{:?}", r.problems);
+
+        // Reescribir el contenido de la página 1 (objeto 2) en una actualización incremental no lo es.
+        let text = String::from_utf8_lossy(&signed).to_string();
+        let prev: usize = text
+            .rsplit("startxref\n")
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let mut forged = signed.clone();
+        let obj_at = forged.len();
+        forged.extend_from_slice(b"2 0 obj\n<</Length 9>>\nstream\nBT ET    \nendstream\nendobj\n");
+        let xref_at = forged.len();
+        forged.extend_from_slice(
+            format!(
+                "xref\n2 1\n{obj_at:010} 00000 n \r\ntrailer\n<</Size 14/Root 11 0 R/Info 10 0 R/Prev {prev}>>\nstartxref\n{xref_at}\n%%EOF\n"
+            )
+            .as_bytes(),
+        );
+        let r = &validate_bytes(&forged, &anchors(&pki)).unwrap()[0];
+        assert!(r.integrity, "la parte firmada no cambió");
+        assert!(!r.modifications_allowed);
+        assert!(!r.is_valid());
+        assert!(
+            r.problems.iter().any(|p| p.contains("cambios no permitidos")),
+            "{:?}",
+            r.problems
+        );
+    }
+}
+
+mod http {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    use super::*;
+    use pliego_sign::{DigestAlg, LocalTsa, PadesLevel, TimestampAuthority};
+
+    /// Servidor HTTP mínimo que atiende una petición RFC 3161 con una TSA local.
+    fn serve_tsa_once(tsa: LocalTsa<Pkcs12Signer>) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/tsa", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let (mut s, _) = listener.accept().unwrap();
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 4096];
+            let (head_end, len) = loop {
+                let n = s.read(&mut chunk).unwrap();
+                buf.extend_from_slice(&chunk[..n]);
+                if let Some(p) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let head = String::from_utf8_lossy(&buf[..p]).to_lowercase();
+                    let len: usize = head
+                        .lines()
+                        .find_map(|l| l.strip_prefix("content-length:"))
+                        .map(|v| v.trim().parse().unwrap())
+                        .unwrap();
+                    break (p + 4, len);
+                }
+            };
+            while buf.len() < head_end + len {
+                let n = s.read(&mut chunk).unwrap();
+                buf.extend_from_slice(&chunk[..n]);
+            }
+            let resp = tsa.timestamp(&buf[head_end..head_end + len]).unwrap();
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/timestamp-reply\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                resp.len()
+            );
+            s.write_all(head.as_bytes()).unwrap();
+            s.write_all(&resp).unwrap();
+        });
+        url
+    }
+
+    #[test]
+    fn http_tsa_client_gets_a_token_over_the_wire() {
+        let pki = make_pki(true);
+        let tsa_pki = make_pki_for(true, true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let url = serve_tsa_once(LocalTsa {
+            signer: Pkcs12Signer::from_bytes(&tsa_pki.p12, PASSWORD).unwrap(),
+            digest: DigestAlg::Sha256,
+        });
+        let opts = SignOptions {
+            level: PadesLevel::BT,
+            timestamp_url: Some(url),
+            ..Default::default()
+        };
+        let signed = sign_bytes(&corpus_pdf(), &signer, &opts).unwrap();
+        let both = ValidationOptions {
+            trust_anchors: vec![
+                Certificate::from_der(&pki.ca_der).unwrap(),
+                Certificate::from_der(&tsa_pki.ca_der).unwrap(),
+            ],
+        };
+        let r = &validate_bytes(&signed, &both).unwrap()[0];
+        assert!(r.is_valid() && r.has_timestamp, "{:?}", r.problems);
+    }
+
+    #[test]
+    fn https_tsa_is_rejected_with_a_clear_message() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let opts = SignOptions {
+            level: PadesLevel::BT,
+            timestamp_url: Some("https://tsa.example/ts".into()),
+            ..Default::default()
+        };
+        let err = sign_bytes(&corpus_pdf(), &signer, &opts).unwrap_err();
+        assert!(err.to_string().contains("https"), "{err}");
     }
 }

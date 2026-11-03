@@ -3,6 +3,7 @@ pub mod annot;
 pub mod compare;
 pub mod convert;
 pub mod edit;
+pub mod form;
 pub mod optimize;
 pub mod pages;
 pub mod pdfa;

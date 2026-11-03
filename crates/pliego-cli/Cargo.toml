@@ -20,6 +20,7 @@ pliego-stamp.workspace = true
 pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }
+pliego-forms = { path = "../pliego-forms" }
 mupdf.workspace = true
 pliego-convert = { path = "../pliego-convert" }
 pliego-document = { path = "../pliego-document" }

@@ -156,6 +156,8 @@ pub struct WorkerDocument {
 /// Fallo de transporte (worker caído o colgado), distinto de un error de la operación.
 enum CallError {
     Transport(String),
+    /// El worker no respondió a tiempo: casi siempre es determinista (PDF patológico), no se reintenta.
+    Timeout(String),
     Op(Error),
 }
 
@@ -215,7 +217,7 @@ impl Proc {
         match self.rx.recv_timeout(timeout) {
             Ok(Ok(f)) => Ok(f),
             Ok(Err(e)) => Err(CallError::Transport(format!("el proceso del motor se cerró ({e})"))),
-            Err(RecvTimeoutError::Timeout) => Err(CallError::Transport("el motor tardó demasiado en responder".into())),
+            Err(RecvTimeoutError::Timeout) => Err(CallError::Timeout("el motor tardó demasiado en responder".into())),
             Err(RecvTimeoutError::Disconnected) => Err(CallError::Transport("el proceso del motor se cerró".into())),
         }
     }
@@ -342,7 +344,7 @@ impl WorkerDocument {
                 Ok(())
             }
             Err(CallError::Op(e)) => Err(e),
-            Err(CallError::Transport(m)) => Err(Error::Pdf(m)),
+            Err(CallError::Transport(m) | CallError::Timeout(m)) => Err(Error::Pdf(m)),
         }
     }
 
@@ -370,11 +372,16 @@ impl WorkerDocument {
             match res {
                 Ok(r) => return Ok(r),
                 Err(CallError::Op(e)) => return Err(e),
-                Err(CallError::Transport(msg)) => {
-                    st.proc = None; // Drop mata el proceso
+                Err(err) => {
+                    let (msg, retry) = match err {
+                        CallError::Transport(m) => (m, attempt == 0),
+                        CallError::Timeout(m) => (m, false),
+                        CallError::Op(_) => unreachable!("tratado arriba"),
+                    };
+                    st.proc = None; // Drop mata el proceso; la siguiente petición lo relanza
                     self.restarts.fetch_add(1, Ordering::Relaxed);
                     self.recovered.store(true, Ordering::Relaxed);
-                    if attempt == 1 {
+                    if !retry {
                         return Err(Error::Pdf(format!(
                             "{msg}. El documento puede estar dañado o ser malicioso; se aisló sin afectar a la aplicación"
                         )));

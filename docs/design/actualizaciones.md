@@ -195,7 +195,11 @@ actualizaciones.ejemplo.es {
 Configuración de la app: compilar la versión oficial con `PLIEGO_UPDATE_URL=https://actualizaciones.ejemplo.es`.
 Hasta entonces, las pruebas usan `pliego-release serve` y `PLIEGO_UPDATE_URL=http://127.0.0.1:8787`.
 
-## 10. Prueba local hecha (2026-11-03, Linux de la sesión; repetir en acr12)
+## 10. Pruebas hechas (2026-11-03)
 `keygen` → `publish 0.2.0` (paquete de 2 MB) → `verify` → `serve` en `127.0.0.1:8787` → `check --current 0.1.0
 --download-to` (detecta 0.2.0, descarga con progreso y verifica SHA-256) → `check --current 0.2.0` ("al día").
 18 pruebas automáticas en verde (`cargo test -p pliego-update -p pliego-release`).
+
+En acr12 (Windows 10 Pro 22H2, 19045): las mismas 18 pruebas en verde (sin compilar MuPDF) y el mismo recorrido con
+`serve` en `127.0.0.1:8787`: descarga de 2 MB verificada, «al día» con 0.2.0, y un paquete con un byte cambiado se
+rechaza («la descarga no coincide…») sin dejar archivos; `verify` también lo detecta.

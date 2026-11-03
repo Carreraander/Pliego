@@ -569,6 +569,7 @@ dependencies = [
  "clap",
  "pliego-core",
  "pliego-engine-mupdf",
+ "pliego-organize",
  "serde_json",
  "tempfile",
 ]
@@ -587,6 +588,17 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-organize"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 

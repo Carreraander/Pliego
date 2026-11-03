@@ -814,6 +814,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-worker"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "png"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

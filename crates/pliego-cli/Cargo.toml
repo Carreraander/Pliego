@@ -23,6 +23,7 @@ serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }
 pliego-forms = { path = "../pliego-forms" }
 mupdf.workspace = true
+pliego-assistant = { path = "../pliego-assistant" }
 pliego-convert = { path = "../pliego-convert" }
 pliego-redact = { path = "../pliego-redact" }
 pliego-a11y = { path = "../pliego-a11y" }

@@ -3718,6 +3718,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-assistant"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pliego-cli"
 version = "0.1.0"
 dependencies = [
@@ -3727,6 +3737,7 @@ dependencies = [
  "p12-keystore",
  "pliego-a11y",
  "pliego-annot",
+ "pliego-assistant",
  "pliego-compare",
  "pliego-convert",
  "pliego-core",

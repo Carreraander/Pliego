@@ -1,5 +1,6 @@
 pub mod a11y;
 pub mod annot;
+pub mod assistant;
 pub mod compare;
 pub mod convert;
 pub mod form;

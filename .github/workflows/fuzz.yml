@@ -1,0 +1,42 @@
+name: fuzz
+
+# Fuzzing nocturno del parser de MuPDF (ver tools/fuzz.sh). No toca ci.yml.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "Segundos por objetivo"
+        default: "3600"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencias del sistema
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libfontconfig1-dev clang
+      - name: Rust nightly (solo para este job)
+        run: |
+          rustup toolchain install nightly --profile minimal
+          cargo install cargo-fuzz --locked
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            crates/pliego-engine-mupdf/fuzz/target
+          key: fuzz-${{ hashFiles('crates/pliego-engine-mupdf/fuzz/Cargo.toml') }}
+      - name: Fuzzing
+        run: tools/fuzz.sh "${{ inputs.seconds || '3600' }}"
+      - name: Subir fallos
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: crates/pliego-engine-mupdf/fuzz/artifacts/
+          if-no-files-found: ignore

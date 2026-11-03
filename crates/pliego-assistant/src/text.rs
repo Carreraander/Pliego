@@ -19,8 +19,8 @@ const STOPWORDS: &[&str] = &[
     "es", "por", "con", "para", "se", "su", "sus", "lo", "como", "mas", "pero", "sin", "sobre", "entre", "ser", "son",
     "este", "esta", "esto", "estos", "estas", "cual", "cuales", "cuando", "donde", "quien", "cuanto", "cuanta", "hay",
     "fue", "han", "ha", "le", "les", "me", "mi", "tu", "nos", "ya", "si", "no", // inglés
-    "the", "an", "of", "and", "or", "to", "in", "on", "is", "are", "was", "were", "be", "by", "for", "with", "as", "at",
-    "it", "its", "this", "that", "these", "those", "what", "which", "who", "when", "where", "how", "does", "do",
+    "the", "an", "of", "and", "or", "to", "in", "on", "is", "are", "was", "were", "be", "by", "for", "with", "as",
+    "at", "it", "its", "this", "that", "these", "those", "what", "which", "who", "when", "where", "how", "does", "do",
 ];
 
 /// Convierte el texto en términos: minúsculas, sin acentos, sin palabras vacías y con un recorte muy ligero de

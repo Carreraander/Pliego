@@ -12,6 +12,7 @@ pliego-document = { path = "../pliego-document" }
 mupdf.workspace = true
 serde.workspace = true
 rustybuzz = "0.20"
+subsetter = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true

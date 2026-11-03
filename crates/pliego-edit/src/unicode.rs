@@ -105,9 +105,9 @@ pub fn find_font(text: &str, explicit: Option<&Path>) -> Result<LoadedFont> {
     )))
 }
 
-/// Texto formado: códigos de glifo y avance total en puntos.
+/// Texto formado: glifos (con el texto del que proceden) y avance total en puntos.
 pub struct Shaped {
-    pub gids: Vec<u16>,
+    pub glyphs: Vec<(u16, String)>,
     pub width: f32,
 }
 
@@ -128,10 +128,26 @@ impl<'a> Shaper<'a> {
         buf.guess_segment_properties();
         let out = rustybuzz::shape(&self.face, &[], buf);
         let upem = (self.face.units_per_em() as f32).max(1.0);
-        let gids = out.glyph_infos().iter().map(|g| g.glyph_id as u16).collect();
+        let infos = out.glyph_infos();
+        let mut clusters: Vec<u32> = infos.iter().map(|g| g.cluster).collect();
+        clusters.sort_unstable();
+        clusters.dedup();
+        let glyphs = infos
+            .iter()
+            .map(|g| {
+                // El texto de un glifo va desde su cluster hasta el siguiente cluster mayor (vale para RTL).
+                let start = g.cluster as usize;
+                let end = clusters
+                    .iter()
+                    .find(|c| **c as usize > start)
+                    .map_or(text.len(), |c| *c as usize);
+                let t = text.get(start..end).unwrap_or("").to_owned();
+                (g.glyph_id as u16, t)
+            })
+            .collect();
         let advance: i32 = out.glyph_positions().iter().map(|p| p.x_advance).sum();
         Shaped {
-            gids,
+            glyphs,
             width: advance as f32 * size / upem,
         }
     }

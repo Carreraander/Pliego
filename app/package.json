@@ -10,15 +10,28 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "lint": "eslint .",
+    "test:e2e": "playwright test",
+    "test:visual": "playwright test",
+    "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
+    "lucide-solid": "^1.66.0",
     "solid-js": "^1.9.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.63.0",
     "@tauri-apps/cli": "^2.0.0",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-solid": "^0.18.1",
+    "globals": "^17.14.0",
     "typescript": "^5.6.0",
+    "typescript-eslint": "^8.72.1",
     "vite": "^6.0.0",
     "vite-plugin-solid": "^2.11.0",
     "vitest": "^3.0.0"

@@ -3,6 +3,7 @@ import { bestScore, closeScreen, openScreen, registerCommandProvider, registerSh
 import { settingsIndex, Settings, showSettingsSection } from "../settings/Settings";
 import { Home } from "./Home";
 import { addRecent, recents, refreshRecents } from "./recents";
+import { st } from "../settings/strings";
 import { ht } from "./strings";
 
 export { Home } from "./Home";
@@ -11,10 +12,10 @@ export { setRecoverable, type Recoverable, type RecoveryHandlers } from "./recov
 
 let openPdf: (path: string) => void = () => undefined;
 
-export function openHome(): void { openScreen({ id: "home", component: () => <Home onOpen={(p) => { closeScreen(); openPdf(p); }} /> }); }
+export function openHome(): void { openScreen({ id: "home", title: () => ht("home.title"), component: () => <Home onOpen={(p) => { closeScreen(); openPdf(p); }} /> }); }
 export function openSettings(section?: string): void {
   if (section) showSettingsSection(section);
-  openScreen({ id: "settings", component: Settings });
+  openScreen({ id: "settings", title: () => st("settings.title"), component: Settings });
 }
 
 /** Anota la apertura de un documento en los recientes. */

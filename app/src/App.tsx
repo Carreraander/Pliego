@@ -15,7 +15,7 @@ import { Home, installHome, openHome, openSettings, recordOpened } from "./home"
 import { installJobs } from "./jobs";
 import { initSettings } from "./settings";
 import { Dynamic } from "solid-js/web";
-import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode } from "./shell";
+import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode, type DocTab } from "./shell";
 import { Button, Dialog, Field, IconButton, TextInput, toast, ToolbarSeparator } from "./ui";
 
 export function App() {
@@ -74,12 +74,12 @@ export function App() {
 
   return (
     <AppWindow
-      tabs={docs().map((d) => ({ id: String(d.id), title: d.title }))}
-      activeId={activeId() === null ? null : String(activeId())}
-      onSelectTab={(id) => { closeScreen(); setActiveId(Number(id)); }}
-      onCloseTab={(id) => void closeDoc(Number(id))}
+      tabs={[...docs().map((d): DocTab => ({ id: String(d.id), title: d.title })), ...(currentScreen() ? [{ id: `screen:${currentScreen()!.id}`, title: currentScreen()!.title?.() ?? currentScreen()!.id, kind: "screen" as const }] : [])]}
+      activeId={currentScreen() ? `screen:${currentScreen()!.id}` : activeId() === null ? null : String(activeId())}
+      onSelectTab={(id) => { if (id.startsWith("screen:")) return; closeScreen(); setActiveId(Number(id)); }}
+      onCloseTab={(id) => (id.startsWith("screen:") ? closeScreen() : void closeDoc(Number(id)))}
       onNewTab={openHome}
-      onReorderTabs={(from, to) => setDocs((all) => { const n = [...all]; n.splice(to, 0, n.splice(from, 1)[0]!); return n; })}
+      onReorderTabs={(from, to) => from < docs().length && to < docs().length && setDocs((all) => { const n = [...all]; n.splice(to, 0, n.splice(from, 1)[0]!); return n; })}
       appMenu={[
         { id: "open", label: t("toolbar.open"), icon: "folder-open", shortcut: "Ctrl+O", onSelect: () => void api.pickPdfFiles().then((ps) => ps.forEach((p) => void open(p))) },
         { id: "home", label: t("menu.home"), icon: "home", onSelect: openHome },

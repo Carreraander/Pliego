@@ -4089,6 +4089,7 @@ dependencies = [
  "pliego-formdesign",
  "pliego-forms",
  "pliego-index",
+ "pliego-measure",
  "pliego-ocr",
  "pliego-office-export",
  "pliego-optimize",
@@ -4202,6 +4203,16 @@ dependencies = [
  "pliego-core",
  "serde",
  "tantivy",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-measure"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
  "tempfile",
 ]
 

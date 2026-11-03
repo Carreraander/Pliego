@@ -1,0 +1,216 @@
+/*
+ * Pliego · tokens de diseño (versión 1)
+ *
+ * Fuente de verdad del sistema visual. La app la copia tal cual a `app/src/styles/tokens.css`
+ * y el instalador a `installer/setup/ui/tokens.css`. Ningún componente usa colores literales:
+ * todo sale de aquí. Ver `docs/design/sistema-visual.md` para el porqué de cada valor.
+ *
+ * Temas: claro por defecto; oscuro con `prefers-color-scheme` salvo que el usuario elija uno en
+ * Ajustes (la app pone `data-theme="light|dark"` en <html>). Alto contraste de Windows:
+ * `forced-colors: active` (ver el final del archivo).
+ */
+
+:root {
+  /* ── Neutros "grafito": gris con sesgo verde muy leve hacia el acento ───────────────── */
+  --pl-chrome: #f2f3f1;          /* barra de título, pestañas, barras de herramientas */
+  --pl-surface: #fbfbfa;         /* paneles laterales, inspector, menús */
+  --pl-surface-raised: #ffffff;  /* diálogos, popovers, tarjetas de la pantalla de inicio */
+  --pl-surface-sunken: #e8eae6;  /* campos, pistas de deslizadores, zonas hundidas */
+  --pl-canvas: #dfe2de;          /* fondo del lienzo detrás de las páginas */
+  --pl-hover: rgb(24 32 28 / 0.06);
+  --pl-pressed: rgb(24 32 28 / 0.1);
+  --pl-border: #d6d9d4;
+  --pl-border-strong: #b9bdb6;
+  --pl-divider: rgb(24 32 28 / 0.08);
+
+  --pl-text: #1b1f1d;            /* 15,6:1 sobre chrome */
+  --pl-text-2: #545b57;          /* 6,6:1 sobre chrome: texto secundario */
+  --pl-text-3: #7d847f;          /* 3,6:1: solo placeholders, desactivado y metadatos no esenciales */
+  --pl-text-on-accent: #ffffff;
+
+  /* ── Acento "tinta": verde azulado de tinta de imprenta ─────────────────────────────── */
+  --pl-accent: #0f6b62;          /* 6,3:1 con blanco */
+  --pl-accent-hover: #0b5a52;
+  --pl-accent-pressed: #084842;
+  --pl-accent-soft: #d7ebe7;     /* fondo de botón activo, selección de lista */
+  --pl-accent-soft-text: #0a4f48;
+  --pl-focus: #0f6b62;           /* anillo de foco */
+  --pl-selection: rgb(15 107 98 / 0.22); /* selección de texto sobre la página */
+
+  /* ── Semánticos (independientes del acento) ─────────────────────────────────────────── */
+  --pl-ok: #23733f;      --pl-ok-soft: #dcefe2;
+  --pl-warn: #8a5300;    --pl-warn-soft: #fbecd2;
+  --pl-danger: #b42318;  --pl-danger-soft: #fbe3e0;
+  --pl-info: #255f9e;    --pl-info-soft: #dde9f7;
+
+  /* ── Página y búsqueda ──────────────────────────────────────────────────────────────── */
+  --pl-paper: #ffffff;
+  --pl-page-shadow: 0 0 0 1px rgb(24 32 28 / 0.06), 0 2px 6px rgb(24 32 28 / 0.12);
+  --pl-hit: rgb(255 214 64 / 0.55);       /* coincidencia de búsqueda */
+  --pl-hit-current: rgb(255 140 0 / 0.65); /* coincidencia actual */
+  --pl-redact-mark: rgb(180 35 24 / 0.35); /* zona marcada para redactar (aún no aplicada) */
+
+  /* ── Paleta de anotaciones (el usuario la ve tal cual: no cambia con el tema) ────────── */
+  --pl-annot-yellow: #ffd84d;
+  --pl-annot-green: #7ed492;
+  --pl-annot-blue: #7cc3f5;
+  --pl-annot-pink: #f59ac4;
+  --pl-annot-orange: #ffb35c;
+  --pl-annot-ink: #1b1f1d;
+  --pl-annot-red: #d93a2b;
+
+  /* ── Tipografía: la del sistema (Windows 11: Segoe UI Variable) ────────────────────── */
+  --pl-font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --pl-font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --pl-font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  --pl-text-caption: 12px;  --pl-lh-caption: 16px;
+  --pl-text-body: 14px;     --pl-lh-body: 20px;
+  --pl-text-subtitle: 16px; --pl-lh-subtitle: 22px;
+  --pl-text-title: 20px;    --pl-lh-title: 28px;
+  --pl-text-display: 28px;  --pl-lh-display: 36px;
+  --pl-weight-regular: 400;
+  --pl-weight-semibold: 600;
+
+  /* ── Espaciado (rejilla de 4 px) ───────────────────────────────────────────────────── */
+  --pl-space-1: 2px;
+  --pl-space-2: 4px;
+  --pl-space-3: 8px;
+  --pl-space-4: 12px;
+  --pl-space-5: 16px;
+  --pl-space-6: 20px;
+  --pl-space-7: 24px;
+  --pl-space-8: 32px;
+  --pl-space-9: 40px;
+  --pl-space-10: 48px;
+
+  /* ── Radios ────────────────────────────────────────────────────────────────────────── */
+  --pl-radius-sm: 4px;   /* chips, miniaturas */
+  --pl-radius-md: 6px;   /* botones, campos */
+  --pl-radius-lg: 8px;   /* menús, paneles flotantes, pestañas */
+  --pl-radius-xl: 12px;  /* diálogos, ventana del instalador */
+  --pl-radius-full: 999px;
+
+  /* ── Elevación ─────────────────────────────────────────────────────────────────────── */
+  --pl-shadow-1: 0 1px 2px rgb(24 32 28 / 0.08), 0 2px 8px rgb(24 32 28 / 0.08);   /* menú, tooltip */
+  --pl-shadow-2: 0 2px 6px rgb(24 32 28 / 0.1), 0 8px 24px rgb(24 32 28 / 0.12);   /* popover, paleta */
+  --pl-shadow-3: 0 4px 12px rgb(24 32 28 / 0.14), 0 16px 48px rgb(24 32 28 / 0.18); /* diálogo */
+
+  /* ── Medidas de la ventana ─────────────────────────────────────────────────────────── */
+  --pl-titlebar-h: 40px;
+  --pl-toolbar-h: 44px;
+  --pl-statusbar-h: 28px;
+  --pl-rail-w: 48px;
+  --pl-sidepanel-w: 264px;     /* redimensionable 200–480 */
+  --pl-inspector-w: 320px;     /* redimensionable 280–480 */
+  --pl-control-h: 32px;        /* densidad cómoda; compacta = 28px; táctil = 40px */
+  --pl-icon: 20px;
+  --pl-icon-sm: 16px;
+  --pl-icon-stroke: 1.75;
+
+  /* ── Movimiento ────────────────────────────────────────────────────────────────────── */
+  --pl-dur-fast: 100ms;
+  --pl-dur: 180ms;
+  --pl-dur-slow: 280ms;
+  --pl-ease: cubic-bezier(0.2, 0, 0, 1);
+  --pl-ease-out: cubic-bezier(0, 0, 0, 1);
+
+  /* ── Capas ─────────────────────────────────────────────────────────────────────────── */
+  --pl-z-canvas-overlay: 10;
+  --pl-z-panel: 20;
+  --pl-z-toolbar: 30;
+  --pl-z-popover: 100;
+  --pl-z-dialog: 200;
+  --pl-z-toast: 300;
+}
+
+/* ── Tema oscuro: mismos nombres, valores propios (no es una inversión) ──────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --pl-chrome: #1b1d1c;
+    --pl-surface: #222524;
+    --pl-surface-raised: #2a2d2c;
+    --pl-surface-sunken: #161817;
+    --pl-canvas: #121413;
+    --pl-hover: rgb(236 241 238 / 0.06);
+    --pl-pressed: rgb(236 241 238 / 0.1);
+    --pl-border: #353a38;
+    --pl-border-strong: #4c524f;
+    --pl-divider: rgb(236 241 238 / 0.08);
+    --pl-text: #eceeec;
+    --pl-text-2: #a8afab;
+    --pl-text-3: #7a817d;
+    --pl-text-on-accent: #04211e;
+    --pl-accent: #4cc2b2;
+    --pl-accent-hover: #66cfc0;
+    --pl-accent-pressed: #3aa697;
+    --pl-accent-soft: #173a36;
+    --pl-accent-soft-text: #8ee0d3;
+    --pl-focus: #4cc2b2;
+    --pl-selection: rgb(76 194 178 / 0.3);
+    --pl-ok: #6fcf8e;      --pl-ok-soft: #173322;
+    --pl-warn: #f2b85b;    --pl-warn-soft: #3a2a10;
+    --pl-danger: #ff8a7a;  --pl-danger-soft: #3d1a16;
+    --pl-info: #86b8f0;    --pl-info-soft: #172a40;
+    --pl-paper: #ffffff;
+    --pl-page-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 2px 8px rgb(0 0 0 / 0.5);
+    --pl-shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 8px rgb(0 0 0 / 0.3);
+    --pl-shadow-2: 0 2px 6px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.4);
+    --pl-shadow-3: 0 4px 12px rgb(0 0 0 / 0.5), 0 16px 48px rgb(0 0 0 / 0.5);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --pl-chrome: #1b1d1c;
+  --pl-surface: #222524;
+  --pl-surface-raised: #2a2d2c;
+  --pl-surface-sunken: #161817;
+  --pl-canvas: #121413;
+  --pl-hover: rgb(236 241 238 / 0.06);
+  --pl-pressed: rgb(236 241 238 / 0.1);
+  --pl-border: #353a38;
+  --pl-border-strong: #4c524f;
+  --pl-divider: rgb(236 241 238 / 0.08);
+  --pl-text: #eceeec;
+  --pl-text-2: #a8afab;
+  --pl-text-3: #7a817d;
+  --pl-text-on-accent: #04211e;
+  --pl-accent: #4cc2b2;
+  --pl-accent-hover: #66cfc0;
+  --pl-accent-pressed: #3aa697;
+  --pl-accent-soft: #173a36;
+  --pl-accent-soft-text: #8ee0d3;
+  --pl-focus: #4cc2b2;
+  --pl-selection: rgb(76 194 178 / 0.3);
+  --pl-ok: #6fcf8e;      --pl-ok-soft: #173322;
+  --pl-warn: #f2b85b;    --pl-warn-soft: #3a2a10;
+  --pl-danger: #ff8a7a;  --pl-danger-soft: #3d1a16;
+  --pl-info: #86b8f0;    --pl-info-soft: #172a40;
+  --pl-paper: #ffffff;
+  --pl-page-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 2px 8px rgb(0 0 0 / 0.5);
+  --pl-shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 8px rgb(0 0 0 / 0.3);
+  --pl-shadow-2: 0 2px 6px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.4);
+  --pl-shadow-3: 0 4px 12px rgb(0 0 0 / 0.5), 0 16px 48px rgb(0 0 0 / 0.5);
+}
+
+/* ── Densidad (Ajustes > General > Densidad). La app pone data-density en <html>. ────── */
+:root[data-density="compact"] { --pl-control-h: 28px; --pl-toolbar-h: 40px; }
+:root[data-density="touch"]   { --pl-control-h: 40px; --pl-toolbar-h: 52px; --pl-rail-w: 56px; }
+
+/* ── Movimiento reducido ─────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root { --pl-dur-fast: 0ms; --pl-dur: 0ms; --pl-dur-slow: 0ms; }
+}
+
+/* ── Alto contraste de Windows: usar colores del sistema, nunca ocultar bordes ───────── */
+@media (forced-colors: active) {
+  :root {
+    --pl-chrome: Canvas; --pl-surface: Canvas; --pl-surface-raised: Canvas; --pl-surface-sunken: Canvas;
+    --pl-canvas: Canvas; --pl-border: CanvasText; --pl-border-strong: CanvasText; --pl-divider: CanvasText;
+    --pl-text: CanvasText; --pl-text-2: CanvasText; --pl-text-3: GrayText;
+    --pl-accent: Highlight; --pl-accent-soft: Highlight; --pl-accent-soft-text: HighlightText;
+    --pl-text-on-accent: HighlightText; --pl-focus: Highlight;
+  }
+}

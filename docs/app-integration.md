@@ -25,5 +25,130 @@ La app tiene dos capas: `app/service` (`pliego-app-service`, sin Tauri, con la l
 - Al arrancar, `startup_files` devuelve una vez los PDF pasados por línea de comandos.
 
 ## Menú, barra y paneles
-El contrato de registro de herramientas (entrada de menú/barra, panel y comandos de cada módulo) lo define el
-diseño de la app (hilo de diseño) y se documentará aquí cuando esté cerrado.
+Las herramientas se declaran en el registro del frontend (sección «Herramientas», más abajo); el armazón y los
+paneles, con las ranuras de la sección «Interfaz».
+
+## Interfaz
+
+> Sección de W19. Diseño de referencia: `docs/design/` (`ux-y-navegacion.md`, `sistema-visual.md`, `tokens.css`).
+
+### Reglas
+- Ningún flujo crea estilos propios para botones, campos, menús, paneles de tarea, etc.: se usan los componentes de
+  `app/src/ui/` (`import { Button, Field, … } from "@/ui"` o ruta relativa a `ui/index`).
+- Ningún color literal fuera de `app/src/styles/tokens.css`: todo con `var(--pl-*)`. Lo comprueba
+  `app/src/ui/no-literal-colors.test.ts`.
+- Tema, densidad y alto contraste salen de los tokens (`data-theme`, `data-density`, `forced-colors`); no hay que
+  hacer nada en cada componente.
+- Textos: claves en el diccionario del área (`app/src/i18n`); los textos genéricos de componentes viven en
+  `app/src/ui/strings.ts`.
+
+### Componentes (`app/src/ui/`)
+`Icon`, `Button` (`primary`, `normal`, `ghost`, `danger`), `IconButton` (nombre accesible obligatorio), `Field` +
+`TextInput`/`Select`/`Slider`, `Checkbox`, `Switch`, `RadioGroup`/`Radio`, `ToggleGroup`, `Kbd`, `Chip`, `Notice`,
+`EmptyState`, `Popover`, `Tooltip` (con atajo), `Menu`/`ContextMenu`/`MenuButton` (teclado completo, submenús, entradas desactivadas con motivo), `Tabs`/`TabPanel`, `Toolbar`, `toast()` + `ToastRegion`, `Inspector`, `TaskPanel` (título, opciones, avanzado plegado, estimación, pie con acciones y progreso), `ProgressBar`, `WizardSteps`. Iconos por nombre (los de `ToolManifest.icon`): Lucide más los propios (`redact`, `bates`, `pdf-a`,
+`ocr`, `timestamp`, `sign-digital`); un flujo puede añadir más con `registerIcon`.
+
+### Catálogo
+`npm run dev` y abrir `http://localhost:1420/ui-catalog` (solo en desarrollo): todos los componentes y estados,
+con selector de tema y densidad. Las capturas de referencia están en `app/tests/visual/` (`npm run test:visual`,
+claro, oscuro y alto contraste, con comprobación de accesibilidad con axe).
+
+### Armazón y ranuras (`app/src/shell/`)
+`AppWindow` (barra de título con pestañas, barra de modos, raíl, panel lateral, lienzo, inspector, barra de estado) lo
+monta `App.tsx`. Nadie más edita `shell/`: cada flujo se registra con `app/src/shell/slots.ts` (`import … from "../shell"`):
+
+| API | Para qué |
+| --- | --- |
+| `registerPanel({ id, title, icon, order, shortcut, component })` | Pestaña en el raíl y su contenido en el panel lateral. El componente recibe `{ docId }`. Devuelve la función para retirarlo. |
+| `openInspector(Componente, props)` / `closeInspector()` | Contenido del inspector (propiedades o `TaskPanel`). El componente recibe además `onClose`. `F9` lo oculta y recupera. |
+| `showNotice(docId, { kind, tone, text, actions })` | Barra de aviso del documento. Una sola visible, por prioridad: `repaired` > `signed` > `protected` > `form` > `pdfa` > `restricted`. |
+| `registerStatusItem({ id, slot: "start"\|"center"\|"end", text \| component, onClick, tone })` | Elemento de la barra de estado. |
+| `registerMode({ id, title, icon, toolbar })` | Modo de la barra de modos y su barra de herramientas (`Alt+1…9`). |
+| `registerTitleItem({ id, component })` | Hueco de la barra de título (pastilla de actualización de W22). |
+| `setPaletteOpener(fn)` / `setToolsOpener(fn)` | La paleta de órdenes (`Ctrl+K`) y la de herramientas (`Ctrl+Mayús+A`) las implementa W20. |
+
+Los ids son `<area>.<nombre>`. Los textos ya van traducidos (`t(...)`). Atajos del armazón: `F4` panel lateral, `F6` /
+`Mayús+F6` recorren regiones (título → modos → raíl → panel → lienzo → inspector → estado), `F9` inspector, `Alt+1…9` modos,
+`Ctrl+K` paleta. Responsivo: < 1100 px los modos se pliegan a un desplegable; < 900 px panel e inspector se superponen.
+Demo con contenido de ejemplo en desarrollo: `http://localhost:1420/ui-shell`.
+
+### Iconos de la app
+`npm run icons` (`app/scripts/gen-icons.mjs`) genera `app/src-tauri/icons/` (`icon.ico` 16–256 px, PNG y `logo.svg`) con el logo.
+
+## Herramientas
+> Sección de W20. Contrato de diseño: `docs/design/ux-y-navegacion.md` §10.
+
+La barra de modos, la paleta «Herramientas» (`Ctrl+Mayús+A`), la paleta de órdenes (`Ctrl+K`), los atajos de una letra y
+el menú contextual se generan del **registro de herramientas** (`app/src/tools/registry.ts`). Para añadir una herramienta
+no se toca el armazón ni `navigation/`: se crea una carpeta `app/src/tools/<area>/` con un manifiesto y un panel, y se
+añade **una línea** de registro.
+
+### Qué toca cada flujo
+1. `app/src/tools/<area>/manifest.ts`: el `ToolManifest` (con el **mismo `id`** que la herramienta «fantasma» que ya
+   aparece desactivada en la paleta; al registrarse la sustituye).
+2. `app/src/tools/<area>/<Panel>.tsx`: el panel de tarea (un componente con `TaskPanel`) o el componente de la
+   pantalla. Se carga con `load: () => import("./<Panel>")`, de forma perezosa.
+3. `app/src/api/…` y `app/src-tauri/src/commands/<area>.rs`: el comando Tauri (ver «Añadir un comando Tauri»).
+4. Una línea en `app/src/tools/index.ts`: `registerTool(compress);` (o en tu propio `register<Area>Tools()`).
+5. Textos: `addToolStrings({ es: { "tools.optimize.compress.title": "Comprimir" }, en: { … } })`.
+
+### `ToolManifest`
+| Campo | Significado |
+| --- | --- |
+| `id` | Único, `<area>.<herramienta>`. Los ids de la tabla de §4.3 ya existen como fantasmas (`app/src/tools/base.ts`). |
+| `group` | Grupo de la paleta (`view`, `comment`, `fill-sign`, `organize`, `edit`, `forms`, `scan-ocr`, `protect`, `convert`, `compare-optimize`, `standards`, `print`, `automate`, `assistant`). |
+| `kind` | `mode` (cambia la barra del modo; indica `modeId` si el modo se registró con otro id), `task` y `wizard` (el `load` devuelve el panel del inspector), `panel` (indica `panelId` del raíl), `screen` (lienzo completo). |
+| `title`, `description` | Claves del diccionario de herramientas (`addToolStrings`). |
+| `icon`, `keywords`, `shortcut` | Icono por nombre, palabras para buscar y atajo (una letra solo vale con el foco en el lienzo; los demás son globales). El gestor avisa de los conflictos y el usuario puede cambiarlo en Ajustes. |
+| `when` | Requisitos: `document`, `forms`, `signatures`, `protected`, `pdfa`. Si no se cumplen la herramienta aparece desactivada con el motivo. Los hechos del documento los fija quien los conoce con `setDocFacts({ forms: true })`. |
+| `pinnable` | Se puede fijar en la barra de modos (clic derecho en la paleta). |
+| `load` | Importación perezosa del componente; recibe `{ toolId, onClose }`. |
+
+### Ejemplo completo: Comprimir (`pliego-optimize`)
+```ts
+// app/src/tools/optimize/manifest.ts
+import type { ToolManifest } from "../registry";
+export const compress: ToolManifest = {
+  id: "optimize.compress", group: "compare-optimize", kind: "task",
+  title: "tools.optimize.compress.title", description: "tools.optimize.compress.description",
+  icon: "file-down", keywords: ["reducir", "tamaño", "optimizar"], when: { document: true }, pinnable: true,
+  load: () => import("./CompressPanel"),
+};
+```
+```tsx
+// app/src/tools/optimize/CompressPanel.tsx
+import { createSignal } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
+import { Radio, RadioGroup, TaskPanel, toast } from "../../ui";
+import { activeId } from "../../state/documents";
+
+export default function CompressPanel(p: { onClose: () => void }) {
+  const [quality, setQuality] = createSignal("balanced");
+  const apply = async () => {
+    await invoke("compress_pdf", { docId: activeId(), quality: quality() }); // devuelve un JobId (ver «Tareas»)
+    toast({ tone: "info", text: "Comprimiendo… sigue en el centro de tareas" });
+    p.onClose();
+  };
+  return (
+    <TaskPanel title="Comprimir" onClose={p.onClose} primary={{ label: "Guardar copia", onClick: apply }}>
+      <RadioGroup legend="Calidad" value={quality()} onChange={setQuality}>
+        <Radio value="max" label="Máxima calidad" /><Radio value="balanced" label="Equilibrado" /><Radio value="min" label="Mínimo tamaño" />
+      </RadioGroup>
+    </TaskPanel>
+  );
+}
+```
+```ts
+// app/src/tools/index.ts: una línea
+registerTool(compress);
+```
+El resultado se ve en `http://localhost:1420/nav-demo` (solo desarrollo): `Ctrl+K` → «comprimir».
+
+### Paleta de órdenes y atajos
+- Órdenes sueltas: `registerCommand({ id, title, icon, shortcut?, run })`. Fuentes nuevas (recientes, ajustes…):
+  `registerCommandProvider({ id, order, group, query(q) })`. La búsqueda es aproximada, sin tildes ni mayúsculas
+  (`navigation/fuzzy.ts`).
+- Atajos: `registerShortcut({ id, section, keys, title, run, scope })` (`navigation/shortcuts.ts`). Es la única tabla:
+  no escuches `keydown` por tu cuenta. Los atajos que cambie el usuario se guardan en los ajustes.
+- Pantallas a lienzo completo: `openScreen({ id, component })` / `closeScreen()`.
+- Ajustes: `app/src/settings/store.ts` (`settings()`, `updateSettings(sección, cambios)`); esquema versionado.

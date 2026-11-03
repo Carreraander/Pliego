@@ -233,11 +233,12 @@ fn build(n: &xml::Node, hs: &[f32], known: &[(String, AnnotId)]) -> Result<Built
     let rect = r.map(|v| [v[0], h - v[3], v[2], h - v[1]]);
     let need_rect = || rect.ok_or_else(|| Error::InvalidInput(format!("<{}> sin rect válido", n.name)));
     let quads = || -> Vec<QuadPts> {
-        n.attr("coords")
-            .map(floats)
-            .unwrap_or_default()
-            .chunks_exact(8)
-            .map(|c| [c[0], h - c[1], c[2], h - c[3], c[4], h - c[5], c[6], h - c[7]])
+        let v = n.attr("coords").map(floats).unwrap_or_default();
+        (0..v.len() / 8)
+            .map(|i| {
+                let c = &v[i * 8..i * 8 + 8];
+                [c[0], h - c[1], c[2], h - c[3], c[4], h - c[5], c[6], h - c[7]]
+            })
             .collect()
     };
     let one = |a: Option<&str>| a.map(|s| points(s, h)).and_then(|p| p.first().copied());

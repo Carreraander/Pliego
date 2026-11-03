@@ -92,6 +92,25 @@ pub fn catalog() -> &'static [ModelSpec] {
     MODELS
 }
 
+/// Carpeta donde se guardan los modelos: `%LOCALAPPDATA%\Pliego\models` en Windows, o
+/// `$XDG_DATA_HOME/pliego/models` (`~/.local/share/pliego/models`) en otros sistemas.
+pub fn default_models_dir() -> std::path::PathBuf {
+    use std::path::PathBuf;
+    let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+    if cfg!(windows) {
+        env("LOCALAPPDATA")
+            .unwrap_or_else(std::env::temp_dir)
+            .join("Pliego")
+            .join("models")
+    } else {
+        env("XDG_DATA_HOME")
+            .or_else(|| env("HOME").map(|h| h.join(".local/share")))
+            .unwrap_or_else(std::env::temp_dir)
+            .join("pliego")
+            .join("models")
+    }
+}
+
 impl ModelSpec {
     pub fn find(id: &str) -> Option<&'static ModelSpec> {
         catalog().iter().find(|m| m.id == id)

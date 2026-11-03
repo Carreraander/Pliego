@@ -3878,6 +3878,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-qa"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "pliego-worker",
+]
+
+[[package]]
 name = "pliego-redact"
 version = "0.1.0"
 dependencies = [

@@ -864,6 +864,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-launcher"
+version = "0.1.0"
+dependencies = [
+ "pliego-install",
+ "tempfile",
+]
+
+[[package]]
 name = "pliego-organize"
 version = "0.1.0"
 dependencies = [

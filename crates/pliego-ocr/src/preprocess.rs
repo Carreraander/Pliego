@@ -40,7 +40,11 @@ pub fn rotate(img: &GrayImage, deg: f32) -> GrayImage {
             out[y * w + x] = v.round() as u8;
         }
     }
-    GrayImage { width: img.width, height: img.height, data: out }
+    GrayImage {
+        width: img.width,
+        height: img.height,
+        data: out,
+    }
 }
 
 /// Giro de 90, 180 o 270 grados a favor del reloj (cambia las dimensiones en 90 y 270).
@@ -54,9 +58,17 @@ pub fn rotate_quarter(img: &GrayImage, deg: u32) -> GrayImage {
                     out[x * h + (h - 1 - y)] = img.data[y * w + x];
                 }
             }
-            GrayImage { width: img.height, height: img.width, data: out }
+            GrayImage {
+                width: img.height,
+                height: img.width,
+                data: out,
+            }
         }
-        180 => GrayImage { width: img.width, height: img.height, data: img.data.iter().rev().copied().collect() },
+        180 => GrayImage {
+            width: img.width,
+            height: img.height,
+            data: img.data.iter().rev().copied().collect(),
+        },
         270 => {
             let mut out = vec![0u8; w * h];
             for y in 0..h {
@@ -64,7 +76,11 @@ pub fn rotate_quarter(img: &GrayImage, deg: u32) -> GrayImage {
                     out[(w - 1 - x) * h + y] = img.data[y * w + x];
                 }
             }
-            GrayImage { width: img.height, height: img.width, data: out }
+            GrayImage {
+                width: img.height,
+                height: img.width,
+                data: out,
+            }
         }
         _ => img.clone(),
     }
@@ -175,7 +191,8 @@ pub fn binarize_sauvola(img: &GrayImage, win: usize, k: f32) -> GrayImage {
         for x in 0..w {
             let (x0, x1) = (x.saturating_sub(r), (x + r + 1).min(w));
             let area = ((y1 - y0) * (x1 - x0)) as f64;
-            let s = (sum[y1 * stride + x1] + sum[y0 * stride + x0] - sum[y0 * stride + x1] - sum[y1 * stride + x0]) as f64;
+            let s =
+                (sum[y1 * stride + x1] + sum[y0 * stride + x0] - sum[y0 * stride + x1] - sum[y1 * stride + x0]) as f64;
             let q = (sq[y1 * stride + x1] + sq[y0 * stride + x0] - sq[y0 * stride + x1] - sq[y1 * stride + x0]) as f64;
             let mean = s / area;
             let std = ((q / area) - mean * mean).max(0.0).sqrt();
@@ -185,7 +202,11 @@ pub fn binarize_sauvola(img: &GrayImage, win: usize, k: f32) -> GrayImage {
             }
         }
     }
-    GrayImage { width: img.width, height: img.height, data: out }
+    GrayImage {
+        width: img.width,
+        height: img.height,
+        data: out,
+    }
 }
 
 /// Filtro de mediana 3×3 (quita ruido de «sal y pimienta» sin emborronar los bordes del texto).
@@ -209,7 +230,11 @@ pub fn denoise_median3(img: &GrayImage) -> GrayImage {
             out[y * w + x] = v[4];
         }
     }
-    GrayImage { width: img.width, height: img.height, data: out }
+    GrayImage {
+        width: img.width,
+        height: img.height,
+        data: out,
+    }
 }
 
 #[cfg(test)]

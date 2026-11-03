@@ -11,10 +11,10 @@ pliego-core.workspace = true
 tesseract-sys = { path = "../tesseract-sys" }
 mupdf.workspace = true
 serde.workspace = true
+tempfile.workspace = true
 
 [dev-dependencies]
 pliego-engine-mupdf.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true

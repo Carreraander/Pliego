@@ -119,7 +119,7 @@ pub fn pdf_to_images(
     options: &PdfToImagesOptions,
     ctx: &JobContext,
 ) -> Result<Report> {
-    if !(options.dpi.is_finite() && options.dpi > 0.0) {
+    if !options.dpi.is_finite() || options.dpi <= 0.0 {
         return Err(Error::InvalidInput("la resolución debe ser mayor que 0".into()));
     }
     let doc = open_document(input, password)?;

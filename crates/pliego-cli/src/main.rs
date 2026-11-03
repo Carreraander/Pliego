@@ -29,6 +29,8 @@ enum Command {
     Search(commands::view::SearchArgs),
     /// Compara dos versiones de un documento.
     Compare(commands::compare::CompareArgs),
+    /// Reduce el tamaño de un PDF o analiza dónde se va el espacio.
+    Optimize(commands::optimize::OptimizeArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -39,5 +41,6 @@ fn main() -> anyhow::Result<()> {
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
         Command::Compare(a) => commands::compare::compare(a, cli.json),
+        Command::Optimize(a) => commands::optimize::optimize(a, cli.json),
     }
 }

@@ -1,0 +1,14 @@
+.pl-jobs { width: 360px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; padding: var(--pl-space-4); display: grid; gap: var(--pl-space-3); }
+.pl-jobs__empty { margin: 0; padding: var(--pl-space-5); color: var(--pl-text-2); text-align: center; }
+.pl-jobs__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pl-space-3); }
+.pl-job { display: grid; gap: var(--pl-space-3); padding: var(--pl-space-3); border: 1px solid var(--pl-border); border-radius: var(--pl-radius-md); background: var(--pl-surface-raised); }
+.pl-job__head { display: flex; align-items: center; gap: var(--pl-space-3); }
+.pl-job__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--pl-weight-semibold); }
+.pl-job[data-status="done"] > .pl-job__head > svg { color: var(--pl-ok); }
+.pl-job[data-status="error"] > .pl-job__head > svg { color: var(--pl-danger); }
+.pl-job__text { margin: 0; color: var(--pl-text-2); }
+.pl-job__text--error { color: var(--pl-danger); }
+.pl-job__actions { display: flex; gap: var(--pl-space-3); flex-wrap: wrap; }
+.pl-jobs__anchor { display: inline-flex; align-items: center; gap: var(--pl-space-2); }
+/* Se ancla arriba de la barra de estado y crece hacia arriba cuando llegan tareas con el popover abierto. */
+.pl-popover.pl-jobs__popover { top: auto !important; bottom: calc(var(--pl-statusbar-h) + var(--pl-space-2)); }

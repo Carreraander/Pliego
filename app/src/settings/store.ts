@@ -11,7 +11,8 @@ export interface Settings {
   version: number;
   general: { language: "auto" | "es" | "en"; theme: "auto" | "light" | "dark"; density: "comfortable" | "compact" | "touch"; reopenTabs: boolean; greeting: boolean };
   viewer: { defaultZoom: "fit-width" | "fit-page" | "100"; smoothScroll: boolean; nightReading: boolean };
-  accessibility: { reduceMotion: "auto" | "on" | "off"; textScale: number; highContrast: "auto" | "on" | "off" };
+  accessibility: { reduceMotion: "auto" | "on" | "off"; strongFocus: boolean };
+  updates: { mode: "auto" | "notify" | "off"; channel: "stable" | "beta"; metered: boolean };
   /** Atajos cambiados por el usuario: id de la orden → combinación («» = sin atajo). */
   shortcuts: Record<string, string>;
   /** Herramientas fijadas como modo en la barra, en orden. */
@@ -27,7 +28,8 @@ export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   general: { language: "auto", theme: "auto", density: "comfortable", reopenTabs: false, greeting: true },
   viewer: { defaultZoom: "fit-width", smoothScroll: true, nightReading: false },
-  accessibility: { reduceMotion: "auto", textScale: 1, highContrast: "auto" },
+  accessibility: { reduceMotion: "auto", strongFocus: false },
+  updates: { mode: "auto", channel: "stable", metered: true },
   shortcuts: {},
   modes: { pinned: [] },
   home: { quickActions: DEFAULT_QUICK_ACTIONS },

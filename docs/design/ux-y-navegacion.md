@@ -101,8 +101,10 @@ Regla: una tarea nunca abre un modal. La única excepción son las preguntas del
 PIN del DNIe, que pide Windows) y las confirmaciones de cerrar con cambios sin guardar.
 
 ### 4.2 Modos principales (barra de modos)
-Seis fijos por defecto + "Herramientas". El usuario puede fijar cualquier herramienta como modo y reordenar
-(clic derecho → "Fijar en la barra"). `Alt+1`…`Alt+9` cambian de modo según su posición.
+Seis fijos + "Herramientas". El usuario puede fijar cualquier otra herramienta de tipo modo (clic derecho →
+"Fijar en la barra"); las fijadas se añaden a la derecha de los seis y se quitan con "Quitar de la barra". Los seis
+no se pueden quitar ni, en v1, reordenar (reordenar queda para más adelante). `Alt+1`…`Alt+9` cambian de modo según
+su posición visible, fijadas incluidas.
 
 | Modo | Barra del modo (de izquierda a derecha) | Inspector | Flujo |
 | --- | --- | --- | --- |
@@ -117,6 +119,10 @@ Seis fijos por defecto + "Herramientas". El usuario puede fijar cualquier herram
 Panel grande desplegado desde "Herramientas ▾" (o `Ctrl+Mayús+A`): buscador arriba y herramientas por grupo,
 cada una con icono, nombre y una línea de descripción. Las desactivadas (p. ej. "Validar firmas" sin firmas) se muestran
 atenuadas con el motivo en el tooltip, no se ocultan.
+
+No es modal (sigue la regla de §4.1; además los menús del kit usan portal y quedarían por detrás de un diálogo modal
+en la capa superior): `role="dialog"` con `aria-label` y sin `aria-modal`; al abrirse el foco va al buscador; `Esc`
+o un clic fuera la cierran y el foco vuelve al botón que la abrió; `Ctrl+Mayús+A` la abre y la cierra.
 
 | Grupo | Herramientas (tipo) | Flujo |
 | --- | --- | --- |
@@ -275,6 +281,10 @@ export const compress: ToolManifest = {
   when: { document: true },         // requisitos: documento abierto, tiene formularios, tiene firmas, etc.
   pinnable: true,
   load: () => import("./CompressPanel"), // componente perezoso: panel de tarea / barra del modo / pantalla
+  // modeId: "comment",             // kind "mode": modo registrado (registerMode) que se activa
+  // panelId: "layers",             // kind "panel": panel del raíl (registerPanel) que se abre
+  // ghost: true,                   // aún no implementada: atenuada con "Disponible más adelante";
+  //                                // el flujo la sustituye al registrar la real con el mismo id
 };
 ```
 

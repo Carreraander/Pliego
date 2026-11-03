@@ -152,3 +152,38 @@ El resultado se ve en `http://localhost:1420/nav-demo` (solo desarrollo): `Ctrl+
   no escuches `keydown` por tu cuenta. Los atajos que cambie el usuario se guardan en los ajustes.
 - Pantallas a lienzo completo: `openScreen({ id, component })` / `closeScreen()`.
 - Ajustes: `app/src/settings/store.ts` (`settings()`, `updateSettings(sección, cambios)`); esquema versionado.
+
+## Tareas en segundo plano
+Una operación larga (comprimir, OCR, convertir…) corre como **trabajo** y aparece en el centro de tareas (popover de la
+barra de estado). El registro vive en `pliego-appdata` (`jobs.rs`, con pruebas) y se expone a Tauri como `JobsState`
+(`app/src-tauri/src/commands/jobs.rs`).
+
+```rust
+// app/src-tauri/src/commands/optimize.rs
+#[tauri::command]
+pub fn compress_pdf(jobs: State<'_, JobsState>, path: String, quality: String) -> JobId {
+    // `spawn` devuelve el JobId de inmediato y ejecuta el cierre en un hilo. `ctx` es el JobContext de pliego-core:
+    // `ctx.step(hecho, total, "texto")?` emite `job-progress` y devuelve Err(Cancelled) si se canceló.
+    jobs.0.spawn(move |ctx| pliego_optimize::compress(&path, &quality, ctx))
+}
+```
+```ts
+// en el panel de la tarea
+const id = await invoke<number>("compress_pdf", { path, quality });
+trackJob(id, { title: "Comprimir contrato.pdf", retry: apply }); // import { trackJob } from "../../jobs"
+```
+- Eventos: `job-progress { job_id, done, total, label }` y `job-finished { job_id, result | error }` (`result` es el
+  `Report` de `pliego-core`: `outputs`, `warnings`, `summary`). Cancelar: `cancel_job(job_id)`.
+- El centro de tareas ofrece cancelar, «Abrir resultado» (primer PDF de `outputs`), «Mostrar en carpeta» y
+  «Reintentar» (si pasaste `retry`). Con la ventana en segundo plano al terminar, lanza una notificación de Windows.
+- Si la operación modifica el documento abierto, llama a `bump_revision(docId)` al terminar (ver «Documentos»).
+
+## Ajustes, recientes e Inicio
+- `settings()` / `updateSettings("sección", { campo: valor })` (`app/src/settings/store.ts`): esquema versionado con
+  efecto inmediato; en Windows se guarda en `%APPDATA%\Pliego\settings.json` (`get_settings`/`set_settings`). Tu flujo
+  puede añadir su sección a Ajustes con `registerSettingsSection({ id, title, icon, rows | component, keywords })`
+  (Comentarios, Firma, OCR e idiomas, Privacidad… las añade cada dueño).
+- Las autoactualizaciones (W22) sustituyen el servicio simulado de Ajustes > Actualizaciones con `setUpdateService(...)`.
+- Recuperación tras un cierre inesperado (W02): al arrancar, `setRecoverable(docs, { restore, discard })` (`app/src/home`)
+  muestra en Inicio «Pliego se cerró sin guardar N documentos».
+- Recientes: `recordOpened(path)` ya se llama al abrir un PDF; `recents_*` y `recent_thumbnail` son los comandos.

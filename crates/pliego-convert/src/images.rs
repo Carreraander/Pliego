@@ -8,7 +8,7 @@ use mupdf::{Colorspace, Document, Image, ImageFormat, Matrix, Rect, Size};
 use pliego_core::{Error, JobContext, Report, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::util::{pdf_err, write_atomic};
+use crate::util::{path_utf8, pdf_err, write_atomic};
 
 /// Tamaño de página al crear un PDF desde imágenes.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -209,12 +209,10 @@ fn load_frames(path: &Path) -> Result<Vec<Frame>> {
 /// TIFF (también multipágina), GIF y BMP: se renderiza cada fotograma a su tamaño de píxeles nativo.
 fn mupdf_frames(path: &Path) -> Result<Vec<Frame>> {
     let broken = |e: mupdf::Error| Error::InvalidInput(format!("{}: imagen dañada ({e})", path.display()));
-    let path_str = path
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("ruta con caracteres no válidos".into()))?;
+    let path_str = path_utf8(path)?;
     // Tamaño nativo del primer fotograma: sirve para deducir la escala píxeles/puntos.
     let first = Image::from_file(path_str).map_err(broken)?;
-    let doc = Document::open(path).map_err(broken)?;
+    let doc = Document::open(path_str).map_err(broken)?;
     let count = doc.page_count().map_err(pdf_err)?;
     let mut frames = Vec::new();
     let mut scale = None;

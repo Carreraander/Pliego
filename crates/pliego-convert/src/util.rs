@@ -6,6 +6,12 @@ use std::path::{Path, PathBuf};
 use mupdf::Document;
 use pliego_core::{Error, Result};
 
+/// MuPDF recibe las rutas como `&str` UTF-8 (en Windows `Path` no implementa `AsRef<FilePath>`).
+pub(crate) fn path_utf8(path: &Path) -> Result<&str> {
+    path.to_str()
+        .ok_or_else(|| Error::InvalidInput(format!("ruta con caracteres no válidos: {}", path.display())))
+}
+
 pub(crate) fn pdf_err(e: mupdf::Error) -> Error {
     Error::Pdf(e.to_string())
 }
@@ -15,7 +21,8 @@ pub(crate) fn open_document(path: &Path, password: Option<&str>) -> Result<Docum
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
-    let mut doc = Document::open(path).map_err(pdf_err)?;
+    let path_str = path_utf8(path)?;
+    let mut doc = Document::open(path_str).map_err(pdf_err)?;
     if doc.needs_password().map_err(pdf_err)? {
         let ok = match password {
             Some(p) => doc.authenticate(p).map_err(pdf_err)?,

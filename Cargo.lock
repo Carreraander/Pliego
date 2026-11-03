@@ -3738,6 +3738,7 @@ dependencies = [
  "pliego-protect",
  "pliego-redact",
  "pliego-sign",
+ "pliego-signflow",
  "pliego-stamp",
  "rcgen",
  "serde",
@@ -3890,6 +3891,24 @@ dependencies = [
  "tempfile",
  "ureq",
  "x509-cert 0.2.5",
+]
+
+[[package]]
+name = "pliego-signflow"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "lopdf",
+ "p12-keystore",
+ "pliego-core",
+ "pliego-sign",
+ "rcgen",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
 ]
 
 [[package]]

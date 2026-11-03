@@ -31,6 +31,8 @@ enum Command {
     Sign(commands::sign::SignArgs),
     /// Comprueba las firmas de un PDF.
     Verify(commands::sign::VerifyArgs),
+    /// Flujo de firmas local con varios firmantes en orden.
+    Signflow(commands::signflow::SignflowArgs),
     /// Compara dos versiones de un documento.
     Compare(commands::compare::CompareArgs),
     /// Reduce el tamaño de un PDF o analiza dónde se va el espacio.
@@ -75,6 +77,7 @@ fn main() -> anyhow::Result<()> {
         Command::Search(a) => commands::view::search(a, cli.json),
         Command::Sign(a) => commands::sign::sign(a, cli.json),
         Command::Verify(a) => commands::sign::verify(a, cli.json),
+        Command::Signflow(a) => commands::signflow::run(a, cli.json),
         Command::Compare(a) => commands::compare::compare(a, cli.json),
         Command::Optimize(a) => commands::optimize::optimize(a, cli.json),
         Command::Merge(a) => commands::pages::merge(a, cli.json),

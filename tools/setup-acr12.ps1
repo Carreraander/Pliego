@@ -33,7 +33,8 @@ function Update-SessionPath {
     # Recarga PATH de máquina+usuario y añade rutas habituales para ver lo recién instalado.
     $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $user = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $extra = @("$env:USERPROFILE\.cargo\bin", "$env:ProgramFiles\LLVM\bin", "$env:ProgramFiles\nodejs",
+    $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
+    $extra = @("$cargoHome\bin", "$env:ProgramFiles\LLVM\bin", "$env:ProgramFiles\nodejs",
         "$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin", "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin")
     $env:Path = (($machine, $user) + $extra | Where-Object { $_ }) -join ';'
 }
@@ -111,7 +112,7 @@ elseif ($rv) {
     Add-Result 'Rust (rustc)' 'ya estaba' $rv
 }
 else { Add-Result 'Rust (rustc)' 'FALTA' '' }
-Add-Result 'cargo' $(if (Get-Command cargo -ErrorAction SilentlyContinue) { 'ok' } else { 'FALTA' }) (Get-ToolVersion 'cargo' @('--version'))
+Add-Result 'cargo' $(if (Get-Command cargo -ErrorAction SilentlyContinue) { 'ya estaba' } else { 'FALTA' }) (Get-ToolVersion 'cargo' @('--version'))
 
 # --- cargo-deny -----------------------------------------------------------------------------------------
 $dv = Get-ToolVersion 'cargo-deny' @('--version')

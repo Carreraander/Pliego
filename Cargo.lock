@@ -4095,6 +4095,7 @@ dependencies = [
  "pliego-optimize",
  "pliego-organize",
  "pliego-pdfa",
+ "pliego-portfolio",
  "pliego-print",
  "pliego-protect",
  "pliego-redact",
@@ -4277,6 +4278,16 @@ dependencies = [
  "pliego-core",
  "serde",
  "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-portfolio"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
  "tempfile",
 ]
 

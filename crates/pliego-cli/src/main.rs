@@ -98,6 +98,9 @@ enum Command {
     /// Medidas sobre planos: escala, distancia, perímetro y área.
     #[command(subcommand)]
     Measure(commands::measure::MeasureCommand),
+    /// Carteras PDF: crear, listar y extraer archivos.
+    #[command(subcommand)]
+    Portfolio(commands::portfolio::PortfolioCommand),
     // [W13/W17/W12 extra]
 
     // [libre A]
@@ -145,6 +148,7 @@ fn main() -> anyhow::Result<()> {
         Command::Run(a) => commands::run::run(a, cli.json),
         Command::Index(c) => commands::index::run(c, cli.json),
         Command::Measure(c) => commands::measure::run(c, cli.json),
+        Command::Portfolio(c) => commands::portfolio::run(c, cli.json),
         // [W13/W17/W12 extra]
 
         // [libre A]

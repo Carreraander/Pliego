@@ -56,3 +56,32 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check licenses sources
+
+  frontend:
+    name: Frontend (app/)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Tipos
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint --if-present
+      - name: Tests unitarios
+        run: npm test --if-present
+      - name: Build
+        run: npm run build
+      - name: Navegador de Playwright
+        if: hashFiles('app/playwright.config.*') != ''
+        run: npx playwright install --with-deps chromium
+      - name: Tests visuales y de accesibilidad
+        if: hashFiles('app/playwright.config.*') != ''
+        run: npm run test:e2e --if-present

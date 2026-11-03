@@ -26,6 +26,7 @@ pub mod view;
 // [W14 office]
 
 // [W15 run e índice]
+pub mod run;
 
 // [W13/W17/W12 extra]
 

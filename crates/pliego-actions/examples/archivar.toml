@@ -1,0 +1,18 @@
+# pliego run archivar.toml carpeta/ -o salida/ [--resume]
+name = "Archivar"
+description = "Reduce el tamaño, añade numeración Bates y protege cada PDF."
+on_error = "continue"   # o "stop" para parar en el primer fallo
+
+[[steps]]
+kind = "optimize"
+preset = "ebook"
+
+[[steps]]
+kind = "stamp.bates"
+prefix = "EXP-"
+digits = 6
+
+[[steps]]
+kind = "protect.encrypt"
+owner_password = "cambia-esto"
+permissions = { print = true, print_high_quality = true, copy = false, modify = false, annotate = true, fill_forms = true, accessibility = true, assemble = false }

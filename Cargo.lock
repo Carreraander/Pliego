@@ -3764,6 +3764,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-actions"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml 1.1.8+spec-1.1.0",
+]
+
+[[package]]
 name = "pliego-annot"
 version = "0.1.0"
 dependencies = [
@@ -3823,6 +3834,7 @@ dependencies = [
  "mupdf",
  "p12-keystore",
  "pliego-a11y",
+ "pliego-actions",
  "pliego-annot",
  "pliego-assistant",
  "pliego-compare",

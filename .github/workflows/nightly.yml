@@ -1,0 +1,56 @@
+name: nightly
+
+# Comprobaciones largas que no caben en cada PR: corpus externo y cargo deny completo.
+# El fuzzing nocturno está en fuzz.yml (W02).
+on:
+  schedule:
+    - cron: "47 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  corpus:
+    name: Corpus externo (con worker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype-dev \
+            libtesseract-dev libleptonica-dev tesseract-ocr-eng
+      - name: Descargar corpus
+        run: python3 tools/fetch_corpus.py --suite pdfjs --suite verapdf
+      - name: Compilar ejecutor y worker
+        run: cargo build --release -p pliego-worker -p pliego-qa
+      - name: Ejecutar corpus con worker
+        run: target/release/corpus-runner tests/corpus/external --worker --timeout 60 | tee corpus-report.txt
+      - name: Informe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-report
+          path: corpus-report.txt
+          if-no-files-found: ignore
+
+  deny:
+    name: cargo deny (completo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Licencias y fuentes (estricto)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses sources
+      - name: Avisos de seguridad y bans
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans

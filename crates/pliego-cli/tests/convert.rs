@@ -133,3 +133,4 @@ fn create_from_office_without_backend_or_with_it() {
         assert!(!out.status.success());
         assert!(String::from_utf8_lossy(&out.stderr).contains("LibreOffice"));
     }
+}

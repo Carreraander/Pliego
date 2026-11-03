@@ -36,6 +36,7 @@ pub struct AutotagSummary {
     pub lists: usize,
     pub list_items: usize,
     pub figures: usize,
+    pub tables: usize,
     pub artifacts: usize,
 }
 
@@ -54,6 +55,7 @@ struct Item {
     class: Class,
     size: f32,
     y: Option<f32>,
+    x: Option<f32>,
 }
 
 struct PageData {
@@ -62,7 +64,7 @@ struct PageData {
     items: Vec<Item>,
 }
 
-fn read_contents(page: &PdfObject) -> Result<Vec<u8>> {
+pub(crate) fn read_contents(page: &PdfObject) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     let Some(c) = page.get_dict("Contents").map_err(pdf_err)? else {
         return Ok(out);
@@ -167,7 +169,8 @@ fn analyze(doc: &PdfDocument, ctx: &JobContext) -> Result<Vec<PageData>> {
                 }
                 SegKind::Text(t) => (Class::Para, t.size, t.y),
             };
-            items.push(Item { seg, class, size, y });
+            let x = if let SegKind::Text(t) = &seg.kind { t.x } else { None };
+            items.push(Item { seg, class, size, y, x });
         }
         out.push(PageData { page, bytes, items });
     }
@@ -256,8 +259,99 @@ fn classify(pages: &mut [PageData], bold: &HashMap<(usize, String), bool>) {
 enum Block {
     Heading(u8, Vec<usize>),
     Para(Vec<usize>),
-    ListItem { label: Option<usize>, body: Vec<usize> },
+    ListItem {
+        label: Option<usize>,
+        body: Vec<usize>,
+    },
     Figure(usize),
+    /// Filas de celdas (cada celda es un objeto de texto).
+    Table(Vec<Vec<usize>>),
+}
+
+/// Celdas de más de estos bytes no se consideran de una tabla (suelen ser columnas de texto corrido).
+const MAX_CELL_BYTES: usize = 60;
+/// Tolerancia horizontal para considerar que dos celdas están en la misma columna.
+const COLUMN_TOLERANCE: f32 = 4.0;
+
+fn is_cell_candidate(it: &Item) -> bool {
+    matches!(it.class, Class::Para | Class::Heading(_))
+        && it.x.is_some()
+        && it.y.is_some()
+        && text_info(it).is_some_and(|t| t.len > 0 && t.len <= MAX_CELL_BYTES)
+}
+
+/// Detecta tablas sencillas: dos o más filas consecutivas con el mismo número (≥ 2) de celdas de texto
+/// alineadas en columnas. Devuelve `(primer elemento, último elemento + 1, filas)`.
+///
+/// Solo reconoce celdas que son objetos de texto (`BT..ET`) distintos; si todo el renglón se dibuja en un solo
+/// objeto de texto no se puede separar y no se detecta.
+fn detect_tables(items: &[Item]) -> Vec<(usize, usize, Vec<Vec<usize>>)> {
+    // 1) Renglones: celdas candidatas con la misma y y x creciente. Los trazados (bordes) no interrumpen.
+    let mut rows: Vec<Vec<usize>> = Vec::new();
+    let mut cur: Vec<usize> = Vec::new();
+    let flush = |cur: &mut Vec<usize>, rows: &mut Vec<Vec<usize>>| {
+        if !cur.is_empty() {
+            rows.push(std::mem::take(cur));
+        }
+    };
+    // Marca el final de un grupo de filas con un renglón vacío.
+    for (i, it) in items.iter().enumerate() {
+        if it.class == Class::Artifact && matches!(it.seg.kind, SegKind::Path) {
+            continue;
+        }
+        if !is_cell_candidate(it) {
+            flush(&mut cur, &mut rows);
+            rows.push(Vec::new());
+            continue;
+        }
+        let (x, y) = (it.x.unwrap_or(0.0), it.y.unwrap_or(0.0));
+        let same_row = cur.last().is_some_and(|&p| {
+            let (px, py) = (items[p].x.unwrap_or(0.0), items[p].y.unwrap_or(0.0));
+            (py - y).abs() <= 0.3 * it.size.max(1.0) && x > px
+        });
+        if !same_row {
+            flush(&mut cur, &mut rows);
+        }
+        cur.push(i);
+    }
+    flush(&mut cur, &mut rows);
+
+    // 2) Grupos de filas con las mismas columnas.
+    let mut tables = Vec::new();
+    let mut group: Vec<Vec<usize>> = Vec::new();
+    let mut close = |group: &mut Vec<Vec<usize>>| {
+        if group.len() >= 2 {
+            let first = group[0][0];
+            let last = *group.last().and_then(|r| r.last()).unwrap_or(&first);
+            tables.push((first, last + 1, std::mem::take(group)));
+        } else {
+            group.clear();
+        }
+    };
+    for row in rows {
+        if row.len() < 2 {
+            close(&mut group);
+            continue;
+        }
+        let fits = group.last().is_some_and(|prev| {
+            let (a, b) = (prev[0], row[0]);
+            prev.len() == row.len()
+                && prev
+                    .iter()
+                    .zip(&row)
+                    .all(|(&p, &q)| (items[p].x.unwrap_or(0.0) - items[q].x.unwrap_or(0.0)).abs() <= COLUMN_TOLERANCE)
+                && items[a]
+                    .y
+                    .zip(items[b].y)
+                    .is_some_and(|(ya, yb)| ya > yb && ya - yb <= 4.0 * items[a].size.max(items[b].size).max(1.0))
+        });
+        if !fits {
+            close(&mut group);
+        }
+        group.push(row);
+    }
+    close(&mut group);
+    tables
 }
 
 fn build_blocks(page: &PageData) -> Vec<Block> {
@@ -269,7 +363,22 @@ fn build_blocks(page: &PageData) -> Vec<Block> {
         _ => false,
     };
     let mut last_idx: Option<usize> = None;
+    let mut tables = detect_tables(&page.items).into_iter().peekable();
+    let mut skip_until = 0;
     for (i, it) in page.items.iter().enumerate() {
+        if i < skip_until {
+            continue;
+        }
+        if tables.peek().is_some_and(|t| t.0 == i) {
+            let (_, end, rows) = tables.next().unwrap_or_default();
+            if let Some(l) = label.take() {
+                blocks.push(Block::Para(vec![l]));
+            }
+            blocks.push(Block::Table(rows));
+            skip_until = end;
+            last_idx = None;
+            continue;
+        }
         if it.class != Class::ListBody
             && let Some(l) = label.take()
         {
@@ -406,6 +515,7 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
                     order.extend(body);
                 }
                 Block::Figure(i) => order.push(*i),
+                Block::Table(rows) => order.extend(rows.iter().flatten()),
             }
         }
         let mut mcid_of: HashMap<usize, usize> = HashMap::new();
@@ -437,6 +547,13 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
                 }
                 Block::Figure(i) => {
                     roles.insert(*i, "Figure");
+                }
+                Block::Table(rows) => {
+                    for (r, row) in rows.iter().enumerate() {
+                        for i in row {
+                            roles.insert(*i, if r == 0 { "TH" } else { "TD" });
+                        }
+                    }
                 }
             }
         }
@@ -484,6 +601,27 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
                     let e = leaf(doc, "P", &document, &page_ref, v, &mcid_of, &mut parents)?;
                     push_kid(&mut document, e)?;
                     summary.paragraphs += 1;
+                }
+                Block::Table(rows) => {
+                    let mut table = make_elem(doc, "Table", &document, &page_ref, None)?;
+                    for (r, row) in rows.iter().enumerate() {
+                        let mut tr = make_elem(doc, "TR", &table, &page_ref, None)?;
+                        for i in row {
+                            let e = leaf(
+                                doc,
+                                if r == 0 { "TH" } else { "TD" },
+                                &tr,
+                                &page_ref,
+                                &[*i],
+                                &mcid_of,
+                                &mut parents,
+                            )?;
+                            push_kid(&mut tr, e)?;
+                        }
+                        push_kid(&mut table, tr)?;
+                    }
+                    push_kid(&mut document, table)?;
+                    summary.tables += 1;
                 }
                 Block::Figure(i) => {
                     let e = leaf(doc, "Figure", &document, &page_ref, &[*i], &mcid_of, &mut parents)?;
@@ -591,8 +729,8 @@ pub fn autotag_file(input: &Path, output: &Path, opts: &AutotagOptions, ctx: &Jo
     let mut report = Report::with_output(
         output,
         format!(
-            "Etiquetado: {} encabezado(s), {} párrafo(s), {} lista(s) con {} elemento(s), {} figura(s); {} gráfico(s) marcados como decoración.",
-            s.headings, s.paragraphs, s.lists, s.list_items, s.figures, s.artifacts
+            "Etiquetado: {} encabezado(s), {} párrafo(s), {} lista(s) con {} elemento(s), {} figura(s), {} tabla(s); {} gráfico(s) marcados como decoración.",
+            s.headings, s.paragraphs, s.lists, s.list_items, s.figures, s.tables, s.artifacts
         ),
     );
     if s.figures > 0 {
@@ -602,7 +740,7 @@ pub fn autotag_file(input: &Path, output: &Path, opts: &AutotagOptions, ctx: &Jo
         ));
     }
     report.warnings.push(
-        "No se detectan tablas ni se etiquetan enlaces y campos: revisa el resultado con `pliego a11y check`.".into(),
+        "Solo se detectan tablas sencillas (celdas en objetos de texto separados, primera fila como encabezado) y no se etiquetan enlaces ni campos: revisa el resultado con `pliego a11y check`.".into(),
     );
     Ok(report)
 }

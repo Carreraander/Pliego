@@ -21,7 +21,7 @@ fn tile_response(service: &DocumentService, path: &str) -> Response<Vec<u8>> {
             .header(header::CONTENT_TYPE, "image/png")
             .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(header::CACHE_CONTROL, "no-store")
-            .body(png.as_ref().clone())
+            .body(png)
             .unwrap_or_default(),
         Err(e) => Response::builder()
             .status(StatusCode::NOT_FOUND)
@@ -51,7 +51,8 @@ pub fn run() {
         })
         .setup(|app| {
             let handle = app.handle().clone();
-            let service = DocumentService::new().on_document_changed(move |ev| {
+            // El worker (MuPDF aislado) va junto al ejecutable; en desarrollo, PLIEGO_WORKER.
+            let service = DocumentService::discover()?.on_document_changed(move |ev| {
                 let _ = handle.emit("document-changed", ev);
             });
             app.manage(AppState {

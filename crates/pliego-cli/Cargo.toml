@@ -18,6 +18,7 @@ pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }
 mupdf.workspace = true
+pliego-print = { path = "../pliego-print" }
 pliego-convert = { path = "../pliego-convert" }
 anyhow.workspace = true
 clap.workspace = true

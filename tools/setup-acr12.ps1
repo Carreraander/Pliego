@@ -136,6 +136,14 @@ if (-not $dv -and -not $CheckOnly -and (Get-Command cargo -ErrorAction SilentlyC
 }
 else { Add-Result 'cargo-deny' $(if ($dv) { 'ya estaba' } else { 'FALTA' }) $dv }
 
+# --- Aviso de saltos de línea ---------------------------------------------------------------------------
+# Con core.autocrlf=true, los PDF de tests/corpus pueden salir con CRLF (clones anteriores a `*.pdf -text` en
+# .gitattributes) y fallar las pruebas de firma ("object ID 4 0 not found"). Repara el clon con:
+#   git rm --cached -r tests/corpus; git checkout -- tests/corpus
+if ((Get-Command git -ErrorAction SilentlyContinue) -and ((git config --get core.autocrlf) -eq 'true')) {
+    Write-Warning 'core.autocrlf=true: si fallan pruebas con PDF de tests/corpus, ejecuta en tu clon: git rm --cached -r tests/corpus; git checkout -- tests/corpus'
+}
+
 # --- Informe --------------------------------------------------------------------------------------------
 $missing = @($results | Where-Object { $_.Estado -eq 'FALTA' })
 if ($Report) {

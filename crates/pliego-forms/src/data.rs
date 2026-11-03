@@ -3,6 +3,7 @@ use pliego_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::csv;
+use crate::exchange;
 use crate::fields::{FieldInfo, FieldKind, FieldValue, FieldValues, FillResult, fields, fill};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -10,6 +11,8 @@ use crate::fields::{FieldInfo, FieldKind, FieldValue, FieldValues, FillResult, f
 pub enum Format {
     Json,
     Csv,
+    Fdf,
+    Xfdf,
 }
 
 fn is_on(v: &str) -> bool {
@@ -55,6 +58,32 @@ pub fn export_data(doc: &mut PdfDocument, format: Format) -> Result<String> {
                 .collect();
             Ok(csv::write(&[header, row]))
         }
+        Format::Fdf | Format::Xfdf => {
+            let infos = fields(doc)?;
+            let pairs: exchange::Pairs = values
+                .into_iter()
+                .map(|(name, v)| {
+                    let text = match v {
+                        // Las casillas se intercambian con el nombre de su estado activo.
+                        FieldValue::Bool(b) => {
+                            let on = infos
+                                .iter()
+                                .find(|i| i.name == name)
+                                .and_then(|i| i.options.first().cloned())
+                                .unwrap_or_else(|| "Yes".into());
+                            if b { on } else { "Off".into() }
+                        }
+                        FieldValue::Text(t) => t,
+                    };
+                    (name, text)
+                })
+                .collect();
+            Ok(if format == Format::Fdf {
+                exchange::write_fdf(&pairs)
+            } else {
+                exchange::write_xfdf(&pairs)
+            })
+        }
     }
 }
 
@@ -64,7 +93,13 @@ pub(crate) fn coerce(infos: &[FieldInfo], row: &[(String, String)]) -> FieldValu
     for (name, text) in row {
         let kind = infos.iter().find(|i| &i.name == name).map(|i| i.kind);
         let v = match kind {
-            Some(FieldKind::CheckBox) => FieldValue::Bool(is_on(text)),
+            Some(FieldKind::CheckBox) => {
+                let is_state = infos
+                    .iter()
+                    .find(|i| &i.name == name)
+                    .is_some_and(|i| i.options.iter().any(|o| o == text));
+                FieldValue::Bool(is_state || is_on(text))
+            }
             _ => FieldValue::Text(text.clone()),
         };
         out.insert(name.clone(), v);
@@ -74,11 +109,34 @@ pub(crate) fn coerce(infos: &[FieldInfo], row: &[(String, String)]) -> FieldValu
 
 /// Importa valores desde JSON o CSV (primera fila de datos) y rellena el documento.
 pub fn import_data(doc: &mut PdfDocument, text: &str, format: Format) -> Result<FillResult> {
+    // FDF es binario: aquí cada carácter se toma como un byte (vista Latin-1). Usa `import_data_bytes` con archivos.
+    import_data_bytes(
+        doc,
+        &text
+            .chars()
+            .map(|c| u8::try_from(u32::from(c)).unwrap_or(b'?'))
+            .collect::<Vec<_>>(),
+        format,
+    )
+}
+
+/// Importa valores desde los bytes de un archivo de datos (JSON, CSV, FDF o XFDF).
+pub fn import_data_bytes(doc: &mut PdfDocument, bytes: &[u8], format: Format) -> Result<FillResult> {
+    let utf8 =
+        || std::str::from_utf8(bytes).map_err(|_| Error::InvalidInput("el archivo de datos no es UTF-8 válido".into()));
     let values = match format {
-        Format::Json => serde_json::from_str::<FieldValues>(text)
+        Format::Fdf | Format::Xfdf => {
+            let pairs = if format == Format::Fdf {
+                exchange::parse_fdf(bytes)?
+            } else {
+                exchange::parse_xfdf(utf8()?)?
+            };
+            coerce(&fields(doc)?, &pairs)
+        }
+        Format::Json => serde_json::from_str::<FieldValues>(utf8()?)
             .map_err(|e| Error::InvalidInput(format!("el JSON de datos no es válido: {e}")))?,
         Format::Csv => {
-            let rows = csv::parse(text);
+            let rows = csv::parse(utf8()?);
             let [header, first, ..] = rows.as_slice() else {
                 return Err(Error::InvalidInput(
                     "el CSV necesita una fila de cabecera y una de datos".into(),

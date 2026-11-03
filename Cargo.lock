@@ -748,6 +748,7 @@ dependencies = [
  "mupdf",
  "pliego-core",
  "serde",
+ "serde_json",
  "tempfile",
  "tiff",
 ]

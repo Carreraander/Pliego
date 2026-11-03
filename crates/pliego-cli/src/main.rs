@@ -27,6 +27,10 @@ enum Command {
     Text(commands::view::TextArgs),
     /// Busca texto y lista las coincidencias.
     Search(commands::view::SearchArgs),
+    /// Compara dos versiones de un documento.
+    Compare(commands::compare::CompareArgs),
+    /// Reduce el tamaño de un PDF o analiza dónde se va el espacio.
+    Optimize(commands::optimize::OptimizeArgs),
     /// Combina varios PDFs en uno.
     Merge(commands::pages::MergeArgs),
     /// Divide un PDF en varios.
@@ -54,6 +58,8 @@ fn main() -> anyhow::Result<()> {
         Command::Render(a) => commands::view::render(a, cli.json),
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
+        Command::Compare(a) => commands::compare::compare(a, cli.json),
+        Command::Optimize(a) => commands::optimize::optimize(a, cli.json),
         Command::Merge(a) => commands::pages::merge(a, cli.json),
         Command::Split(a) => commands::pages::split(a, cli.json),
         Command::Pages(a) => commands::pages::pages(a, cli.json),

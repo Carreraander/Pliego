@@ -619,7 +619,7 @@ pub fn detect_fields(doc: &PdfDocument, page: usize, ctx: &JobContext) -> Result
                 let (a, b) = (&snapshot[i], &snapshot[j]);
                 let inter = a.0.x_overlap(&b.0) * a.0.y_overlap(&b.0);
                 let smaller = (a.0.w() * a.0.h()).min(b.0.w() * b.0.h());
-                if inter > 0.5 * smaller && (a.1 || i < j) && !(b.1 && !a.1) {
+                if inter > 0.5 * smaller && (a.1 || i < j) && (!b.1 || a.1) {
                     keep[j] = false;
                 }
             }

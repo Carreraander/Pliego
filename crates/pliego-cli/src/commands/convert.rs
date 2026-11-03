@@ -4,8 +4,8 @@ use anyhow::{Context, bail};
 use clap::{Args, ValueEnum};
 use pliego_convert::{
     ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
-    TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, pdf_to_html,
-    pdf_to_images, pdf_to_svg, pdf_to_text, structured_text_pages, text_to_pdf,
+    TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, office_to_pdf,
+    pdf_to_html, pdf_to_images, pdf_to_svg, pdf_to_text, structured_text_pages, text_to_pdf,
 };
 use pliego_core::{JobContext, PageRange, Report};
 
@@ -20,7 +20,7 @@ pub enum OrientationArg {
 
 #[derive(Args)]
 pub struct CreateArgs {
-    /// Archivos de entrada: imágenes (JPG, PNG, TIFF, WebP, GIF, BMP) o un único .txt, .md o .html.
+    /// Archivos de entrada: imágenes (JPG, PNG, TIFF, WebP, GIF, BMP) o un único .txt, .md, .html o documento de Office (Word, Excel, PowerPoint, OpenDocument).
     #[arg(required = true)]
     pub inputs: Vec<PathBuf>,
     /// PDF de salida.
@@ -100,6 +100,17 @@ pub fn create(a: CreateArgs, json: bool) -> anyhow::Result<()> {
         .and_then(|e| e.to_str())
         .map(str::to_lowercase)
         .unwrap_or_default();
+    const OFFICE: &[&str] = &[
+        "doc", "docx", "docm", "dot", "dotx", "rtf", "odt", "xls", "xlsx", "xlsm", "xlsb", "csv", "ods", "ppt", "pptx",
+        "pptm", "pps", "ppsx", "odp",
+    ];
+    if OFFICE.contains(&kind.as_str()) {
+        if a.inputs.len() != 1 {
+            bail!("los documentos de Office se convierten de uno en uno");
+        }
+        let report = office_to_pdf(&a.inputs[0], &a.output, &JobContext::silent())?;
+        return show(&report, json);
+    }
     let doc_fn: Option<fn(&_, &_, &TextToPdfOptions, &JobContext) -> pliego_core::Result<Report>> = match kind.as_str()
     {
         "txt" => Some(text_to_pdf),

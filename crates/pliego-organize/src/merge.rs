@@ -58,7 +58,8 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
             continue;
         }
         dest.insert_pdf(&src, InsertPdfOptions::default()).map_err(pdf_err)?;
-        carry_annotations(&mut dest, &mut src, offset, src_pages, &mut form)?;
+        let pairs: Vec<(u32, u32)> = (0..src_pages).map(|i| (i, offset + i)).collect();
+        carry_annotations(&mut dest, &mut src, &pairs, &mut form)?;
         if options.keep_bookmarks || options.bookmark_per_file {
             let kept = if options.keep_bookmarks {
                 retarget(&read_outline(&src)?, &|p| Some(p + offset))

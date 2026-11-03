@@ -27,6 +27,10 @@ enum Command {
     Text(commands::view::TextArgs),
     /// Busca texto y lista las coincidencias.
     Search(commands::view::SearchArgs),
+    /// Firma un PDF con un certificado.
+    Sign(commands::sign::SignArgs),
+    /// Comprueba las firmas de un PDF.
+    Verify(commands::sign::VerifyArgs),
     /// Compara dos versiones de un documento.
     Compare(commands::compare::CompareArgs),
     /// Reduce el tamaño de un PDF o analiza dónde se va el espacio.
@@ -45,6 +49,9 @@ enum Command {
     /// Anotaciones: listar, añadir, borrar.
     #[command(subcommand)]
     Annot(commands::annot::AnnotCommand),
+    /// Formularios: campos, rellenar, aplanar, importar/exportar, relleno masivo.
+    #[command(subcommand)]
+    Form(commands::form::FormCommand),
     /// Crea un PDF desde imágenes.
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
@@ -52,9 +59,14 @@ enum Command {
     /// Producción de impresión: tintas, preflight y separaciones.
     #[command(subcommand)]
     Print(commands::print::PrintCommand),
+    /// Busca datos personales y los redacta de forma irreversible.
+    Redact(commands::redact::RedactArgs),
     /// Accesibilidad: comprobar y corregir idioma, título y texto alternativo.
     #[command(subcommand)]
     A11y(commands::a11y::A11yCommand),
+    /// PDF/A: validar (y próximamente convertir).
+    #[command(subcommand)]
+    Pdfa(commands::pdfa::PdfaCommand),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -64,6 +76,8 @@ fn main() -> anyhow::Result<()> {
         Command::Render(a) => commands::view::render(a, cli.json),
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
+        Command::Sign(a) => commands::sign::sign(a, cli.json),
+        Command::Verify(a) => commands::sign::verify(a, cli.json),
         Command::Compare(a) => commands::compare::compare(a, cli.json),
         Command::Optimize(a) => commands::optimize::optimize(a, cli.json),
         Command::Merge(a) => commands::pages::merge(a, cli.json),
@@ -72,9 +86,12 @@ fn main() -> anyhow::Result<()> {
         Command::Stamp(a) => commands::stamp::run(a, cli.json),
         Command::Protect(c) => commands::protect::run(c, cli.json),
         Command::Annot(c) => commands::annot::run(c, cli.json),
+        Command::Form(c) => commands::form::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
         Command::Print(c) => commands::print::run(c, cli.json),
+        Command::Redact(a) => commands::redact::run(a, cli.json),
         Command::A11y(c) => commands::a11y::run(c, cli.json),
+        Command::Pdfa(c) => commands::pdfa::run(c, cli.json),
     }
 }

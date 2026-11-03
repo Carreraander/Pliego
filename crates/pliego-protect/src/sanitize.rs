@@ -26,6 +26,10 @@ pub struct SanitizeOptions {
     pub form_data: bool,
     /// Miniaturas de página.
     pub thumbnails: bool,
+    /// Imágenes, formularios XObject y anotaciones que pertenecen a capas ocultas (desactivadas por defecto).
+    /// El texto o los dibujos de una capa oculta que van sueltos en el contenido de la página no se pueden
+    /// separar así: se avisa en el informe y hay que cubrirlos con una redacción.
+    pub hidden_layers: bool,
 }
 
 impl Default for SanitizeOptions {
@@ -39,6 +43,7 @@ impl Default for SanitizeOptions {
             comments: true,
             form_data: true,
             thumbnails: true,
+            hidden_layers: true,
         }
     }
 }
@@ -146,6 +151,75 @@ fn is_js_action(action: &PdfObject) -> bool {
     name_of(action, "S").as_deref() == Some("JavaScript")
 }
 
+/// Números de objeto de las capas (OCG) desactivadas en la configuración por defecto.
+fn hidden_ocgs(catalog: &PdfObject) -> Result<Vec<i32>> {
+    let Some(props) = catalog.get_dict("OCProperties").map_err(pdf_err)? else {
+        return Ok(Vec::new());
+    };
+    let Some(default) = props.get_dict("D").map_err(pdf_err)? else {
+        return Ok(Vec::new());
+    };
+    let refs = |key: &str| -> Result<Vec<i32>> {
+        let mut out = Vec::new();
+        if let Some(arr) = default.get_dict(key).map_err(pdf_err)? {
+            for i in 0..arr.len().map_err(pdf_err)? {
+                if let Some(o) = arr.get_array(i as i32).map_err(pdf_err)?
+                    && o.is_indirect().map_err(pdf_err)?
+                {
+                    out.push(o.as_indirect().map_err(pdf_err)?);
+                }
+            }
+        }
+        Ok(out)
+    };
+    if name_of(&default, "BaseState").as_deref() == Some("OFF") {
+        // Todas apagadas salvo las de /ON.
+        let on = refs("ON")?;
+        let mut all = refs_of_array(props.get_dict("OCGs").map_err(pdf_err)?)?;
+        all.retain(|n| !on.contains(n));
+        Ok(all)
+    } else {
+        refs("OFF")
+    }
+}
+
+fn refs_of_array(arr: Option<PdfObject>) -> Result<Vec<i32>> {
+    let mut out = Vec::new();
+    if let Some(arr) = arr {
+        for i in 0..arr.len().map_err(pdf_err)? {
+            if let Some(o) = arr.get_array(i as i32).map_err(pdf_err)?
+                && o.is_indirect().map_err(pdf_err)?
+            {
+                out.push(o.as_indirect().map_err(pdf_err)?);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// ¿El objeto pertenece solo a capas ocultas? (`/OC` apunta a una capa apagada, o a un grupo de
+/// pertenencia cuyas capas están todas apagadas).
+fn in_hidden_layer(obj: &PdfObject, hidden: &[i32]) -> Result<bool> {
+    let Some(oc) = obj.get_dict("OC").map_err(pdf_err)? else {
+        return Ok(false);
+    };
+    if oc.is_indirect().map_err(pdf_err)? && hidden.contains(&oc.as_indirect().map_err(pdf_err)?) {
+        return Ok(true);
+    }
+    // Grupo de pertenencia (OCMD): /OCGs es una capa o una lista de capas.
+    if let Some(g) = oc.get_dict("OCGs").map_err(pdf_err)? {
+        let ids = if g.is_array().map_err(pdf_err)? {
+            refs_of_array(Some(g))?
+        } else if g.is_indirect().map_err(pdf_err)? {
+            vec![g.as_indirect().map_err(pdf_err)?]
+        } else {
+            Vec::new()
+        };
+        return Ok(!ids.is_empty() && ids.iter().all(|n| hidden.contains(n)));
+    }
+    Ok(false)
+}
+
 /// Saneado sobre un documento ya abierto (sin guardar). Devuelve lo que quitó.
 ///
 /// Los objetos sin referencia no se quitan aquí sino al guardar (ver [`sanitize`]).
@@ -211,6 +285,11 @@ pub fn sanitize_document(
         tally.add("Valores de formulario", n);
     }
 
+    let hidden = if opts.hidden_layers {
+        hidden_ocgs(&catalog)?
+    } else {
+        Vec::new()
+    };
     let pages = doc.page_count().map_err(pdf_err)?.max(0);
     for p in 0..pages {
         ctx.step(p as u64, pages as u64, "Saneando páginas")?;
@@ -229,13 +308,39 @@ pub fn sanitize_document(
         if opts.javascript && remove_key(&mut page, "AA")? {
             tally.add("Acciones automáticas de página", 1);
         }
-        sanitize_annots(&mut page, opts, &mut tally)?;
+        if !hidden.is_empty() {
+            remove_hidden_xobjects(&page, &hidden, &mut tally)?;
+        }
+        sanitize_annots(&mut page, opts, &hidden, &mut tally)?;
     }
     ctx.step(pages as u64, pages as u64, "Saneado completado")?;
     Ok(tally.0)
 }
 
-fn sanitize_annots(page: &mut PdfObject, opts: &SanitizeOptions, tally: &mut Tally) -> Result<()> {
+/// Quita de los recursos de la página las imágenes y formularios que están en capas ocultas.
+fn remove_hidden_xobjects(page: &PdfObject, hidden: &[i32], tally: &mut Tally) -> Result<()> {
+    let Some(res) = page.get_dict_inheritable("Resources").map_err(pdf_err)? else {
+        return Ok(());
+    };
+    let Some(mut xobjs) = res.get_dict("XObject").map_err(pdf_err)? else {
+        return Ok(());
+    };
+    let mut doomed = Vec::new();
+    for entry in xobjs.dict_iter().map_err(pdf_err)? {
+        let (key, val) = entry.map_err(pdf_err)?;
+        if in_hidden_layer(&val, hidden)? {
+            doomed.push(key.as_name().map_err(pdf_err)?);
+        }
+    }
+    for name in doomed {
+        let name = String::from_utf8_lossy(&name).into_owned();
+        xobjs.dict_delete(name.as_str()).map_err(pdf_err)?;
+        tally.add("Imágenes y formularios de capas ocultas", 1);
+    }
+    Ok(())
+}
+
+fn sanitize_annots(page: &mut PdfObject, opts: &SanitizeOptions, hidden: &[i32], tally: &mut Tally) -> Result<()> {
     let Some(annots) = page.get_dict("Annots").map_err(pdf_err)? else {
         return Ok(());
     };
@@ -247,6 +352,11 @@ fn sanitize_annots(page: &mut PdfObject, opts: &SanitizeOptions, tally: &mut Tal
             continue;
         };
         let subtype = name_of(&annot, "Subtype").unwrap_or_default();
+        if !hidden.is_empty() && in_hidden_layer(&annot, hidden)? {
+            annots.array_delete(i as i32).map_err(pdf_err)?;
+            tally.add("Anotaciones de capas ocultas", 1);
+            continue;
+        }
         let remove = match subtype.as_str() {
             "FileAttachment" => opts.attachments,
             // Enlaces, campos y marcas de redacción pendientes se conservan.
@@ -336,6 +446,7 @@ mod tests {
             "datos adjuntos secretos",
             "Valor del formulario",
             "/Thumb",
+            "Capa oculta secreta",
         ] {
             assert!(raw_contains(&dirty(), s), "el corpus debería contener {s}");
         }
@@ -355,6 +466,7 @@ mod tests {
             "Valor del formulario",
             "/Thumb",
             "/OpenAction",
+            "Capa oculta secreta",
         ] {
             assert!(!raw_contains(&out, s), "no debería quedar {s}");
         }
@@ -390,9 +502,11 @@ mod tests {
             attachments: false,
             embedded_files: false,
             form_data: false,
+            hidden_layers: false,
             ..Default::default()
         };
         let (_d, out, _) = run(&opts);
+        assert!(raw_contains(&out, "Capa oculta secreta"));
         assert!(raw_contains(&out, "Autora Privada"));
         assert!(raw_contains(&out, "Comentario privado"));
         assert!(raw_contains(&out, "datos adjuntos secretos"));

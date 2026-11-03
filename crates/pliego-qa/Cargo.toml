@@ -1,0 +1,21 @@
+[package]
+name = "pliego-qa"
+description = "Herramientas de QA de Pliego: ejecución del corpus externo con aislamiento y tiempo límite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+pliego-core.workspace = true
+pliego-engine-mupdf.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "corpus-runner"
+path = "src/main.rs"

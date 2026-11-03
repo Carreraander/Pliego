@@ -1,0 +1,87 @@
+.pl-window { display: grid; grid-template-rows: var(--pl-titlebar-h) var(--pl-toolbar-h) minmax(0, 1fr) var(--pl-statusbar-h); height: 100%; background: var(--pl-chrome); color: var(--pl-text); }
+:root[data-mica] .pl-titlebar { background: color-mix(in srgb, var(--pl-chrome) 80%, transparent); }
+:root[data-mica] body, :root[data-mica] html { background: transparent; }
+
+[data-region]:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: -2px; border-radius: 0; }
+
+.pl-window--home { grid-template-rows: var(--pl-titlebar-h) minmax(0, 1fr) var(--pl-statusbar-h); }
+
+/* ── Barra de título ── */
+.pl-titlebar { display: flex; align-items: center; gap: var(--pl-space-2); padding: 0 0 0 var(--pl-space-3); background: var(--pl-chrome); min-width: 0; }
+.pl-titlebar__logo { display: inline-flex; align-items: center; gap: var(--pl-space-2); height: 32px; padding: 0 var(--pl-space-3); border: 0; border-radius: var(--pl-radius-md); background: transparent; color: var(--pl-text-2); }
+.pl-titlebar__logo:hover { background: var(--pl-hover); }
+.pl-titlebar__drag { flex: 1 1 24px; align-self: stretch; min-width: 24px; }
+.pl-titlebar__search { flex: none; display: inline-flex; align-items: center; gap: var(--pl-space-3); width: 280px; max-width: 30vw; height: 28px; padding: 0 var(--pl-space-3); border-radius: var(--pl-radius-md); border: 1px solid var(--pl-border); background: var(--pl-surface-sunken); color: var(--pl-text-2); text-align: left; }
+.pl-titlebar__search span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-titlebar__search:hover { border-color: var(--pl-border-strong); }
+.pl-titlebar__item { display: flex; align-items: center; margin-left: var(--pl-space-2); }
+
+.pl-doctabs { display: flex; align-items: flex-end; align-self: flex-end; gap: 2px; min-width: 0; height: 34px; overflow: hidden; }
+.pl-doctab { position: relative; display: flex; align-items: center; min-width: 96px; max-width: 220px; flex: 0 1 200px; height: 34px; border-radius: var(--pl-radius-lg) var(--pl-radius-lg) 0 0; color: var(--pl-text-2); }
+.pl-doctab:hover { background: var(--pl-hover); }
+.pl-doctab--active { background: var(--pl-surface); color: var(--pl-text); font-weight: var(--pl-weight-semibold); }
+/* El doblez de la pestaña activa (§ detalles propios): triángulo de 6 px en la esquina superior derecha */
+.pl-doctab--active::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 6px 6px 0; border-color: transparent var(--pl-accent) var(--pl-chrome) transparent; border-top-right-radius: var(--pl-radius-lg); }
+.pl-doctab--dragging { z-index: 2; box-shadow: var(--pl-shadow-1); background: var(--pl-surface-raised); }
+.pl-doctab__btn { flex: 1; min-width: 0; height: 100%; padding: 0 28px 0 var(--pl-space-4); border: 0; background: transparent; text-align: left; font-weight: inherit; border-radius: inherit; }
+.pl-doctab__title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-doctab__close { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: var(--pl-radius-sm); background: transparent; color: var(--pl-text-2); }
+.pl-doctab__close:hover { background: var(--pl-pressed); color: var(--pl-text); }
+.pl-doctab__dot { width: 8px; height: 8px; border-radius: var(--pl-radius-full); background: var(--pl-text-2); }
+.pl-doctab__close--dirty .pl-doctab__x { display: none; }
+.pl-doctab__close--dirty:hover .pl-doctab__dot { display: none; }
+.pl-doctab__close--dirty:hover .pl-doctab__x { display: block; }
+
+.pl-winbtns { display: flex; align-self: stretch; margin-left: var(--pl-space-3); }
+.pl-winbtn { display: grid; place-items: center; width: 46px; border: 0; background: transparent; color: var(--pl-text); border-radius: 0; }
+.pl-winbtn:hover { background: var(--pl-hover); }
+.pl-winbtn--close:hover { background: var(--pl-danger); color: var(--pl-surface-raised); }
+
+/* ── Barra de modos ── */
+.pl-modebar { display: flex; align-items: center; gap: var(--pl-space-2); padding: 0 var(--pl-space-3); background: var(--pl-surface); border-bottom: 1px solid var(--pl-divider); min-width: 0; }
+.pl-modebar__modes { flex: none; }
+.pl-modebar__tools { margin-left: var(--pl-space-4); }
+.pl-modebar__tools { flex: 1; min-width: 0; display: flex; justify-content: flex-end; overflow: hidden; }
+.pl-modetab { display: inline-flex; align-items: center; gap: var(--pl-space-2); height: 32px; padding: 0 var(--pl-space-4); border: 0; border-radius: var(--pl-radius-md); background: transparent; color: var(--pl-text-2); white-space: nowrap; }
+.pl-modetab:hover { background: var(--pl-hover); color: var(--pl-text); }
+.pl-modetab[aria-selected="true"] { background: var(--pl-accent-soft); color: var(--pl-accent-soft-text); font-weight: var(--pl-weight-semibold); }
+
+/* ── Cuerpo ── */
+.pl-body { position: relative; display: flex; min-height: 0; min-width: 0; background: var(--pl-surface); }
+.pl-rail { flex: none; width: var(--pl-rail-w); display: flex; justify-content: center; padding-top: var(--pl-space-3); background: var(--pl-chrome); border-right: 1px solid var(--pl-divider); }
+.pl-rail__list { display: flex; flex-direction: column; gap: var(--pl-space-2); }
+.pl-sidepanel { flex: none; display: grid; grid-template-rows: auto 1fr; min-height: 0; background: var(--pl-surface); }
+.pl-sidepanel__head { display: flex; align-items: center; padding: var(--pl-space-3) var(--pl-space-4) var(--pl-space-3) var(--pl-space-5); }
+.pl-sidepanel__head h2 { flex: 1; }
+.pl-sidepanel__body { overflow: auto; min-height: 0; }
+.pl-canvas { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--pl-canvas); }
+.pl-canvas__content { position: relative; flex: 1; min-height: 0; }
+.pl-inspector-col { flex: none; min-height: 0; border-left: 1px solid var(--pl-divider); background: var(--pl-surface); }
+
+.pl-splitter { flex: none; width: 5px; margin: 0 -2px; z-index: var(--pl-z-panel); cursor: col-resize; background: transparent; position: relative; }
+.pl-splitter::after { content: ""; position: absolute; inset: 0 2px; background: var(--pl-divider); transition: background var(--pl-dur-fast) var(--pl-ease); }
+.pl-splitter:hover::after, .pl-splitter--drag::after, .pl-splitter:focus-visible::after { background: var(--pl-accent); inset: 0 1px; }
+.pl-splitter:focus-visible { outline: none; }
+
+/* < 900 px: el panel lateral y el inspector se superponen al lienzo */
+.pl-overlay-left, .pl-overlay-right { position: absolute; top: 0; bottom: 0; z-index: var(--pl-z-panel); box-shadow: var(--pl-shadow-2); max-width: calc(100% - var(--pl-rail-w)); }
+.pl-overlay-left { left: var(--pl-rail-w); }
+.pl-overlay-right { right: 0; }
+
+/* ── Barra de estado ── */
+.pl-status { display: flex; align-items: center; justify-content: space-between; gap: var(--pl-space-5); padding: 0 var(--pl-space-4); background: var(--pl-chrome); border-top: 1px solid var(--pl-divider); font-size: var(--pl-text-caption); line-height: var(--pl-lh-caption); color: var(--pl-text-2); }
+.pl-status__slot { display: flex; align-items: center; gap: var(--pl-space-4); min-width: 0; }
+.pl-status__item { display: inline-flex; align-items: center; gap: var(--pl-space-2); white-space: nowrap; }
+.pl-status__item--btn { height: 22px; padding: 0 var(--pl-space-3); border: 0; border-radius: var(--pl-radius-sm); background: transparent; color: inherit; }
+.pl-status__item--btn:hover { background: var(--pl-hover); color: var(--pl-text); }
+.pl-status__item--ok { color: var(--pl-ok); } .pl-status__item--warn { color: var(--pl-warn); } .pl-status__item--danger { color: var(--pl-danger); } .pl-status__item--info { color: var(--pl-info); }
+
+@media (forced-colors: active) {
+  .pl-doctab--active, .pl-modetab[aria-selected="true"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  .pl-doctab--active::after { display: none; }
+  .pl-titlebar, .pl-modebar, .pl-status, .pl-rail, .pl-inspector-col { border-color: CanvasText; }
+}
+
+/* Solo para la demo (/ui-shell) */
+.demo-page { height: 100%; display: grid; place-items: start center; padding: var(--pl-space-8); overflow: hidden; }
+.demo-paper { width: 420px; height: 560px; background: var(--pl-paper); box-shadow: var(--pl-page-shadow); }

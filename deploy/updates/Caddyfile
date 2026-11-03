@@ -1,0 +1,17 @@
+# Servidor de actualizaciones de Pliego: solo archivos estáticos con HTTPS automático.
+# Sustituye el dominio por el tuyo (el registro DNS A/AAAA debe apuntar ya al VPS).
+actualizaciones.ejemplo.es {
+	root * /srv/pliego-actualizaciones
+	file_server
+
+	# Los manifiestos cambian en cada publicación: que ninguna caché los guarde.
+	header /v1/* Cache-Control "no-cache"
+	# Los paquetes llevan la versión en el nombre y no cambian nunca.
+	header /packages/* Cache-Control "public, max-age=31536000, immutable"
+
+	log {
+		output file /var/log/caddy/pliego.log {
+			roll_keep 7
+		}
+	}
+}

@@ -149,6 +149,12 @@ pub fn builtin_registry() -> Registry {
         ),
     );
     r.register(
+        "ocr",
+        typed(|i: &Path, o: &Path, opts: pliego_ocr::OcrOptions, ctx: &JobContext| {
+            pliego_ocr::ocr_document(i, o, &opts, ctx)
+        }),
+    );
+    r.register(
         "protect.encrypt",
         typed(|i: &Path, o: &Path, e: Encrypt, _: &JobContext| {
             let (pw, enc) = e.encryption();

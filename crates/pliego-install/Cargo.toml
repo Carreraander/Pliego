@@ -1,0 +1,25 @@
+[package]
+name = "pliego-install"
+description = "Formato de paquete .paq y disposición en disco de Pliego (instalador, lanzador y actualizaciones)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+# `pack` añade tar + zstd + SHA-256 (instalador y actualizador). El lanzador lo desactiva para pesar poco.
+default = ["pack"]
+pack = ["dep:tar", "dep:zstd", "dep:sha2", "dep:serde", "dep:serde_json"]
+
+[dependencies]
+tar = { version = "0.4", optional = true }
+zstd = { version = "0.13", optional = true }
+sha2 = { version = "0.10", optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

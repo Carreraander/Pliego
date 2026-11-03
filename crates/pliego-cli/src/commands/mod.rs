@@ -28,6 +28,8 @@ pub mod ocr;
 
 // [W15 run e índice]
 pub mod index;
+pub mod measure;
+pub mod portfolio;
 pub mod run;
 
 // [W13/W17/W12 extra]

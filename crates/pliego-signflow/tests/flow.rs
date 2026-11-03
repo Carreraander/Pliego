@@ -104,3 +104,13 @@ fn rejects_bad_input() {
     let (signed, _) = sign_next(&pkg.pdf, &signer_for("Ana"), SignOptions::default()).unwrap();
     assert!(prepare(&signed, &three()).is_err());
 }
+
+#[test]
+fn rejects_crlf_mangled_pdf() {
+    let mangled: Vec<u8> = corpus()
+        .iter()
+        .flat_map(|&b| if b == b'\n' { vec![b'\r', b'\n'] } else { vec![b] })
+        .collect();
+    let err = prepare(&mangled, &three()).unwrap_err().to_string();
+    assert!(err.contains("saltos de línea"), "{err}");
+}

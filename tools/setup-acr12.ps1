@@ -17,7 +17,7 @@
 [CmdletBinding()]
 param(
     [switch]$CheckOnly,
-    [string]$DevRoot = (Join-Path $env:USERPROFILE 'dev'),
+    [string]$DevRoot = $(if (Test-Path 'D:\') { 'D:\dev' } else { Join-Path $env:USERPROFILE 'dev' }),
     [string]$Report
 )
 
@@ -80,9 +80,9 @@ Ensure-Tool 'WiX Toolset' 'candle' @('-?') 'WiXToolset.WiXToolset'
 
 # --- LLVM 19 en paralelo (para mupdf-sys) -------------------------------------------------------------
 # MuPDF (bindgen) no compila con clang 23 en MSVC (falta max_align_t). Se instala LLVM 19, como el runner
-# de GitHub, en C:\LLVM19 sin tocar el LLVM instalado ni variables globales. Los flujos activan
+# de GitHub, en D:\LLVM19 sin tocar el LLVM instalado ni variables globales. Los flujos activan
 # LIBCLANG_PATH solo en su terminal con:  . .\tools\acr12-env.ps1
-$llvm19 = 'C:\LLVM19'
+$llvm19 = 'D:\LLVM19'
 if (Test-Path "$llvm19\bin\libclang.dll") { Add-Result 'LLVM 19 (libclang)' 'ya estaba' $llvm19 }
 elseif (-not $CheckOnly) {
     Install-Winget 'LLVM.LLVM' @('--version', '19.1.7', '--location', $llvm19, '--force') | Out-Null
@@ -135,6 +135,14 @@ if (-not $dv -and -not $CheckOnly -and (Get-Command cargo -ErrorAction SilentlyC
     Add-Result 'cargo-deny' $(if ($dv) { 'instalado' } else { 'FALTA' }) $dv
 }
 else { Add-Result 'cargo-deny' $(if ($dv) { 'ya estaba' } else { 'FALTA' }) $dv }
+
+# --- Aviso de saltos de línea ---------------------------------------------------------------------------
+# Con core.autocrlf=true, los PDF de tests/corpus pueden salir con CRLF (clones anteriores a `*.pdf -text` en
+# .gitattributes) y fallar las pruebas de firma ("object ID 4 0 not found"). Repara el clon con:
+#   git rm --cached -r tests/corpus; git checkout -- tests/corpus
+if ((Get-Command git -ErrorAction SilentlyContinue) -and ((git config --get core.autocrlf) -eq 'true')) {
+    Write-Warning 'core.autocrlf=true: si fallan pruebas con PDF de tests/corpus, ejecuta en tu clon: git rm --cached -r tests/corpus; git checkout -- tests/corpus'
+}
 
 # --- Informe --------------------------------------------------------------------------------------------
 $missing = @($results | Where-Object { $_.Estado -eq 'FALTA' })

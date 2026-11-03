@@ -67,7 +67,7 @@ fn tags_headings_lists_paragraphs_and_figures() {
     std::fs::write(&input, build_untagged()).unwrap();
     assert!(check_file(&input, None).unwrap().has(IssueCode::NoStructureTree));
 
-    let out = dir.path().join("con.pdf");
+    let out = dir.path().join("etiquetado.pdf");
     let opts = AutotagOptions {
         language: Some("es-ES".into()),
         title: Some("Informe".into()),
@@ -119,7 +119,7 @@ fn alt_text_completes_the_flow() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("sin.pdf");
     std::fs::write(&input, build_untagged()).unwrap();
-    let out = dir.path().join("con.pdf");
+    let out = dir.path().join("etiquetado.pdf");
     autotag_file(&input, &out, &AutotagOptions::default(), &JobContext::silent()).unwrap();
     let r = check_file(&out, None).unwrap();
     let fig = r.issues.iter().find(|i| i.code == IssueCode::FigureWithoutAlt).unwrap();

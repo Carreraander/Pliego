@@ -17,6 +17,29 @@ pub enum AnnotCommand {
     Flatten(FlattenArgs),
     /// Resumen de comentarios (texto o JSON con `--json`).
     Summary(ListArgs),
+    /// Exporta los comentarios a XFDF.
+    Export(ExportArgs),
+    /// Importa comentarios desde XFDF (los ya existentes se omiten).
+    Import(ImportArgs),
+}
+
+#[derive(Args)]
+pub struct ExportArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    /// Archivo XFDF de salida; sin él, la salida estándar.
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub struct ImportArgs {
+    #[command(flatten)]
+    pub doc: DocArgs,
+    #[command(flatten)]
+    pub out: OutArgs,
+    /// Archivo XFDF.
+    pub xfdf: PathBuf,
 }
 
 #[derive(Args)]
@@ -90,6 +113,8 @@ pub fn run(cmd: AnnotCommand, json: bool) -> anyhow::Result<()> {
         AnnotCommand::Delete(a) => delete(a, json),
         AnnotCommand::Flatten(a) => flatten(a, json),
         AnnotCommand::Summary(a) => summary(a, json),
+        AnnotCommand::Export(a) => export(a),
+        AnnotCommand::Import(a) => import(a, json),
     }
 }
 
@@ -223,6 +248,29 @@ fn summary(a: ListArgs, json: bool) -> anyhow::Result<()> {
         println!("{}", serde_json::to_string_pretty(&s)?);
     } else {
         print!("{}", s.to_text());
+    }
+    Ok(())
+}
+
+fn export(a: ExportArgs) -> anyhow::Result<()> {
+    let mut doc = open(&a.doc)?;
+    let xml = pliego_annot::export_xfdf(&mut doc)?;
+    match a.output {
+        Some(p) => std::fs::write(&p, xml).with_context(|| format!("no se pudo escribir {}", p.display()))?,
+        None => print!("{xml}"),
+    }
+    Ok(())
+}
+
+fn import(a: ImportArgs, json: bool) -> anyhow::Result<()> {
+    let mut doc = open(&a.doc)?;
+    let xml = std::fs::read_to_string(&a.xfdf).with_context(|| format!("no se pudo leer {}", a.xfdf.display()))?;
+    let n = pliego_annot::import_xfdf(&mut doc, &xml)?;
+    let dest = save(&doc, &a.doc.input, &a.out)?;
+    if json {
+        println!("{}", serde_json::json!({ "imported": n, "output": dest }));
+    } else {
+        println!("{n} comentario(s) importado(s): {}", dest.display());
     }
     Ok(())
 }

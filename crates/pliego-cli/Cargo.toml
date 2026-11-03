@@ -32,6 +32,7 @@ mupdf.workspace = true
 pliego-print = { path = "../pliego-print" }
 pliego-assistant = { path = "../pliego-assistant" }
 pliego-convert = { path = "../pliego-convert" }
+pliego-office-export = { path = "../pliego-office-export" }
 pliego-redact = { path = "../pliego-redact" }
 pliego-a11y = { path = "../pliego-a11y" }
 pliego-pdfa = { path = "../pliego-pdfa" }

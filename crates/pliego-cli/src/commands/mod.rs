@@ -5,6 +5,7 @@ pub mod compare;
 pub mod convert;
 pub mod form;
 pub mod formdesign;
+pub mod office;
 pub mod optimize;
 pub mod pages;
 pub mod pdfa;

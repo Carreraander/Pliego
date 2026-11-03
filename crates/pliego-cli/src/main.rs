@@ -61,6 +61,9 @@ enum Command {
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
     Export(commands::convert::ExportArgs),
+    /// Exporta a Word, Excel o PowerPoint.
+    #[command(subcommand)]
+    Office(commands::office::OfficeCommand),
     /// Producción de impresión: tintas, preflight y separaciones.
     #[command(subcommand)]
     Print(commands::print::PrintCommand),
@@ -99,6 +102,7 @@ fn main() -> anyhow::Result<()> {
         Command::Formdesign(c) => commands::formdesign::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
+        Command::Office(c) => commands::office::run(c, cli.json),
         Command::Print(c) => commands::print::run(c, cli.json),
         Command::Assistant(c) => commands::assistant::run(c, cli.json),
         Command::Redact(a) => commands::redact::run(a, cli.json),

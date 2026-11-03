@@ -252,7 +252,9 @@ pub fn paths(ops: &[Op]) -> Vec<PathObject> {
                     let (x, y, w, h) = (n[0], n[1], n[2], n[3]);
                     entry.points.extend([(x, y), (x + w, y), (x + w, y + h), (x, y + h)]);
                 } else {
-                    entry.points.extend(n.chunks_exact(2).map(|c| (c[0], c[1])));
+                    entry
+                        .points
+                        .extend(n.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0], c[1])));
                 }
             }
             "W" | "W*" => {

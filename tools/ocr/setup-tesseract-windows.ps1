@@ -28,22 +28,34 @@ if (-not $vcpkgRoot) {
 if ($LASTEXITCODE -ne 0) { throw "vcpkg falló al instalar Tesseract" }
 
 $installed = Join-Path $vcpkgRoot "installed\$Triplet"
-$libDir = Join-Path $installed "lib"
-# Las bibliotecas llevan versión en el nombre (tesseract55.lib, leptonica-1.85.0.lib): se buscan.
-$tess = Get-ChildItem $libDir -Filter "tesseract*.lib" | Select-Object -First 1
-$lept = Get-ChildItem $libDir -Filter "leptonica*.lib" | Select-Object -First 1
-if (-not $tess -or -not $lept) { throw "No se encontraron las bibliotecas de Tesseract en $libDir" }
 
-# Dependencias transitivas de una instalación estática (zlib, png, jpeg, tiff, webp, ...): se enlazan todas las .lib.
-$extra = (Get-ChildItem $libDir -Filter "*.lib" | Where-Object { $_.Name -notin @($tess.Name, $lept.Name) } |
-    ForEach-Object { $_.BaseName }) -join ","
-# libcurl (dependencia de Tesseract en vcpkg) y las demás estáticas necesitan estas bibliotecas del sistema.
-$extra += ",crypt32,ws2_32,wldap32,normaliz,bcrypt,advapi32,secur32,user32,xmllite,iphlpapi,ole32,shlwapi"
+# Devuelve nombres de las bibliotecas de una carpeta: Tesseract, Leptonica y el resto (dependencias estáticas).
+# Se excluyen jpeg/turbojpeg: MuPDF trae su propio libjpeg y enlazar el de vcpkg duplicaría símbolos
+# (no usamos JPEG de Leptonica: las imágenes se pasan ya descomprimidas).
+function Get-LibSet([string]$dir) {
+    $all = Get-ChildItem $dir -Filter "*.lib"
+    $tess = $all | Where-Object { $_.Name -like "tesseract*" } | Select-Object -First 1
+    $lept = $all | Where-Object { $_.Name -like "leptonica*" } | Select-Object -First 1
+    if (-not $tess -or -not $lept) { throw "No se encontraron las bibliotecas de Tesseract en $dir" }
+    $extra = ($all | Where-Object { $_.Name -notin @($tess.Name, $lept.Name) -and $_.BaseName -notmatch "^(turbo)?jpeg" } |
+        ForEach-Object { $_.BaseName }) -join ","
+    # libcurl y las demás estáticas necesitan estas bibliotecas del sistema.
+    $extra += ",crypt32,ws2_32,wldap32,normaliz,bcrypt,advapi32,secur32,user32,xmllite,iphlpapi,ole32,shlwapi"
+    return @{ Dir = $dir; Tess = $tess.BaseName; Lept = $lept.BaseName; Extra = $extra }
+}
+# Las bibliotecas de release llevan el runtime MD y las de debug MDd; Cargo en perfil dev enlaza con MDd (igual que
+# MuPDF), así que `tesseract-sys` usa las variables *_DEBUG cuando PROFILE=debug.
+$rel = Get-LibSet (Join-Path $installed "lib")
+$dbg = Get-LibSet (Join-Path $installed "debug\lib")
 $vars = @{
-    TESSERACT_LIB_DIR    = $libDir
-    TESSERACT_LIB_NAME   = $tess.BaseName
-    LEPTONICA_LIB_NAME   = $lept.BaseName
-    TESSERACT_EXTRA_LIBS = $extra
+    TESSERACT_LIB_DIR          = $rel.Dir
+    TESSERACT_LIB_NAME         = $rel.Tess
+    LEPTONICA_LIB_NAME         = $rel.Lept
+    TESSERACT_EXTRA_LIBS       = $rel.Extra
+    TESSERACT_LIB_DIR_DEBUG    = $dbg.Dir
+    TESSERACT_LIB_NAME_DEBUG   = $dbg.Tess
+    LEPTONICA_LIB_NAME_DEBUG   = $dbg.Lept
+    TESSERACT_EXTRA_LIBS_DEBUG = $dbg.Extra
 }
 foreach ($k in $vars.Keys) {
     if ($GithubEnv) { "$k=$($vars[$k])" | Out-File -FilePath $GithubEnv -Append -Encoding utf8 }
@@ -59,4 +71,4 @@ if ($TessdataDir) {
         }
     }
 }
-Write-Host "Tesseract listo en $libDir"
+Write-Host "Tesseract listo en $installed"

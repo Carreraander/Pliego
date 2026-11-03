@@ -102,7 +102,7 @@ fn run_rejects_unknown_step_and_output_over_input() {
 fn list_steps_names_the_builtin_steps() {
     let r = pliego().args(["run", "--list-steps"]).output().unwrap();
     let s = String::from_utf8_lossy(&r.stdout);
-    for k in ["optimize", "protect.encrypt", "stamp.watermark", "pages.rotate"] {
+    for k in ["ocr", "optimize", "protect.encrypt", "stamp.watermark", "pages.rotate"] {
         assert!(s.contains(k), "{s}");
     }
 }
@@ -123,4 +123,28 @@ fn bundled_example_runs() {
         .unwrap();
     assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
     assert!(dir.path().join("o/a.pdf").exists());
+}
+
+#[test]
+fn ocr_step_validates_its_options_before_the_batch() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("a.pdf");
+    std::fs::copy(corpus("imagen_a.pdf"), &src).unwrap();
+    let action = dir.path().join("a.toml");
+    std::fs::write(&action, "[[steps]]\nkind = \"ocr\"\ndpi = \"alto\"\n").unwrap();
+    let r = pliego()
+        .arg("run")
+        .arg(&action)
+        .arg(&src)
+        .arg("-o")
+        .arg(dir.path().join("o"))
+        .output()
+        .unwrap();
+    assert!(!r.status.success());
+    let err = String::from_utf8_lossy(&r.stderr);
+    assert!(
+        err.contains("paso 1 (ocr)") && err.contains("opciones no válidas"),
+        "{err}"
+    );
+    assert!(!dir.path().join("o/a.pdf").exists());
 }

@@ -36,5 +36,5 @@ El script es idempotente (instala lo que falte con winget y cargo; `-CheckOnly` 
   Es un fallo del entorno de acr12 (la CI de Windows pasa con el clang del runner), no del código de Pliego.
   Soluciones por probar: `$env:BINDGEN_EXTRA_CLANG_ARGS="-std=c11"` con recompilación limpia de `mupdf-sys`, o instalar un LLVM más antiguo.
 - `cargo test --workspace`: pendiente hasta resolver lo anterior.
-- `CARGO_TARGET_DIR` en acr12 es `D:\dev-cache\cargo-target`, compartido por todos los flujos: las compilaciones no quedan dentro de cada carpeta.
+- `CARGO_TARGET_DIR` global en acr12 apunta a `D:\dev-cache\cargo-target`. Cada flujo usa `. .\tools\acr12-env.ps1` para tener el suyo en `D:\dev-cache\target\<clon>` y LLVM 19 en `D:\LLVM19` (C: tiene poco espacio).
 - Benchmarks por versión: pendiente.

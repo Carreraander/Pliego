@@ -1,0 +1,21 @@
+//! Diálogos nativos del sistema.
+
+use tauri_plugin_dialog::DialogExt;
+
+/// Muestra el selector de archivos PDF y devuelve las rutas elegidas (vacío si se cancela).
+/// `title` es el título de la ventana del selector (ya traducido por la interfaz).
+#[tauri::command]
+pub async fn pick_pdf_files(app: tauri::AppHandle, title: Option<String>) -> Vec<String> {
+    let mut dialog = app.dialog().file().add_filter("PDF", &["pdf"]);
+    if let Some(t) = title {
+        dialog = dialog.set_title(t);
+    }
+    // `blocking_*` es seguro aquí: los comandos `async` no se ejecutan en el hilo de la interfaz.
+    dialog
+        .blocking_pick_files()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect()
+}

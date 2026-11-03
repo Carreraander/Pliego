@@ -105,3 +105,29 @@ fn export_html_svg_and_json() {
     let v: serde_json::Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
     assert_eq!(v.as_array().unwrap().len(), 2);
 }
+
+#[test]
+fn create_from_markdown() {
+    let dir = tempfile::tempdir().unwrap();
+    let md = dir.path().join("n.md");
+    std::fs::write(&md, "# Hola\n\nTexto de prueba.\n").unwrap();
+    let pdf = dir.path().join("n.pdf");
+    let out = pliego().arg("create").arg(&md).arg("-o").arg(&pdf).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = pliego().arg("text").arg(&pdf).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).contains("Texto de prueba"));
+}
+
+#[test]
+fn create_from_office_without_backend_or_with_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let csv = dir.path().join("d.csv");
+    std::fs::write(&csv, "a,b\n1,2\n").unwrap();
+    let pdf = dir.path().join("d.pdf");
+    let out = pliego().arg("create").arg(&csv).arg("-o").arg(&pdf).output().unwrap();
+    if out.status.success() {
+        assert!(pdf.exists());
+    } else {
+        assert!(String::from_utf8_lossy(&out.stderr).contains("LibreOffice"));
+    }
+}

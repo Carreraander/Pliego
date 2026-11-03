@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::io::save;
 use crate::outline::read_outline;
-use crate::pages::extract;
+use crate::pages::{extract, extract_inner};
 use crate::pdf_err;
 
 /// Cómo dividir un documento.
@@ -150,7 +150,7 @@ fn plan(doc: &PdfDocument, n: u32, rule: &SplitRule, warnings: &mut Vec<String>)
                 let fits = |len: u32| -> Result<bool> {
                     let pages: Vec<u32> = (start..start + len).collect();
                     let mut buf = Vec::new();
-                    extract(doc, &pages)?.write_to(&mut buf).map_err(pdf_err)?;
+                    extract_inner(doc, &pages, false)?.write_to(&mut buf).map_err(pdf_err)?;
                     Ok(buf.len() as u64 <= *bytes)
                 };
                 let room = n - start;

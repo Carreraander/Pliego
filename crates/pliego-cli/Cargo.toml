@@ -16,6 +16,7 @@ pliego-engine-mupdf.workspace = true
 pliego-compare = { path = "../pliego-compare" }
 pliego-optimize = { path = "../pliego-optimize" }
 pliego-organize.workspace = true
+pliego-stamp.workspace = true
 pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }
@@ -23,6 +24,7 @@ mupdf.workspace = true
 pliego-convert = { path = "../pliego-convert" }
 pliego-document = { path = "../pliego-document" }
 pliego-edit = { path = "../pliego-edit" }
+pliego-a11y = { path = "../pliego-a11y" }
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true

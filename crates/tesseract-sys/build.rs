@@ -18,7 +18,11 @@ fn main() {
             println!("cargo:rustc-link-lib={lept}");
         }
         // Dependencias transitivas de una instalación estática (separadas por comas).
-        for extra in env::var("TESSERACT_EXTRA_LIBS").unwrap_or_default().split(',').filter(|s| !s.is_empty()) {
+        for extra in env::var("TESSERACT_EXTRA_LIBS")
+            .unwrap_or_default()
+            .split(',')
+            .filter(|s| !s.is_empty())
+        {
             println!("cargo:rustc-link-lib={extra}");
         }
         return;

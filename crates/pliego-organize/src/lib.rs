@@ -5,6 +5,7 @@
 //! las de archivo (`merge`, `split`) leen rutas y escriben a un temporal que luego se renombra,
 //! de modo que nunca se deja un archivo a medias.
 
+mod annots;
 mod io;
 mod labels;
 mod merge;

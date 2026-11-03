@@ -3,6 +3,7 @@ use mupdf::pdf::{InsertPdfOptions, InsertPosition, PageSelection, PdfDocument};
 use pliego_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::annots::{FormState, carry_annotations};
 use crate::outline::{read_outline, retarget, write_outline};
 use crate::pdf_err;
 
@@ -26,8 +27,14 @@ fn indices(pages: &[u32]) -> Vec<usize> {
 }
 
 /// Crea un documento nuevo con las páginas indicadas, en ese orden (se pueden repetir).
-/// Conserva los marcadores que apuntan a esas páginas.
+/// Conserva los marcadores que apuntan a esas páginas y sus anotaciones (enlaces, comentarios y campos de
+/// formulario). Si una página se repite, solo la primera copia lleva las anotaciones.
 pub fn extract(doc: &PdfDocument, pages: &[u32]) -> Result<PdfDocument> {
+    extract_inner(doc, pages, true)
+}
+
+/// Como [`extract`]; con `annotations = false` no copia anotaciones (más rápido, para estimar tamaños).
+pub(crate) fn extract_inner(doc: &PdfDocument, pages: &[u32], annotations: bool) -> Result<PdfDocument> {
     check(doc, pages)?;
     if pages.is_empty() {
         return Err(Error::InvalidInput("no hay páginas que extraer".into()));
@@ -44,7 +51,25 @@ pub fn extract(doc: &PdfDocument, pages: &[u32]) -> Result<PdfDocument> {
     let outline = read_outline(doc)?;
     let map = |old: u32| pages.iter().position(|&p| p == old).map(|i| i as u32);
     write_outline(&mut out, &retarget(&outline, &map))?;
+    if annotations && has_annotations(doc, pages)? {
+        // El traspaso modifica el origen (corta vínculos a páginas), así que se trabaja sobre una copia privada.
+        let mut bytes = Vec::new();
+        doc.write_to(&mut bytes).map_err(pdf_err)?;
+        let mut scratch = PdfDocument::from_bytes(&bytes).map_err(pdf_err)?;
+        let pairs: Vec<(u32, u32)> = pages.iter().enumerate().map(|(i, &p)| (p, i as u32)).collect();
+        carry_annotations(&mut out, &mut scratch, &pairs, &mut FormState::default())?;
+    }
     Ok(out)
+}
+
+fn has_annotations(doc: &PdfDocument, pages: &[u32]) -> Result<bool> {
+    for &p in pages {
+        let page = doc.find_page(p as i32).map_err(pdf_err)?;
+        if page.get_dict("Annots").map_err(pdf_err)?.is_some() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Inserta antes de la página `at` (0..=n) las páginas `src_pages` de otro documento.
@@ -198,6 +223,37 @@ pub fn replace(doc: &mut PdfDocument, start: u32, len: u32, src: &PdfDocument, s
     delete(doc, &old)
 }
 
+/// CropBox (o MediaBox) en el espacio de usuario sin girar. `PdfPage::crop_box` mezcla las dimensiones
+/// visuales con las del espacio de usuario en páginas giradas, así que se lee del diccionario de la página.
+fn user_box(page: &mupdf::pdf::PdfPage) -> Result<Rect> {
+    let obj = page.object();
+    for key in ["CropBox", "MediaBox"] {
+        let Some(arr) = obj.get_dict_inheritable(key).map_err(pdf_err)? else {
+            continue;
+        };
+        if arr.len().map_err(pdf_err)? < 4 {
+            continue;
+        }
+        let mut v = [0.0f32; 4];
+        let mut ok = true;
+        for (i, slot) in v.iter_mut().enumerate() {
+            match arr.get_array(i as i32).map_err(pdf_err)?.map(|n| n.as_float()) {
+                Some(Ok(f)) => *slot = f,
+                _ => ok = false,
+            }
+        }
+        if ok {
+            return Ok(Rect::new(
+                v[0].min(v[2]),
+                v[1].min(v[3]),
+                v[0].max(v[2]),
+                v[1].max(v[3]),
+            ));
+        }
+    }
+    Err(Error::Pdf("la página no tiene MediaBox".into()))
+}
+
 /// Recorte de página (CropBox), en puntos sobre la página sin girar.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CropSpec {
@@ -225,7 +281,7 @@ pub fn crop(doc: &mut PdfDocument, pages: &[u32], spec: CropSpec) -> Result<()> 
                 right,
                 bottom,
             } => {
-                let b = page.crop_box().map_err(pdf_err)?;
+                let b = user_box(&page)?;
                 Rect::new(b.x0 + left, b.y0 + bottom, b.x1 - right, b.y1 - top)
             }
         };

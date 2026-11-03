@@ -4,9 +4,9 @@
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<<  /Length 63 >>
+<<  /Length 93 >>
 stream
-BT /F1 18 Tf 72 760 Td (Contenido confidencial de prueba) Tj ET
+BT /F1 18 Tf 72 760 Td (Contenido confidencial de prueba) Tj ET q 1 0 0 1 72 500 cm /Fm1 Do Q
 endstream
 endobj
 3 0 obj
@@ -37,50 +37,61 @@ endobj
 << /Type /Annot /Subtype /Widget /FT /Tx /T (nombre) /V (Valor del formulario) /Rect [100 600 300 620] /DA (/Helv 12 Tf 0 g) >>
 endobj
 10 0 obj
-<< /Type /Page /Parent 11 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R /Thumb 3 0 R /Annots [5 0 R 8 0 R 9 0 R] /AA << /O 4 0 R >> >>
+<< /Type /OCG /Name (Capa oculta) >>
 endobj
 11 0 obj
-<< /Type /Pages /Kids [10 0 R] /Count 1 >>
+<< /Type /XObject /Subtype /Form /BBox [0 0 300 50] /OC 10 0 R /Resources << /Font << /F1 1 0 R >> >> /Length 49 >>
+stream
+BT /F1 12 Tf 10 20 Td (Capa oculta secreta) Tj ET
+endstream
 endobj
 12 0 obj
+<< /Type /Page /Parent 13 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R >> /XObject << /Fm1 11 0 R >> >> /Contents 2 0 R /Thumb 3 0 R /Annots [5 0 R 8 0 R 9 0 R] /AA << /O 4 0 R >> >>
+endobj
+13 0 obj
+<< /Type /Pages /Kids [12 0 R] /Count 1 >>
+endobj
+14 0 obj
 << /Type /Metadata /Subtype /XML /Length 134 >>
 stream
 <?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?><x:xmpmeta xmlns:x='adobe:ns:meta/'>Autor secreto XMP</x:xmpmeta><?xpacket end='w'?>
 endstream
 endobj
-13 0 obj
+15 0 obj
 << /Title (Titulo privado) /Author (Autora Privada) /Producer (Generador) >>
 endobj
-14 0 obj
+16 0 obj
 << /JavaScript << /Names [(init) 4 0 R] >> /EmbeddedFiles << /Names [(secreto.txt) 7 0 R] >> >>
 endobj
-15 0 obj
+17 0 obj
 << /Fields [9 0 R] /DA (/Helv 0 Tf 0 g) >>
 endobj
-16 0 obj
-<< /Type /Catalog /Pages 11 0 R /Metadata 12 0 R /Names 14 0 R /OpenAction 4 0 R /AcroForm 15 0 R >>
+18 0 obj
+<< /Type /Catalog /Pages 13 0 R /Metadata 14 0 R /Names 16 0 R /OpenAction 4 0 R /AcroForm 17 0 R /OCProperties << /OCGs [10 0 R] /D << /OFF [10 0 R] >> >> >>
 endobj
 xref
-0 17
+0 19
 0000000000 65535 f 
 0000000015 00000 n 
 0000000085 00000 n 
-0000000199 00000 n 
-0000000312 00000 n 
-0000000375 00000 n 
-0000000492 00000 n 
-0000000585 00000 n 
-0000000676 00000 n 
-0000000784 00000 n 
-0000000927 00000 n 
-0000001115 00000 n 
-0000001174 00000 n 
-0000001390 00000 n 
+0000000229 00000 n 
+0000000342 00000 n 
+0000000405 00000 n 
+0000000522 00000 n 
+0000000615 00000 n 
+0000000706 00000 n 
+0000000814 00000 n 
+0000000957 00000 n 
+0000001010 00000 n 
+0000001209 00000 n 
+0000001424 00000 n 
 0000001483 00000 n 
-0000001595 00000 n 
-0000001654 00000 n 
+0000001699 00000 n 
+0000001792 00000 n 
+0000001904 00000 n 
+0000001963 00000 n 
 trailer
-<< /Size 17 /Root 16 0 R /Info 13 0 R >>
+<< /Size 19 /Root 18 0 R /Info 15 0 R >>
 startxref
-1771
+2138
 %%EOF

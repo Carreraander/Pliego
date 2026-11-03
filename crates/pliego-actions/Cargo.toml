@@ -1,0 +1,17 @@
+[package]
+name = "pliego-actions"
+description = "Acciones en lote: secuencias de pasos guardadas que se aplican a carpetas de PDFs, con informe y reanudación"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+toml = "1"
+
+[lints]
+workspace = true

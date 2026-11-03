@@ -1,0 +1,48 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 626 >>
+stream
+BT /F1 16 Tf 50 790 Td (SOLICITUD GENERICA) Tj ET
+BT /F1 10 Tf 50 742 Td (Nombre:) Tj ET
+0.8 w 88.0 740 m 388.0 740 l S
+BT /F1 10 Tf 50 702 Td (Apellidos:) Tj ET
+0.8 w 103.0 700 m 403.0 700 l S
+BT /F1 10 Tf 50 662 Td (Domicilio:) Tj ET
+0.8 w 103.0 660 m 403.0 660 l S
+BT /F1 10 Tf 50 622 Td (Localidad:) Tj ET
+0.8 w 103.0 620 m 403.0 620 l S
+BT /F1 10 Tf 50 582 Td (Provincia:) Tj ET
+0.8 w 103.0 580 m 403.0 580 l S
+BT /F1 10 Tf 50 542 Td (Telefono:) Tj ET
+0.8 w 98.0 540 m 398.0 540 l S
+BT /F1 10 Tf 50 502 Td (Correo:) Tj ET
+0.8 w 88.0 500 m 388.0 500 l S
+BT /F1 10 Tf 50 462 Td (Fecha:) Tj ET
+0.8 w 83.0 460 m 383.0 460 l S
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1015
+%%EOF

@@ -276,3 +276,25 @@ fn save_in_place_is_atomic() {
     save(&doc, &path).unwrap();
     assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 1);
 }
+
+#[test]
+fn crop_margins_on_rotated_page_use_user_space() {
+    let (_d, mut doc) = sample(1);
+    rotate(&mut doc, &[0], 90).unwrap();
+    // Márgenes en el espacio de usuario sin girar: 595 x 842 -> 495 x 742.
+    crop(
+        &mut doc,
+        &[0],
+        CropSpec::Margins {
+            left: 50.0,
+            top: 50.0,
+            right: 50.0,
+            bottom: 50.0,
+        },
+    )
+    .unwrap();
+    let doc = reopen(&doc);
+    let b = doc.load_page(0).unwrap().bounds().unwrap();
+    // Visualmente girada: ancho y alto intercambiados.
+    assert_eq!((b.width(), b.height()), (742.0, 495.0));
+}

@@ -704,6 +704,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
+name = "pliego-annot"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
@@ -719,9 +729,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "mupdf",
+ "pliego-annot",
  "pliego-convert",
  "pliego-core",
  "pliego-engine-mupdf",
+ "pliego-protect",
+ "serde",
  "serde_json",
  "tempfile",
 ]
@@ -749,11 +763,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-document"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "tempfile",
+]
+
+[[package]]
 name = "pliego-engine-mupdf"
 version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-protect"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
  "tempfile",
 ]
 

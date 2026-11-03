@@ -246,7 +246,7 @@ pub fn images_to_pdf(
     if inputs.is_empty() {
         return Err(Error::InvalidInput("no se indicó ninguna imagen".into()));
     }
-    if !(options.dpi.is_finite() && options.dpi > 0.0) || !options.margin_pt.is_finite() || options.margin_pt < 0.0 {
+    if !options.dpi.is_finite() || options.dpi <= 0.0 || !options.margin_pt.is_finite() || options.margin_pt < 0.0 {
         return Err(Error::InvalidInput("resolución o margen no válidos".into()));
     }
     let mut pdf = PdfDocument::new();

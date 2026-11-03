@@ -109,7 +109,7 @@ por hora. Con conexión de uso medido de Windows, solo comprueba; no descarga si
 **Modos** (Ajustes > Actualizaciones):
 - *Automático* (por defecto): descarga en segundo plano y prepara la versión. Se aplica al cerrar Pliego.
 - *Solo avisar*: muestra que hay versión nueva; descarga al pulsar "Descargar".
-- *Desactivadas*.
+- *Desactivadas*: no hace ninguna petición (tampoco para avisar de obligatorias).
 Canal: Estable / Beta ("Recibe antes las novedades; puede tener fallos").
 
 **Cuando hay una versión preparada:** aparece en la barra de título una pastilla discreta "Actualización lista"
@@ -119,7 +119,7 @@ Pliego **nunca** se reinicia solo.
 
 **Obligatorias** (crítica, versión no soportada o bloqueada): barra de aviso en el documento, en tono de aviso,
 "Esta versión tiene un fallo de seguridad corregido en 0.5.1. [Reiniciar y actualizar]". Se puede cerrar la barra,
-pero vuelve en el siguiente arranque. Con modo *Solo avisar* se descarga igualmente; con *Desactivadas* solo avisa.
+pero vuelve en el siguiente arranque. Con modo *Solo avisar* se descarga igualmente; con *Desactivadas* no se comprueba nada, así que tampoco se avisa.
 
 **Ajustes > Actualizaciones** muestra: estado ("Pliego está al día · 0.4.0 · comprobado hace 2 h"; "Descargando
 0.5.0 · 34 %"; "0.5.0 lista para instalar"), botón "Buscar ahora", modo, canal, "Novedades de esta versión",

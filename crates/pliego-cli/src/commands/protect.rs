@@ -114,6 +114,7 @@ pub enum Keep {
     Comments,
     FormData,
     Thumbnails,
+    HiddenLayers,
 }
 
 #[derive(Args)]
@@ -158,6 +159,7 @@ pub fn run(cmd: ProtectCommand, json: bool) -> anyhow::Result<()> {
                     Keep::Comments => opts.comments = false,
                     Keep::FormData => opts.form_data = false,
                     Keep::Thumbnails => opts.thumbnails = false,
+                    Keep::HiddenLayers => opts.hidden_layers = false,
                 }
             }
             let rep =

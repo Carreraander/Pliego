@@ -26,7 +26,7 @@ pub(crate) fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocumen
 }
 
 /// Guarda en un temporal junto al destino y lo renombra. Nunca pisa la entrada.
-pub(crate) fn save_atomic(doc: &PdfDocument, input: &Path, output: &Path) -> Result<()> {
+pub(crate) fn save_atomic(doc: &PdfDocument, input: &Path, output: &Path, options: PdfWriteOptions) -> Result<()> {
     let same = match (std::fs::canonicalize(input), std::fs::canonicalize(output)) {
         (Ok(a), Ok(b)) => a == b,
         _ => input == output,
@@ -49,9 +49,7 @@ pub(crate) fn save_atomic(doc: &PdfDocument, input: &Path, output: &Path) -> Res
         .path()
         .to_str()
         .ok_or_else(|| Error::InvalidInput("la ruta de salida debe ser UTF-8".into()))?;
-    let mut opts = PdfWriteOptions::default();
-    opts.set_garbage_level(1);
-    doc.save_with_options(tmp_str, opts).map_err(pdf_err)?;
+    doc.save_with_options(tmp_str, options).map_err(pdf_err)?;
     tmp.persist(output).map_err(|e| Error::io_at(output, e.error))?;
     Ok(())
 }

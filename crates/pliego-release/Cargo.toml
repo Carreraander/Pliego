@@ -1,0 +1,28 @@
+[package]
+name = "pliego-release"
+description = "Publicación de versiones de Pliego: claves, manifiestos firmados y servidor de actualizaciones de pruebas"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "pliego-release"
+path = "src/main.rs"
+
+[dependencies]
+pliego-update = { path = "../pliego-update", features = ["sign"] }
+pliego-core.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+base64 = "0.22"
+sha2 = "0.10"
+time = { version = "0.3", features = ["formatting"] }
+tiny_http = "0.12"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

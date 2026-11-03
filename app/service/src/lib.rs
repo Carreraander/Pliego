@@ -1,26 +1,23 @@
 //! Servicio de documentos de la app de Pliego, independiente de Tauri.
 //!
-//! Cada documento abierto vive en un hilo propio (los objetos de MuPDF no son `Send`) y se le habla por
-//! canales. La capa Tauri (`app/src-tauri`) solo traduce comandos y el protocolo `pliego://tile/...` a
-//! llamadas de este servicio.
+//! Los PDF se abren en el proceso aislado `pliego-worker` (si MuPDF cae con un archivo dañado, la app sigue viva y
+//! el worker se relanza). La caché de teselas es la de `pliego_worker::TileCache`. La capa Tauri
+//! (`app/src-tauri`) solo traduce comandos y el protocolo `pliego://tile/...` a llamadas de este servicio.
 
-mod cache;
-mod worker;
-
+pub mod api;
 pub mod uri;
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use pliego_core::{DocInfo, EngineDocument, Error, OutlineItem, PageSize, Result, SearchHit, TileRequest};
+use pliego_core::{
+    DocInfo, EngineDocument, Error, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
+};
+use pliego_worker::{WorkerConfig, WorkerDocument, WorkerEngine};
 use serde::{Deserialize, Serialize};
 
-use cache::{TileCache, TileKey};
-use worker::DocWorker;
-
-/// Identificador de un documento abierto.
+/// Identificador de un documento abierto (el del motor, que también identifica sus teselas en caché).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DocId(pub u64);
 
@@ -33,19 +30,10 @@ pub struct DocumentChanged {
 
 type Listener = Box<dyn Fn(DocumentChanged) + Send + Sync>;
 
-const DEFAULT_CACHE_BYTES: usize = 64 * 1024 * 1024;
-
 pub struct DocumentService {
-    next_id: AtomicU64,
-    docs: Mutex<HashMap<DocId, Arc<DocWorker>>>,
-    cache: Mutex<TileCache>,
+    engine: WorkerEngine,
+    docs: Mutex<HashMap<DocId, Arc<WorkerDocument>>>,
     listener: Option<Listener>,
-}
-
-impl Default for DocumentService {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -53,17 +41,17 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl DocumentService {
-    pub fn new() -> Self {
-        Self::with_cache_bytes(DEFAULT_CACHE_BYTES)
-    }
-
-    pub fn with_cache_bytes(max_bytes: usize) -> Self {
+    pub fn new(config: WorkerConfig) -> Self {
         Self {
-            next_id: AtomicU64::new(1),
+            engine: WorkerEngine::new(config),
             docs: Mutex::new(HashMap::new()),
-            cache: Mutex::new(TileCache::new(max_bytes)),
             listener: None,
         }
+    }
+
+    /// Localiza `pliego-worker` (variable `PLIEGO_WORKER` o junto al ejecutable de la app).
+    pub fn discover() -> Result<Self> {
+        Ok(Self::new(WorkerConfig::discover()?))
     }
 
     /// Registra el receptor de `document-changed` (la capa Tauri lo reenvía como evento).
@@ -72,44 +60,44 @@ impl DocumentService {
         self
     }
 
-    fn worker(&self, doc: DocId) -> Result<Arc<DocWorker>> {
+    fn doc(&self, doc: DocId) -> Result<Arc<WorkerDocument>> {
         lock(&self.docs)
             .get(&doc)
             .cloned()
             .ok_or_else(|| Error::InvalidInput(format!("el documento {} no está abierto", doc.0)))
     }
 
-    /// Abre un documento en un hilo propio. Devuelve `Error::Password` si hace falta contraseña.
+    /// Abre un documento en el worker. Devuelve `Error::Password` si hace falta contraseña.
     pub fn open_document(&self, path: &Path, password: Option<&str>) -> Result<DocId> {
-        let worker = DocWorker::spawn(path.to_path_buf(), password.map(str::to_owned))?;
-        let id = DocId(self.next_id.fetch_add(1, Ordering::Relaxed));
-        lock(&self.docs).insert(id, Arc::new(worker));
+        let doc = self.engine.open(path, password)?;
+        let id = DocId(doc.id());
+        lock(&self.docs).insert(id, Arc::new(doc));
         Ok(id)
     }
 
     pub fn close_document(&self, doc: DocId) -> Result<()> {
+        // Al soltar el último `Arc` se cierra el worker y se limpia su caché.
         lock(&self.docs)
             .remove(&doc)
-            .ok_or_else(|| Error::InvalidInput(format!("el documento {} no está abierto", doc.0)))?;
-        lock(&self.cache).drop_doc(doc);
-        Ok(())
+            .map(drop)
+            .ok_or_else(|| Error::InvalidInput(format!("el documento {} no está abierto", doc.0)))
     }
 
     pub fn document_info(&self, doc: DocId) -> Result<DocInfo> {
-        self.worker(doc)?.call(|d| d.info())
+        self.doc(doc)?.info()
     }
 
     pub fn page_sizes(&self, doc: DocId) -> Result<Vec<PageSize>> {
-        self.worker(doc)?
-            .call(|d| (0..d.page_count()?).map(|p| d.page_size(p)).collect())
+        let d = self.doc(doc)?;
+        (0..d.page_count()?).map(|p| d.page_size(p)).collect()
     }
 
     pub fn outline(&self, doc: DocId) -> Result<Vec<OutlineItem>> {
-        self.worker(doc)?.call(|d| d.outline())
+        self.doc(doc)?.outline()
     }
 
     pub fn page_text(&self, doc: DocId, page: u32) -> Result<String> {
-        self.worker(doc)?.call(move |d| d.page_text(page))
+        self.doc(doc)?.page_text(page)
     }
 
     /// Busca `needle` en todo el documento. Devuelve solo páginas con coincidencias y se detiene en `max_total`.
@@ -117,74 +105,79 @@ impl DocumentService {
         if needle.trim().is_empty() {
             return Ok(Vec::new());
         }
-        let needle = needle.to_owned();
-        self.worker(doc)?.call(move |d| {
-            let mut out = Vec::new();
-            let mut total = 0u32;
-            for page in 0..d.page_count()? {
-                if total >= max_total {
-                    break;
-                }
-                let hit = d.search_page(page, &needle, max_total - total)?;
-                if !hit.quads.is_empty() {
-                    total += hit.quads.len() as u32;
-                    out.push(hit);
-                }
+        let d = self.doc(doc)?;
+        let mut out = Vec::new();
+        let mut total = 0u32;
+        for page in 0..d.page_count()? {
+            if total >= max_total {
+                break;
             }
-            Ok(out)
-        })
+            let hit = d.search_page(page, needle, max_total - total)?;
+            if !hit.quads.is_empty() {
+                total += hit.quads.len() as u32;
+                out.push(hit);
+            }
+        }
+        Ok(out)
     }
 
     /// Revisión actual del documento (empieza en 0).
     pub fn revision(&self, doc: DocId) -> Result<u64> {
-        Ok(self.worker(doc)?.revision())
+        Ok(self.doc(doc)?.revision())
     }
 
     /// Sube la revisión (otro módulo modificó el documento), invalida teselas y emite `document-changed`.
     pub fn bump_revision(&self, doc: DocId) -> Result<u64> {
-        let revision = self.worker(doc)?.bump_revision();
+        let d = self.doc(doc)?;
+        let revision = d.revision() + 1;
+        d.set_revision(revision);
         if let Some(f) = &self.listener {
             f(DocumentChanged { doc_id: doc, revision });
         }
         Ok(revision)
     }
 
-    /// PNG de una tesela, desde caché si es posible.
-    pub fn tile(&self, doc: DocId, req: TileRequest) -> Result<Arc<Vec<u8>>> {
-        let worker = self.worker(doc)?;
-        let revision = worker.revision();
-        let key = TileKey {
-            doc,
-            revision,
-            page: req.page,
-            zoom_bits: req.zoom.to_bits(),
-            col: req.col,
-            row: req.row,
-        };
-        if let Some(hit) = lock(&self.cache).get(&key) {
-            return Ok(hit);
+    /// Sustituye el contenido del documento por `bytes` (tras una edición) y sube la revisión.
+    pub fn reload_bytes(&self, doc: DocId, bytes: &[u8]) -> Result<u64> {
+        let d = self.doc(doc)?;
+        let revision = d.revision() + 1;
+        d.reload_bytes(bytes, revision)?;
+        if let Some(f) = &self.listener {
+            f(DocumentChanged { doc_id: doc, revision });
         }
-        let png = Arc::new(worker.call(move |d| {
-            let img = d.render_tile(req)?;
-            pliego_engine_mupdf::encode_png(&img)
-        })?);
-        // Si el documento cambió mientras se renderizaba, la tesela ya es obsoleta: no se cachea.
-        if worker.revision() == revision {
-            lock(&self.cache).insert(key, png.clone());
-        }
-        Ok(png)
+        Ok(revision)
+    }
+
+    /// PNG de una tesela; el RGBA sale de la caché compartida del motor.
+    pub fn tile(&self, doc: DocId, req: TileRequest) -> Result<Vec<u8>> {
+        let img = self.doc(doc)?.render_tile_cached(req)?;
+        encode_png(&img)
     }
 
     /// Atiende una URI `pliego://tile/<doc>/<page>/<zoom>/<col>/<row>` y devuelve el PNG.
-    pub fn tile_from_uri(&self, uri: &str) -> Result<Arc<Vec<u8>>> {
+    pub fn tile_from_uri(&self, uri: &str) -> Result<Vec<u8>> {
         let (doc, req) = uri::parse_tile_uri(uri)?;
         self.tile(doc, req)
     }
 
-    /// Número de teselas en caché (para pruebas y diagnóstico).
+    /// Teselas RGBA en la caché del motor (para pruebas y diagnóstico).
     pub fn cached_tiles(&self) -> usize {
-        lock(&self.cache).len()
+        self.engine.cache().len()
     }
+}
+
+/// Codifica RGBA a PNG con compresión rápida (las teselas se piden en cuanto se desplaza la vista).
+fn encode_png(img: &RgbaImage) -> Result<Vec<u8>> {
+    let mut out = Vec::with_capacity(img.data.len() / 4);
+    let fail = |e: png::EncodingError| Error::Other(format!("no se pudo codificar la tesela: {e}"));
+    let mut enc = png::Encoder::new(&mut out, img.width, img.height);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.set_compression(png::Compression::Fast);
+    let mut w = enc.write_header().map_err(fail)?;
+    w.write_image_data(&img.data).map_err(fail)?;
+    w.finish().map_err(fail)?;
+    Ok(out)
 }
 
 #[cfg(test)]

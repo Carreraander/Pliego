@@ -151,6 +151,8 @@ pub fn fix_file(input: &Path, output: &Path, opts: &FixOptions, password: Option
     if done.is_empty() {
         return Err(Error::InvalidInput("no se pidió ninguna corrección".into()));
     }
-    save_atomic(&doc, input, output)?;
+    let mut options = mupdf::pdf::PdfWriteOptions::default();
+    options.set_garbage_level(1);
+    save_atomic(&doc, input, output, options)?;
     Ok(Report::with_output(output, format!("Corregido: {}.", done.join(", "))))
 }

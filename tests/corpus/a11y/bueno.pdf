@@ -1,0 +1,69 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<<  /Length 232 >>
+stream
+/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 760 Td (Titulo) Tj ET EMC /H2 <</MCID 1>> BDC BT /F1 18 Tf 72 720 Td (Seccion) Tj ET EMC /Figure <</MCID 2>> BDC 100 600 50 50 re f EMC /TD <</MCID 3>> BDC BT /F1 12 Tf 72 560 Td (Celda) Tj ET EMC
+endstream
+endobj
+3 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R /StructParents 0 /Annots [12 0 R] /Tabs /S >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+5 0 obj
+<< /Type /StructElem /S /H1 /P 11 0 R /Pg 3 0 R /K 0 >>
+endobj
+6 0 obj
+<< /Type /StructElem /S /H2 /P 11 0 R /Pg 3 0 R /K 1 >>
+endobj
+7 0 obj
+<< /Type /StructElem /S /Figure /P 11 0 R /Pg 3 0 R /K 2 /Alt (Un cuadrado negro) >>
+endobj
+8 0 obj
+<< /Type /StructElem /S /TH /Pg 3 0 R /K 3 >>
+endobj
+9 0 obj
+<< /Type /StructElem /S /TR /Pg 3 0 R /K [8 0 R] >>
+endobj
+10 0 obj
+<< /Type /StructElem /S /Table /P 11 0 R /Pg 3 0 R /K [9 0 R] >>
+endobj
+11 0 obj
+<< /Type /StructTreeRoot /K [5 0 R 6 0 R 7 0 R 10 0 R] >>
+endobj
+12 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (nombre) /Rect [100 500 300 520] /DA (/Helv 12 Tf 0 g) /TU (Nombre completo) >>
+endobj
+13 0 obj
+<< /Title (Documento de prueba) >>
+endobj
+14 0 obj
+<< /Type /Catalog /Pages 4 0 R /StructTreeRoot 11 0 R /MarkInfo << /Marked true >> /Lang (es-ES) /ViewerPreferences << /DisplayDocTitle true >> >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000000369 00000 n 
+0000000538 00000 n 
+0000000595 00000 n 
+0000000666 00000 n 
+0000000737 00000 n 
+0000000837 00000 n 
+0000000898 00000 n 
+0000000965 00000 n 
+0000001046 00000 n 
+0000001120 00000 n 
+0000001260 00000 n 
+0000001311 00000 n 
+trailer
+<< /Size 15 /Root 14 0 R /Info 13 0 R >>
+startxref
+1474
+%%EOF

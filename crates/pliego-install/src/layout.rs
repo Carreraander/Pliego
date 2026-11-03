@@ -153,6 +153,15 @@ impl Layout {
         }
         let _ = fs::remove_file(self.app_dir(version).join("launch-failures"));
         self.write_atomic("current", version)?;
+        // Si se instala a mano una versión que se había descartado, deja de estar omitida.
+        let skipped = self.skipped();
+        if skipped.iter().any(|v| v == version) {
+            let rest: Vec<String> = skipped.into_iter().filter(|v| v != version).collect();
+            self.write_atomic("skipped", &rest.join("\n"))?;
+        }
+        if self.rolled_back()?.as_deref() == Some(version) {
+            self.remove_file("rolled-back")?;
+        }
         if self.pending()?.as_deref() == Some(version) {
             self.remove_file("pending")?;
         }
@@ -385,6 +394,20 @@ mod tests {
         assert_eq!(l.skipped(), vec!["0.5.0"]);
         // Y no vuelve a saltar: 0.4.0 es sana.
         assert_eq!(l.prepare_launch().unwrap().unwrap().rolled_back_from, None);
+    }
+
+    #[test]
+    fn reinstalling_a_skipped_version_clears_the_marks() {
+        let (_d, l) = setup();
+        install(&l, "0.4.0");
+        l.set_current("0.4.0").unwrap();
+        install(&l, "0.5.0");
+        l.set_pending("0.5.0").unwrap();
+        l.activate_pending().unwrap();
+        l.rollback().unwrap();
+        l.activate("0.5.0").unwrap();
+        assert!(l.skipped().is_empty());
+        assert_eq!(l.rolled_back().unwrap(), None);
     }
 
     #[test]

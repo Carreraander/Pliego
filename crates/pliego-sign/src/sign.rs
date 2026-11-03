@@ -30,6 +30,14 @@ pub enum PadesLevel {
     BLta,
 }
 
+/// Posición de una firma visible: página (desde 0) y rectángulo `[x, y, ancho, alto]` en puntos,
+/// con el origen en la esquina inferior izquierda de la página.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct VisibleSignature {
+    pub page: usize,
+    pub rect: [f32; 4],
+}
+
 /// Opciones de firma. Se pueden guardar en acciones en lote.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -40,8 +48,10 @@ pub struct SignOptions {
     pub timestamp_url: Option<String>,
     /// Listas CRL (DER) para el nivel B-LT; si no hay, se descargan de los certificados.
     pub crl_files: Vec<std::path::PathBuf>,
-    /// Página (desde 0) donde se coloca el campo de firma. Invisible en esta versión.
+    /// Página (desde 0) donde se coloca el campo de firma invisible.
     pub page: usize,
+    /// Si se indica, la firma es visible con su apariencia en esa página y rectángulo.
+    pub visible: Option<VisibleSignature>,
     pub field_name: Option<String>,
     pub reason: Option<String>,
     pub location: Option<String>,
@@ -60,6 +70,7 @@ impl Default for SignOptions {
             timestamp_url: None,
             crl_files: Vec::new(),
             page: 0,
+            visible: None,
             field_name: None,
             reason: None,
             location: None,
@@ -72,6 +83,11 @@ impl Default for SignOptions {
 
 fn pdf_err(e: lopdf::Error) -> Error {
     Error::Pdf(format!("PDF no válido para firmar: {e}"))
+}
+
+fn pdf_date_human(unix: i64) -> String {
+    let dt = chrono::DateTime::from_timestamp(unix, 0).unwrap_or_default();
+    dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
 }
 
 fn pdf_date(unix: i64) -> String {
@@ -293,10 +309,18 @@ pub fn sign_bytes_with(
         .get(b"Root")
         .and_then(Object::as_reference)
         .map_err(pdf_err)?;
+    let page_index = opts.visible.map_or(opts.page, |v| v.page);
     let page_id = *doc
         .get_pages()
-        .get(&(opts.page as u32 + 1))
-        .ok_or_else(|| Error::InvalidInput(format!("la página {} no existe", opts.page + 1)))?;
+        .get(&(page_index as u32 + 1))
+        .ok_or_else(|| Error::InvalidInput(format!("la página {} no existe", page_index + 1)))?;
+    if let Some(v) = opts.visible
+        && !(v.rect[2] >= 20.0 && v.rect[3] >= 10.0)
+    {
+        return Err(Error::InvalidInput(
+            "el recuadro de la firma es demasiado pequeño".into(),
+        ));
+    }
     let (prev, prev_is_table) = last_startxref(input)?;
     let size = doc
         .trailer
@@ -306,6 +330,12 @@ pub fn sign_bytes_with(
         .max(doc.max_id + 1);
     let sig_id = (size, 0u16);
     let field_id = (size + 1, 0u16);
+    let ap_id = (size + 2, 0u16);
+    let chain = signer.certificate_chain();
+    let leaf = chain
+        .first()
+        .ok_or_else(|| Error::InvalidInput("el firmante no tiene certificado".into()))?;
+    let when = opts.signing_time.unwrap_or_else(|| chrono::Utc::now().timestamp());
 
     let mut ch = Changes {
         doc: &doc,
@@ -319,11 +349,31 @@ pub fn sign_bytes_with(
         "Subtype" => "Widget",
         "FT" => "Sig",
         "F" => 132,
-        "Rect" => vec![0.into(), 0.into(), 0.into(), 0.into()],
+        "Rect" => match opts.visible {
+            Some(v) => vec![
+                Object::Real(v.rect[0]),
+                Object::Real(v.rect[1]),
+                Object::Real(v.rect[0] + v.rect[2]),
+                Object::Real(v.rect[1] + v.rect[3]),
+            ],
+            None => vec![0.into(), 0.into(), 0.into(), 0.into()],
+        },
         "P" => Object::Reference(page_id),
         "V" => Object::Reference(sig_id),
     };
     field.set("T", Object::string_literal(field_name.as_str()));
+    let appearance = opts.visible.map(|v| {
+        let mut lines = vec![
+            format!("Firmado digitalmente por {}", subject_name(leaf)),
+            format!("Fecha: {}", pdf_date_human(when)),
+        ];
+        lines.extend(opts.reason.iter().map(|r| format!("Motivo: {r}")));
+        lines.extend(opts.location.iter().map(|l| format!("Lugar: {l}")));
+        crate::appearance::build(v.rect[2], v.rect[3], &lines)
+    });
+    if appearance.is_some() {
+        field.set("AP", dictionary! { "N" => Object::Reference(ap_id) });
+    }
     ch.objects.insert(field_id, Object::Dictionary(field));
     ch.push_into_array(page_id, b"Annots", field_id)?;
 
@@ -375,14 +425,18 @@ pub fn sign_bytes_with(
         out.extend_from_slice(b"\nendobj\n");
     }
 
+    if let Some((dict, content)) = &appearance {
+        offsets.insert(ap_id.0, (out.len(), 0));
+        out.extend_from_slice(format!("{} 0 obj\n", ap_id.0).as_bytes());
+        write_dict(dict, &mut out);
+        out.extend_from_slice(b"\nstream\n");
+        out.extend_from_slice(content);
+        out.extend_from_slice(b"\nendstream\nendobj\n");
+    }
+
     // Diccionario de firma con marcadores de posición de ByteRange y Contents.
     let sig_start = out.len();
     offsets.insert(sig_id.0, (sig_start, 0));
-    let chain = signer.certificate_chain();
-    let leaf = chain
-        .first()
-        .ok_or_else(|| Error::InvalidInput("el firmante no tiene certificado".into()))?;
-    let when = opts.signing_time.unwrap_or_else(|| chrono::Utc::now().timestamp());
     out.extend_from_slice(format!("{} 0 obj\n", sig_id.0).as_bytes());
     out.extend_from_slice(b"<</Type/Sig/Filter/Adobe.PPKLite/SubFilter/ETSI.CAdES.detached");
     out.extend_from_slice(b"/ByteRange[0 0000000000 0000000000 0000000000]/Contents<");
@@ -406,7 +460,11 @@ pub fn sign_bytes_with(
     let contents_close = contents_open + 1 + opts.contents_size * 2 + 1;
 
     // Tabla de referencias cruzadas y cola.
-    let new_size = field_id.0.max(sig_id.0) + 1;
+    let new_size = field_id
+        .0
+        .max(sig_id.0)
+        .max(if appearance.is_some() { ap_id.0 } else { 0 })
+        + 1;
     write_xref(&mut out, &doc, prev, prev_is_table, &mut offsets, new_size);
 
     // ByteRange definitivo, resumen del documento y firma CMS.

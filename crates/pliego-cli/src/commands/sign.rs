@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, bail};
 use clap::{Args, ValueEnum};
 use pliego_core::JobContext;
-use pliego_sign::{ChainStatus, PadesLevel, Pkcs12Signer, SignOptions, ValidationOptions};
+use pliego_sign::{ChainStatus, PadesLevel, Pkcs12Signer, SignOptions, ValidationOptions, VisibleSignature};
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum Level {
@@ -40,6 +40,9 @@ pub struct SignArgs {
     /// Lista CRL (DER) para b-lt; se puede repetir. Sin ella se descargan de los certificados.
     #[arg(long = "crl")]
     pub crl: Vec<PathBuf>,
+    /// Firma visible: `pagina,x,y,ancho,alto` (página desde 1; medidas en puntos desde la esquina inferior izquierda).
+    #[arg(long, value_parser = parse_visible)]
+    pub visible: Option<VisibleSignature>,
     /// Nombre del campo de firma.
     #[arg(long)]
     pub field: Option<String>,
@@ -63,6 +66,22 @@ pub struct VerifyArgs {
     pub strict: bool,
 }
 
+fn parse_visible(s: &str) -> Result<VisibleSignature, String> {
+    let parts: Vec<&str> = s.split(',').map(str::trim).collect();
+    let [page, x, y, w, h] = parts[..] else {
+        return Err("use pagina,x,y,ancho,alto".into());
+    };
+    let page: usize = page.parse().map_err(|_| "la página debe ser un número")?;
+    if page == 0 {
+        return Err("las páginas se numeran desde 1".into());
+    }
+    let num = |v: &str| v.parse::<f32>().map_err(|_| format!("{v} no es un número"));
+    Ok(VisibleSignature {
+        page: page - 1,
+        rect: [num(x)?, num(y)?, num(w)?, num(h)?],
+    })
+}
+
 pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
     if a.page == 0 {
         bail!("las páginas se numeran desde 1");
@@ -81,6 +100,7 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         timestamp_url: a.tsa,
         crl_files: a.crl,
         page: a.page - 1,
+        visible: a.visible,
         field_name: a.field,
         reason: a.reason,
         location: a.location,

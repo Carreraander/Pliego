@@ -524,6 +524,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "jpeg-encoder"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b454d911ac55068f53495488d8ccd0646eaa540c033a28ee15b07838afafb01f"
+
+[[package]]
 name = "lazy_static"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -731,13 +737,27 @@ dependencies = [
  "clap",
  "mupdf",
  "pliego-annot",
+ "pliego-compare",
  "pliego-convert",
  "pliego-core",
  "pliego-document",
  "pliego-edit",
  "pliego-engine-mupdf",
+ "pliego-optimize",
  "pliego-organize",
  "pliego-protect",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-compare"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "mupdf",
+ "pliego-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -795,6 +815,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-optimize"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "jpeg-encoder",
+ "mupdf",
+ "pliego-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "pliego-organize"
 version = "0.1.0"
 dependencies = [
@@ -812,6 +845,17 @@ dependencies = [
  "mupdf",
  "pliego-core",
  "serde",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-worker"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "pliego-engine-mupdf",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 

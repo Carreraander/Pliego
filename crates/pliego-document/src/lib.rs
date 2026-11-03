@@ -89,6 +89,16 @@ pub struct Document {
     saved_revision: u64,
 }
 
+/// Abre un PDF por ruta. MuPDF solo acepta rutas UTF-8 en Windows, así que se exige en todas las plataformas.
+fn open_pdf(path: &Path) -> Result<PdfDocument> {
+    let s = path
+        .to_str()
+        .ok_or_else(|| Error::InvalidInput(format!("la ruta {path:?} no es UTF-8 válido")))?;
+    PdfDocument::open(s).map_err(pdf_err)
+}
+
+// TODO(W02): cada operación serializa el documento completo sin comprimir; con PDFs de 100 MB o más
+// la memoria y la latencia crecen. Pasar a instantáneas incrementales o limitar el historial por tamaño.
 fn serialize(pdf: &PdfDocument) -> Result<Vec<u8>> {
     let mut opts = PdfWriteOptions::default();
     // Sin compresión extra ni limpieza: la instantánea debe ser fiel y rápida.
@@ -122,7 +132,7 @@ impl Document {
     pub fn open(path: impl AsRef<Path>, password: Option<&str>) -> Result<Self> {
         let path = path.as_ref();
         let bytes = fs::read(path).map_err(|e| Error::io_at(path, e))?;
-        let mut pdf = PdfDocument::open(path).map_err(pdf_err)?;
+        let mut pdf = open_pdf(path)?;
         unlock(&mut pdf, password)?;
         Ok(Self::build(pdf, password, Some(path.to_path_buf()), bytes))
     }
@@ -228,7 +238,7 @@ impl Document {
     fn restore_current(&mut self) -> Result<()> {
         // En la revisión 0 se vuelve a abrir el archivo original: así sigue disponible el guardado incremental.
         let from_disk = match (&self.path, self.current.revision) {
-            (Some(p), 0) => PdfDocument::open(p.as_path())
+            (Some(p), 0) => open_pdf(p)
                 .ok()
                 .and_then(|mut d| unlock(&mut d, self.password.as_deref()).ok().map(|_| d)),
             _ => None,
@@ -298,10 +308,7 @@ impl Document {
         }
         let tmp = temp_sibling(path)?;
         let res = (|| {
-            let mut opts = Self::write_options(options, false);
-            if self.pdf.can_be_saved_incrementally() && !self.pdf_matches_original {
-                opts.set_incremental(false);
-            }
+            let opts = Self::write_options(options, false);
             let mut buf = Vec::new();
             self.pdf.write_to_with_options(&mut buf, opts).map_err(pdf_err)?;
             let mut f = fs::File::create(&tmp).map_err(|e| Error::io_at(&tmp, e))?;
@@ -377,7 +384,7 @@ impl Document {
         // El archivo guardado pasa a ser la nueva base. Se recarga para que el guardado incremental
         // posterior parta de él; si falla, simplemente deja de estar disponible.
         let Ok(bytes) = fs::read(path) else { return };
-        let Ok(mut doc) = PdfDocument::open(path) else { return };
+        let Ok(mut doc) = open_pdf(path) else { return };
         if unlock(&mut doc, self.password.as_deref()).is_err() {
             return;
         }
@@ -400,7 +407,7 @@ pub fn repair(input: impl AsRef<Path>, output: impl AsRef<Path>, password: Optio
             "el archivo reparado debe ser distinto del original".into(),
         ));
     }
-    let mut pdf = PdfDocument::open(input).map_err(pdf_err)?;
+    let mut pdf = open_pdf(input)?;
     unlock(&mut pdf, password)?;
     // Forzar la lectura del árbol de páginas detecta daños que la apertura perezosa no ve.
     let pages = pdf.page_count().map_err(pdf_err)?;

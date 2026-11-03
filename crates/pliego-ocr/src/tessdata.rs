@@ -108,8 +108,9 @@ pub fn resolve_for(langs: &str) -> pliego_core::Result<PathBuf> {
         )))
     } else {
         Err(Error::InvalidInput(format!(
-            "falta el modelo de idioma: {}. Descárgalo con `pliego ocr --download <idioma>`",
-            missing.join(", ")
+            "falta el modelo de idioma: {}. Copia su archivo .traineddata (tessdata_fast) en {}",
+            missing.join(", "),
+            user_dir().map(|p| p.display().to_string()).unwrap_or_default()
         )))
     }
 }

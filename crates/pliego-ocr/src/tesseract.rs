@@ -16,6 +16,8 @@ pub struct TesseractEngine {
     langs: String,
     data_dir: PathBuf,
     psm: i32,
+    /// Motor auxiliar con el modelo `osd`, creado la primera vez que se pide la orientación.
+    osd: Option<Box<TesseractEngine>>,
 }
 
 // SAFETY: el manejador de Tesseract pertenece en exclusiva a esta estructura y solo se usa con `&mut self`;
@@ -43,6 +45,7 @@ impl TesseractEngine {
             langs: langs.to_owned(),
             data_dir,
             psm: sys::PSM_AUTO,
+            osd: None,
         };
         engine.init(langs)?;
         Ok(engine)
@@ -177,13 +180,17 @@ impl OcrEngine for TesseractEngine {
 
     fn detect_orientation(&mut self, img: &GrayImage) -> Result<Option<(u32, f32)>> {
         // La detección necesita el modelo `osd`; se usa un manejador aparte.
-        let Some(dir) = tessdata::find_model_dir("osd") else {
-            return Ok(None);
-        };
-        let mut osd = TesseractEngine::new_raw()?;
-        osd.data_dir = dir;
-        osd.init("osd")?;
-        osd.psm = sys::PSM_OSD_ONLY;
+        if self.osd.is_none() {
+            let Some(dir) = tessdata::find_model_dir("osd") else {
+                return Ok(None);
+            };
+            let mut osd = TesseractEngine::new_raw()?;
+            osd.data_dir = dir;
+            osd.init("osd")?;
+            osd.psm = sys::PSM_OSD_ONLY;
+            self.osd = Some(Box::new(osd));
+        }
+        let osd = self.osd.as_mut().expect("motor osd creado arriba");
         osd.set_image(img, 300)?;
         let (mut deg, mut conf) = (0i32, 0f32);
         let (mut script, mut script_conf): (*const c_char, f32) = (ptr::null(), 0.0);
@@ -214,6 +221,7 @@ impl TesseractEngine {
             langs: String::new(),
             data_dir: PathBuf::new(),
             psm: sys::PSM_AUTO,
+            osd: None,
         })
     }
 }

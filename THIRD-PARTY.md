@@ -7,3 +7,16 @@ Pliego es AGPL-3.0-or-later. Estos componentes requieren mención expresa en la 
 Este software se basa en parte en el trabajo del Independent JPEG Group.
 
 Afecta a `jpeg-encoder` (codificación JPEG en `pliego-optimize`) y a la libjpeg que incluye MuPDF.
+
+## rustybuzz y ttf-parser
+
+`rustybuzz` (MIT, port a Rust de HarfBuzz) y `ttf-parser` (MIT o Apache-2.0) dan forma al texto Unicode que
+`pliego-edit` compone con fuentes no estándar. Sus dependencias (`unicode-script`, `unicode-ccc`,
+`unicode-bidi-mirroring`, `core_maths`) son MIT o Apache-2.0.
+
+## Noto Sans CJK (descarga opcional, SIL OFL-1.1)
+
+Pliego no incluye fuentes CJK en el binario. Para editar texto CJK usa primero las fuentes del sistema (Microsoft
+YaHei, Yu Gothic, Malgun Gothic, SimSun) y, si faltan, Noto Sans CJK puede descargarse aparte en
+`%LOCALAPPDATA%\Pliego\fonts`. Noto Sans CJK se distribuye bajo la SIL Open Font License 1.1; no forma parte del
+código de Pliego ni de sus dependencias de compilación, así que no se añade a `deny.toml`.

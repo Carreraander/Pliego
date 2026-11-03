@@ -8,6 +8,7 @@
 mod autotag;
 mod check;
 mod content;
+mod contrast;
 mod edit;
 mod io;
 mod report;

@@ -62,7 +62,7 @@ struct PageData {
     items: Vec<Item>,
 }
 
-fn read_contents(page: &PdfObject) -> Result<Vec<u8>> {
+pub(crate) fn read_contents(page: &PdfObject) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     let Some(c) = page.get_dict("Contents").map_err(pdf_err)? else {
         return Ok(out);

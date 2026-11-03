@@ -75,7 +75,6 @@ enum Command {
     /// PDF/A: validar (y próximamente convertir).
     #[command(subcommand)]
     Pdfa(commands::pdfa::PdfaCommand),
-
     // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
     // [W06 ocr]
 
@@ -119,7 +118,6 @@ fn main() -> anyhow::Result<()> {
         Command::Redact(a) => commands::redact::run(a, cli.json),
         Command::A11y(c) => commands::a11y::run(c, cli.json),
         Command::Pdfa(c) => commands::pdfa::run(c, cli.json),
-
         // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
         // [W06 ocr]
 

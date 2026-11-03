@@ -13,12 +13,15 @@ path = "src/main.rs"
 [dependencies]
 pliego-core.workspace = true
 pliego-engine-mupdf.workspace = true
+pliego-sign = { path = "../pliego-sign" }
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+rcgen = "0.14"
+p12-keystore = "0.4"
 
 [lints]
 workspace = true

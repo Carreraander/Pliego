@@ -27,6 +27,10 @@ enum Command {
     Text(commands::view::TextArgs),
     /// Busca texto y lista las coincidencias.
     Search(commands::view::SearchArgs),
+    /// Firma un PDF con un certificado.
+    Sign(commands::sign::SignArgs),
+    /// Comprueba las firmas de un PDF.
+    Verify(commands::sign::VerifyArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -36,5 +40,7 @@ fn main() -> anyhow::Result<()> {
         Command::Render(a) => commands::view::render(a, cli.json),
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
+        Command::Sign(a) => commands::sign::sign(a, cli.json),
+        Command::Verify(a) => commands::sign::verify(a, cli.json),
     }
 }

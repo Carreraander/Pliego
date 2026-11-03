@@ -11,6 +11,9 @@ if (import.meta.env.DEV && location.pathname === "/ui-catalog") {
 } else if (import.meta.env.DEV && location.pathname === "/ui-shell") {
   // Armazón con contenido de ejemplo (W19).
   void import("./shell/Demo").then(({ ShellDemo }) => render(() => <ShellDemo />, root));
+} else if (import.meta.env.DEV && location.pathname === "/nav-demo") {
+  // Navegación con documento falso (W20).
+  void import("./navigation/Demo").then(({ NavigationDemo }) => render(() => <NavigationDemo />, root));
 } else {
   void Promise.all([import("./App"), import("./styles/viewer.css")]).then(([{ App }]) => render(() => <App />, root));
 }

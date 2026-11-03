@@ -8,6 +8,8 @@ export default defineConfig({
   testDir: "tests/visual",
   snapshotPathTemplate: "{testDir}/__screenshots__/{projectName}/{arg}{ext}",
   fullyParallel: true,
+  // Las capturas de referencia dependen de las fuentes del sistema: en CI solo se comprueban teclado y accesibilidad.
+  ignoreSnapshots: !!process.env.CI,
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled" } },
   use: {
     locale: "es-ES",
@@ -19,5 +21,5 @@ export default defineConfig({
     { name: "oscuro", use: { colorScheme: "dark", viewport: { width: 1280, height: 900 } } },
     { name: "alto-contraste", use: { colorScheme: "light", forcedColors: "active", viewport: { width: 1280, height: 900 } } },
   ],
-  webServer: { command: "npm run dev", url: "http://127.0.0.1:1420/ui-catalog", reuseExistingServer: true, timeout: 60_000 },
+  webServer: { command: "npm run dev -- --host 127.0.0.1", url: "http://127.0.0.1:1420/ui-catalog", reuseExistingServer: true, timeout: 60_000 },
 });

@@ -30,6 +30,9 @@ enum Command {
     /// Anotaciones: listar, añadir, borrar.
     #[command(subcommand)]
     Annot(commands::annot::AnnotCommand),
+    /// Formularios: campos, rellenar, aplanar, importar/exportar, relleno masivo.
+    #[command(subcommand)]
+    Form(commands::form::FormCommand),
     /// Crea un PDF desde imágenes.
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
@@ -44,6 +47,7 @@ fn main() -> anyhow::Result<()> {
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
         Command::Annot(c) => commands::annot::run(c, cli.json),
+        Command::Form(c) => commands::form::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
     }

@@ -1,5 +1,6 @@
 pub mod a11y;
 pub mod annot;
+pub mod assistant;
 pub mod compare;
 pub mod convert;
 pub mod form;
@@ -9,5 +10,6 @@ pub mod pages;
 pub mod pdfa;
 pub mod protect;
 pub mod redact;
+pub mod sign;
 pub mod stamp;
 pub mod view;

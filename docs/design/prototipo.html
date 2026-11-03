@@ -756,7 +756,7 @@ svg.i.s { width:16px; height:16px }
 
   function overlays() {
     if (S.overlay === "palette") {
-      return `<div class="pop palette" role="dialog" aria-label="Todas las herramientas"><div class="ph">${ic("search")}<span style="color:var(--pl-text-3);flex:1">Buscar herramienta</span><span class="kbd">Ctrl</span><span class="kbd">Mayús</span><span class="kbd">T</span><button class="iconbtn" type="button" data-close="ov" aria-label="Cerrar">${ic("x", "i s")}</button></div>
+      return `<div class="pop palette" role="dialog" aria-label="Todas las herramientas"><div class="ph">${ic("search")}<span style="color:var(--pl-text-3);flex:1">Buscar herramienta</span><span class="kbd">Ctrl</span><span class="kbd">Mayús</span><span class="kbd">A</span><button class="iconbtn" type="button" data-close="ov" aria-label="Cerrar">${ic("x", "i s")}</button></div>
         <div class="grid">${PALETTE.map(([g, items]) => `<div class="grp"><h4>${g}</h4>${items.map(([i, t, d, off]) => `<button type="button" class="it${off ? " off" : ""}" ${t === "Comprimir" ? 'data-insp="compress"' : ""} title="${off ? "Este documento no tiene firmas" : t}">${ic(i)}<span>${t}<small>${d}</small></span></button>`).join("")}</div>`).join("")}</div></div>`;
     }
     if (S.overlay === "cmdk") {

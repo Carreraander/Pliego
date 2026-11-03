@@ -4,6 +4,8 @@
 
 [data-region]:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: -2px; border-radius: 0; }
 
+.pl-window--home { grid-template-rows: var(--pl-titlebar-h) minmax(0, 1fr) var(--pl-statusbar-h); }
+
 /* ── Barra de título ── */
 .pl-titlebar { display: flex; align-items: center; gap: var(--pl-space-2); padding: 0 0 0 var(--pl-space-3); background: var(--pl-chrome); min-width: 0; }
 .pl-titlebar__logo { display: inline-flex; align-items: center; gap: var(--pl-space-2); height: 32px; padding: 0 var(--pl-space-3); border: 0; border-radius: var(--pl-radius-md); background: transparent; color: var(--pl-text-2); }

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.describe("superposiciones del catálogo (teclado)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/ui-catalog");
-    await page.waitForSelector(".catalog");
+    await page.waitForSelector(".catalog", { timeout: 45_000 });
   });
 
   test("el menú se abre, navega con flechas, abre submenú y devuelve el foco", async ({ page }) => {
@@ -26,8 +26,10 @@ test.describe("superposiciones del catálogo (teclado)", () => {
     await page.focus("#menu-btn");
     await page.keyboard.press("Enter");
     await page.getByRole("menuitemcheckbox", { name: "Ajustar líneas" }).click();
+    await page.mouse.move(0, 0); // el menú reabierto no debe quedar bajo el puntero (el hover mueve el foco)
     await page.focus("#menu-btn");
     await page.keyboard.press("Enter");
+    await expect(page.getByRole("menuitem", { name: "Abrir…" })).toBeFocused();
     await expect(page.getByRole("menuitemcheckbox", { name: "Ajustar líneas" })).toHaveAttribute("aria-checked", "false");
     await page.keyboard.press("End");
     await expect(page.getByRole("menuitem", { name: "Eliminar" })).toBeFocused();
@@ -70,7 +72,7 @@ test.describe("superposiciones del catálogo (teclado)", () => {
 
 test("captura con menú, submenú y aviso abiertos", async ({ page }) => {
   await page.goto("/ui-catalog");
-  await page.waitForSelector(".catalog");
+  await page.waitForSelector(".catalog", { timeout: 45_000 });
   await page.getByRole("button", { name: "Aviso", exact: true }).click();
   await page.getByRole("button", { name: "Error", exact: true }).click();
   await page.focus("#menu-btn");

@@ -196,6 +196,89 @@ pub fn placements(ops: &[Op], is_image: impl Fn(&str) -> bool) -> Vec<Placement>
     out
 }
 
+/// Un trazado vectorial pintado (relleno o trazo), con la matriz vigente y sus puntos en espacio local.
+#[derive(Debug, Clone)]
+pub struct PathObject {
+    pub ctm: Matrix,
+    /// Desde el primer operador de construcción hasta el de pintado, ambos incluidos.
+    pub range: (usize, usize),
+    pub points: Vec<(f32, f32)>,
+}
+
+struct Building {
+    start: usize,
+    points: Vec<(f32, f32)>,
+    clip: bool,
+}
+
+fn nums(op: &Op) -> Vec<f32> {
+    op.operands
+        .iter()
+        .filter_map(|o| if let Operand::Num(v) = o { Some(*v) } else { None })
+        .collect()
+}
+
+/// Trazados pintados del flujo, en orden. Se omiten los que solo recortan (`W n`) o no pintan (`n`).
+pub fn paths(ops: &[Op]) -> Vec<PathObject> {
+    let mut stack: Vec<Matrix> = Vec::new();
+    let mut ctm = Matrix::IDENTITY;
+    let mut out = Vec::new();
+    let mut cur: Option<Building> = None;
+    for op in ops {
+        let o = op.operator.as_str();
+        match o {
+            "q" => stack.push(ctm.clone()),
+            "Q" => {
+                if let Some(m) = stack.pop() {
+                    ctm = m;
+                }
+            }
+            "cm" => {
+                let n = nums(op);
+                if n.len() == 6 {
+                    let mut m = Matrix::new(n[0], n[1], n[2], n[3], n[4], n[5]);
+                    m.concat(ctm.clone());
+                    ctm = m;
+                }
+            }
+            "m" | "l" | "c" | "v" | "y" | "re" | "h" => {
+                let entry = cur.get_or_insert_with(|| Building {
+                    start: op.start,
+                    points: Vec::new(),
+                    clip: false,
+                });
+                let n = nums(op);
+                if o == "re" && n.len() == 4 {
+                    let (x, y, w, h) = (n[0], n[1], n[2], n[3]);
+                    entry.points.extend([(x, y), (x + w, y), (x + w, y + h), (x, y + h)]);
+                } else {
+                    entry.points.extend(n.chunks_exact(2).map(|c| (c[0], c[1])));
+                }
+            }
+            "W" | "W*" => {
+                if let Some(e) = cur.as_mut() {
+                    e.clip = true;
+                }
+            }
+            "S" | "s" | "f" | "F" | "f*" | "B" | "B*" | "b" | "b*" | "n" => {
+                if let Some(Building { start, points, clip }) = cur.take()
+                    && o != "n"
+                    && !clip
+                    && !points.is_empty()
+                {
+                    out.push(PathObject {
+                        ctm: ctm.clone(),
+                        range: (start, op.end),
+                        points,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,6 +293,16 @@ mod tests {
         assert_eq!((p[0].ctm.e, p[0].ctm.f), (20.0, 30.0));
         assert_eq!(p[1].ctm, Matrix::IDENTITY);
         assert_eq!(&s[p[0].range.0..p[0].range.1], b"/Im1 Do");
+    }
+
+    #[test]
+    fn trazados_pintados_sin_recortes() {
+        let s = b"0 0 100 100 re W n 1 0 0 rg q 2 0 0 2 0 0 cm 10 10 20 20 re f Q 0 0 m 5 5 l S 1 1 m n";
+        let p = paths(&parse(s));
+        assert_eq!(p.len(), 2);
+        assert_eq!(&s[p[0].range.0..p[0].range.1], b"10 10 20 20 re f");
+        assert_eq!(p[0].points.len(), 4);
+        assert_eq!(&s[p[1].range.0..p[1].range.1], b"0 0 m 5 5 l S");
     }
 
     #[test]

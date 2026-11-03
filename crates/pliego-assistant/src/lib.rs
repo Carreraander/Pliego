@@ -20,6 +20,7 @@ mod keydata;
 mod llama;
 mod models;
 mod retrieve;
+mod session;
 mod text;
 
 pub use assistant::{Answer, Assistant, Citation, Summary};
@@ -33,3 +34,4 @@ pub use keydata::{KeyDatum, KeyKind, extract_key_data};
 pub use llama::LlamaCppBackend;
 pub use models::{ModelSpec, Requirements, catalog, default_models_dir};
 pub use retrieve::{DocIndex, Passage};
+pub use session::{DocData, Session};

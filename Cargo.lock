@@ -3778,6 +3778,7 @@ name = "pliego-app"
 version = "0.1.0"
 dependencies = [
  "pliego-app-service",
+ "pliego-assistant",
  "pliego-core",
  "serde",
  "serde_json",

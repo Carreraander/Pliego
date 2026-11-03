@@ -1,0 +1,9 @@
+# PDF del corpus externo con caída o bloqueo conocidos del motor (pendientes de endurecer en W02).
+# Un fallo que no esté aquí hace fallar `cargo test -p pliego-qa`. Al arreglar uno, quítalo de la lista.
+# pdf.js (descubiertos el 2026-11-03 con MuPDF 0.8, timeout 30 s):
+bomb_giant.pdf
+issue19517.pdf
+tiling-pattern-tiny-steps-large.pdf
+tiling-pattern-tiny-steps.pdf
+# SIGSEGV al renderizar (JPX):
+bug_jpx.pdf

@@ -11,6 +11,8 @@ pub enum Level {
     BB,
     #[value(name = "b-t")]
     BT,
+    #[value(name = "b-lt")]
+    BLt,
 }
 
 #[derive(Args)]
@@ -29,12 +31,15 @@ pub struct SignArgs {
     /// Página (desde 1) donde se coloca el campo de firma.
     #[arg(long, default_value_t = 1)]
     pub page: usize,
-    /// Nivel PAdES: b-b (básico) o b-t (con sello de tiempo, requiere --tsa).
+    /// Nivel PAdES: b-b (básico), b-t (con sello de tiempo, requiere --tsa) o b-lt (además, con certificados y CRL incrustados).
     #[arg(long, value_enum, default_value = "b-b")]
     pub level: Level,
     /// Dirección http del servidor de sellado de tiempo (RFC 3161).
     #[arg(long)]
     pub tsa: Option<String>,
+    /// Lista CRL (DER) para b-lt; se puede repetir. Sin ella se descargan de los certificados.
+    #[arg(long = "crl")]
+    pub crl: Vec<PathBuf>,
     /// Nombre del campo de firma.
     #[arg(long)]
     pub field: Option<String>,
@@ -71,8 +76,10 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         level: match a.level {
             Level::BB => PadesLevel::BB,
             Level::BT => PadesLevel::BT,
+            Level::BLt => PadesLevel::BLt,
         },
         timestamp_url: a.tsa,
+        crl_files: a.crl,
         page: a.page - 1,
         field_name: a.field,
         reason: a.reason,
@@ -88,6 +95,15 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         println!("{}: {}", report.summary, a.output.display());
     }
     Ok(())
+}
+
+fn level_text(l: PadesLevel) -> &'static str {
+    match l {
+        PadesLevel::BB => "B-B",
+        PadesLevel::BT => "B-T (con sello de tiempo)",
+        PadesLevel::BLt => "B-LT (validación a largo plazo)",
+        PadesLevel::BLta => "B-LTA",
+    }
 }
 
 fn chain_text(c: ChainStatus) -> &'static str {
@@ -128,6 +144,7 @@ pub fn verify(a: VerifyArgs, json: bool) -> anyhow::Result<()> {
                 println!("  fecha: {t}");
             }
             println!("  certificado: {}", chain_text(r.chain));
+            println!("  nivel: {}", level_text(r.level));
             if let Some(t) = &r.timestamp {
                 println!(
                     "  sello de tiempo: {} ({})",

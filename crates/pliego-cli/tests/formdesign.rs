@@ -132,8 +132,10 @@ fn calc_validate_format_recalc() {
     let p = |n: &str| dir.path().join(n).to_str().unwrap().to_string();
     let a_s = a.to_str().unwrap().to_string();
     let mut cur = a_s;
+    let mut n = 0;
     let mut step = |args: &[&str]| {
-        let next = p(&format!("s{}.pdf", std::time::Instant::now().elapsed().subsec_nanos()));
+        n += 1;
+        let next = p(&format!("s{n}.pdf"));
         let mut v: Vec<&str> = vec!["formdesign", args[0], &cur];
         v.extend(["-o", &next]);
         v.extend(&args[1..]);

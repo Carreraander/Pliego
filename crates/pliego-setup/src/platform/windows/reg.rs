@@ -145,7 +145,11 @@ impl Key {
         if kind != REG_SZ && kind != REG_EXPAND_SZ {
             return None;
         }
-        let units: Vec<u16> = buf.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        let units: Vec<u16> = buf
+            .chunks(2)
+            .filter(|c| c.len() == 2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
         Some(String::from_utf16_lossy(&units).trim_end_matches('\0').to_string())
     }
 

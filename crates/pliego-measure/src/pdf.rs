@@ -206,7 +206,11 @@ pub fn list_measurements(doc: &PdfDocument, page: Option<u32>) -> Result<Vec<Mea
                 continue;
             };
             let flat = numbers(&arr)?;
-            let pts: Vec<Pt> = flat.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+            let mut pts: Vec<Pt> = Vec::with_capacity(flat.len() / 2);
+            let mut it = flat.into_iter();
+            while let (Some(x), Some(y)) = (it.next(), it.next()) {
+                pts.push([x, y]);
+            }
             let measurement = measure(&scale, &pts, subtype == "Polygon")?;
             out.push(MeasuredAnnot {
                 page: p,

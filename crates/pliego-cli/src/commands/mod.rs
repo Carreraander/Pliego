@@ -3,6 +3,7 @@ pub mod annot;
 pub mod assistant;
 pub mod compare;
 pub mod convert;
+pub mod edit;
 pub mod form;
 pub mod formdesign;
 pub mod office;

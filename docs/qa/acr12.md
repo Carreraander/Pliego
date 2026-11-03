@@ -53,3 +53,9 @@ Entorno: `. .\tools\acr12-env.ps1` (LLVM 19 en el PATH, Tesseract 5.5/Leptonica 
   - `pliego-signflow/tests/flow.rs` (3) y `pliego-cli/tests/signflow.rs` (1): "PDF no válido para firmar: object ID 4 0 not found".
   - `pliego-convert/tests/office.rs` (1): Excel COM rechaza la ruta `\\?\C:\...` (prefijo de `canonicalize`); quitar el prefijo.
   - `pliego-cli/tests/convert.rs` (1): espera "LibreOffice" en el error, pero en acr12 se usa el backend Excel.
+
+## Espacio en disco (C: casi lleno)
+
+C: se quedó sin espacio. Reglas desde ahora: clones nuevos en `D:\dev\pliego-<flujo>` (`setup-acr12.ps1` ya usa `D:\dev` por defecto);
+`. .\tools\acr12-env.ps1` mueve a D: el `target` (por clon), `TEMP`/`TMP`, la caché de npm, los navegadores de Playwright y la caché
+binaria de vcpkg. No borrar carpetas de otros proyectos de acr12; solo `target` y `node_modules` regenerables de clones `pliego-*`.

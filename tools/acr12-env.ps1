@@ -34,4 +34,16 @@ $repo = Split-Path -Parent $PSScriptRoot
 # El disco C: tiene poco espacio: los target van a D:, uno por clon para que los flujos no se bloqueen entre sí.
 $targetRoot = if (Test-Path 'D:\') { 'D:\dev-cache\target' } else { Join-Path $repo 'target' }
 $env:CARGO_TARGET_DIR = if ($targetRoot -like 'D:*') { Join-Path $targetRoot (Split-Path -Leaf $repo) } else { $targetRoot }
+# C: tiene poco espacio: temporales y cachés de herramientas a D: (solo en esta terminal).
+if (Test-Path 'D:\') {
+    $cache = 'D:\dev-cache'
+    foreach ($d in 'tmp', 'npm', 'ms-playwright', 'vcpkg-binary') { New-Item -ItemType Directory -Force -Path (Join-Path $cache $d) | Out-Null }
+    $env:TEMP = $env:TMP = Join-Path $cache 'tmp'
+    $env:npm_config_cache = Join-Path $cache 'npm'
+    $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $cache 'ms-playwright'
+    $env:VCPKG_DEFAULT_BINARY_CACHE = Join-Path $cache 'vcpkg-binary'
+    # CARGO_HOME: se respeta el que ya haya (en acr12 ya está en D:); si no hay ninguno, uno en D:.
+    if (-not $env:CARGO_HOME) { $env:CARGO_HOME = Join-Path $cache 'cargo' }
+}
 Write-Host "LIBCLANG_PATH=$env:LIBCLANG_PATH  CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
+Write-Host "TEMP=$env:TEMP  npm=$env:npm_config_cache  CARGO_HOME=$env:CARGO_HOME"

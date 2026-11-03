@@ -31,6 +31,10 @@ enum Command {
     Compare(commands::compare::CompareArgs),
     /// Reduce el tamaño de un PDF o analiza dónde se va el espacio.
     Optimize(commands::optimize::OptimizeArgs),
+    /// Crea un PDF desde imágenes.
+    Create(commands::convert::CreateArgs),
+    /// Exporta un PDF a imágenes o texto.
+    Export(commands::convert::ExportArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -42,5 +46,7 @@ fn main() -> anyhow::Result<()> {
         Command::Search(a) => commands::view::search(a, cli.json),
         Command::Compare(a) => commands::compare::compare(a, cli.json),
         Command::Optimize(a) => commands::optimize::optimize(a, cli.json),
+        Command::Create(a) => commands::convert::create(a, cli.json),
+        Command::Export(a) => commands::convert::export(a, cli.json),
     }
 }

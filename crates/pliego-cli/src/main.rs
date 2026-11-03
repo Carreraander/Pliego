@@ -43,6 +43,9 @@ enum Command {
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
     Export(commands::convert::ExportArgs),
+    /// Edita el contenido de las páginas: texto y enlaces.
+    #[command(subcommand)]
+    Edit(commands::edit::EditCommand),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -59,5 +62,6 @@ fn main() -> anyhow::Result<()> {
         Command::Annot(c) => commands::annot::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
+        Command::Edit(c) => commands::edit::run(c, cli.json),
     }
 }

@@ -19,12 +19,17 @@ name = "pliego-app"
 path = "src/main.rs"
 test = false
 
+[features]
+# Motor llama.cpp para el asistente (compila C++ con CMake). Desactivado por defecto.
+llama = ["pliego-assistant/llama"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
 pliego-core.workspace = true
 pliego-app-service = { path = "../service" }
+pliego-assistant = { path = "../../crates/pliego-assistant", features = ["download"] }
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2", features = [] }

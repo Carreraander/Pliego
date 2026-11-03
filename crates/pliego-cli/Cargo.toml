@@ -16,6 +16,7 @@ pliego-engine-mupdf.workspace = true
 pliego-compare = { path = "../pliego-compare" }
 pliego-optimize = { path = "../pliego-optimize" }
 pliego-organize.workspace = true
+pliego-stamp.workspace = true
 pliego-protect = { path = "../pliego-protect" }
 serde.workspace = true
 pliego-annot = { path = "../pliego-annot" }

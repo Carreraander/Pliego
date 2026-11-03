@@ -198,6 +198,37 @@ pub fn replace(doc: &mut PdfDocument, start: u32, len: u32, src: &PdfDocument, s
     delete(doc, &old)
 }
 
+/// CropBox (o MediaBox) en el espacio de usuario sin girar. `PdfPage::crop_box` mezcla las dimensiones
+/// visuales con las del espacio de usuario en páginas giradas, así que se lee del diccionario de la página.
+fn user_box(page: &mupdf::pdf::PdfPage) -> Result<Rect> {
+    let obj = page.object();
+    for key in ["CropBox", "MediaBox"] {
+        let Some(arr) = obj.get_dict_inheritable(key).map_err(pdf_err)? else {
+            continue;
+        };
+        if arr.len().map_err(pdf_err)? < 4 {
+            continue;
+        }
+        let mut v = [0.0f32; 4];
+        let mut ok = true;
+        for (i, slot) in v.iter_mut().enumerate() {
+            match arr.get_array(i as i32).map_err(pdf_err)?.map(|n| n.as_float()) {
+                Some(Ok(f)) => *slot = f,
+                _ => ok = false,
+            }
+        }
+        if ok {
+            return Ok(Rect::new(
+                v[0].min(v[2]),
+                v[1].min(v[3]),
+                v[0].max(v[2]),
+                v[1].max(v[3]),
+            ));
+        }
+    }
+    Err(Error::Pdf("la página no tiene MediaBox".into()))
+}
+
 /// Recorte de página (CropBox), en puntos sobre la página sin girar.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CropSpec {
@@ -225,7 +256,7 @@ pub fn crop(doc: &mut PdfDocument, pages: &[u32], spec: CropSpec) -> Result<()> 
                 right,
                 bottom,
             } => {
-                let b = page.crop_box().map_err(pdf_err)?;
+                let b = user_box(&page)?;
                 Rect::new(b.x0 + left, b.y0 + bottom, b.x1 - right, b.y1 - top)
             }
         };

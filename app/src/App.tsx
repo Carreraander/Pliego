@@ -10,6 +10,8 @@ import { Viewer } from "./viewer/Viewer";
 import { Thumbnails } from "./panels/Thumbnails";
 import { Outline } from "./panels/Outline";
 import { SearchBox } from "./components/SearchBox";
+import { installNavigation, NavigationHost, currentScreen } from "./navigation";
+import { Dynamic } from "solid-js/web";
 import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode } from "./shell";
 import { Button, Dialog, EmptyState, Field, IconButton, TextInput, toast, ToolbarSeparator } from "./ui";
 
@@ -51,6 +53,7 @@ export function App() {
       ) }),
       registerStatusItem({ id: "viewer.page", slot: "start", hideOnHome: true, text: () => (activeDoc() ? t("status.page", { page: currentPageIndex() + 1, total: activeDoc()!.sizes.length }) : "") }),
     ];
+    offs.push(installNavigation());
     setMode("read");
     setActivePanel("viewer.thumbnails");
     const unlisten = await Promise.all([
@@ -74,10 +77,11 @@ export function App() {
       onReorderTabs={(from, to) => setDocs((all) => { const n = [...all]; n.splice(to, 0, n.splice(from, 1)[0]!); return n; })}
       appMenu={[{ id: "open", label: t("toolbar.open"), icon: "folder-open", shortcut: "Ctrl+O", disabled: true, reason: t("empty.hint") }]}
     >
+      <NavigationHost />
       <div ref={canvas} class="viewer-host">
-        <Show when={activeDoc()} keyed fallback={<EmptyState icon="file-text" title={t("empty.title")} hint={t("empty.hint")} />}>
+        <Show when={currentScreen()} keyed fallback={<Show when={activeDoc()} keyed fallback={<EmptyState icon="file-text" title={t("empty.title")} hint={t("empty.hint")} />}>
           {(d) => <Viewer doc={d} zoom={zoom()} rotation={rotation()} />}
-        </Show>
+        </Show>}>{(s) => <Dynamic component={s.component} />}</Show>
       </div>
       <Dialog
         open={passwordFor() !== null} title={t("password.title")} onClose={() => setPasswordFor(null)} onSubmit={() => passwordFor() && void open(passwordFor()!, password())}

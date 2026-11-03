@@ -75,10 +75,10 @@ fn json_and_csv_export_import() {
     v.insert("nombre".into(), FieldValue::Text("Luis, el \"grande\"".into()));
     v.insert("acepto".into(), FieldValue::Bool(true));
     fill(&mut a, &v).unwrap();
-    for fmt in [Format::Json, Format::Csv] {
+    for fmt in [Format::Json, Format::Csv, Format::Fdf, Format::Xfdf] {
         let text = export_data(&mut a, fmt).unwrap();
         let mut b = open_form();
-        import_data(&mut b, &text, fmt).unwrap();
+        import_data_bytes(&mut b, text.as_bytes(), fmt).unwrap();
         let fs = fields(&mut b).unwrap();
         assert_eq!(
             get(&fs, "nombre").value.as_deref(),

@@ -60,6 +60,31 @@ fn fields_fill_export_bulk() {
     let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
     assert_eq!(v["nombre"], "Ana");
 
+    for ext in ["xfdf", "fdf"] {
+        let data = dir.path().join(format!("d.{ext}"));
+        let r = pliego()
+            .args(["form", "export"])
+            .arg(&out)
+            .args(["-f", ext, "-o"])
+            .arg(&data)
+            .output()
+            .unwrap();
+        assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+        let back = dir.path().join(format!("back-{ext}.pdf"));
+        let r = pliego()
+            .args(["form", "import"])
+            .arg(&tpl)
+            .arg(&data)
+            .arg("-o")
+            .arg(&back)
+            .output()
+            .unwrap();
+        assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+        let r = pliego().args(["form", "export"]).arg(&back).output().unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&r.stdout).unwrap();
+        assert_eq!(v["nombre"], "Ana", "{ext}");
+    }
+
     let csv = dir.path().join("d.csv");
     std::fs::write(&csv, "nombre\nA\nB\n").unwrap();
     let od = dir.path().join("lote");

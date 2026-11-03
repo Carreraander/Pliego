@@ -15,9 +15,10 @@
   --release, etc. lleguen intactos a la orden, se invoque con `&`, con `.\` o con `powershell -File`.
 
 .NOTES
-  Usa un mutex con nombre (Global\PliegoAcr12Turno1). Si una sesión muere con el turno cogido,
+  Usa un mutex con nombre (Global\PliegoAcr12TurnoUnico). Si una sesión muere con el turno cogido,
   Windows libera el mutex (queda "abandonado") y el siguiente lo toma: no hay turnos huérfanos.
-  El estado se escribe en D:\dev-cache\turnos\turno<N>.txt (quién y desde cuándo) para poder consultarlo.
+  El estado se escribe en D:\dev-cache\turnos\turno.txt (quién, desde cuándo y PID de la pwsh que lo tiene).
+  Si se agota -EsperaMaxMinutos sale con código 75 sin ejecutar nada; si no, con el código de la orden.
 #>
 $ErrorActionPreference = 'Stop'
 $Flujo = $null
@@ -38,7 +39,8 @@ if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '4' }
 $estado = 'D:\dev-cache\turnos'
 if (Test-Path 'D:\') { New-Item -ItemType Directory -Force -Path $estado | Out-Null }
 
-$mutexes = @(1..1 | ForEach-Object { New-Object System.Threading.Mutex($false, "Global\PliegoAcr12Turno$_") })
+# Nombre nuevo a propósito: Global\PliegoAcr12Turno1 quedó retenido por un proceso vivo sin fichero de estado.
+$mutexes = @(New-Object System.Threading.Mutex($false, 'Global\PliegoAcr12TurnoUnico'))
 $mio = $null
 $limite = (Get-Date).AddMinutes($EsperaMaxMinutos)
 while ($null -eq $mio) {
@@ -50,16 +52,20 @@ while ($null -eq $mio) {
         }
     }
     if ($null -eq $mio) {
-        if ((Get-Date) -gt $limite) { throw "Sin turno en acr12 tras $EsperaMaxMinutos min" }
-        $ocupado = Get-ChildItem $estado -Filter 'turno*.txt' -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Raw }
+        if ((Get-Date) -gt $limite) {
+            Write-Host "[turno] Sin turno en acr12 tras $EsperaMaxMinutos min; no se ha ejecutado nada."
+            $mutexes | ForEach-Object { $_.Dispose() }
+            exit 75
+        }
+        $ocupado = Get-ChildItem $estado -Filter 'turno.txt' -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Raw }
         Write-Host "[turno] acr12 ocupado ($($ocupado -join ' | ')). Reintento en 30 s..."
         Start-Sleep -Seconds 30
     }
 }
 $codigo = 1
-$fichero = Join-Path $estado ("turno{0}.txt" -f ($mio + 1))
+$fichero = Join-Path $estado 'turno.txt'
 try {
-    Set-Content -Path $fichero -Value ("{0} desde {1:HH:mm} ({2})" -f $Flujo, (Get-Date), ($Orden -join ' '))
+    Set-Content -Path $fichero -Value ("{0} desde {1:HH:mm}, PID {3} ({2})" -f $Flujo, (Get-Date), ($Orden -join ' '), $PID)
     Write-Host "[turno] $Flujo tiene el turno $($mio + 1). Ejecutando: $($Orden -join ' ')"
     & $Orden[0] @($Orden | Select-Object -Skip 1)
     $codigo = $LASTEXITCODE

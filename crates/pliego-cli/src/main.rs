@@ -27,6 +27,9 @@ enum Command {
     Text(commands::view::TextArgs),
     /// Busca texto y lista las coincidencias.
     Search(commands::view::SearchArgs),
+    /// Anotaciones: listar, añadir, borrar.
+    #[command(subcommand)]
+    Annot(commands::annot::AnnotCommand),
     /// Crea un PDF desde imágenes.
     Create(commands::convert::CreateArgs),
     /// Exporta un PDF a imágenes o texto.
@@ -40,6 +43,7 @@ fn main() -> anyhow::Result<()> {
         Command::Render(a) => commands::view::render(a, cli.json),
         Command::Text(a) => commands::view::text(a, cli.json),
         Command::Search(a) => commands::view::search(a, cli.json),
+        Command::Annot(c) => commands::annot::run(c, cli.json),
         Command::Create(a) => commands::convert::create(a, cli.json),
         Command::Export(a) => commands::convert::export(a, cli.json),
     }

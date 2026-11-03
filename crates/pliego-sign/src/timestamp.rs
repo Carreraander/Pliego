@@ -225,3 +225,18 @@ impl<S: Signer> TimestampAuthority for LocalTsa<S> {
         .map_err(der_err)
     }
 }
+
+/// Certificados incluidos en un token de sello de tiempo (para el DSS).
+pub fn token_certificates(token: &[u8]) -> Result<Vec<Certificate>> {
+    let info = ContentInfo::from_der(token).map_err(der_err)?;
+    let sd: SignedData = info.content.decode_as().map_err(der_err)?;
+    Ok(sd
+        .certificates
+        .iter()
+        .flat_map(|s| s.0.iter())
+        .filter_map(|c| match c {
+            cms::cert::CertificateChoices::Certificate(c) => Some(c.clone()),
+            _ => None,
+        })
+        .collect())
+}

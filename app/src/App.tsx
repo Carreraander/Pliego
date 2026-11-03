@@ -8,9 +8,13 @@ import {
 } from "./state/documents";
 import { fitPageZoom, fitWidthZoom, rotate, stepZoom } from "./viewer/layout";
 import { Viewer } from "./viewer/Viewer";
+import { Thumbnails } from "./panels/Thumbnails";
+import { Outline } from "./panels/Outline";
+import { SearchBox } from "./components/SearchBox";
 
 export function App() {
   let main!: HTMLElement;
+  const [panel, setPanel] = createSignal<"thumbs" | "outline" | null>("thumbs");
   const [error, setError] = createSignal<string | null>(null);
   const [passwordFor, setPasswordFor] = createSignal<string | null>(null);
   const [wrongPassword, setWrongPassword] = createSignal(false);
@@ -57,11 +61,20 @@ export function App() {
           <button title={t("toolbar.fitWidth")} onClick={() => first() && setZoom(fitWidthZoom(first()!, rotation(), main.clientWidth))}>↔</button>
           <button title={t("toolbar.fitPage")} onClick={() => first() && setZoom(fitPageZoom(first()!, rotation(), { width: main.clientWidth, height: main.clientHeight }))}>▢</button>
           <button title={t("toolbar.rotate")} onClick={() => setRotation(rotate(rotation()))}>⟳</button>
+          <span class="toolbar-sep" />
+          <button classList={{ on: panel() === "thumbs" }} onClick={() => setPanel(panel() === "thumbs" ? null : "thumbs")}>{t("panel.thumbnails")}</button>
+          <button classList={{ on: panel() === "outline" }} onClick={() => setPanel(panel() === "outline" ? null : "outline")}>{t("panel.outline")}</button>
+          <SearchBox />
         </div>
       </Show>
-      <main ref={main}>
+      <main ref={main} classList={{ "with-panel": !!doc() && panel() !== null }}>
+        <Show when={doc() && panel()}>
+          <aside class="sidebar">
+            <Show when={doc()} keyed>{(d) => panel() === "thumbs" ? <Thumbnails doc={d} /> : <Outline doc={d} />}</Show>
+          </aside>
+        </Show>
         <Show when={doc()} keyed fallback={<div class="empty"><h1>{t("empty.title")}</h1><p>{t("empty.hint")}</p></div>}>
-          {(d) => <Viewer doc={d} zoom={zoom()} rotation={rotation()} />}
+          {(d) => <div class="viewer-host"><Viewer doc={d} zoom={zoom()} rotation={rotation()} /></div>}
         </Show>
         <Show when={error()}><div class="toast" role="alert">{error()}</div></Show>
         <Show when={passwordFor()}>

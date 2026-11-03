@@ -99,3 +99,23 @@ fn missing_file_is_io_error() {
         Err(Error::Io { .. })
     ));
 }
+
+#[test]
+fn hostile_outline_does_not_crash() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/outline/hostil.pdf");
+    let d = MupdfEngine.open(&path, None).expect("abre hostil.pdf");
+    let o = d.outline().unwrap();
+    // Se corta en cuanto un nodo ya visitado reaparece (ciclos por /Next y por /First).
+    assert_eq!(o.len(), 3, "{o:#?}");
+    assert_eq!((o[0].title.as_str(), o[0].page), ("Inicio", Some(0)));
+    assert_eq!(
+        (o[1].title.as_str(), o[1].page),
+        ("", Some(1)),
+        "sin /Title y con destino con nombre"
+    );
+    assert_eq!(o[2].title, "Ciclo");
+    assert_eq!(o[2].children.len(), 1);
+    assert_eq!(o[2].children[0].title, "Hijo");
+    assert_eq!(o[2].children[0].page, Some(1));
+    assert!(o[2].children[0].children.is_empty());
+}

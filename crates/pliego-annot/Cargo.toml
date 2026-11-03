@@ -10,8 +10,6 @@ repository.workspace = true
 pliego-core.workspace = true
 mupdf.workspace = true
 serde.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
 
 [lints]

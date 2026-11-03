@@ -31,6 +31,10 @@ enum Command {
     Sign(commands::sign::SignArgs),
     /// Comprueba las firmas de un PDF.
     Verify(commands::sign::VerifyArgs),
+    /// Crea un PDF desde imágenes.
+    Create(commands::convert::CreateArgs),
+    /// Exporta un PDF a imágenes o texto.
+    Export(commands::convert::ExportArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -42,5 +46,7 @@ fn main() -> anyhow::Result<()> {
         Command::Search(a) => commands::view::search(a, cli.json),
         Command::Sign(a) => commands::sign::sign(a, cli.json),
         Command::Verify(a) => commands::sign::verify(a, cli.json),
+        Command::Create(a) => commands::convert::create(a, cli.json),
+        Command::Export(a) => commands::convert::export(a, cli.json),
     }
 }

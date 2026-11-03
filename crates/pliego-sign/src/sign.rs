@@ -50,6 +50,9 @@ pub struct SignOptions {
     pub crl_files: Vec<std::path::PathBuf>,
     /// Página (desde 0) donde se coloca el campo de firma invisible.
     pub page: usize,
+    /// Firma de certificación (DocMDP): 1 = ningún cambio, 2 = rellenar formularios y firmar,
+    /// 3 = además anotar. Solo puede ser la primera firma del documento.
+    pub certify: Option<u8>,
     /// Si se indica, la firma es visible con su apariencia en esa página y rectángulo.
     pub visible: Option<VisibleSignature>,
     pub field_name: Option<String>,
@@ -71,6 +74,7 @@ impl Default for SignOptions {
             crl_files: Vec::new(),
             page: 0,
             visible: None,
+            certify: None,
             field_name: None,
             reason: None,
             location: None,
@@ -232,6 +236,72 @@ pub(crate) fn write_xref(
     }
 }
 
+/// Busca un campo de firma vacío por nombre. Devuelve su id y su rectángulo, o `None` si no existe.
+fn find_signature_field(doc: &lopdf::Document, name: &str) -> Result<Option<(ObjectId, [f32; 4])>> {
+    let catalog = doc.catalog().map_err(pdf_err)?;
+    let acro = match catalog.get(b"AcroForm") {
+        Ok(Object::Reference(r)) => doc.get_dictionary(*r).ok(),
+        Ok(Object::Dictionary(d)) => Some(d),
+        _ => None,
+    };
+    let Some(acro) = acro else { return Ok(None) };
+    let fields = match acro.get(b"Fields") {
+        Ok(Object::Reference(r)) => doc.get_object(*r).ok().and_then(|o| o.as_array().ok()),
+        Ok(Object::Array(a)) => Some(a),
+        _ => None,
+    };
+    let mut stack: Vec<ObjectId> = fields
+        .map(|a| a.iter().filter_map(|o| o.as_reference().ok()).collect())
+        .unwrap_or_default();
+    while let Some(id) = stack.pop() {
+        let Ok(d) = doc.get_dictionary(id) else { continue };
+        if let Ok(Object::Array(kids)) = d.get(b"Kids") {
+            stack.extend(kids.iter().filter_map(|o| o.as_reference().ok()));
+        }
+        let title = match d.get(b"T") {
+            Ok(Object::String(t, _)) => String::from_utf8_lossy(t).into_owned(),
+            _ => continue,
+        };
+        if title != name {
+            continue;
+        }
+        if d.get(b"FT").ok() != Some(&Object::Name(b"Sig".to_vec())) {
+            return Err(Error::InvalidInput(format!(
+                "el campo «{name}» no es un campo de firma"
+            )));
+        }
+        if d.get(b"V").is_ok_and(|v| !matches!(v, Object::Null)) {
+            return Err(Error::InvalidInput(format!("el campo «{name}» ya está firmado")));
+        }
+        let rect: Vec<f32> = d
+            .get(b"Rect")
+            .ok()
+            .and_then(|o| o.as_array().ok())
+            .map(|a| a.iter().filter_map(|n| n.as_float().ok()).collect())
+            .unwrap_or_default();
+        let rect = match rect[..] {
+            [a, b, c, d] => [a.min(c), b.min(d), a.max(c), b.max(d)],
+            _ => [0.0; 4],
+        };
+        return Ok(Some((id, rect)));
+    }
+    Ok(None)
+}
+
+/// Marca `SigFlags = 3` en el AcroForm existente.
+fn set_sig_flags(ch: &mut Changes, root_id: ObjectId) -> Result<()> {
+    let acro = ch.dict(root_id)?.get(b"AcroForm").ok().cloned();
+    match acro {
+        Some(Object::Reference(r)) => ch.dict(r)?.set("SigFlags", 3),
+        Some(Object::Dictionary(mut a)) => {
+            a.set("SigFlags", 3);
+            ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 /// Firma `input` (bytes de un PDF) y devuelve el PDF firmado.
 pub fn sign_bytes(input: &[u8], signer: &dyn Signer, opts: &SignOptions) -> Result<Vec<u8>> {
     let http;
@@ -321,6 +391,22 @@ pub fn sign_bytes_with(
             "el recuadro de la firma es demasiado pequeño".into(),
         ));
     }
+    if let Some(p) = opts.certify {
+        if !(1..=3).contains(&p) {
+            return Err(Error::InvalidInput(
+                "el nivel de certificación debe ser 1, 2 o 3".into(),
+            ));
+        }
+        let already_signed = doc
+            .objects
+            .values()
+            .any(|o| o.as_dict().is_ok_and(|d| d.has(b"ByteRange")));
+        if already_signed {
+            return Err(Error::InvalidInput(
+                "solo la primera firma de un documento puede certificarlo".into(),
+            ));
+        }
+    }
     let (prev, prev_is_table) = last_startxref(input)?;
     let size = doc
         .trailer
@@ -342,74 +428,100 @@ pub fn sign_bytes_with(
         objects: BTreeMap::new(),
     };
 
-    // Campo de firma invisible (widget) en la página.
-    let field_name = opts.field_name.clone().unwrap_or_else(|| format!("Firma{}", size));
-    let mut field = dictionary! {
-        "Type" => "Annot",
-        "Subtype" => "Widget",
-        "FT" => "Sig",
-        "F" => 132,
-        "Rect" => match opts.visible {
-            Some(v) => vec![
-                Object::Real(v.rect[0]),
-                Object::Real(v.rect[1]),
-                Object::Real(v.rect[0] + v.rect[2]),
-                Object::Real(v.rect[1] + v.rect[3]),
-            ],
-            None => vec![0.into(), 0.into(), 0.into(), 0.into()],
-        },
-        "P" => Object::Reference(page_id),
-        "V" => Object::Reference(sig_id),
-    };
-    field.set("T", Object::string_literal(field_name.as_str()));
-    let appearance = opts.visible.map(|v| {
+    let sig_lines = |w: f32, h: f32| {
         let mut lines = vec![
             format!("Firmado digitalmente por {}", subject_name(leaf)),
             format!("Fecha: {}", pdf_date_human(when)),
         ];
         lines.extend(opts.reason.iter().map(|r| format!("Motivo: {r}")));
         lines.extend(opts.location.iter().map(|l| format!("Lugar: {l}")));
-        crate::appearance::build(v.rect[2], v.rect[3], &lines)
-    });
-    if appearance.is_some() {
-        field.set("AP", dictionary! { "N" => Object::Reference(ap_id) });
-    }
-    ch.objects.insert(field_id, Object::Dictionary(field));
-    ch.push_into_array(page_id, b"Annots", field_id)?;
+        crate::appearance::build(w, h, &lines)
+    };
+    let existing = match opts.field_name.as_deref() {
+        Some(name) => find_signature_field(&doc, name)?,
+        None => None,
+    };
+    let appearance;
+    if let Some((fid, rect)) = existing {
+        // Firma de un campo vacío que ya existe: se rellena su /V y, si tiene tamaño, su apariencia.
+        let (w, h) = (rect[2] - rect[0], rect[3] - rect[1]);
+        appearance = (w >= 20.0 && h >= 10.0).then(|| sig_lines(w, h));
+        let d = ch.dict(fid)?;
+        d.set("V", Object::Reference(sig_id));
+        if appearance.is_some() {
+            d.set("AP", dictionary! { "N" => Object::Reference(ap_id) });
+        }
+        set_sig_flags(&mut ch, root_id)?;
+    } else {
+        let field_name = opts.field_name.clone().unwrap_or_else(|| format!("Firma{}", size));
+        let mut field = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Sig",
+            "F" => 132,
+            "Rect" => match opts.visible {
+                Some(v) => vec![
+                    Object::Real(v.rect[0]),
+                    Object::Real(v.rect[1]),
+                    Object::Real(v.rect[0] + v.rect[2]),
+                    Object::Real(v.rect[1] + v.rect[3]),
+                ],
+                None => vec![0.into(), 0.into(), 0.into(), 0.into()],
+            },
+            "P" => Object::Reference(page_id),
+            "V" => Object::Reference(sig_id),
+        };
+        field.set("T", Object::string_literal(field_name.as_str()));
+        appearance = opts.visible.map(|v| sig_lines(v.rect[2], v.rect[3]));
+        if appearance.is_some() {
+            field.set("AP", dictionary! { "N" => Object::Reference(ap_id) });
+        }
+        ch.objects.insert(field_id, Object::Dictionary(field));
+        ch.push_into_array(page_id, b"Annots", field_id)?;
 
-    // AcroForm con el campo y SigFlags = 3 (firmas existentes + añadir a un documento firmado).
-    let acro = ch.get(root_id).and_then(|o| match o {
-        Object::Dictionary(d) => Ok(d.get(b"AcroForm").ok().cloned()),
-        _ => Err(Error::Pdf("catálogo no válido".into())),
-    })?;
-    match acro {
-        Some(Object::Reference(acro_id)) => {
-            ch.push_into_array(acro_id, b"Fields", field_id)?;
-            ch.dict(acro_id)?.set("SigFlags", 3);
-        }
-        Some(Object::Dictionary(_)) => {
-            // AcroForm directo dentro del catálogo: se reescribe el catálogo con el campo añadido.
-            let Some(Object::Dictionary(mut a)) = ch.dict(root_id)?.get(b"AcroForm").ok().cloned() else {
-                unreachable!("comprobado arriba");
-            };
-            match a.get(b"Fields").ok().cloned() {
-                Some(Object::Array(mut f)) => {
-                    f.push(Object::Reference(field_id));
-                    a.set("Fields", Object::Array(f));
-                }
-                Some(Object::Reference(fid)) => match ch.get(fid)? {
-                    Object::Array(f) => f.push(Object::Reference(field_id)),
-                    _ => return Err(Error::Pdf("Fields no es un array".into())),
-                },
-                _ => a.set("Fields", vec![Object::Reference(field_id)]),
+        // AcroForm con el campo y SigFlags = 3 (firmas existentes + añadir a un documento firmado).
+        let acro = ch.get(root_id).and_then(|o| match o {
+            Object::Dictionary(d) => Ok(d.get(b"AcroForm").ok().cloned()),
+            _ => Err(Error::Pdf("catálogo no válido".into())),
+        })?;
+        match acro {
+            Some(Object::Reference(acro_id)) => {
+                ch.push_into_array(acro_id, b"Fields", field_id)?;
+                ch.dict(acro_id)?.set("SigFlags", 3);
             }
-            a.set("SigFlags", 3);
-            ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
+            Some(Object::Dictionary(_)) => {
+                // AcroForm directo dentro del catálogo: se reescribe el catálogo con el campo añadido.
+                let Some(Object::Dictionary(mut a)) = ch.dict(root_id)?.get(b"AcroForm").ok().cloned() else {
+                    unreachable!("comprobado arriba");
+                };
+                match a.get(b"Fields").ok().cloned() {
+                    Some(Object::Array(mut f)) => {
+                        f.push(Object::Reference(field_id));
+                        a.set("Fields", Object::Array(f));
+                    }
+                    Some(Object::Reference(fid)) => match ch.get(fid)? {
+                        Object::Array(f) => f.push(Object::Reference(field_id)),
+                        _ => return Err(Error::Pdf("Fields no es un array".into())),
+                    },
+                    _ => a.set("Fields", vec![Object::Reference(field_id)]),
+                }
+                a.set("SigFlags", 3);
+                ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
+            }
+            _ => {
+                let a = dictionary! { "Fields" => vec![Object::Reference(field_id)], "SigFlags" => 3 };
+                ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
+            }
         }
-        _ => {
-            let a = dictionary! { "Fields" => vec![Object::Reference(field_id)], "SigFlags" => 3 };
-            ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
-        }
+    }
+
+    if opts.certify.is_some() {
+        let mut perms = match ch.dict(root_id)?.get(b"Perms").ok() {
+            Some(Object::Dictionary(d)) => d.clone(),
+            _ => Dictionary::new(),
+        };
+        perms.set("DocMDP", Object::Reference(sig_id));
+        ch.dict(root_id)?.set("Perms", Object::Dictionary(perms));
     }
 
     // Serialización de la actualización.
@@ -439,6 +551,14 @@ pub fn sign_bytes_with(
     offsets.insert(sig_id.0, (sig_start, 0));
     out.extend_from_slice(format!("{} 0 obj\n", sig_id.0).as_bytes());
     out.extend_from_slice(b"<</Type/Sig/Filter/Adobe.PPKLite/SubFilter/ETSI.CAdES.detached");
+    if let Some(p) = opts.certify {
+        out.extend_from_slice(
+            format!(
+                "/Reference[<</Type/SigRef/TransformMethod/DocMDP/DigestMethod/SHA256/TransformParams<</Type/TransformParams/P {p}/V/1.2>>>>]"
+            )
+            .as_bytes(),
+        );
+    }
     out.extend_from_slice(b"/ByteRange[0 0000000000 0000000000 0000000000]/Contents<");
     let contents_open = out.len() - 1;
     out.extend(std::iter::repeat_n(b'0', opts.contents_size * 2));

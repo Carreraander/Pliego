@@ -43,7 +43,10 @@ pub struct SignArgs {
     /// Firma visible: `pagina,x,y,ancho,alto` (página desde 1; medidas en puntos desde la esquina inferior izquierda).
     #[arg(long, value_parser = parse_visible)]
     pub visible: Option<VisibleSignature>,
-    /// Nombre del campo de firma.
+    /// Firma de certificación (DocMDP): 1 = sin cambios, 2 = rellenar formularios y firmar, 3 = además anotar.
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=3))]
+    pub certify: Option<u8>,
+    /// Nombre del campo de firma: si ya existe un campo de firma vacío con ese nombre, se firma ese.
     #[arg(long)]
     pub field: Option<String>,
     #[arg(long)]
@@ -101,6 +104,7 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         crl_files: a.crl,
         page: a.page - 1,
         visible: a.visible,
+        certify: a.certify,
         field_name: a.field,
         reason: a.reason,
         location: a.location,
@@ -165,6 +169,9 @@ pub fn verify(a: VerifyArgs, json: bool) -> anyhow::Result<()> {
             }
             println!("  certificado: {}", chain_text(r.chain));
             println!("  nivel: {}", level_text(r.level));
+            if let Some(p) = r.certification {
+                println!("  certificación DocMDP: nivel {p}");
+            }
             if let Some(t) = &r.timestamp {
                 println!(
                     "  sello de tiempo: {} ({})",

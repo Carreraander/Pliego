@@ -33,6 +33,7 @@ fn tile_response(service: &DocumentService, path: &str) -> Response<Vec<u8>> {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // Segunda instancia: pasa sus archivos a la primera y la trae al frente.
             let files = commands::startup::pdf_args(args);

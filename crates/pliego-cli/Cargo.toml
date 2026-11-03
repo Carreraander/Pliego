@@ -10,6 +10,10 @@ repository.workspace = true
 name = "pliego"
 path = "src/main.rs"
 
+[features]
+# Motor llama.cpp para `pliego assistant ask|summarize` (compila C++ con CMake).
+llama = ["pliego-assistant/llama"]
+
 [dependencies]
 pliego-core.workspace = true
 pliego-engine-mupdf.workspace = true
@@ -28,6 +32,7 @@ mupdf.workspace = true
 pliego-print = { path = "../pliego-print" }
 pliego-assistant = { path = "../pliego-assistant" }
 pliego-convert = { path = "../pliego-convert" }
+pliego-office-export = { path = "../pliego-office-export" }
 pliego-redact = { path = "../pliego-redact" }
 pliego-a11y = { path = "../pliego-a11y" }
 pliego-pdfa = { path = "../pliego-pdfa" }

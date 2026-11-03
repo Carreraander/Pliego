@@ -13,5 +13,5 @@ mod runner;
 
 pub use action::{Action, ErrorPolicy, Step};
 pub use inputs::{Input, collect_inputs};
-pub use registry::{Registry, StepRunner};
+pub use registry::{Batch, Registry, StepRunner};
 pub use runner::{FileFailure, RunOptions, RunReport, run};

@@ -1,0 +1,15 @@
+[package]
+name = "tesseract-sys"
+description = "Enlace FFI mínimo con la API C de Tesseract 5 (solo lo que usa Pliego)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+build = "build.rs"
+links = "tesseract"
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[lints]
+workspace = true

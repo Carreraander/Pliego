@@ -11,6 +11,7 @@ pub mod convert;
 pub mod dialog;
 pub mod document;
 pub mod formdesign;
+pub mod formdetect;
 pub mod index;
 pub mod jobs;
 pub mod optimize;
@@ -68,6 +69,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::pick_xfdf_file,
         actions::actions_load,
         actions::actions_run,
+        formdetect::form_detect,
         formdesign::form_fields,
         formdesign::form_add_field,
         formdesign::form_update_field,

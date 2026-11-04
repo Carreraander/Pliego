@@ -18,7 +18,13 @@ export const actions: ToolManifest = {
   icon: "list-checks", keywords: ["lote", "batch", "automatizar", "acción"], pinnable: true, load: () => import("./ActionsPanel"),
 };
 
+export const detectFields: ToolManifest = {
+  id: "forms.detect", group: "forms", kind: "task", title: "tools.forms.detect.title", description: "tools.forms.detect.description",
+  icon: "scan-search", keywords: ["detectar", "campos", "formulario"], when: { document: true }, pinnable: true, load: () => import("./DetectPanel"),
+};
+
 export function registerBatchTools(): void {
+  registerTool(detectFields);
   registerTool(actions);
   registerTool(indexFolder);
   registerTool(portfolio);

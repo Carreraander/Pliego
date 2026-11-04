@@ -28,7 +28,11 @@ carga los estilos.
 1. DNS: `A`/`AAAA` de `pdfpliego.com` y `www.pdfpliego.com` al VPS.
 2. Copiar `web/` (sin `README.md` ni `Caddyfile.propuesta`) a `/srv/pdfpliego.com` en el VPS:
    `rsync -a --delete --exclude README.md --exclude Caddyfile.propuesta web/ vps:/srv/pdfpliego.com/`
-3. Añadir el bloque de `Caddyfile.propuesta` al Caddyfile del VPS y `systemctl reload caddy`.
+3. El VPS es compartido: **no** tocar el Caddyfile global. Copiar `Caddyfile.propuesta` a
+   `/etc/caddy/sites.d/pdfpliego.caddy` (el global importa `sites.d/*.caddy`, como deja
+   `deploy/updates/setup-vps.sh`), `caddy validate --config /etc/caddy/Caddyfile` y `systemctl reload caddy`.
+   Ojo: la cabecera HSTS lleva `includeSubDomains`, así que todos los subdominios de pdfpliego.com
+   (incluido `actualizaciones.pdfpliego.com`) deben ir por HTTPS.
 4. Comprobar: `curl -I https://pdfpliego.com/`, Rich Results Test de Google, validator.schema.org.
 
 ## Al publicar la primera versión de Pliego

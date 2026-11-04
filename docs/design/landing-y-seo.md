@@ -141,7 +141,9 @@ asistentes. Validar con el Rich Results Test y validator.schema.org antes de pub
 
 ## 7. Pendiente de decidir (Ander)
 
-1. Desplegar en el VPS (añadir el bloque de `web/Caddyfile.propuesta`, copiar `web/` a `/srv/pdfpliego.com`).
+1. Desplegar en el VPS (copiar `web/Caddyfile.propuesta` a `/etc/caddy/sites.d/pdfpliego.caddy`, no al Caddyfile
+   global porque el VPS es compartido, y `web/` a `/srv/pdfpliego.com`). HSTS con `includeSubDomains` obliga a
+   HTTPS en todos los subdominios.
 2. Responsable del sitio en `/privacidad/` (nombre y contacto): hoy remite a GitHub.
 3. Dónde se aloja el instalador (`/descargar/` del VPS o *Releases* de GitHub) cuando exista la primera versión.
 4. Alta en Search Console/Bing y en directorios de software (§5.4).

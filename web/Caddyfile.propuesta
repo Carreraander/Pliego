@@ -1,6 +1,12 @@
 # pdfpliego.com · sitio estático (propuesta; NO desplegado: requiere aprobación de Ander).
-# Se añade al Caddyfile del VPS junto al bloque de actualizaciones de deploy/updates/Caddyfile.
+# El VPS es compartido con otros sitios: este bloque NO va en el Caddyfile global. Se copia a
+# /etc/caddy/sites.d/pdfpliego.caddy (el Caddyfile global ya hace `import sites.d/*.caddy`, como deja
+# deploy/updates/setup-vps.sh) y se recarga con `systemctl reload caddy`.
 # Requisito: registros DNS A/AAAA de pdfpliego.com y www.pdfpliego.com apuntando al VPS.
+#
+# HSTS con includeSubDomains obliga a HTTPS en TODOS los subdominios de pdfpliego.com durante un año.
+# actualizaciones.pdfpliego.com ya va por HTTPS, así que no hay problema; cualquier subdominio nuevo
+# tendrá que servirse también por HTTPS (Caddy lo hace solo).
 
 www.pdfpliego.com {
 	redir https://pdfpliego.com{uri} permanent

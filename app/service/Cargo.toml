@@ -13,10 +13,13 @@ pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
 pliego-sign = { path = "../../crates/pliego-sign" }
 pliego-signflow = { path = "../../crates/pliego-signflow" }
+pliego-organize.workspace = true
+pliego-stamp.workspace = true
 png = "0.17"
 serde.workspace = true
 
 [dev-dependencies]
+mupdf.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 rcgen = "0.14"

@@ -2,7 +2,7 @@
 //!
 //! Los pasos disponibles se registran en `pliego-steps`.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Args;

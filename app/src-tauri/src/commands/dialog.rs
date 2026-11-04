@@ -19,3 +19,16 @@ pub async fn pick_pdf_files(app: tauri::AppHandle, title: Option<String>) -> Vec
         .map(|p| p.to_string_lossy().into_owned())
         .collect()
 }
+
+/// Selector de una imagen PNG o JPEG (marca de agua, fondo). `None` si se cancela.
+#[tauri::command]
+pub async fn pick_image_file(app: tauri::AppHandle, title: Option<String>) -> Option<String> {
+    let mut dialog = app.dialog().file().add_filter("Imagen", &["png", "jpg", "jpeg"]);
+    if let Some(t) = title {
+        dialog = dialog.set_title(t);
+    }
+    dialog
+        .blocking_pick_file()
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
+}

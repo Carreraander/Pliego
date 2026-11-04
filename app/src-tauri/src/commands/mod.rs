@@ -110,6 +110,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         stamp::stamp_pdf,
         stamp::stamp_annot_pdf,
         text::outline,
+        text::layers,
+        text::set_layer_visible,
         text::page_text,
         startup::startup_files,
         assistant::assistant_status,

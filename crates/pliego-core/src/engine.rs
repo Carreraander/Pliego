@@ -63,6 +63,15 @@ pub struct DocInfo {
     pub is_pdf: bool,
 }
 
+/// Capa (grupo de contenido opcional) del documento.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Layer {
+    /// Identificador estable dentro del documento (número de objeto del grupo).
+    pub id: i32,
+    pub name: String,
+    pub visible: bool,
+}
+
 /// Fábrica de documentos.
 pub trait PdfEngine {
     type Doc: EngineDocument;
@@ -82,4 +91,12 @@ pub trait EngineDocument {
     fn page_text(&self, page: u32) -> Result<String>;
     fn search_page(&self, page: u32, needle: &str, max_hits: u32) -> Result<SearchHit>;
     fn outline(&self) -> Result<Vec<OutlineItem>>;
+    /// Capas del documento (vacío si no tiene o el motor no las soporta). Añadido sin romper el contrato anterior.
+    fn layers(&self) -> Result<Vec<Layer>> {
+        Ok(Vec::new())
+    }
+    /// Muestra u oculta una capa solo en memoria: no modifica el archivo. Por defecto no está soportado.
+    fn set_layer_visible(&self, _id: i32, _visible: bool) -> Result<()> {
+        Err(crate::Error::Unsupported("este motor no admite capas".into()))
+    }
 }

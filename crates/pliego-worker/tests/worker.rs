@@ -236,3 +236,82 @@ fn tile_perf() {
     let ms = t.elapsed().as_secs_f64() * 1000.0 / n as f64;
     println!("tesela 512 px sin caché a través del worker: {ms:.2} ms de media ({n} teselas)");
 }
+
+/// PDF de una página con un cuadrado negro dentro de la capa «Fondo» (grupo de contenido opcional).
+fn layered_pdf() -> Vec<u8> {
+    let content = "/OC /L0 BDC 0 g 0 0 100 100 re f EMC";
+    let objs = [
+        "<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [5 0 R] /D << /ON [5 0 R] /Order [5 0 R] >> >> >>".to_string(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << /Properties << /L0 5 0 R >> >> >>".to_string(),
+        format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len()),
+        "<< /Type /OCG /Name (Fondo) >>".to_string(),
+    ];
+    let mut out = b"%PDF-1.5\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for off in offsets {
+        out.extend_from_slice(format!("{off:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+            objs.len() + 1
+        )
+        .as_bytes(),
+    );
+    out
+}
+
+fn dark_pixels(img: &pliego_core::RgbaImage) -> usize {
+    img.data.iter().step_by(4).filter(|&&r| r < 128).count()
+}
+
+#[test]
+fn layers_can_be_hidden_and_survive_a_worker_restart() {
+    let doc = engine().open_bytes(&layered_pdf(), None).unwrap();
+    let layers = doc.layers().unwrap();
+    assert_eq!(layers.len(), 1);
+    assert_eq!(layers[0].name, "Fondo");
+    assert!(layers[0].visible);
+    let id = layers[0].id;
+    let req = TileRequest {
+        page: 0,
+        zoom: 1.0,
+        col: 0,
+        row: 0,
+        size: 128,
+    };
+    assert!(dark_pixels(&doc.render_tile(req).unwrap()) > 5000);
+
+    doc.set_layer_visible(id, false).unwrap();
+    assert!(!doc.layers().unwrap()[0].visible);
+    assert_eq!(
+        dark_pixels(&doc.render_tile(req).unwrap()),
+        0,
+        "la caché no debe devolver la tesela anterior"
+    );
+
+    // Si el worker se cae, al relanzarlo la capa sigue oculta.
+    doc.kill_worker();
+    assert_eq!(dark_pixels(&doc.render_tile(req).unwrap()), 0);
+    assert!(!doc.layers().unwrap()[0].visible);
+
+    doc.set_layer_visible(id, true).unwrap();
+    assert!(dark_pixels(&doc.render_tile(req).unwrap()) > 5000);
+}
+
+#[test]
+fn unknown_layer_is_rejected_and_plain_pdfs_have_none() {
+    let doc = engine().open(&hola(), None).unwrap();
+    assert!(doc.layers().unwrap().is_empty());
+    assert!(matches!(
+        doc.set_layer_visible(12345, false),
+        Err(Error::InvalidInput(_))
+    ));
+}

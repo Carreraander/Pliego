@@ -15,6 +15,9 @@ addToolStrings({
     "view.att.hint": "Los adjuntos se guardan en una carpeta nueva junto al documento; el documento no cambia.",
     "view.att.started": "Extrayendo… sigue en el centro de tareas", "view.att.job": "Extraer adjuntos de {name}",
     "view.att.failed": "No se pudieron leer los adjuntos: {error}",
+    "view.layers.title": "Capas", "view.layers.none": "Este documento no tiene capas.", "view.layers.noDoc": "Abre un documento para ver sus capas",
+    "view.layers.showAll": "Mostrar todas", "view.layers.failed": "No se pudieron cambiar las capas: {error}",
+    "view.layers.hint": "Mostrar u ocultar capas solo cambia lo que ves; el archivo no se modifica.",
   },
   en: {
     "view.props.title": "Document properties", "view.props.noDoc": "Open a document to see its properties",
@@ -28,6 +31,9 @@ addToolStrings({
     "view.att.hint": "Attachments are saved in a new folder next to the document; the document does not change.",
     "view.att.started": "Extracting… follow it in the task centre", "view.att.job": "Extract attachments from {name}",
     "view.att.failed": "Could not read the attachments: {error}",
+    "view.layers.title": "Layers", "view.layers.none": "This document has no layers.", "view.layers.noDoc": "Open a document to see its layers",
+    "view.layers.showAll": "Show all", "view.layers.failed": "Could not change the layers: {error}",
+    "view.layers.hint": "Showing or hiding layers only changes what you see; the file is not modified.",
   },
 });
 

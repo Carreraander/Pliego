@@ -42,7 +42,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pliego_core::{
-    DocInfo, EngineDocument, Error, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
+    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
 };
 use pliego_worker::{WorkerConfig, WorkerDocument, WorkerEngine};
 use serde::{Deserialize, Serialize};
@@ -129,6 +129,17 @@ impl DocumentService {
 
     pub fn outline(&self, doc: DocId) -> Result<Vec<OutlineItem>> {
         self.doc(doc)?.outline()
+    }
+
+    /// Capas del documento (vacío si no tiene).
+    pub fn layers(&self, doc: DocId) -> Result<Vec<Layer>> {
+        self.doc(doc)?.layers()
+    }
+
+    /// Muestra u oculta una capa solo en pantalla (el archivo no cambia) y repinta el documento.
+    pub fn set_layer_visible(&self, doc: DocId, layer: i32, visible: bool) -> Result<u64> {
+        self.doc(doc)?.set_layer_visible(layer, visible)?;
+        self.bump_revision(doc)
     }
 
     pub fn page_text(&self, doc: DocId, page: u32) -> Result<String> {

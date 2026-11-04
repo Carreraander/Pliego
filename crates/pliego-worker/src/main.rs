@@ -92,6 +92,13 @@ fn handle(
             *doc = Some(MupdfEngine.open_bytes(&bytes, password.as_deref())?);
             Ok((Response::Ok, None))
         }
+        Request::SetLayer { id, visible } => {
+            let d = doc
+                .as_mut()
+                .ok_or_else(|| Error::InvalidInput("no hay ningún documento abierto".into()))?;
+            d.set_layer_visible_mut(id, visible)?;
+            Ok((Response::Ok, None))
+        }
         other => {
             let d = doc
                 .as_ref()
@@ -107,6 +114,7 @@ fn handle(
                     (Response::Hit(d.search_page(page, &needle, max_hits)?), None)
                 }
                 Request::Outline => (Response::Outline(d.outline()?), None),
+                Request::Layers => (Response::Layers(d.layers()?), None),
                 _ => return Err(Error::InvalidInput("petición no válida".into())),
             })
         }

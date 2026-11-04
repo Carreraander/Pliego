@@ -38,6 +38,14 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Windows PowerShell 5.1 lanzado desde pwsh 7 hereda un PSModulePath con módulos de 7 que no carga (Get-FileHash
+# "not recognized"): se reconstruye con los valores de Windows.
+if ($PSVersionTable.PSVersion.Major -lt 6) {
+  $mp = @([Environment]::GetEnvironmentVariable('PSModulePath', 'User'), [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')) | Where-Object { $_ }
+  if (-not $mp) { $mp = @((Join-Path $PSHOME 'Modules')) }
+  $env:PSModulePath = $mp -join ';'
+}
+
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $Version) {
   $m = Select-String -Path (Join-Path $repo 'Cargo.toml') -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1

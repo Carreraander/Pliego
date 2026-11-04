@@ -9,6 +9,13 @@ export const properties: ToolManifest = {
   load: () => import("./PropertiesPanel"),
 };
 
+export const attachments: ToolManifest = {
+  id: "viewer.attachments", group: "view", kind: "task", title: "tools.viewer.attachments.title", description: "tools.viewer.attachments.description",
+  icon: "paperclip", keywords: ["adjuntar", "attachments", "incrustados", "archivos"], when: { document: true }, pinnable: true,
+  load: () => import("./AttachmentsPanel"),
+};
+
 export function registerViewTools(): void {
+  registerTool(attachments);
   registerTool(properties);
 }

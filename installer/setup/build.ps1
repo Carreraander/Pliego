@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Compila Pliego en release y genera el paquete .paq y el instalador Pliego-Setup-<versión>-x86_64.exe.
 
@@ -30,6 +30,14 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+# Windows PowerShell 5.1 lanzado desde pwsh 7 hereda un PSModulePath con módulos de 7 que no carga (Get-FileHash
+# "not recognized"): se reconstruye con los valores de Windows.
+if ($PSVersionTable.PSVersion.Major -lt 6) {
+  $mp = @([Environment]::GetEnvironmentVariable('PSModulePath', 'User'), [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')) | Where-Object { $_ }
+  if (-not $mp) { $mp = @((Join-Path $PSHOME 'Modules')) }
+  $env:PSModulePath = $mp -join ';'
+}
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if (-not $OutDir) { $OutDir = Join-Path $repo 'dist' }
@@ -93,6 +101,29 @@ foreach ($n in 'pliego.exe', 'pliego-worker.exe') {
   $src = Join-Path $target $n
   if (Test-Path $src) { Copy-Item $src (Join-Path $stage $n) }
   elseif (-not $FakeApp) { throw "Falta $n en $target" }
+}
+# DLL de Tesseract y Leptonica (vcpkg, DLL dinámicas) junto a pliego.exe: sin ellas la CLI sale con 0xC0000135 en un equipo
+# sin vcpkg. Se toma la carpeta bin de vcpkg a partir de TESSERACT_LIB_DIR (..\bin) o, si no, del PATH.
+if (-not $FakeApp) {
+  $dllDirs = @()
+  if ($env:TESSERACT_LIB_DIR) { $dllDirs += (Join-Path (Split-Path $env:TESSERACT_LIB_DIR -Parent) 'bin') }
+  $dllDirs += ($env:PATH -split ';' | Where-Object { $_ })
+  $tessDll = $dllDirs | Where-Object { $_ -and (Test-Path (Join-Path $_ 'tesseract*.dll')) } | Select-Object -First 1
+  if (-not $tessDll) { throw 'No se encuentran las DLL de Tesseract (define TESSERACT_LIB_DIR o carga tools\ocr\setup-tesseract-windows.ps1): la CLI no arrancaría.' }
+  $dlls = Get-ChildItem $tessDll -Filter *.dll
+  if (-not ($dlls | Where-Object Name -like 'leptonica*')) { throw "Faltan las DLL de Leptonica en $tessDll." }
+  $dlls | Copy-Item -Destination $stage
+  Write-Host "DLL de Tesseract/Leptonica: $($dlls.Count) desde $tessDll"
+  # Licencias de las bibliotecas empaquetadas (vcpkg: share\<paquete>\copyright).
+  $share = Join-Path (Split-Path $tessDll -Parent) 'share'
+  if (Test-Path $share) {
+    $lic = Join-Path $stage 'licenses'
+    New-Item -ItemType Directory -Force -Path $lic | Out-Null
+    Get-ChildItem $share -Directory | ForEach-Object {
+      $c = Join-Path $_.FullName 'copyright'
+      if (Test-Path $c) { Copy-Item $c (Join-Path $lic "$($_.Name).txt") }
+    }
+  }
 }
 Copy-Item (Join-Path $target 'pliego-setup.exe')         (Join-Path $stage 'pliego-setup.exe')
 Copy-Item (Join-Path $target 'pliego-launcher.exe')      (Join-Path $stage 'launcher\Pliego.exe')

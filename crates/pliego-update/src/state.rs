@@ -33,6 +33,9 @@ pub struct UpdateState {
     /// Versión cuyas novedades se mostrarán una vez en Inicio.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub whats_new: Option<Version>,
+    /// Notas de esa versión (las que traía el manifiesto), para la tarjeta de Inicio.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub whats_new_notes: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -97,12 +100,14 @@ impl UpdateState {
                 self.pending = None;
             }
         }
-        if self.pending.as_ref().is_some_and(|p| &p.version <= running) {
+        let arrived = self.pending.as_ref().filter(|p| &p.version <= running).cloned();
+        if arrived.is_some() {
             self.pending = None;
         }
         if self.history.last().map(|h| &h.version) != Some(running) {
             if !self.history.is_empty() && rolled_back_from.is_none() {
                 self.whats_new = Some(running.clone());
+                self.whats_new_notes = arrived.and_then(|p| (&p.version == running).then_some(p.notes).flatten());
             }
             self.history.push(HistoryEntry {
                 version: running.clone(),
@@ -161,11 +166,12 @@ mod tests {
         assert!(s.whats_new.is_none(), "la primera instalación no tiene novedades");
         s.pending = Some(PendingUpdate {
             version: v("0.1.1"),
-            notes: None,
+            notes: Some("Arreglos".into()),
             mandatory: false,
         });
         assert!(s.reconcile_launch(&v("0.1.1"), "t1", None));
         assert_eq!(s.whats_new, Some(v("0.1.1")));
+        assert_eq!(s.whats_new_notes.as_deref(), Some("Arreglos"));
         assert!(s.pending.is_none());
         assert_eq!(s.history.len(), 2);
         assert!(!s.reconcile_launch(&v("0.1.1"), "t2", None), "sin cambios al reabrir");

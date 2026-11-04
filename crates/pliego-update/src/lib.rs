@@ -15,25 +15,33 @@
 
 mod client;
 mod config;
+mod env;
 mod error;
 mod install;
 mod keys;
 mod manifest;
+pub mod platform;
+pub mod restart;
 mod rollout;
+mod runtime;
 pub mod schedule;
 mod service;
+mod stager;
 mod state;
 
 #[cfg(feature = "sign")]
 pub mod sign;
 
 pub use client::{CheckOutcome, UpdateClient, Verdict, evaluate};
-pub use config::{Policy, UpdateConfig, UpdateMode, UserSettings, resolve};
+pub use config::{Policy, UpdateConfig, UpdateMode, UserSettings, build_url, resolve};
+pub use env::Environment;
 pub use error::UpdateError;
 pub use install::InstallKind;
 pub use keys::{PublicKey, SIGNING_CONTEXT, release_keys};
 pub use manifest::{Artifact, ArtifactKind, Envelope, FORMAT, Manifest, Release, SCHEMA, Signature};
 pub use rollout::bucket;
+pub use runtime::{Runner, Snapshot};
 pub use semver::Version;
 pub use service::{Phase, Stager, Status, UpdateService};
+pub use stager::{LayoutStager, StagedPackage, staged_package};
 pub use state::{HistoryEntry, PendingUpdate, RollbackNotice, UpdateState};

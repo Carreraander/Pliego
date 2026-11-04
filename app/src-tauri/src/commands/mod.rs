@@ -5,6 +5,7 @@
 
 pub mod annot;
 pub mod assistant;
+pub mod convert;
 pub mod dialog;
 pub mod document;
 pub mod jobs;
@@ -43,11 +44,16 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,
         annot::pick_xfdf_file,
+        convert::export_pdf,
+        convert::office_export_pdf,
         optimize::compress_pdf,
         optimize::analyze_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
+        organize::insert_pages,
+        organize::number_pages,
         stamp::stamp_pdf,
+        stamp::stamp_annot_pdf,
         text::outline,
         text::page_text,
         startup::startup_files,

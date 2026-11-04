@@ -12,6 +12,8 @@ pliego-annot = { path = "../../crates/pliego-annot" }
 mupdf.workspace = true
 tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
+pliego-convert = { path = "../../crates/pliego-convert" }
+pliego-office-export = { path = "../../crates/pliego-office-export" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
 pliego-organize.workspace = true
@@ -20,7 +22,6 @@ png = "0.17"
 serde.workspace = true
 
 [dev-dependencies]
-mupdf.workspace = true
 serde_json.workspace = true
 
 [lints]

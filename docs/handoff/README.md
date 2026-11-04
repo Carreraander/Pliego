@@ -32,22 +32,20 @@ diseño general https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw, prototipo nav
 https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente está en `docs/design/`
 (`prototipo.html` se abre en local).
 
-## Estado global a 2026-11-04 09:30 UTC
+## Estado global a 2026-11-04 10:30 UTC
 
-- **101 commits en `main`**, último `3a2b504` (W15, Bates continua, #103). Unos 100 PRs fusionados.
+- **Proyecto trasladado a la cuenta nueva** (2026-11-04). Hilo de gestión: «Gestionar el desarrollo de Pliego».
 - **El código de los 22 flujos está en `main`** con CI verde en Linux y Windows. Lo que queda es sobre todo
   **verificación en acr12** (Acrobat Reader, Office real, rendimiento, Narrador) y algunas partes aplazadas.
-- **PRs abiertos: 3** (además de este traspaso, #105)
-  - **#104** W03: los 4 arreglos hallados en acr12 (texto de anotación ilegible, enlace con autor, `--in-place` en
-    Windows, sellos ausentes en XFDF). Revisar CI y fusionar.
+- **Fusionados tras el traspaso:** #104 (W03, los 4 arreglos de acr12) y #106 (W05, `WindowsStoreSigner` y
+  `pliego sign --store`, probado en acr12 con autofirmados RSA y ECDSA P-256).
+- **PRs abiertos: 2**
   - **#96** W12: PDF/A pasa las reglas de `/ID`, capas y adjuntos que veraPDF rechazaba (rama
-    `claude/project-thread-5j99if`). Falta repetir veraPDF en acr12 con el binario nuevo y revisar el aviso 6.5.2
-    de `protect/sucio.pdf`. Revisar CI y fusionar.
-  - **#93** W10: benchmarks reproducibles de rendimiento (rama `claude/project-thread-itd0jc`). Falta medir en
-    acr12 con la máquina tranquila (3 ejecuciones de `tools/bench.ps1` con el turno cogido) y añadir cifras.
+    `claude/project-thread-5j99if`, CI verde). Falta repetir veraPDF en acr12 con el binario nuevo y revisar el aviso
+    6.5.2 de `protect/sucio.pdf`.
+  - **#93** W10: benchmarks reproducibles de rendimiento (rama `claude/project-thread-itd0jc`, CI verde). Falta medir
+    en acr12 con la máquina tranquila (3 ejecuciones de `tools/bench.ps1` con el turno cogido) y añadir cifras.
 - **Issues abiertas:** ninguna.
-- **Trabajo en curso en el momento del traspaso:** W03 hacía capturas de sus PDF en Reader y Edge
-  (`D:\dev\pliego-w03\capturas`). W05 iba a subir la firma con el almacén de Windows desde su clon de acr12.
 
 ### Resumen por flujo
 
@@ -55,9 +53,9 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | --- | --- | --- | --- |
 | [W01](flujos/w01.md) | App y visor | Fusionado | Medir los ~1,9 s de la primera página en acr12, locale `es` por defecto, worker como sidecar, criterio de memoria |
 | [W02](flujos/w02.md) | Motor, worker, guardado | Fusionado | Cifras de acr12 (tesela 512 px, job object, PDFs patológicos), carrera del job object, `outline` en fuzz.sh |
-| [W03](flujos/w03.md) | Anotaciones y formularios | Fusionado + **PR #104** | Fusionar #104 (4 arreglos de acr12), capturas Reader/Edge |
+| [W03](flujos/w03.md) | Anotaciones y formularios | Fusionado | Capturas Reader/Edge (necesita el permiso de pantalla) |
 | [W04](flujos/w04.md) | Organizar y sellos | Fusionado | Combinar 50 PDFs en < 5 s en acr12, captura de Bates/marca de agua en Reader |
-| [W05](flujos/w05.md) | Firma PAdES | Fusionado (parcial) | `WindowsStoreSigner`/`--store` (sin PR; quizá en el clon local de acr12), OCSP, B-LTA, VRI, Reader, DNIe |
+| [W05](flujos/w05.md) | Firma PAdES | Fusionado (parcial) | OCSP, B-LTA, VRI, captura en Reader, DNIe (acr12 no tiene lector) |
 | [W06](flujos/w06.md) | OCR | Fusionado | Catálogo de modelos con SHA-256, CER y benchmark de 20 páginas en acr12 |
 | [W07](flujos/w07.md) | Proteger y redactar | Fusionado | Prueba en Acrobat Reader (contraseña, permisos, saneado) |
 | [W08](flujos/w08.md) | Comparar y optimizar | Fusionado | Medir en acr12, abrir resultados en Reader; aplazados linealizar, subset de fuentes, JBIG2/CCITT |
@@ -116,7 +114,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
    Narrador, Acrobat Reader y Edge, para que los hilos hagan las pruebas de teclado, Narrador y capturas.
 4. **Criterio de memoria de W01** (tarjeta sin respuesta): ¿cómo se mide el límite de 150 MB en reposo?
    Recomendado: 150 MB para app + worker (hoy ~67 MB) y techo total de 400 MB con WebView2 (hoy ~370 MB).
-5. **DNIe/FNMT (W05):** decir si acr12 tiene lector de tarjetas y certificado para probar.
+5. **DNIe/FNMT (W05):** acr12 no tiene lector de tarjetas conectado (#106); conectar uno o descartar la prueba.
 6. **Modelos GGUF de W18 en C:** (5,6 GB) se iban a mover a D:; confirmar que se puede.
 7. **Excluir `D:\dev-cache` del antivirus** si el indexado de W15 lo confirma como causa (necesita administrador).
 8. En la cuenta nueva: los pasos manuales de [`prompt-nuevo-proyecto.md`](prompt-nuevo-proyecto.md).

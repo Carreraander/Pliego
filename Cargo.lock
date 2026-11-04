@@ -4078,6 +4078,7 @@ dependencies = [
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
+ "mupdf",
  "pliego-appdata",
  "pliego-core",
  "pliego-optimize",

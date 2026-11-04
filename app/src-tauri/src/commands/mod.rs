@@ -12,6 +12,7 @@ pub mod organize;
 pub mod recents;
 pub mod search;
 pub mod settings;
+pub mod stamp;
 pub mod startup;
 pub mod text;
 pub mod updates;
@@ -20,6 +21,7 @@ pub mod updates;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         dialog::pick_pdf_files,
+        dialog::pick_image_file,
         document::open_document,
         document::close_document,
         document::document_info,
@@ -42,6 +44,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         organize::split_pdf,
         organize::insert_pages,
         organize::number_pages,
+        stamp::stamp_pdf,
         text::outline,
         text::page_text,
         startup::startup_files,

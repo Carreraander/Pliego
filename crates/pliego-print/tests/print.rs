@@ -324,7 +324,11 @@ fn separations_match_ghostscript_reference() {
         let (w, h, reference) = read_pam_cmyk(&std::fs::read(&out).unwrap());
 
         let s = separations(&doc(file), 0, 72.0).unwrap();
-        assert_eq!((s.plates[0].width as usize, s.plates[0].height as usize), (w, h), "{file}");
+        assert_eq!(
+            (s.plates[0].width as usize, s.plates[0].height as usize),
+            (w, h),
+            "{file}"
+        );
         for (plate, refp) in s.plates.iter().zip(&reference) {
             let total: u64 = plate
                 .samples

@@ -8,6 +8,7 @@ pub mod assistant;
 pub mod dialog;
 pub mod document;
 pub mod jobs;
+pub mod optimize;
 pub mod organize;
 pub mod recents;
 pub mod search;
@@ -40,6 +41,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,
         annot::pick_xfdf_file,
+        optimize::compress_pdf,
+        optimize::analyze_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
         text::outline,

@@ -8,13 +8,17 @@ repository.workspace = true
 
 [dependencies]
 pliego-core.workspace = true
+pliego-annot = { path = "../../crates/pliego-annot" }
+mupdf.workspace = true
+tempfile.workspace = true
+pliego-optimize = { path = "../../crates/pliego-optimize" }
+pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
 png = "0.17"
 serde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true

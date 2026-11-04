@@ -2,7 +2,6 @@
 //!
 //! Las funciones trabajan en memoria; guardar el documento es cosa de quien llama.
 
-pub mod files;
 mod flatten;
 mod ops;
 mod stamp;

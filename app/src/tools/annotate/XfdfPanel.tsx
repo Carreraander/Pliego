@@ -1,12 +1,9 @@
 import { createSignal, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { isApiError } from "../../api";
-import { trackJob } from "../../jobs";
 import { activeDoc } from "../../state/documents";
-import { Notice, Radio, RadioGroup, TaskPanel, toast } from "../../ui";
+import { Notice, Radio, RadioGroup, TaskPanel } from "../../ui";
+import { fileName, runToolJob } from "../run";
 import { at } from "./text";
-
-const base = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 export default function XfdfPanel(p: { onClose: () => void }) {
   const [dir, setDir] = createSignal<"export" | "import">("export");
@@ -21,20 +18,17 @@ export default function XfdfPanel(p: { onClose: () => void }) {
     const doc = activeDoc();
     if (!doc) return;
     setError(null);
-    try {
-      if (dir() === "export") {
-        const id = await invoke<number>("export_comments_xfdf", { path: doc.path });
-        trackJob(id, { title: at("annotate.xfdf.exportJob", { name: doc.title }), retry: () => void run() });
-      } else {
-        if (!file()) { setError(at("annotate.xfdf.noFile")); return; }
-        const id = await invoke<number>("import_comments_xfdf", { path: doc.path, xfdf: file() });
-        trackJob(id, { title: at("annotate.xfdf.importJob", { name: doc.title }), retry: () => void run() });
-      }
-      toast({ tone: "info", text: at("annotate.xfdf.started") });
-      p.onClose();
-    } catch (e) {
-      setError(isApiError(e) ? e.message : String(e));
-    }
+    if (dir() === "import" && !file()) { setError(at("annotate.xfdf.noFile")); return; }
+    const exporting = dir() === "export";
+    const id = await runToolJob({
+      command: exporting ? "export_comments_xfdf" : "import_comments_xfdf",
+      args: exporting
+        ? { path: doc.path, suffix: at("annotate.xfdf.suffixExport") }
+        : { path: doc.path, xfdf: file(), suffix: at("annotate.xfdf.suffixImport") },
+      title: at(exporting ? "annotate.xfdf.exportJob" : "annotate.xfdf.importJob", { name: fileName(doc.path) }),
+      started: at("annotate.xfdf.started"),
+    });
+    if (id !== null) p.onClose();
   };
 
   return (
@@ -42,7 +36,7 @@ export default function XfdfPanel(p: { onClose: () => void }) {
       title={at("annotate.xfdf.title")} onClose={p.onClose}
       primary={{ label: dir() === "export" ? at("annotate.xfdf.export") : at("annotate.xfdf.import"), icon: "arrow-left-right", onClick: () => void run() }}
       secondary={dir() === "import" ? [{ label: at("annotate.xfdf.pick"), icon: "file-plus", onClick: () => void pick() }] : undefined}
-      estimate={dir() === "export" ? at("annotate.xfdf.exportHint") : (file() ? base(file()!) : at("annotate.xfdf.importHint"))}
+      estimate={dir() === "export" ? at("annotate.xfdf.exportHint") : (file() ? fileName(file()!) : at("annotate.xfdf.importHint"))}
       notice={<Show when={error()}><Notice tone="danger" inline>{error()}</Notice></Show>}
     >
       <RadioGroup legend={at("annotate.xfdf.direction")} value={dir()} onChange={(v) => setDir(v as "export" | "import")}>

@@ -3,7 +3,7 @@ import { getTool, toolState } from "../registry";
 import { registerBaseTools } from "../base";
 import { registerStampTools } from "./manifest";
 
-const IDS = ["edit.watermark", "edit.headerfooter", "edit.background", "edit.bates"];
+const IDS = ["stamp.stamps", "edit.watermark", "edit.headerfooter", "edit.background", "edit.bates"];
 
 describe("herramientas de sellado", () => {
   it("sustituyen a las fantasma de base.ts", () => {

@@ -1,0 +1,7 @@
+{
+  "fuente": "https://github.com/bblanchon/pdfium-binaries/releases",
+  "version": null,
+  "asset": "pdfium-win-x64.tgz",
+  "sha256": null,
+  "nota": "Rellenar tras el primer fetch en acr12 (fetch-pdfium.ps1 -Primera) y fusionar. Con version/sha256 a null el script se niega a continuar sin -Primera."
+}

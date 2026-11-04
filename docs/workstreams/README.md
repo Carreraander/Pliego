@@ -7,6 +7,7 @@ interfaces compartidas, prioridades) la lleva el hilo de gestión.
 - **Ola 2**: W11 a W18, cada uno cuando su dependencia esté fusionada en `main`.
 - **Ola 3** (diseño de la app, `docs/design/`): W19 a W22. W19, W21 (con un `pliego-app.exe` de prueba) y W22 (cliente y servidor) pueden empezar ya; W20 tras W19.
 - **Ola 4** (conectar las herramientas a la app): W23 a W29, ver [`ola4-conectar-herramientas.md`](ola4-conectar-herramientas.md).
+- **Ola 5** (sustituir MuPDF por PDFium + lopdf tras la capa `pliego-pdf`; decisión de Ander 2026-11-04): W30 a W41, ver [`ola5-motor-propio.md`](ola5-motor-propio.md).
 
 | Flujo | Tema | Ola | Depende de | Rutas propias |
 | --- | --- | --- | --- | --- |

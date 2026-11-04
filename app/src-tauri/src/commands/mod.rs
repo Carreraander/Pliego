@@ -5,6 +5,7 @@
 
 pub mod assistant;
 pub mod checks;
+pub mod convert;
 pub mod dialog;
 pub mod document;
 pub mod jobs;
@@ -13,6 +14,7 @@ pub mod organize;
 pub mod recents;
 pub mod search;
 pub mod settings;
+pub mod stamp;
 pub mod startup;
 pub mod text;
 pub mod updates;
@@ -21,6 +23,7 @@ pub mod updates;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         dialog::pick_pdf_files,
+        dialog::pick_image_file,
         document::open_document,
         document::close_document,
         document::document_info,
@@ -40,10 +43,13 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         checks::check_accessibility,
         checks::validate_pdfa,
         checks::preflight_pdf,
+        convert::export_pdf,
+        convert::office_export_pdf,
         optimize::compress_pdf,
         optimize::analyze_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
+        stamp::stamp_pdf,
         text::outline,
         text::page_text,
         startup::startup_files,

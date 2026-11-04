@@ -4078,12 +4078,17 @@ dependencies = [
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
+ "mupdf",
  "pliego-a11y",
  "pliego-appdata",
+ "pliego-convert",
  "pliego-core",
+ "pliego-office-export",
  "pliego-optimize",
+ "pliego-organize",
  "pliego-pdfa",
  "pliego-print",
+ "pliego-stamp",
  "pliego-worker",
  "png 0.17.16",
  "serde",

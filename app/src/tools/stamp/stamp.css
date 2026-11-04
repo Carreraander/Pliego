@@ -1,0 +1,4 @@
+.pl-stamp-color { width: 100%; height: 32px; padding: 0; border: 1px solid var(--pl-border, currentColor); border-radius: var(--pl-radius-sm, 4px); background: none; cursor: pointer; }
+.pl-stamp-image { display: flex; align-items: center; gap: 8px; }
+.pl-stamp-image > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-stamp-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

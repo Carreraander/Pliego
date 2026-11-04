@@ -37,17 +37,17 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 - **101 commits en `main`**, último `3a2b504` (W15, Bates continua, #103). Unos 100 PRs fusionados.
 - **El código de los 22 flujos está en `main`** con CI verde en Linux y Windows. Lo que queda es sobre todo
   **verificación en acr12** (Acrobat Reader, Office real, rendimiento, Narrador) y algunas partes aplazadas.
-- **PRs abiertos: 2**
+- **PRs abiertos: 3** (además de este traspaso, #105)
+  - **#104** W03: los 4 arreglos hallados en acr12 (texto de anotación ilegible, enlace con autor, `--in-place` en
+    Windows, sellos ausentes en XFDF). Revisar CI y fusionar.
   - **#96** W12: PDF/A pasa las reglas de `/ID`, capas y adjuntos que veraPDF rechazaba (rama
     `claude/project-thread-5j99if`). Falta repetir veraPDF en acr12 con el binario nuevo y revisar el aviso 6.5.2
     de `protect/sucio.pdf`. Revisar CI y fusionar.
   - **#93** W10: benchmarks reproducibles de rendimiento (rama `claude/project-thread-itd0jc`). Falta medir en
     acr12 con la máquina tranquila (3 ejecuciones de `tools/bench.ps1` con el turno cogido) y añadir cifras.
 - **Issues abiertas:** ninguna.
-- **Trabajo en curso en el momento del traspaso:** W03 estaba arreglando 4 fallos hallados en acr12 (texto de
-  anotación ilegible, enlace con autor, `--in-place` en Windows, sellos ausentes en XFDF) y haciendo capturas en
-  Reader y Edge (`D:\dev\pliego-w03\capturas`). Esos arreglos **no tienen PR todavía**: hay que rehacerlos o
-  recuperarlos del clon de acr12 (`C:\Users\acr12\dev\pliego-w03` o `D:\dev\pliego-w03`).
+- **Trabajo en curso en el momento del traspaso:** W03 hacía capturas de sus PDF en Reader y Edge
+  (`D:\dev\pliego-w03\capturas`). W05 iba a subir la firma con el almacén de Windows desde su clon de acr12.
 
 ### Resumen por flujo
 
@@ -55,7 +55,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | --- | --- | --- | --- |
 | [W01](flujos/w01.md) | App y visor | Fusionado | Medir los ~1,9 s de la primera página en acr12, locale `es` por defecto, worker como sidecar, criterio de memoria |
 | [W02](flujos/w02.md) | Motor, worker, guardado | Fusionado | Cifras de acr12 (tesela 512 px, job object, PDFs patológicos), carrera del job object, `outline` en fuzz.sh |
-| [W03](flujos/w03.md) | Anotaciones y formularios | Fusionado + arreglos sin PR | PR con los 4 arreglos de acr12, capturas Reader/Edge |
+| [W03](flujos/w03.md) | Anotaciones y formularios | Fusionado + **PR #104** | Fusionar #104 (4 arreglos de acr12), capturas Reader/Edge |
 | [W04](flujos/w04.md) | Organizar y sellos | Fusionado | Combinar 50 PDFs en < 5 s en acr12, captura de Bates/marca de agua en Reader |
 | [W05](flujos/w05.md) | Firma PAdES | Fusionado (parcial) | `WindowsStoreSigner`/`--store` (sin PR; quizá en el clon local de acr12), OCSP, B-LTA, VRI, Reader, DNIe |
 | [W06](flujos/w06.md) | OCR | Fusionado | Catálogo de modelos con SHA-256, CER y benchmark de 20 páginas en acr12 |

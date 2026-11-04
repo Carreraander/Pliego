@@ -42,7 +42,7 @@ Haz esto en orden:
    Usa la fecha de hoy y enlaza los archivos del repo en vez de copiarlos.
 
 3. Comprueba la configuración: que el repo está conectado y se puede escribir en él (lista los PRs abiertos; deben
-   estar #93 y #96 salvo que alguien los haya fusionado), y que el dispositivo acr12 está disponible con la carpeta
+   estar #93, #96 y #104 salvo que alguien los haya fusionado), y que el dispositivo acr12 está disponible con la carpeta
    C:\Users\acr12\AcrobatFree aprobada. Fija acr12 como dispositivo por defecto del proyecto. Si falta algo, dime
    exactamente qué tengo que hacer y sigue con lo demás.
 
@@ -50,7 +50,7 @@ Haz esto en orden:
    fusionar PRs con CI verde (squash; nunca rebase ni force-push), mantener las piezas compartidas
    (pliego-core, pliego-engine-mupdf, CI, tools/acr12-*), repartir el turno único de acr12, resolver dudas de los
    flujos, hacer de dueño del diseño (docs/design/) y mantener docs/handoff/ al día. Primeras tareas: fusionar
-   #96 (W12) tras la verificación con veraPDF y #93 (W10) tras los benchmarks en acr12, y llevar la cuenta de lo
+   #104 (W03, arreglos de acr12) con CI verde, #96 (W12) tras la verificación con veraPDF y #93 (W10) tras los benchmarks en acr12, y llevar la cuenta de lo
    que falta de cada flujo.
 
 5. Abre un hilo de implementación con Sonnet 5.5 por cada flujo con trabajo pendiente según
@@ -59,8 +59,7 @@ Haz esto en orden:
    cuando te lo confirme. A cada hilo dale como instrucciones: "Eres el flujo WNN de Pliego. Lee
    docs/workstreams/<archivo del flujo>, docs/handoff/flujos/wNN.md, docs/handoff/reglas-operativas.md y
    docs/CONVENTIONS.md. Haz lo que falta para cerrar el flujo. Avisa al hilo de gestión con el enlace de cada PR;
-   gestión los fusiona. Actualiza docs/handoff/flujos/wNN.md en tu PR." Prioridad: primero W03 (tenía 4 arreglos
-   de acr12 sin PR), W05 (firma con el almacén de Windows), W22 (integración en la app), W10 y W12 (PRs abiertos)
+   gestión los fusiona. Actualiza docs/handoff/flujos/wNN.md en tu PR." Prioridad: primero W03 (PR #104 y capturas en Reader), W05 (firma con el almacén de Windows), W22 (integración en la app), W10 y W12 (PRs abiertos)
    y W01.
 
 6. Reglas de acr12 para todos los hilos (están en reglas-operativas.md): compilar e instalar en D:, cada flujo en
@@ -82,4 +81,4 @@ Cuando esté todo en marcha, dame un resumen corto de lo que has abierto y de lo
 - El coordinador nuevo debe guardar en memoria los ids de los hilos que abra (sustituyen a los de la cuenta antigua,
   que ya no sirven).
 - Las sesiones de Remote Control abiertas desde la cuenta antigua en acr12 deben cerrarse; antes, comprobar que no
-  quedan cambios sin subir en los clones `pliego-w03` y `pliego-w05` (arreglos de anotaciones y `WindowsStoreSigner`).
+  quedan cambios sin subir en el clon `pliego-w05` (`WindowsStoreSigner`).

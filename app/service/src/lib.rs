@@ -8,6 +8,7 @@ pub mod api;
 pub mod convert;
 pub mod optimize;
 pub mod stamp;
+pub mod stamps;
 pub mod uri;
 
 use std::collections::HashMap;

@@ -1,0 +1,5 @@
+.pl-checks-list { list-style: none; margin: var(--pl-space-3, 12px) 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pl-checks-list li { border-left: 3px solid var(--pl-border, currentColor); padding-left: 8px; }
+.pl-checks-list li[data-tone="danger"] { border-left-color: var(--pl-danger, currentColor); }
+.pl-checks-list li[data-tone="warn"] { border-left-color: var(--pl-warn, currentColor); }
+.pl-checks-list small { display: block; opacity: 0.8; }

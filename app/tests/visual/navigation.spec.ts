@@ -20,9 +20,9 @@ test.describe("navegación (W20)", () => {
     await page.keyboard.press("Control+k");
     const box = page.getByRole("combobox", { name: "Paleta de órdenes" });
     await expect(box).toBeFocused();
-    await box.fill("INDICE");
-    await expect(page.getByRole("option", { name: /Índice de búsqueda/ })).toBeVisible();
-    await expect(page.getByRole("option", { name: /Índice de búsqueda/ })).toHaveAttribute("aria-disabled", "true");
+    await box.fill("PRESENTACION");
+    await expect(page.getByRole("option", { name: /Presentación/ })).toBeVisible();
+    await expect(page.getByRole("option", { name: /Presentación/ })).toHaveAttribute("aria-disabled", "true");
     await box.fill("comprimir");
     await expect(page.getByRole("option").first()).toContainText("Comprimir");
     await page.keyboard.press("Enter");
@@ -48,8 +48,10 @@ test.describe("navegación (W20)", () => {
     for (const name of ["Comprimir", "Reconocer texto (OCR)", "Firma digital", "Redactar", "Comparar", "Asistente local", "Medir", "Validar PDF/A"]) {
       await expect(palette.getByRole("button", { name: new RegExp(name.replace(/[()]/g, "\\$&")) })).toBeVisible();
     }
-    await expect(palette.locator('[data-tool="sign.digital"]')).toHaveAttribute("aria-disabled", "true");
-    await expect(palette.locator('[data-tool="sign.digital"]')).toContainText("Disponible más adelante");
+    // Firma digital ya está conectada (W28): no es «próximamente». Medir sigue siéndolo.
+    await expect(palette.locator('[data-tool="sign.digital"]')).not.toContainText("Disponible más adelante");
+    await expect(palette.locator('[data-tool="batch.measure"]')).toHaveAttribute("aria-disabled", "true");
+    await expect(palette.locator('[data-tool="batch.measure"]')).toContainText("Disponible más adelante");
     await palette.getByRole("searchbox").fill("marca agua");
     await expect(palette.locator(".pl-tool")).toHaveCount(1);
     await palette.locator('[data-tool="edit.watermark"]').click({ button: "right", force: true });

@@ -4,14 +4,33 @@
 //! el worker se relanza). La caché de teselas es la de `pliego_worker::TileCache`. La capa Tauri
 //! (`app/src-tauri`) solo traduce comandos y el protocolo `pliego://tile/...` a llamadas de este servicio.
 
+pub mod annot;
 pub mod api;
+pub mod checks;
 pub mod convert;
 pub mod optimize;
 pub mod organize;
 pub mod protect;
+pub mod search_index;
+pub mod sign;
 pub mod stamp;
 pub mod stamps;
 pub mod uri;
+
+/// Ayudantes solo para pruebas.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::sync::{Mutex, MutexGuard};
+
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    /// Las pruebas que arrancan el worker (con tiempo límite por petición) o que trabajan con MuPDF a fondo
+    /// (comprimir, convertir…) se ejecutan de una en una: en paralelo, la carga de CPU de las pesadas hacía
+    /// que el worker tardara más que su límite en la CI de Windows («el motor tardó demasiado en responder»).
+    pub fn serial() -> MutexGuard<'static, ()> {
+        SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
 
 use std::collections::HashMap;
 use std::path::Path;

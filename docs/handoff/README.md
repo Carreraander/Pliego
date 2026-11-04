@@ -127,12 +127,13 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 
 ## Pendiente de Ander
 
-1. **VPS de actualizaciones:** contratarlo y ejecutar `deploy/updates/setup-vps.sh` (ver `docs/releasing.md`).
-   Generar la clave Ed25519 de producción sin conexión.
-2. **W11:** abrir en Acrobat Reader los PDFs editados de `D:\dev\pliego-w11-out\` en acr12 y decir si alguno se ve
-   mal o Reader avisa de reparaciones (a los hilos no se les dejó manejar Acrobat).
-3. **W20 (y W03):** aceptar en acr12 el diálogo de control de pantalla (computer-use) para `pliego-app.exe`,
-   Narrador, Acrobat Reader y Edge, para que los hilos hagan las pruebas de teclado, Narrador y capturas.
+1. ~~VPS de actualizaciones~~: hecho (2026-11-04). **Pendiente:** copia sin conexión de `D:\dev-cache\release-keys`
+   en otro equipo (no en USB), la hace Ander.
+2. ~~W11: abrir en Reader los PDFs editados~~: **revisión manual aprobada por Ander (2026-11-04 20:27)** para las líneas
+   de `revision-manual-ander.md` existentes entonces (W11, W03, W07, W08, W09, W22, W04, W14, W21). Siguen abiertas las que
+   dependen de la beta de la ola 4 (W23, W25 y las que añadan W26-W29).
+3. ~~W20 (y W03): control de pantalla~~: no funciona desde Remote Control; lo visual lo hace Ander a mano. Ander autorizó
+   (2026-11-04) que gestión pruebe sola en acr12 la beta nueva y los PDFs cifrados de W07 en lo que no necesite pantalla.
 4. ~~Criterio de memoria de W01~~: **decidido por Ander (2026-11-04)**: 150 MB para app + worker y techo total de
    400 MB contando WebView2.
 5. **DNIe/FNMT (W05):** acr12 no tiene lector de tarjetas conectado (#106); conectar uno o descartar la prueba.

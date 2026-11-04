@@ -1,0 +1,17 @@
+import { describe, expect, it } from "vitest";
+import { getTool, toolState } from "../registry";
+import { registerBaseTools } from "../base";
+import { registerBatchTools } from "./manifest";
+
+describe("herramientas de lotes (W29)", () => {
+  it("el índice sustituye a la fantasma y no pide documento", () => {
+    registerBaseTools();
+    expect(getTool("batch.index")?.ghost).toBe(true);
+    registerBatchTools();
+    const t = getTool("batch.index")!;
+    expect(t.ghost).toBeFalsy();
+    expect(typeof t.load).toBe("function");
+    const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
+    expect(toolState(t, none).enabled).toBe(true);
+  });
+});

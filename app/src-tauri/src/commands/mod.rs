@@ -7,6 +7,7 @@ pub mod assistant;
 pub mod dialog;
 pub mod document;
 pub mod jobs;
+pub mod protect;
 pub mod recents;
 pub mod search;
 pub mod settings;
@@ -34,6 +35,11 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::reveal_path,
         recents::about_info,
         jobs::cancel_job,
+        protect::protect_encrypt,
+        protect::protect_remove,
+        protect::protect_sanitize,
+        protect::redact_find,
+        protect::redact_apply,
         text::outline,
         text::page_text,
         startup::startup_files,

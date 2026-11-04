@@ -80,6 +80,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W20](flujos/w20.md) | Navegación, Inicio, Ajustes | Fusionado | Teclado y Narrador en acr12 (**Ander:** aceptar el permiso de pantalla) |
 | [W21](flujos/w21.md) | Instalador y lanzador | Fusionado | Mica, escalas 100/150/200 %, Narrador, sin WebView2, por máquina (UAC) |
 | [W22](flujos/w22.md) | Autoactualizaciones | Fusionado (parcial) | Comandos Tauri, directiva HKLM, UI en Ajustes y prueba de extremo a extremo en acr12 |
+| [W25](flujos/w25.md) | Conectar Proteger y Redactar | En curso | Proteger y Sanear en PR; falta Redactar (zonas en el visor) y prueba en acr12 |
 
 ## Decisiones tomadas (no reabrir sin Ander)
 

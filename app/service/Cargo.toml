@@ -9,6 +9,8 @@ repository.workspace = true
 [dependencies]
 pliego-core.workspace = true
 pliego-worker = { path = "../../crates/pliego-worker" }
+pliego-protect = { path = "../../crates/pliego-protect" }
+pliego-redact = { path = "../../crates/pliego-redact" }
 png = "0.17"
 serde.workspace = true
 

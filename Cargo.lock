@@ -4078,6 +4078,8 @@ name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
  "pliego-core",
+ "pliego-protect",
+ "pliego-redact",
  "pliego-worker",
  "png 0.17.16",
  "serde",

@@ -6,6 +6,7 @@ interfaces compartidas, prioridades) la lleva el hilo de gestión.
 - **Ola 1** (en paralelo desde ya): W01 a W10.
 - **Ola 2**: W11 a W18, cada uno cuando su dependencia esté fusionada en `main`.
 - **Ola 3** (diseño de la app, `docs/design/`): W19 a W22. W19, W21 (con un `pliego-app.exe` de prueba) y W22 (cliente y servidor) pueden empezar ya; W20 tras W19.
+- **Ola 4** (conectar las herramientas a la app): W23 a W29, ver [`ola4-conectar-herramientas.md`](ola4-conectar-herramientas.md).
 
 | Flujo | Tema | Ola | Depende de | Rutas propias |
 | --- | --- | --- | --- | --- |

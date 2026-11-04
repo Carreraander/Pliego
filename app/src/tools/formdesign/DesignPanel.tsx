@@ -1,4 +1,4 @@
-import "./forms.css";
+import "./formdesign.css";
 import { onCleanup, onMount, Show } from "solid-js";
 import { activeDoc } from "../../state/documents";
 import { TaskPanel, ToggleGroup } from "../../ui";
@@ -21,12 +21,12 @@ export default function DesignPanel(p: { onClose: () => void }) {
   const doc = activeDoc;
   return (
     <Show when={editing()} keyed fallback={
-      <TaskPanel title={ft("tools.forms.design.title")} onClose={p.onClose} primary={{ label: ft("forms.panel.close"), variant: "normal", onClick: p.onClose }}
-        secondary={[{ label: ft("forms.undo"), icon: "undo", disabled: undoDepth() === 0 || !doc(), onClick: () => doc() && void undoComment(doc()!) }]}
-        estimate={ft("forms.count", { n: fieldList().length })}>
-        <ToggleGroup label={ft("forms.tool.label")} value={designTool()} disabled={!doc()} class="pl-forms-tools"
-          options={TOOLS.map((t) => ({ value: t, label: ft("forms.tool." + t) }))} onChange={(v) => setDesignTool(v as DesignTool)} />
-        <p class="pl-forms-hint">{ft("forms.hint")}</p>
+      <TaskPanel title={ft("tools.forms.design.title")} onClose={p.onClose} primary={{ label: ft("fdesign.panel.close"), variant: "normal", onClick: p.onClose }}
+        secondary={[{ label: ft("fdesign.undo"), icon: "undo", disabled: undoDepth() === 0 || !doc(), onClick: () => doc() && void undoComment(doc()!) }]}
+        estimate={ft("fdesign.count", { n: fieldList().length })}>
+        <ToggleGroup label={ft("fdesign.tool.label")} value={designTool()} disabled={!doc()} class="pl-fdesign-tools"
+          options={TOOLS.map((t) => ({ value: t, label: ft("fdesign.tool." + t) }))} onChange={(v) => setDesignTool(v as DesignTool)} />
+        <p class="pl-fdesign-hint">{ft("fdesign.hint")}</p>
       </TaskPanel>
     }>
       {(e) => <FieldPanel editing={e} onClose={() => setEditing(null)} />}

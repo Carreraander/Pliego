@@ -15,6 +15,7 @@ pub mod jobs;
 pub mod optimize;
 pub mod organize;
 pub mod pageedit;
+pub mod portfolio;
 pub mod protect;
 pub mod recents;
 pub mod search;
@@ -31,6 +32,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         dialog::pick_pdf_files,
         dialog::pick_key_file,
         dialog::pick_folder,
+        dialog::pick_any_files,
         dialog::pick_image_file,
         dialog::pick_source_files,
         document::open_document,
@@ -57,6 +59,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::annot_add,
         annot::annot_delete,
         annot::annot_undo,
+        annot::forms_fields,
+        annot::forms_fill,
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,
         annot::pick_xfdf_file,
@@ -69,6 +73,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         pageedit::edit_text_insert,
         index::index_folder,
         index::index_search,
+        portfolio::portfolio_create,
+        portfolio::portfolio_list,
+        portfolio::portfolio_extract,
         convert::export_pdf,
         convert::pdfa_convert,
         convert::office_export_pdf,
@@ -90,6 +97,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         protect::redact_apply,
         organize::insert_pages,
         organize::number_pages,
+        organize::organize_pages,
         stamp::stamp_pdf,
         stamp::stamp_annot_pdf,
         text::outline,

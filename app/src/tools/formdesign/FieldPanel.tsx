@@ -38,26 +38,26 @@ export default function FieldPanel(props: { editing: Editing; onClose: () => voi
 
   return (
     <TaskPanel
-      title={p.mode === "edit" ? ft("forms.panel.title", { name: p.field.name }) : ft("forms.panel.new")}
+      title={p.mode === "edit" ? ft("fdesign.panel.title", { name: p.field.name }) : ft("fdesign.panel.new")}
       onClose={done}
-      primary={{ label: p.mode === "edit" ? ft("forms.panel.save") : ft("forms.panel.create"), disabled: !!err(), onClick: () => void save() }}
-      secondary={p.mode === "edit" ? [{ label: ft("forms.panel.delete"), variant: "danger", onClick: () => void remove() }] : undefined}
-      estimate={ft("forms.tool." + kind)}
+      primary={{ label: p.mode === "edit" ? ft("fdesign.panel.save") : ft("fdesign.panel.create"), disabled: !!err(), onClick: () => void save() }}
+      secondary={p.mode === "edit" ? [{ label: ft("fdesign.panel.delete"), variant: "danger", onClick: () => void remove() }] : undefined}
+      estimate={ft("fdesign.tool." + kind)}
       notice={<Show when={err() && name().trim() !== ""}><Notice tone="danger" inline>{err()}</Notice></Show>}
     >
-      <Field label={ft("forms.panel.name")} error={err()} required><TextInput value={name()} onInput={(e) => setName(e.currentTarget.value)} /></Field>
-      <Field label={ft("forms.panel.tooltip")}><TextInput value={tooltip()} onInput={(e) => setTooltip(e.currentTarget.value)} /></Field>
-      <Show when={hasValue}><Field label={ft("forms.panel.value")}><TextInput value={value()} onInput={(e) => setValue(e.currentTarget.value)} /></Field></Show>
+      <Field label={ft("fdesign.panel.name")} error={err()} required><TextInput value={name()} onInput={(e) => setName(e.currentTarget.value)} /></Field>
+      <Field label={ft("fdesign.panel.tooltip")}><TextInput value={tooltip()} onInput={(e) => setTooltip(e.currentTarget.value)} /></Field>
+      <Show when={hasValue}><Field label={ft("fdesign.panel.value")}><TextInput value={value()} onInput={(e) => setValue(e.currentTarget.value)} /></Field></Show>
       <Show when={hasOptions}>
-        <Field label={ft("forms.panel.options")}>
+        <Field label={ft("fdesign.panel.options")}>
           <textarea class="pl-input" rows="4" value={options()} onInput={(e) => setOptions(e.currentTarget.value)} />
         </Field>
       </Show>
       <Show when={kind === "radio_button" && p.mode === "new"}>
-        <Field label={ft("forms.panel.exportValue")}><TextInput value={exportValue()} placeholder={name()} onInput={(e) => setExportValue(e.currentTarget.value)} /></Field>
+        <Field label={ft("fdesign.panel.exportValue")}><TextInput value={exportValue()} placeholder={name()} onInput={(e) => setExportValue(e.currentTarget.value)} /></Field>
       </Show>
-      <Checkbox label={ft("forms.panel.required")} checked={required()} onChange={(e) => setRequired(e.currentTarget.checked)} />
-      <Checkbox label={ft("forms.panel.readonly")} checked={readOnly()} onChange={(e) => setReadOnly(e.currentTarget.checked)} />
+      <Checkbox label={ft("fdesign.panel.required")} checked={required()} onChange={(e) => setRequired(e.currentTarget.checked)} />
+      <Checkbox label={ft("fdesign.panel.readonly")} checked={readOnly()} onChange={(e) => setReadOnly(e.currentTarget.checked)} />
     </TaskPanel>
   );
 }

@@ -23,7 +23,7 @@ export function loadFields(doc: OpenDoc): Promise<FieldInfo[]> {
 async function run(command: string, args: Record<string, unknown>): Promise<boolean> {
   try {
     // El servicio guarda la copia de seguridad la primera vez, recarga el visor y devuelve cuántos cambios se pueden deshacer.
-    setUndoDepth(await invoke<number>(command, { ...args, suffix: ft("forms.backupSuffix") }));
+    setUndoDepth(await invoke<number>(command, { ...args, suffix: ft("fdesign.backupSuffix") }));
     cache = null;
     return true;
   } catch (e) {

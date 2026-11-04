@@ -1,0 +1,6 @@
+/* Capa de redacción sobre cada página: zonas marcadas, coincidencias de la vista previa y captura del arrastre. */
+.redact-layer { position: absolute; inset: 0; }
+.redact-layer[data-marking="true"] { cursor: crosshair; touch-action: none; }
+.redact-mark { position: absolute; box-sizing: border-box; background: var(--pl-danger-soft); border: 2px solid var(--pl-danger); opacity: 0.85; pointer-events: none; }
+.redact-match { position: absolute; box-sizing: border-box; outline: 2px dashed var(--pl-danger); background: var(--pl-danger-soft); opacity: 0.6; pointer-events: none; }
+.redact-draft { position: absolute; box-sizing: border-box; border: 2px dashed var(--pl-danger); pointer-events: none; }

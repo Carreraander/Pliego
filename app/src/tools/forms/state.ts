@@ -1,18 +1,26 @@
+import { createResource } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 import { createSignal } from "solid-js";
-import type { OpenDoc } from "../../state/documents";
-import type { Box, DesignTool, FieldInfo, FieldKind } from "./geometry";
+import { activeDoc, type OpenDoc } from "../../state/documents";
+import { loadSignature, type Signature } from "./signature";
 
-/** Herramienta activa del diseñador (`select` = elegir y editar campos existentes). */
-export const [designTool, setDesignTool] = createSignal<DesignTool>("select");
-/** El panel «Diseñar formulario» está abierto: solo entonces la capa del visor recoge gestos. */
-export const [designOpen, setDesignOpen] = createSignal(false);
-/** Campo elegido (por nombre) para editar sus propiedades. */
-export const [selectedField, setSelectedField] = createSignal<string | null>(null);
-/** Campos del documento activo para la revisión mostrada. */
-export const [fieldList, setFieldList] = createSignal<FieldInfo[]>([]);
+/** Reflejo de `pliego_forms::FieldInfo` (lo que se usa). */
+export interface FormField {
+  name: string; kind: "text" | "check_box" | "radio_button" | "combo_box" | "list_box" | "push_button" | "signature" | "unknown";
+  value: string | null; options: string[]; page: number; rect: [number, number, number, number] | null;
+  read_only: boolean; multiline: boolean; password: boolean; signed: boolean;
+}
 
-/** Lo que se está creando o editando en el panel (`null` = elegir herramienta). */
-export type Editing =
-  | { mode: "new"; doc: OpenDoc; kind: FieldKind; page: number; rect: Box }
-  | { mode: "edit"; doc: OpenDoc; field: FieldInfo };
-export const [editing, setEditing] = createSignal<Editing | null>(null);
+/** Campos del documento activo; se vuelven a leer cuando cambia su revisión (cada relleno recarga el visor). */
+export const [fields, { refetch: refetchFields }] = createResource(
+  () => { const d = activeDoc(); return d ? ({ path: d.path, rev: d.revision } satisfies { path: string; rev: number }) : null; },
+  (k) => invoke<FormField[]>("forms_fields", { path: k.path }).catch(() => [] as FormField[]),
+);
+
+export const fieldsOnPage = (doc: OpenDoc, page: number): FormField[] =>
+  doc.id === activeDoc()?.id ? (fields() ?? []).filter((f) => f.page === page && f.rect) : [];
+
+/** Firma guardada (`null` si no hay) y si se está colocando. */
+export const [signature, setSignature] = createSignal<Signature | null>(loadSignature());
+export const [placingSignature, setPlacingSignature] = createSignal(false);
+export const [signaturePadOpen, setSignaturePadOpen] = createSignal(false);

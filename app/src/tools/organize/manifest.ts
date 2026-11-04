@@ -20,7 +20,13 @@ export const number: ToolManifest = {
   icon: "hash", keywords: ["numeración", "paginar", "etiquetas"], when: { document: true }, pinnable: true, load: () => import("./NumberPanel"),
 };
 
+export const organize: ToolManifest = {
+  id: "pages.organize", group: "organize", kind: "mode", title: "tools.pages.organize.title", description: "tools.pages.organize.description",
+  icon: "layout-grid", keywords: ["páginas", "rotar", "eliminar", "reordenar", "extraer"], when: { document: true }, pinnable: true,
+};
+
 export function registerOrganizeTools(): void {
+  registerTool(organize);
   registerTool(merge);
   registerTool(split);
   registerTool(insert);

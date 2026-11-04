@@ -40,6 +40,9 @@ pub struct FieldInfo {
     pub options: Vec<String>,
     /// Página (desde 0) de la primera aparición.
     pub page: usize,
+    /// Recuadro `[x0, y0, x1, y1]` del primer botón/caja del campo, en puntos de página (origen arriba a la izquierda).
+    #[serde(default)]
+    pub rect: Option<[f32; 4]>,
     pub read_only: bool,
     pub required: bool,
     pub multiline: bool,
@@ -155,6 +158,7 @@ pub fn fields(doc: &mut PdfDocument) -> Result<Vec<FieldInfo>> {
                 value: w.value().map_err(pe)?,
                 options,
                 page: p as usize,
+                rect: w.annotation().bounds().ok().map(|r| [r.x0, r.y0, r.x1, r.y1]),
                 read_only: flags.contains(FieldFlags::READ_ONLY) || w.is_readonly().unwrap_or(false),
                 required: flags.contains(FieldFlags::REQUIRED),
                 multiline: flags.contains(FieldFlags::MULTILINE),

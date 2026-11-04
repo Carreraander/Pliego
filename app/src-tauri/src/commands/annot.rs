@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use pliego_app_service::DocId;
-use pliego_app_service::annot::{self, AnnotId, AnnotSpec, CommentSummary, Editor};
+use pliego_app_service::annot::{self, AnnotId, AnnotSpec, CommentSummary, Editor, FieldInfo, FieldValues};
 use pliego_app_service::api::ApiResult;
 use pliego_appdata::jobs::JobId;
 use pliego_core::Error;
@@ -100,5 +100,31 @@ pub async fn annot_undo(
     if let Some(bytes) = editor.0.undo(&path)? {
         state.service.reload_bytes(doc_id, &bytes)?;
     }
+    Ok(editor.0.undo_depth(&path))
+}
+
+/// Campos del formulario de `path`, con su recuadro en la página (Rellenar y firmar).
+#[tauri::command]
+pub async fn forms_fields(path: String) -> ApiResult<Vec<FieldInfo>> {
+    let joined = tauri::async_runtime::spawn_blocking(move || annot::form_fields(&PathBuf::from(path), None))
+        .await
+        .map_err(|e| Error::Other(e.to_string()))?;
+    Ok(joined?)
+}
+
+/// Rellena campos del PDF abierto (copia de seguridad antes del primer cambio) y recarga el visor.
+/// Devuelve cuántos cambios se pueden deshacer.
+#[tauri::command]
+pub async fn forms_fill(
+    state: State<'_, AppState>,
+    editor: State<'_, AnnotEditState>,
+    doc_id: DocId,
+    path: String,
+    values: FieldValues,
+    suffix: String,
+) -> ApiResult<usize> {
+    let path = PathBuf::from(path);
+    let bytes = editor.0.fill(&path, &values, &suffix)?;
+    state.service.reload_bytes(doc_id, &bytes)?;
     Ok(editor.0.undo_depth(&path))
 }

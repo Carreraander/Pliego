@@ -128,3 +128,14 @@ fn bulk_fill_makes_one_pdf_per_row_with_progress_and_cancel() {
         Err(pliego_core::Error::Cancelled)
     ));
 }
+
+#[test]
+fn every_field_reports_a_rect_inside_its_page() {
+    let mut doc = open_form();
+    let fs = fields(&mut doc).unwrap();
+    for f in &fs {
+        let r = f.rect.unwrap_or_else(|| panic!("{} sin recuadro", f.name));
+        assert!(r[2] > r[0] && r[3] > r[1], "{}: recuadro vacío {r:?}", f.name);
+        assert!(r[0] >= 0.0 && r[1] >= 0.0, "{}: fuera de la página {r:?}", f.name);
+    }
+}

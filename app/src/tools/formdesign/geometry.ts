@@ -45,9 +45,9 @@ export function freeName(kind: FieldKind, taken: Iterable<string>): string {
 /** Valida un nombre de campo; devuelve la clave de error de texto o `null`. */
 export function nameError(name: string, taken: Iterable<string>, current?: string): string | null {
   const n = name.trim();
-  if (!n) return "forms.err.nameEmpty";
-  if (n.includes(".")) return "forms.err.nameDot";
-  if (n !== current && [...taken].includes(n)) return "forms.err.nameTaken";
+  if (!n) return "fdesign.err.nameEmpty";
+  if (n.includes(".")) return "fdesign.err.nameDot";
+  if (n !== current && [...taken].includes(n)) return "fdesign.err.nameTaken";
   return null;
 }
 

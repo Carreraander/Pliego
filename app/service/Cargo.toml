@@ -12,11 +12,13 @@ pliego-annot = { path = "../../crates/pliego-annot" }
 pliego-formdesign = { path = "../../crates/pliego-formdesign" }
 pliego-document = { path = "../../crates/pliego-document" }
 pliego-edit = { path = "../../crates/pliego-edit" }
+pliego-forms = { path = "../../crates/pliego-forms" }
 mupdf.workspace = true
 tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-a11y.workspace = true
 pliego-index = { path = "../../crates/pliego-index" }
+pliego-portfolio = { path = "../../crates/pliego-portfolio" }
 pliego-pdfa.workspace = true
 pliego-print.workspace = true
 pliego-convert = { path = "../../crates/pliego-convert" }

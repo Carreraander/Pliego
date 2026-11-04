@@ -2,6 +2,10 @@ import { addToolStrings } from "../strings";
 
 addToolStrings({
   es: {
+    "organize.mode.title": "Organizar", "organize.grid.empty": "Abre un documento para organizar sus páginas", "organize.grid.label": "Páginas del documento", "organize.grid.was": "antes {n}",
+    "organize.grid.rotateLeft": "Girar a la izquierda", "organize.grid.rotateRight": "Girar a la derecha", "organize.grid.moveLeft": "Mover a la izquierda", "organize.grid.moveRight": "Mover a la derecha",
+    "organize.grid.duplicate": "Duplicar", "organize.grid.delete": "Borrar", "organize.grid.selectAll": "Seleccionar todo", "organize.grid.extract": "Extraer selección", "organize.grid.discard": "Descartar cambios", "organize.grid.save": "Guardar copia",
+    "organize.grid.suffix": "organizado", "organize.grid.suffixExtract": "extraído", "organize.grid.job": "Organizar {name}", "organize.grid.jobExtract": "Extraer páginas de {name}", "organize.grid.started": "Guardando copia… sigue en el centro de tareas",
     "organize.invalid": "Revisa los datos: alguno no es válido para este documento",
     "organize.merge.suffix": "combinado", "organize.split.suffix": "partes", "organize.insert.suffix": "insertado", "organize.number.suffix": "numerado",
     "organize.insert.title": "Insertar páginas", "organize.insert.run": "Insertar", "organize.insert.from": "Insertar", "organize.insert.blank": "Páginas en blanco", "organize.insert.file": "Páginas de otro archivo",
@@ -25,6 +29,10 @@ addToolStrings({
     "organize.split.hint": "Los archivos se guardan en una carpeta nueva junto al original.",
   },
   en: {
+    "organize.mode.title": "Organize", "organize.grid.empty": "Open a document to organize its pages", "organize.grid.label": "Document pages", "organize.grid.was": "was {n}",
+    "organize.grid.rotateLeft": "Rotate left", "organize.grid.rotateRight": "Rotate right", "organize.grid.moveLeft": "Move left", "organize.grid.moveRight": "Move right",
+    "organize.grid.duplicate": "Duplicate", "organize.grid.delete": "Delete", "organize.grid.selectAll": "Select all", "organize.grid.extract": "Extract selection", "organize.grid.discard": "Discard changes", "organize.grid.save": "Save copy",
+    "organize.grid.suffix": "organized", "organize.grid.suffixExtract": "extracted", "organize.grid.job": "Organize {name}", "organize.grid.jobExtract": "Extract pages from {name}", "organize.grid.started": "Saving copy… follow it in the task center",
     "organize.invalid": "Check the values: one is not valid for this document",
     "organize.merge.suffix": "merged", "organize.split.suffix": "parts", "organize.insert.suffix": "inserted", "organize.number.suffix": "numbered",
     "organize.insert.title": "Insert pages", "organize.insert.run": "Insert", "organize.insert.from": "Insert", "organize.insert.blank": "Blank pages", "organize.insert.file": "Pages from another file",

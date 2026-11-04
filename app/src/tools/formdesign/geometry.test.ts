@@ -17,9 +17,9 @@ describe("geometría del diseñador de formularios", () => {
     expect(freeName("signature", [])).toBe("Firma1");
   });
   it("valida nombres: vacío, con punto y repetido", () => {
-    expect(nameError("  ", [])).toBe("forms.err.nameEmpty");
-    expect(nameError("a.b", [])).toBe("forms.err.nameDot");
-    expect(nameError("x", ["x"])).toBe("forms.err.nameTaken");
+    expect(nameError("  ", [])).toBe("fdesign.err.nameEmpty");
+    expect(nameError("a.b", [])).toBe("fdesign.err.nameDot");
+    expect(nameError("x", ["x"])).toBe("fdesign.err.nameTaken");
     expect(nameError("x", ["x"], "x")).toBeNull();
   });
   it("las opciones van una por línea sin vacías ni repetidas", () => {

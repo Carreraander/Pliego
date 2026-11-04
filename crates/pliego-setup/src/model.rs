@@ -75,6 +75,8 @@ pub enum SetupError {
     Corrupt(String),
     /// Sin permisos para escribir o registrar.
     Permission(String),
+    /// La carpeta de destino no es válida (vacía, relativa, en una unidad inexistente o es un archivo).
+    BadPath(String),
     /// Windows anterior a 10 versión 2004.
     OldWindows(u32),
     /// Pliego está abierto y no se pudo cerrar.
@@ -99,6 +101,7 @@ impl SetupError {
             SetupError::NoSpace { .. } => "no_space",
             SetupError::Corrupt(_) => "corrupt",
             SetupError::Permission(_) => "permission",
+            SetupError::BadPath(_) => "bad_path",
             SetupError::OldWindows(_) => "old_windows",
             SetupError::Running => "running",
             SetupError::Cancelled => "cancelled",
@@ -118,6 +121,7 @@ impl fmt::Display for SetupError {
             }
             SetupError::Corrupt(m) => write!(f, "paquete dañado: {m}"),
             SetupError::Permission(m) => write!(f, "sin permisos: {m}"),
+            SetupError::BadPath(m) => write!(f, "carpeta de destino no válida: {m}"),
             SetupError::OldWindows(b) => write!(f, "Windows demasiado antiguo (compilación {b}, mínimo 19041)"),
             SetupError::Running => write!(f, "Pliego está abierto"),
             SetupError::Cancelled => write!(f, "cancelado"),

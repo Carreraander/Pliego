@@ -57,6 +57,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         jobs::cancel_job,
         convert::create_pdf,
         checks::check_accessibility,
+        checks::reading_order,
+        checks::tab_order_copy,
         checks::validate_pdfa,
         checks::preflight_pdf,
         annot::annot_summary,

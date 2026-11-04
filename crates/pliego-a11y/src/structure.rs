@@ -166,3 +166,29 @@ pub(crate) fn read_tree(doc: &PdfDocument) -> Result<Option<Tree>> {
     }
     Ok(Some(w.tree))
 }
+
+/// Un elemento con contenido, en el orden en que lo leería un lector de pantalla.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ReadingItem {
+    /// Página (desde 0) a la que pertenece, si se conoce.
+    pub page: Option<usize>,
+    /// Tipo estándar de la etiqueta (`H1`, `P`, `Figure`...).
+    pub role: String,
+    /// Tiene texto alternativo o texto real.
+    pub has_alt: bool,
+}
+
+/// Orden de lectura según el árbol de estructura. `None` si el documento no está etiquetado.
+pub fn reading_order(doc: &PdfDocument) -> Result<Option<Vec<ReadingItem>>> {
+    Ok(read_tree(doc)?.map(|t| {
+        t.elems
+            .iter()
+            .filter(|e| e.has_content)
+            .map(|e| ReadingItem {
+                page: e.page,
+                role: e.role.clone(),
+                has_alt: e.has_alt,
+            })
+            .collect()
+    }))
+}

@@ -150,3 +150,21 @@ fn low_contrast_text_is_reported_once_per_page() {
     let good = check_file(&corpus("bueno.pdf"), None).unwrap();
     assert!(good.issues.iter().all(|i| i.code != IssueCode::LowContrast));
 }
+
+#[test]
+fn reading_order_follows_the_structure_tree() {
+    let order = pliego_a11y::reading_order_file(&corpus("bueno.pdf"), None)
+        .unwrap()
+        .expect("el documento bueno está etiquetado");
+    assert!(!order.is_empty());
+    assert!(order.iter().all(|i| !i.role.is_empty()));
+}
+
+#[test]
+fn reading_order_of_untagged_document_is_none() {
+    assert!(
+        pliego_a11y::reading_order_file(&corpus("malo.pdf"), None)
+            .unwrap()
+            .is_none()
+    );
+}

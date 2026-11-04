@@ -18,8 +18,14 @@ export const preflight: ToolManifest = {
   icon: "clipboard-check", keywords: ["preflight", "imprenta"], when: { document: true },
 };
 
+export const readingOrder: ToolManifest = {
+  id: "access.order", group: "standards", kind: "task", title: "tools.access.order.title", description: "tools.access.order.description",
+  icon: "list-ordered", keywords: ["lectura", "orden", "tabulación"], when: { document: true }, load: () => import("./OrderPanel"),
+};
+
 export function registerCheckTools(): void {
   registerTool(accessCheck);
   registerTool(validatePdfa);
   registerTool(preflight);
+  registerTool(readingOrder);
 }

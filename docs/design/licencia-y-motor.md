@@ -9,6 +9,10 @@ licencias ni dependencias**. Las decisiones son de Ander.
 
 ## 1. Qué hay que decidir
 
+> **Decidido (Ander, 2026-11-04 23:20):** opción (a): uso gratis para todos, empresas incluidas; paga solo quien
+> venda Pliego o derivados, lo integre en un producto de pago o lo ofrezca como servicio de pago. Licencia candidata:
+> BSL 1.1. Queda pendiente el motor (A, B o C) y la revisión legal.
+
 1. **Modelo de licencia.** Lo que pide Ander («cualquiera lo usa y ve el código, pero quien lo comercialice me paga una
    comisión») no es *open source* según la OSI: es **source-available** (código visible). Hay que elegir qué cuenta
    como «comercializar»:

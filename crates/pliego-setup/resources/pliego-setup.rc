@@ -1,2 +1,4 @@
 #define RT_MANIFEST 24
 1 RT_MANIFEST "pliego-setup.manifest"
+// Icono multitamaño del logo de Pliego (ventana, barra de tareas y archivo descargado).
+1 ICON "../../../app/src-tauri/icons/icon.ico"

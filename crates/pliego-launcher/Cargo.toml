@@ -17,6 +17,9 @@ path = "src/bin/cli.rs"
 [dependencies]
 pliego-install = { path = "../pliego-install", default-features = false }
 
+[build-dependencies]
+embed-resource = "3"
+
 [dev-dependencies]
 tempfile.workspace = true
 

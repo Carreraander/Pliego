@@ -13,6 +13,7 @@ pub mod facts;
 pub mod formdesign;
 pub mod optimize;
 pub mod organize;
+pub mod outputpreview;
 pub mod pageedit;
 pub mod portfolio;
 pub mod protect;

@@ -4080,6 +4080,7 @@ dependencies = [
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "mupdf",
  "p12-keystore",
  "pliego-a11y",
@@ -4294,6 +4295,7 @@ dependencies = [
 name = "pliego-launcher"
 version = "0.1.0"
 dependencies = [
+ "embed-resource",
  "pliego-install",
  "tempfile",
 ]

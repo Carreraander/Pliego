@@ -33,6 +33,7 @@ pliego-protect = { path = "../../crates/pliego-protect" }
 pliego-redact = { path = "../../crates/pliego-redact" }
 pliego-organize.workspace = true
 pliego-stamp.workspace = true
+base64 = "0.22"
 png = "0.17"
 serde.workspace = true
 

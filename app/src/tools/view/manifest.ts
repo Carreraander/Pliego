@@ -15,7 +15,14 @@ export const attachments: ToolManifest = {
   load: () => import("./AttachmentsPanel"),
 };
 
+export const layers: ToolManifest = {
+  id: "viewer.layers", group: "view", kind: "task", title: "tools.viewer.layers.title", description: "tools.viewer.layers.description",
+  icon: "layers", keywords: ["capas", "layers", "ocg", "contenido opcional"], when: { document: true }, pinnable: true,
+  load: () => import("./LayersPanel"),
+};
+
 export function registerViewTools(): void {
   registerTool(attachments);
+  registerTool(layers);
   registerTool(properties);
 }

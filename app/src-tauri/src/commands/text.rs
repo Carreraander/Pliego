@@ -1,7 +1,7 @@
 //! Marcadores y texto de página (selección y copia).
 
 use pliego_app_service::DocId;
-use pliego_core::OutlineItem;
+use pliego_core::{Layer, OutlineItem};
 use tauri::State;
 
 use crate::AppState;
@@ -16,4 +16,17 @@ pub fn outline(state: State<'_, AppState>, doc_id: DocId) -> ApiResult<Vec<Outli
 #[tauri::command]
 pub fn page_text(state: State<'_, AppState>, doc_id: DocId, page: u32) -> ApiResult<String> {
     Ok(state.service.page_text(doc_id, page)?)
+}
+
+/// Capas del documento.
+#[tauri::command]
+pub fn layers(state: State<'_, AppState>, doc_id: DocId) -> ApiResult<Vec<Layer>> {
+    Ok(state.service.layers(doc_id)?)
+}
+
+/// Muestra u oculta una capa solo en pantalla.
+#[tauri::command]
+pub fn set_layer_visible(state: State<'_, AppState>, doc_id: DocId, layer: i32, visible: bool) -> ApiResult<()> {
+    state.service.set_layer_visible(doc_id, layer, visible)?;
+    Ok(())
 }

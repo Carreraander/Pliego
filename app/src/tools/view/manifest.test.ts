@@ -23,4 +23,13 @@ describe("herramientas de Ver (W29)", () => {
     const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
     expect(toolState(t, none).enabled).toBe(false);
   });
+  it("Capas sustituye a la fantasma y pide un documento", () => {
+    registerBaseTools();
+    registerViewTools();
+    const t = getTool("viewer.layers")!;
+    expect(t.ghost).toBeFalsy();
+    expect(t.kind).toBe("task");
+    const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
+    expect(toolState(t, none).enabled).toBe(false);
+  });
 });

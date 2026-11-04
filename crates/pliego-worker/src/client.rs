@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use pliego_core::{
-    DocInfo, EngineDocument, Error, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
+    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
 };
 
 use crate::cache::{TileCache, TileKey};
@@ -89,6 +89,7 @@ impl WorkerEngine {
                 proc: None,
                 source,
                 password: password.map(str::to_owned),
+                hidden_layers: Vec::new(),
             }),
         };
         // Abre ya: así los errores de contraseña o de formato salen en `open`.
@@ -140,6 +141,8 @@ struct State {
     proc: Option<Proc>,
     source: Source,
     password: Option<String>,
+    /// Capas ocultas por el usuario: se reaplican si el worker se relanza o se recarga el contenido.
+    hidden_layers: Vec<i32>,
 }
 
 /// Documento servido por un proceso worker propio. Es `Send + Sync`: las peticiones se serializan.
@@ -341,6 +344,10 @@ impl WorkerDocument {
         };
         match proc.call(&req, bin.as_deref().map(|b| b.as_slice()), self.config.timeout) {
             Ok(_) => {
+                for &id in &st.hidden_layers {
+                    // Una capa que ya no existe (contenido recargado) se ignora: no debe impedir abrir.
+                    let _ = proc.call(&Request::SetLayer { id, visible: false }, None, self.config.timeout);
+                }
                 st.proc = Some(proc);
                 Ok(())
             }
@@ -482,5 +489,25 @@ impl EngineDocument for WorkerDocument {
             Response::Outline(o) => Ok(o),
             _ => unexpected(),
         }
+    }
+
+    fn layers(&self) -> Result<Vec<Layer>> {
+        match self.call(Request::Layers)?.0 {
+            Response::Layers(l) => Ok(l),
+            _ => unexpected(),
+        }
+    }
+
+    fn set_layer_visible(&self, id: i32, visible: bool) -> Result<()> {
+        self.call(Request::SetLayer { id, visible })?;
+        let mut st = self.lock();
+        st.hidden_layers.retain(|&x| x != id);
+        if !visible {
+            st.hidden_layers.push(id);
+        }
+        drop(st);
+        // Las teselas ya dibujadas muestran el estado anterior.
+        self.cache.drop_doc(self.id);
+        Ok(())
     }
 }

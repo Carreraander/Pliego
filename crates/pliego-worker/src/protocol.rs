@@ -6,7 +6,7 @@
 
 use std::io::{self, Read, Write};
 
-use pliego_core::{DocInfo, Error, OutlineItem, PageSize, SearchHit, TileRequest};
+use pliego_core::{DocInfo, Error, Layer, OutlineItem, PageSize, SearchHit, TileRequest};
 use serde::{Deserialize, Serialize};
 
 /// Máximo de un marco JSON.
@@ -43,6 +43,12 @@ pub enum Request {
         max_hits: u32,
     },
     Outline,
+    /// Capas del documento (añadido; no cambia las peticiones anteriores).
+    Layers,
+    SetLayer {
+        id: i32,
+        visible: bool,
+    },
     Shutdown,
     /// Solo con `PLIEGO_WORKER_DEBUG=1`: el worker termina de golpe (pruebas de recuperación).
     DebugCrash,
@@ -64,6 +70,7 @@ pub enum Response {
     Text(String),
     Hit(SearchHit),
     Outline(Vec<OutlineItem>),
+    Layers(Vec<Layer>),
     Err(WireError),
 }
 

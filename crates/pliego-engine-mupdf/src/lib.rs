@@ -9,7 +9,7 @@ pub use fonts::{SystemFonts, init_fonts};
 
 use mupdf::{Colorspace, Device, Document, IRect, Matrix, MetadataName, Pixmap, TextPageFlags};
 use pliego_core::{
-    DocInfo, EngineDocument, Error, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
+    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
 };
 
 /// Límite de seguridad para no reservar mapas de bits enormes por error (≈ 400 MB RGBA).
@@ -81,6 +81,32 @@ impl MupdfDocument {
             Doc::Other(doc)
         };
         Ok(Self { doc })
+    }
+
+    /// Muestra u oculta una capa en memoria (el archivo no cambia). Solo PDF.
+    pub fn set_layer_visible_mut(&mut self, id: i32, visible: bool) -> Result<()> {
+        match &mut self.doc {
+            Doc::Pdf(pdf) => {
+                let known = pdf
+                    .optional_content_groups()
+                    .map_err(pdf_err)?
+                    .iter()
+                    .any(|g| g.reference.xref() == id);
+                if !known {
+                    return Err(Error::InvalidInput(format!("la capa {id} no existe")));
+                }
+                let r = mupdf::pdf::OptionalContentRef::new(id).map_err(pdf_err)?;
+                pdf.set_optional_content_enabled(r, visible).map_err(pdf_err)?;
+                // MuPDF lee la configuración de capas al abrir: para que el render la respete se reabre el
+                // documento desde su copia en memoria (sin cifrar, así que no vuelve a pedir contraseña).
+                let mut bytes = Vec::new();
+                pdf.write_to(&mut bytes).map_err(pdf_err)?;
+                let doc = Document::from_bytes(&bytes, "application/pdf").map_err(pdf_err)?;
+                *self = Self::unlock(doc, None)?;
+                Ok(())
+            }
+            Doc::Other(_) => Err(Error::Unsupported("solo los PDF tienen capas".into())),
+        }
     }
 
     /// Acceso al documento MuPDF para módulos que necesiten más de lo que expone el trait.
@@ -240,6 +266,26 @@ impl EngineDocument for MupdfDocument {
                 .map(|q| [q.ul.x, q.ul.y, q.ur.x, q.ur.y, q.ll.x, q.ll.y, q.lr.x, q.lr.y])
                 .collect(),
         })
+    }
+
+    fn layers(&self) -> Result<Vec<Layer>> {
+        match &self.doc {
+            Doc::Pdf(pdf) => Ok(pdf
+                .optional_content_groups()
+                .map_err(pdf_err)?
+                .into_iter()
+                .enumerate()
+                .map(|(i, g)| Layer {
+                    id: g.reference.xref(),
+                    name: g
+                        .name
+                        .filter(|n| !n.trim().is_empty())
+                        .unwrap_or_else(|| format!("Capa {}", i + 1)),
+                    visible: g.enabled,
+                })
+                .collect()),
+            Doc::Other(_) => Ok(Vec::new()),
+        }
     }
 
     fn outline(&self) -> Result<Vec<OutlineItem>> {

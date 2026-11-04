@@ -159,3 +159,13 @@ fn search_text_and_outline() {
     assert!(svc.search(doc, "   ", 50).unwrap().is_empty());
     assert!(svc.outline(doc).is_ok());
 }
+
+#[test]
+fn layers_of_a_plain_document_are_empty_and_unknown_layers_fail() {
+    let _serial = crate::test_support::serial();
+    let svc = service();
+    let doc = svc.open_document(&corpus(), None).unwrap();
+    assert!(svc.layers(doc).unwrap().is_empty());
+    assert!(svc.set_layer_visible(doc, 99999, false).is_err());
+    assert_eq!(svc.revision(doc).unwrap(), 0, "un fallo no debe repintar");
+}

@@ -13,6 +13,7 @@ import { registerFormsTools } from "./forms/manifest";
 import { registerSignTools } from "./sign/manifest";
 import { registerProtectTools } from "./protect";
 import { registerBatchTools } from "./batch/manifest";
+import { registerViewTools } from "./view/manifest";
 import { registerStampTools } from "./stamp/manifest";
 import { registerFormTools } from "./formdesign/manifest";
 import { registerEditTools } from "./edit/manifest";
@@ -27,6 +28,7 @@ export function registerAppTools(): void {
   registerSignTools(); // W28
   registerProtectTools(); // W25
   registerBatchTools(); // W29
+  registerViewTools(); // W29
   registerConvertTools(); // W24
   registerStampTools(); // W27
   registerFormTools(); // W29b

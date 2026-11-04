@@ -4078,7 +4078,9 @@ dependencies = [
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
+ "pliego-appdata",
  "pliego-core",
+ "pliego-optimize",
  "pliego-worker",
  "png 0.17.16",
  "serde",

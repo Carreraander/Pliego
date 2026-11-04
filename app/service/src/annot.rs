@@ -40,16 +40,28 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
         .prefix(".pliego-")
         .suffix(".tmp")
         .tempfile_in(dir)
-        .map_err(|e| Error::io_at(dir, e))?;
+        .map_err(|e| Error::io_at(dir, e))?
+        // Se suelta el manejador abierto: en Windows impide renombrar mientras exista.
+        .into_temp_path();
     let path = tmp
-        .path()
         .to_str()
         .ok_or_else(|| Error::InvalidInput("ruta no válida".into()))?;
     let mut opts = PdfWriteOptions::default();
     opts.set_garbage_level(3).set_compress(true);
     doc.save_with_options(path, opts).map_err(pe)?;
-    tmp.persist(out).map_err(|e| Error::io_at(out, e.error))?;
-    Ok(())
+    // En Windows un antivirus o el indexador pueden tener el archivo recién escrito unos milisegundos.
+    let mut tmp = tmp;
+    for attempt in 0..5 {
+        match tmp.persist(out) {
+            Ok(()) => return Ok(()),
+            Err(e) if attempt < 4 => {
+                tmp = e.path;
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(e) => return Err(Error::io_at(out, e.error)),
+        }
+    }
+    unreachable!("el bucle devuelve en el último intento")
 }
 
 /// Resumen de los comentarios de `src`.

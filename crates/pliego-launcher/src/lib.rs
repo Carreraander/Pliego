@@ -110,7 +110,27 @@ pub fn run(root: &Path, target: Target, args: Vec<std::ffi::OsString>) -> Result
         let _ = layout.report_exit(&plan.version, started.elapsed());
     }
     let _ = layout.cleanup(2);
+    if let Some(msg) = startup_failure(status.code(), &plan.version, target) {
+        return Err(msg);
+    }
     Ok(exit_byte(status.code()))
+}
+
+/// Mensaje claro cuando el sistema no pudo ni arrancar el programa (códigos NTSTATUS de carga de Windows). Sin esto el
+/// lanzador devolvía 1 en silencio. `code` es el `i32` de Windows (`0xC0000135` = `-1073741515`).
+fn startup_failure(code: Option<i32>, version: &str, target: Target) -> Option<String> {
+    let what = match code? as u32 {
+        0xC000_0135 => "falta una biblioteca (DLL) necesaria",
+        0xC000_007B => "una biblioteca (DLL) no es compatible con la arquitectura del programa",
+        0xC000_0139 | 0xC000_0142 => "una biblioteca (DLL) no se pudo cargar",
+        _ => return None,
+    };
+    Some(format!(
+        "{} {version} no pudo arrancar: {what} (código 0x{:08X}). La instalación está incompleta o dañada: \
+         repárala volviendo a ejecutar el instalador de Pliego.",
+        target.exe_name(),
+        code? as u32
+    ))
 }
 
 /// ¿Hay que renovar el registro de Windows? Tras activar una versión nueva **o** tras volver atrás por la regla de
@@ -152,6 +172,16 @@ mod tests {
         assert_eq!(exit_byte(Some(42)), 42);
         assert_eq!(exit_byte(Some(-1)), 1);
         assert_eq!(exit_byte(None), 1);
+    }
+
+    #[test]
+    fn dll_load_failures_get_a_clear_message() {
+        let m = startup_failure(Some(0xC000_0135_u32 as i32), "0.1.0", Target::Cli).unwrap();
+        assert!(m.contains("pliego.exe 0.1.0") && m.contains("falta una biblioteca") && m.contains("0xC0000135"));
+        assert!(startup_failure(Some(0xC000_007B_u32 as i32), "0.1.0", Target::App).is_some());
+        assert!(startup_failure(Some(0), "0.1.0", Target::Cli).is_none());
+        assert!(startup_failure(Some(1), "0.1.0", Target::Cli).is_none());
+        assert!(startup_failure(None, "0.1.0", Target::Cli).is_none());
     }
 
     #[test]

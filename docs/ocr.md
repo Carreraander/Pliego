@@ -26,8 +26,8 @@ cargo build --release -p pliego-cli
 
 El script instala `tesseract` y `leptonica` con vcpkg (`VCPKG_ROOT`, `C:\vcpkg` o lo clona), define
 `TESSERACT_LIB_DIR`, `TESSERACT_LIB_NAME`, `LEPTONICA_LIB_NAME` (los lee `crates/tesseract-sys/build.rs`) y añade
-`<vcpkg>\installed\x64-windows-release\bin` al `PATH`. **Para empaquetar**, copiar de esa carpeta `bin` junto a `pliego.exe`
-(o al instalador) las DLL de Tesseract y sus dependencias: `tesseract55.dll`, `leptonica-*.dll` y las que cargan
+`<vcpkg>\installed\x64-windows-release\bin` al `PATH`. **Para empaquetar**, `installer/setup/build.ps1` copia de esa carpeta `bin` junto a `pliego.exe`
+las DLL de Tesseract y sus dependencias: `tesseract55.dll`, `leptonica-*.dll` y las que cargan
 (`libpng16.dll`, `tiff.dll`, `zlib1.dll`, etc.; `dumpbin /dependents tesseract55.dll` las lista).
 
 En Linux basta `apt install libtesseract-dev libleptonica-dev tesseract-ocr-eng tesseract-ocr-spa tesseract-ocr-osd`.

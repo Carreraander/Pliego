@@ -9,12 +9,16 @@ repository.workspace = true
 [dependencies]
 pliego-core.workspace = true
 pliego-worker = { path = "../../crates/pliego-worker" }
+pliego-sign = { path = "../../crates/pliego-sign" }
+pliego-signflow = { path = "../../crates/pliego-signflow" }
 png = "0.17"
 serde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
 tempfile.workspace = true
+rcgen = "0.14"
+p12-keystore = "0.4"
 
 [lints]
 workspace = true

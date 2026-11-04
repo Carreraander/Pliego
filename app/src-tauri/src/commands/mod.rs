@@ -11,6 +11,7 @@ pub mod organize;
 pub mod recents;
 pub mod search;
 pub mod settings;
+pub mod sign;
 pub mod startup;
 pub mod text;
 pub mod updates;
@@ -19,6 +20,7 @@ pub mod updates;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         dialog::pick_pdf_files,
+        dialog::pick_key_file,
         document::open_document,
         document::close_document,
         document::document_info,
@@ -37,6 +39,13 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         jobs::cancel_job,
         organize::merge_pdfs,
         organize::split_pdf,
+        sign::sign_list_certificates,
+        sign::sign_pdf,
+        sign::sign_validate,
+        sign::signflow_prepare,
+        sign::signflow_next,
+        sign::signflow_sign,
+        sign::signflow_audit,
         text::outline,
         text::page_text,
         startup::startup_files,

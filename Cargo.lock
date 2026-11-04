@@ -4065,6 +4065,8 @@ dependencies = [
  "pliego-core",
  "pliego-install",
  "pliego-organize",
+ "pliego-sign",
+ "pliego-signflow",
  "pliego-update",
  "serde",
  "serde_json",
@@ -4078,9 +4080,13 @@ dependencies = [
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
+ "p12-keystore",
  "pliego-core",
+ "pliego-sign",
+ "pliego-signflow",
  "pliego-worker",
  "png 0.17.16",
+ "rcgen",
  "serde",
  "serde_json",
  "tempfile",

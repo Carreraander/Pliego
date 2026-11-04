@@ -19,3 +19,16 @@ pub async fn pick_pdf_files(app: tauri::AppHandle, title: Option<String>) -> Vec
         .map(|p| p.to_string_lossy().into_owned())
         .collect()
 }
+
+/// Selector de un archivo de certificado con clave (.pfx/.p12); `None` si se cancela.
+#[tauri::command]
+pub async fn pick_key_file(app: tauri::AppHandle, title: Option<String>) -> Option<String> {
+    let mut dialog = app.dialog().file().add_filter("Certificado", &["pfx", "p12"]);
+    if let Some(t) = title {
+        dialog = dialog.set_title(t);
+    }
+    dialog
+        .blocking_pick_file()
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
+}

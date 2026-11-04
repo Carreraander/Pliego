@@ -57,9 +57,9 @@ pub fn run() {
                 let _ = handle.emit("document-changed", ev);
             });
             let data_dir = pliego_appdata::data_dir();
-            app.manage(commands::settings::SettingsState(
-                pliego_appdata::settings::SettingsStore::new(&data_dir),
-            ));
+            let settings = pliego_appdata::settings::SettingsStore::new(&data_dir);
+            app.manage(commands::updates::start(app.handle(), &settings));
+            app.manage(commands::settings::SettingsState(settings));
             app.manage(commands::recents::RecentsState(
                 pliego_appdata::recents::RecentStore::new(&data_dir),
             ));

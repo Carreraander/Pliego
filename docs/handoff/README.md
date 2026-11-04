@@ -62,10 +62,10 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W09](flujos/w09.md) | Crear y convertir | Fusionado | Prueba con Word, Excel y PowerPoint reales en acr12 |
 | [W10](flujos/w10.md) | Build, QA, Windows | Fusionado (parcial) + **PR #93** | Benchmarks, `crates/pliego-shell`, MSI/ZIP, firma de código |
 | [W11](flujos/w11.md) | Edición de texto e imágenes | Fusionado | **Ander:** abrir en Reader los PDFs de `D:\dev\pliego-w11-out\` |
-| [W12](flujos/w12.md) | PDF/A, PDF/UA | Fusionado + **PR #96** | veraPDF en acr12 con #96, aviso 6.5.2 |
+| [W12](flujos/w12.md) | PDF/A, PDF/UA | **Cerrado** (44/44 veraPDF) | Nada |
 | [W13](flujos/w13.md) | Diseñador de formularios | Fusionado | Prueba en Reader (10+5 → «15,00 €», 200 rechazado); ONNX opcional no hecho |
 | [W14](flujos/w14.md) | Exportar a Office | Fusionado | Revisión visual con Word real en acr12; unificar extracción con pliego-convert |
-| [W15](flujos/w15.md) | Lote, índice, medidas | Fusionado | Indexado lento en acr12 (20 min/1.000 PDF): medir extracción vs escritura, antivirus |
+| [W15](flujos/w15.md) | Lote, índice, medidas | Fusionado (#124) | Repetir en acr12 el índice de 1.000 PDFs y el render sin fuentes incrustadas con el `FontLoader` propio |
 | [W16](flujos/w16.md) | Impresión | Fusionado | Prueba en acr12; planchas de color directo y sobreimpresión (limitación de mupdf 0.8) |
 | [W17](flujos/w17.md) | Flujo de firmas | Fusionado | Tests de signflow en acr12 con corpus limpio, tres firmantes en Reader |
 | [W18](flujos/w18.md) | Asistente IA local | Fusionado | Compilar CLI/app con `--features llama` en Windows y probar de punta a punta; `Session::forget` |
@@ -117,5 +117,6 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
    400 MB contando WebView2.
 5. **DNIe/FNMT (W05):** acr12 no tiene lector de tarjetas conectado (#106); conectar uno o descartar la prueba.
 6. ~~Modelos GGUF de W18 en C:~~: **Ander autorizó moverlos a D: (2026-11-04)**; lo hace W18.
-7. **Excluir `D:\dev-cache` del antivirus** si el indexado de W15 lo confirma como causa (necesita administrador).
+7. ~~Excluir `D:\dev-cache` del antivirus~~: no hace falta. La causa del indexado lento era `system-fonts` de MuPDF
+   (font-kit enumera las fuentes en cada búsqueda); resuelto en #124 con un `FontLoader` propio.
 8. En la cuenta nueva: los pasos manuales de [`prompt-nuevo-proyecto.md`](prompt-nuevo-proyecto.md).

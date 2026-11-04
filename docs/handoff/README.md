@@ -32,19 +32,16 @@ diseño general https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw, prototipo nav
 https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente está en `docs/design/`
 (`prototipo.html` se abre en local).
 
-## Estado global a 2026-11-04 10:30 UTC
+## Estado global a 2026-11-04 11:00 UTC
 
-- **Proyecto trasladado a la cuenta nueva** (2026-11-04). Hilo de gestión: «Gestionar el desarrollo de Pliego».
-- **El código de los 22 flujos está en `main`** con CI verde en Linux y Windows. Lo que queda es sobre todo
-  **verificación en acr12** (Acrobat Reader, Office real, rendimiento, Narrador) y algunas partes aplazadas.
-- **Fusionados tras el traspaso:** #104 (W03, los 4 arreglos de acr12) y #106 (W05, `WindowsStoreSigner` y
-  `pliego sign --store`, probado en acr12 con autofirmados RSA y ECDSA P-256).
-- **PRs abiertos: 2**
-  - **#96** W12: PDF/A pasa las reglas de `/ID`, capas y adjuntos que veraPDF rechazaba (rama
-    `claude/project-thread-5j99if`, CI verde). Falta repetir veraPDF en acr12 con el binario nuevo y revisar el aviso
-    6.5.2 de `protect/sucio.pdf`.
-  - **#93** W10: benchmarks reproducibles de rendimiento (rama `claude/project-thread-itd0jc`, CI verde). Falta medir
-    en acr12 con la máquina tranquila (3 ejecuciones de `tools/bench.ps1` con el turno cogido) y añadir cifras.
+- **Proyecto trasladado a la cuenta nueva** (2026-11-04). Hilo de gestión: «Gestionar el desarrollo de Pliego»; un
+  hilo Sonnet por flujo. La cola de acr12 (una sesión de Remote Control a la vez) la lleva gestión.
+- **Fusionados tras el traspaso:** #104 (W03), #106 (W05 almacén de Windows), #107 (W03 docs), #93 (W10 benchmarks
+  con cifras de acr12), #110 (W21), #111 (W02 job object con `CREATE_SUSPENDED`), #112 (W01 worker como sidecar y
+  `forget`), #113 (W06 catálogo de modelos), #114 (W07 docs), #115 (W16 comparación con Ghostscript), #116 (W22
+  servicio de actualizaciones), #118 (W05 OCSP, VRI, B-LTA), #119 (W19), #121 (W12 PDF/A: `/ID`, capas, adjuntos y
+  `/AA` de página; sustituye a #96, cerrado).
+- **PRs abiertos:** #120 (W21: `--update` elevado verifica la firma Ed25519 del manifiesto; marca `install-kind`).
 - **Issues abiertas:** ninguna.
 
 ### Resumen por flujo

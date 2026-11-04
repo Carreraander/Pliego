@@ -1,7 +1,7 @@
 import { createEffect, createRoot } from "solid-js";
 import { locale } from "../i18n";
 import { setPaletteOpener, setToolsOpener } from "../shell";
-import { registerBaseTools, registerToolIcons, tools, toolTitle } from "../tools";
+import { registerBaseTools, registerOrganizeTools, registerToolIcons, tools, toolTitle } from "../tools";
 import { activateTool } from "./activate";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { installCommandProviders } from "./commands";
@@ -33,6 +33,7 @@ export function NavigationHost() {
 export function installNavigation(): () => void {
   registerToolIcons();
   registerBaseTools();
+  registerOrganizeTools();
   setPaletteOpener((q) => openCommandPalette(q ?? ""));
   setToolsOpener(toggleToolsPalette);
   const offs = [

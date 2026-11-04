@@ -4,6 +4,7 @@
 //! La capa Tauri (`app/src-tauri/src/commands/{settings,recents,jobs}.rs`) solo traduce comandos y eventos.
 
 pub mod about;
+pub mod copyjob;
 pub mod jobs;
 pub mod recents;
 pub mod settings;

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Monta de principio a fin el instalador BETA de Pliego (Pliego-Setup-<versión>-beta.exe) y una actualización de
   prueba firmada (0.1.1) para el E2E de la autoactualización.
@@ -71,8 +71,9 @@ try {
 
   # 2. Instalador y paquete.
   $dist = Join-Path $OutDir 'dist'
-  $argsBuild = @('-Version', $Version, '-OutDir', $dist)
-  if ($SkipCargo) { $argsBuild += '-SkipCargo' }
+  # Splat con tabla: con un array, '-Version' llegaría al script como argumento posicional.
+  $argsBuild = @{ Version = $Version; OutDir = $dist; SkipCargo = [bool]$SkipCargo }
+  $global:LASTEXITCODE = 0   # con StrictMode y -SkipCargo podría no existir aún
   & (Join-Path $repo 'installer\setup\build.ps1') @argsBuild
   if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) { throw "build.ps1 terminó con código $LASTEXITCODE" }
 
@@ -94,6 +95,7 @@ try {
       Remove-Item (Join-Path $appCopy $n) -Recurse -Force -ErrorAction SilentlyContinue
     }
     $distUpd = Join-Path $OutDir 'dist-update'
+    $global:LASTEXITCODE = 0
     & (Join-Path $repo 'installer\setup\build.ps1') -Version $UpdateVersion -OutDir $distUpd -AppDir $appCopy -SkipCargo
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) { throw "build.ps1 (actualización) terminó con código $LASTEXITCODE" }
 

@@ -54,6 +54,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 - **Hueco detectado (2026-11-04, tarde):** las funciones existen como crates y CLI, pero en la app solo funcionan Leer,
   la búsqueda y el asistente; el resto sale como «próximamente» porque ningún flujo tenía asignado conectarlas. Se abre la
   **ola 4 (W23-W29)**: [`docs/workstreams/ola4-conectar-herramientas.md`](../workstreams/ola4-conectar-herramientas.md).
+- **Decisión de motor y licencia (Ander, 2026-11-04 23:22):** opción B1 del estudio [`licencia-y-motor.md`](../design/licencia-y-motor.md): sustituir MuPDF por PDFium + lopdf tras una capa propia `pliego-pdf`; licencia candidata BSL 1.1 con uso gratuito para empresas (paga quien venda, integre en un producto de pago u ofrezca Pliego como servicio de pago). Plan: **ola 5 (W30-W41)**, [`docs/workstreams/ola5-motor-propio.md`](../workstreams/ola5-motor-propio.md). Esto **sustituye** a «AGPL + MuPDF» (2026-11-02) cuando se complete; hasta entonces `LICENSE`/`deny.toml` no cambian y falta la revisión legal.
 - **PRs abiertos:** ninguno de código.
 - **Issues abiertas:** ninguna.
 
@@ -96,7 +97,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 
 ## Decisiones tomadas (no reabrir sin Ander)
 
-- **Licencia AGPL-3.0-or-later con MuPDF** (Ander, 2026-11-02), sabiendo que una edición cerrada o comercial
+- **Licencia AGPL-3.0-or-later con MuPDF** (Ander, 2026-11-02; **a sustituir por B1 + licencia nueva al terminar la ola 5**, ver arriba), sabiendo que una edición cerrada o comercial
   exigiría licencia de Artifex. La alternativa descartada era Apache-2.0 + PDFium + qpdf.
 - **Organización:** un hilo de gestión con **Opus 5.5** y un hilo de implementación con **Sonnet 5.5** por flujo;
   el diseño de la app lo lleva un hilo Opus aparte (ver `reglas-operativas.md`).

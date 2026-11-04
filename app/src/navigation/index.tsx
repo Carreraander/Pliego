@@ -2,7 +2,7 @@ import { createEffect, createRoot } from "solid-js";
 import { locale } from "../i18n";
 import { setPaletteOpener, setToolsOpener } from "../shell";
 import { activeDoc } from "../state/documents";
-import { installOrganizeMode, registerAppTools, registerBaseTools, registerToolIcons, setDocFacts, tools, toolTitle } from "../tools";
+import { installOrganizeMode, installSignatures, registerAppTools, registerBaseTools, registerToolIcons, setDocFacts, tools, toolTitle } from "../tools";
 import { activateTool } from "./activate";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { installCommandProviders } from "./commands";
@@ -38,6 +38,7 @@ export function installNavigation(): () => void {
   setPaletteOpener((q) => openCommandPalette(q ?? ""));
   setToolsOpener(toggleToolsPalette);
   const offs = [
+    installSignatures(), // W28: panel «Firmas», hechos del documento y aviso «Firmado por…»
     installCommandProviders(),
     installOrganizeMode(), // W23: el modo Organizar sustituye al marcador de installModes
     installModes(),

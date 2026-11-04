@@ -14,6 +14,9 @@ authors = ["Proyecto Pliego"]
 pliego-core = { path = "crates/pliego-core" }
 pliego-engine-mupdf = { path = "crates/pliego-engine-mupdf" }
 pliego-organize = { path = "crates/pliego-organize" }
+pliego-a11y = { path = "crates/pliego-a11y" }
+pliego-pdfa = { path = "crates/pliego-pdfa" }
+pliego-print = { path = "crates/pliego-print" }
 pliego-stamp = { path = "crates/pliego-stamp" }
 # Sin la característica `tesseract` de MuPDF: incluye su propio Tesseract/Leptonica estático y choca por símbolos
 # con el Tesseract que enlaza `pliego-ocr` (provoca SIGSEGV al iniciar el OCR). El resto son las de por defecto,

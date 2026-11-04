@@ -10,5 +10,7 @@ mod apply;
 mod patterns;
 pub mod validators;
 
-pub use apply::{Fill, ImageMode, Leftover, RedactJob, RedactOptions, apply, apply_document, mark, verify};
+pub use apply::{
+    Fill, ImageMode, Leftover, RedactJob, RedactOptions, apply, apply_document, find_in_file, mark, verify,
+};
 pub use patterns::{Area, Match, Pattern, find_patterns};

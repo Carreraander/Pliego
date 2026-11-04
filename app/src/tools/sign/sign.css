@@ -1,0 +1,10 @@
+.pl-sign-row { display: flex; align-items: center; gap: var(--pl-space-2, 8px); }
+.pl-sign-file { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-sign-signers { list-style: none; margin: 0 0 var(--pl-space-3, 12px); padding: 0; display: flex; flex-direction: column; gap: var(--pl-space-3, 12px); }
+.pl-sign-signers li { display: flex; flex-direction: column; gap: 4px; }
+.pl-sign-signers .pl-sign-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.pl-sign-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--pl-space-3, 12px); }
+.pl-sign-card { display: flex; flex-direction: column; gap: 6px; padding: var(--pl-space-3, 12px); border: 1px solid var(--pl-border); border-radius: var(--pl-radius-md, 8px); }
+.pl-sign-card h3 { margin: 0; font-size: 1em; }
+.pl-sign-card ul { margin: 0; padding-left: 1.1em; }
+.pl-sign-panel { padding: var(--pl-space-3, 12px); display: flex; flex-direction: column; gap: var(--pl-space-3, 12px); }

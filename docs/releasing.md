@@ -58,6 +58,23 @@ No se baja nunca a nadie de versión: se publica una versión nueva con número 
   publica el manifiesto firmado con ambas durante la transición (`--key` se puede repetir).
 - *Rotación programada (anual):* igual, sin urgencia.
 
+## 9. El servidor real (montado el 2026-11-04)
+
+- URL: `https://actualizaciones.pdfpliego.com` (DNS A a `161.97.73.247`). Compilar la versión oficial con
+  `PLIEGO_UPDATE_URL=https://actualizaciones.pdfpliego.com`.
+- El VPS (`vmi3425742`, Ubuntu 24.04) es **compartido** con otros proyectos de Ander y con la web `pdfpliego.com`.
+  `deploy/updates/setup-vps.sh` solo añadió `/etc/caddy/sites.d/pliego.caddy` (el Caddyfile global y los demás sitios
+  no se tocan), el usuario de sistema `pliego` y `/srv/pliego-actualizaciones`. Copia previa de Caddy en
+  `/root/caddy-backup-20261104/`.
+- `pliego` no tiene shell: su `authorized_keys` ejecuta `rrsync /srv/pliego-actualizaciones` con la clave de despliegue
+  `pliego-deploy`. La privada está solo en el secreto `UPDATE_SSH_KEY` del entorno `release` de GitHub y en el PC donde
+  se generó. Para cambiarla: generar otra, sustituir la línea en `/home/pliego/.ssh/authorized_keys` y el secreto.
+- Comprobado: 404 en `/v1/stable/manifest.json` (aún sin publicar), certificado de Let's Encrypt válido, 405 a todo lo
+  que no sea GET/HEAD. `pdfpliego.com` envía HSTS con `includeSubDomains`: este subdominio debe seguir siempre en HTTPS.
+- Pendiente: la clave de firma de producción (ver `docs/qa/claves-de-publicacion.md`) y el primer `publish`.
+- Conocido: las respuestas de error (404) salen sin HSTS ni `nosniff` y con `Server: Caddy`, porque Caddy no aplica
+  el bloque `header` con borrado a los errores. No afecta a la seguridad (la integridad la dan las firmas).
+
 ## 8. Probar sin VPS
 ```
 pliego-release serve --root dist\actualizaciones

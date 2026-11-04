@@ -14,6 +14,7 @@ use pliego_worker::protocol::{
 };
 
 fn main() {
+    pliego_engine_mupdf::init_fonts();
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut input = BufReader::new(stdin.lock());

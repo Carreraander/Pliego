@@ -147,6 +147,7 @@ impl Index {
     /// Indexa (o actualiza) todos los PDFs de `folder`, recursivo. Los archivos cifrados o dañados se saltan con
     /// un aviso. Los que ya no existen en la carpeta salen del índice.
     pub fn add_folder(&self, folder: &Path, ctx: &JobContext) -> Result<Report> {
+        pliego_engine_mupdf::init_fonts();
         let mut files = Vec::new();
         list_pdfs(folder, &mut files)?;
         let root = folder.canonicalize().map_err(|e| Error::io_at(folder, e))?;
@@ -156,6 +157,7 @@ impl Index {
         let (mut added, mut unchanged) = (0, 0);
         let mut present = HashSet::new();
         let total = files.len() as u64;
+        let (mut t_extract, mut t_write) = (std::time::Duration::ZERO, std::time::Duration::ZERO);
 
         for (n, file) in files.iter().enumerate() {
             ctx.step(n as u64, total, &file.display().to_string())?;
@@ -167,13 +169,17 @@ impl Index {
                 unchanged += 1;
                 continue;
             }
-            let pages = match extract_pages(file) {
+            let t0 = std::time::Instant::now();
+            let pages = extract_pages(file);
+            t_extract += t0.elapsed();
+            let pages = match pages {
                 Ok(p) => p,
                 Err(e) => {
                     report.warnings.push(format!("{}: {e}", file.display()));
                     continue;
                 }
             };
+            let t0 = std::time::Instant::now();
             writer.delete_term(Term::from_field_text(self.f.path, &key));
             for (i, text) in pages.into_iter().enumerate() {
                 writer
@@ -186,6 +192,7 @@ impl Index {
                     ))
                     .map_err(idx_err)?;
             }
+            t_write += t0.elapsed();
             added += 1;
         }
 
@@ -210,8 +217,14 @@ impl Index {
                 }
             }
         }
+        let t0 = std::time::Instant::now();
         writer.commit().map_err(idx_err)?;
-        report.summary = format!("{added} indexados, {unchanged} sin cambios, {removed} olvidados");
+        t_write += t0.elapsed();
+        report.summary = format!(
+            "{added} indexados, {unchanged} sin cambios, {removed} olvidados (extracción {:.2} s, escritura {:.2} s)",
+            t_extract.as_secs_f64(),
+            t_write.as_secs_f64()
+        );
         Ok(report)
     }
 

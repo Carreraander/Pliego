@@ -68,3 +68,53 @@ describe("petición de saneado", () => {
     expect(buildSanitizeRequest("x", "", none)).toEqual({ ok: false, error: "sanitize.err.none" });
   });
 });
+
+import { buildRedactRequest, patternNames, type RedactForm } from "./request";
+import { addArea, areasOf, clearAreas, resetRedact, toArea } from "./redactState";
+
+const rform = (over: Partial<RedactForm> = {}): RedactForm => ({
+  patterns: [], regex: "", useRegex: false, areas: [], fill: "Black", images: "Pixels", removeLineArt: true, current: "", ...over,
+});
+
+describe("petición de redacción", () => {
+  it("pide zonas o patrones", () => {
+    expect(buildRedactRequest("x", rform())).toEqual({ ok: false, error: "redact.err.nothing" });
+    expect(buildRedactRequest("x", rform({ patterns: ["dni", "iban"] }))).toMatchObject({ ok: true, request: { patterns: ["dni", "iban"], areas: [] } });
+    expect(buildRedactRequest("x", rform({ areas: [{ page: 0, x0: 1, y0: 1, x1: 9, y1: 9 }] })).ok).toBe(true);
+  });
+  it("añade la expresión propia como regex: y exige que no esté vacía", () => {
+    expect(patternNames({ patterns: ["dni"], useRegex: true, regex: " \\d{4} " })).toEqual(["dni", "regex:\\d{4}"]);
+    expect(buildRedactRequest("x", rform({ useRegex: true }))).toEqual({ ok: false, error: "redact.err.regex" });
+  });
+  it("traduce las opciones al formato del motor", () => {
+    const r = buildRedactRequest("x", rform({ patterns: ["email"], fill: "None", images: "Remove", removeLineArt: false, current: "pw" }));
+    expect(r).toMatchObject({ ok: true, request: { password: "pw", options: { fill: "None", images: "Remove", remove_line_art: false } } });
+  });
+  it("los errores de redacción tienen texto en los dos idiomas", () => {
+    for (const key of ["redact.err.nothing", "redact.err.regex"]) {
+      setLocale("es"); const es = pt(key); setLocale("en"); const en = pt(key);
+      expect(es).not.toBe(key); expect(en).not.toBe(es);
+    }
+  });
+});
+
+describe("zonas marcadas a mano", () => {
+  const size = { width: 100, height: 200 };
+  it("normaliza el arrastre en cualquier dirección y lo recorta a la página", () => {
+    expect(toArea(2, { x: 50, y: 60 }, { x: 10, y: 20 }, size)).toEqual({ page: 2, x0: 10, y0: 20, x1: 50, y1: 60 });
+    expect(toArea(0, { x: -5, y: 10 }, { x: 150, y: 300 }, size)).toEqual({ page: 0, x0: 0, y0: 10, x1: 100, y1: 200 });
+  });
+  it("ignora un clic o un arrastre minúsculo", () => {
+    expect(toArea(0, { x: 10, y: 10 }, { x: 11, y: 11 }, size)).toBeNull();
+  });
+  it("guarda las zonas por documento", () => {
+    resetRedact();
+    addArea(1, { page: 0, x0: 0, y0: 0, x1: 10, y1: 10 });
+    addArea(2, { page: 1, x0: 0, y0: 0, x1: 10, y1: 10 });
+    expect(areasOf(1)).toHaveLength(1);
+    clearAreas(1);
+    expect(areasOf(1)).toHaveLength(0);
+    expect(areasOf(2)).toHaveLength(1);
+    resetRedact();
+  });
+});

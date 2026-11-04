@@ -2,6 +2,7 @@ export * from "./registry";
 export { addToolStrings } from "./strings";
 export { registerBaseTools } from "./base";
 export { registerToolIcons } from "./icons";
+export { installOrganizeMode } from "./organize/mode";
 export { installSignatures } from "./sign/facts";
 import { registerOrganizeTools } from "./organize/manifest";
 import { registerConvertTools } from "./convert/manifest";

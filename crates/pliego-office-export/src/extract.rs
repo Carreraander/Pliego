@@ -1,7 +1,8 @@
 //! Extracción de texto con división de líneas por huecos.
 //!
-//! TODO(W09/W14): unificar con `pliego_convert::structured_text` (p. ej. un parámetro de hueco máximo) para no
-//! mantener dos extractores; se duplica aquí para no tocar una crate ajena en este PR.
+//! Nota (decisión de gestión, 2026-11-04): este extractor se mantiene separado de
+//! `pliego_convert::structured_text` porque los módulos no dependen entre sí (CONVENTIONS). Unificarlos pasaría por
+//! extraer el texto estructurado a `pliego-core` (con un parámetro de hueco máximo); queda como mejora futura.
 //!
 //! MuPDF junta en una sola línea las palabras que comparten línea base aunque haya un hueco grande entre ellas
 //! (columnas de una tabla, nombre y fecha en una cabecera). Para reconstruir tablas hace falta separarlas, y el

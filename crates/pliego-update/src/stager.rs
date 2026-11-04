@@ -19,6 +19,8 @@ pub struct StagedPackage {
     /// SHA-256 del `.paq` en el momento de prepararlo (ya verificado contra el manifiesto firmado). El reinicio lo
     /// vuelve a comprobar justo antes de pedir elevación.
     pub sha256: String,
+    /// Sobre firmado del manifiesto, que `pliego-setup --update --manifest` exige y verifica con la clave compilada.
+    pub manifest: PathBuf,
 }
 
 /// SHA-256 de un archivo, en hexadecimal.
@@ -69,7 +71,11 @@ impl Stager for LayoutStager {
                     version: version.clone(),
                     paq: package.to_path_buf(),
                     sha256: file_sha256(package).map_err(|e| e.to_string())?,
+                    manifest: crate::service::manifest_path(package),
                 };
+                if !staged.manifest.is_file() {
+                    return Err("falta el manifiesto firmado de la actualización".into());
+                }
                 let json = serde_json::to_vec_pretty(&staged).map_err(|e| e.to_string())?;
                 std::fs::create_dir_all(&self.downloads).map_err(|e| e.to_string())?;
                 std::fs::write(self.downloads.join(STAGED_FILE), json).map_err(|e| e.to_string())
@@ -122,6 +128,11 @@ mod tests {
         let paq = make_paq(d.path(), "0.1.1");
         let dl = d.path().join("dl");
         let stager = LayoutStager::new(InstallKind::PerMachine, &root, &dl);
+        assert!(
+            stager.stage(&paq, &Version::new(0, 1, 1)).is_err(),
+            "sin manifiesto firmado no se prepara"
+        );
+        std::fs::write(crate::service::manifest_path(&paq), b"{}").unwrap();
         stager.stage(&paq, &Version::new(0, 1, 1)).unwrap();
         assert!(!root.exists(), "no se toca Program Files sin elevación");
         let staged = staged_package(&dl).unwrap();

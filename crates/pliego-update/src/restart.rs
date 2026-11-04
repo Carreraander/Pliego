@@ -51,6 +51,7 @@ pub(crate) fn script(
             ));
             // Cada argumento va entre comillas dobles dentro de las simples: Start-Process no las añade solo.
             let paq = format!("'\"{}\"'", staged.paq.to_string_lossy().replace('\'', "''"));
+            let manifest_arg = format!("'\"{}\"'", staged.manifest.to_string_lossy().replace('\'', "''"));
             let root_arg = format!("'\"{}\"'", root.to_string_lossy().replace('\'', "''"));
             let paq_path = ps_quote(&staged.paq.to_string_lossy());
             let sha = staged.sha256.replace('\'', "");
@@ -58,7 +59,7 @@ pub(crate) fn script(
             // elevación (no sustituye a la verificación de `pliego-setup`, que lo repite con la firma). Si se cancela el
             // aviso de UAC o el hash no coincide, Pliego se abre igualmente (con la versión de siempre).
             Ok(format!(
-                "Start-Sleep -Seconds 2; try {{ if ((Get-FileHash -Algorithm SHA256 -LiteralPath {paq_path}).Hash -eq '{sha}') {{ Start-Process -FilePath {setup} -ArgumentList '--update','--paq',{paq},'--root',{root_arg} -Verb RunAs -Wait }} }} catch {{}}; Start-Process -FilePath {launcher}"
+                "Start-Sleep -Seconds 2; try {{ if ((Get-FileHash -Algorithm SHA256 -LiteralPath {paq_path}).Hash -eq '{sha}') {{ Start-Process -FilePath {setup} -ArgumentList '--update','--paq',{paq},'--manifest',{manifest_arg},'--root',{root_arg} -Verb RunAs -Wait }} }} catch {{}}; Start-Process -FilePath {launcher}"
             ))
         }
         InstallKind::Msi | InstallKind::Portable => Err("esta instalación no se actualiza sola".into()),
@@ -132,11 +133,16 @@ mod tests {
             version: Version::new(0, 1, 1),
             paq: PathBuf::from(r"C:\Users\ana\AppData\Local\Pliego\updates\pliego-0.1.1.paq"),
             sha256: "ab".repeat(32),
+            manifest: PathBuf::from(r"C:\Users\ana\AppData\Local\Pliego\updates\pliego-0.1.1.paq.manifest.json"),
         };
         let root = Path::new(r"C:\Program Files\Pliego");
         let s = script(InstallKind::PerMachine, root, "0.1.0", Some(&staged)).unwrap();
         assert!(s.contains(r"app-0.1.0\pliego-setup.exe"), "{s}");
         assert!(s.contains("-Verb RunAs -Wait"));
+        assert!(
+            s.contains(r#"'--manifest','"C:\Users\ana\AppData\Local\Pliego\updates\pliego-0.1.1.paq.manifest.json"'"#),
+            "{s}"
+        );
         assert!(s.contains(&format!("-eq '{}'", "ab".repeat(32))), "{s}");
         assert!(s.contains(r#"'"C:\Program Files\Pliego"'"#), "{s}");
         assert!(s.ends_with(r"Pliego.exe'"));

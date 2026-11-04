@@ -7,4 +7,5 @@
 .pl-forms-box__name { position: absolute; left: 2px; top: 0; font-size: 10px; line-height: 1.2; color: var(--pl-text); white-space: nowrap; pointer-events: none; }
 .pl-forms-layer:not([data-tool="select"]) .pl-forms-box { pointer-events: none; }
 .pl-forms-preview { position: absolute; background: var(--pl-selection); outline: 1px solid var(--pl-accent); pointer-events: none; }
-.pl-forms-hint { color: var(--pl-text-2); font-size: 0.85em; margin-inline-start: var(--pl-space-2); }
+.pl-forms-hint { color: var(--pl-text-2); font-size: 0.85em; margin: var(--pl-space-2) 0 0; }
+.pl-forms-tools { flex-wrap: wrap; }

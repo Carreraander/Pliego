@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-// El modo y la capa del visor necesitan el DOM; aquí solo se comprueba el registro de la herramienta.
-const { registerMode } = vi.hoisted(() => ({ registerMode: vi.fn() }));
-vi.mock("../../shell", () => ({ registerMode, activeMode: () => null, openInspector: vi.fn(), closeInspector: vi.fn() }));
+// La capa del visor necesitan el DOM; aquí solo se comprueba el registro de la herramienta.
 vi.mock("../../viewer/overlays", () => ({ registerPageOverlay: vi.fn() }));
 vi.mock("./FormDesignLayer", () => ({ FormDesignLayer: () => null }));
-vi.mock("./FormDesignToolbar", () => ({ FormDesignToolbar: () => null }));
 import { getTool, toolState } from "../registry";
 import { registerBaseTools } from "../base";
 import { registerFormTools } from "./manifest";
@@ -19,7 +16,7 @@ describe("Diseñar formulario", () => {
     const t = getTool("forms.design")!;
     expect(t.ghost).toBeFalsy();
     expect(toolState(t, { document: false, forms: false, signatures: false, protected: false, pdfa: false }).enabled).toBe(false);
-    expect(registerMode).toHaveBeenCalledWith(expect.objectContaining({ id: "forms.design", needsDocument: true }));
+    expect(typeof t.load).toBe("function");
   });
   it("tiene textos en español e inglés", () => {
     for (const k of ["forms.panel.create", "forms.err.nameDot", "tools.forms.design.title", "forms.tool.signature"]) {

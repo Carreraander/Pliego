@@ -1,17 +1,13 @@
 import { createSignal, Show } from "solid-js";
-import type { OpenDoc } from "../../state/documents";
 import { Checkbox, Field, Notice, TaskPanel, TextInput } from "../../ui";
 import { addField, deleteField, updateField } from "./edit";
-import { freeName, nameError, newSpec, parseOptions, patchOf, type Box, type FieldInfo, type FieldKind } from "./geometry";
-import { fieldList, setSelectedField } from "./state";
+import { freeName, nameError, newSpec, parseOptions, patchOf, type FieldInfo, type FieldKind } from "./geometry";
+import { fieldList, setSelectedField, type Editing } from "./state";
 import { ft } from "./text";
 
-export type FieldPanelProps =
-  | { mode: "new"; doc: OpenDoc; kind: FieldKind; page: number; rect: Box; onClose: () => void }
-  | { mode: "edit"; doc: OpenDoc; field: FieldInfo; onClose: () => void };
-
 /** Propiedades de un campo en el inspector: crea uno recién dibujado o edita/borra uno existente. */
-export default function FieldPanel(p: FieldPanelProps) {
+export default function FieldPanel(props: { editing: Editing; onClose: () => void }) {
+  const p = props.editing;
   const cur: FieldInfo | null = p.mode === "edit" ? p.field : null;
   const kind: FieldKind = p.mode === "edit" ? p.field.kind : p.kind;
   const names = () => fieldList().map((f) => f.name);
@@ -26,7 +22,7 @@ export default function FieldPanel(p: FieldPanelProps) {
   const hasValue = kind === "text" || hasOptions;
   const err = () => { const k = nameError(name(), names(), cur?.name); return k ? ft(k) : undefined; };
 
-  const done = () => { setSelectedField(null); p.onClose(); };
+  const done = () => { setSelectedField(null); props.onClose(); };
   const save = async () => {
     if (err()) return;
     const ok = p.mode === "new"

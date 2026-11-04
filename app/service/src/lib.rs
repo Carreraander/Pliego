@@ -4,6 +4,7 @@
 //! el worker se relanza). La caché de teselas es la de `pliego_worker::TileCache`. La capa Tauri
 //! (`app/src-tauri`) solo traduce comandos y el protocolo `pliego://tile/...` a llamadas de este servicio.
 
+pub mod annot;
 pub mod api;
 pub mod convert;
 pub mod optimize;

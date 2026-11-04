@@ -8,6 +8,9 @@ repository.workspace = true
 
 [dependencies]
 pliego-core.workspace = true
+pliego-annot = { path = "../../crates/pliego-annot" }
+mupdf.workspace = true
+tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-convert = { path = "../../crates/pliego-convert" }
 pliego-office-export = { path = "../../crates/pliego-office-export" }
@@ -17,14 +20,12 @@ pliego-sign = { path = "../../crates/pliego-sign" }
 pliego-signflow = { path = "../../crates/pliego-signflow" }
 pliego-protect = { path = "../../crates/pliego-protect" }
 pliego-redact = { path = "../../crates/pliego-redact" }
-pliego-annot = { path = "../../crates/pliego-annot" }
 pliego-organize.workspace = true
 pliego-stamp.workspace = true
 png = "0.17"
 serde.workspace = true
 
 [dev-dependencies]
-mupdf.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 rcgen = "0.14"

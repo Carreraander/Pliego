@@ -6,6 +6,7 @@ export { installSignatures } from "./sign/facts";
 import { registerOrganizeTools } from "./organize/manifest";
 import { registerConvertTools } from "./convert/manifest";
 import { registerOptimizeTools } from "./optimize/manifest";
+import { registerAnnotateTools } from "./annotate/manifest";
 import { registerSignTools } from "./sign/manifest";
 import { registerProtectTools } from "./protect";
 import { registerStampTools } from "./stamp/manifest";
@@ -14,6 +15,7 @@ import { registerStampTools } from "./stamp/manifest";
 export function registerAppTools(): void {
   registerOrganizeTools(); // W23
   registerOptimizeTools(); // W24
+  registerAnnotateTools(); // W26
   registerSignTools(); // W28
   registerProtectTools(); // W25
   registerConvertTools(); // W24

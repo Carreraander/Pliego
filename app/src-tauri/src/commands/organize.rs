@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use pliego_app_service::organize::{self, InsertSource, MergeOptions, NumberRequest, SplitRule};
+use pliego_app_service::organize::{self, InsertSource, MergeOptions, NumberRequest, PageEdit, SplitRule};
 use pliego_appdata::jobs::JobId;
 use tauri::State;
 
@@ -82,4 +82,18 @@ pub fn number_pages(
     let suffix = suffix.unwrap_or_else(|| "numerado".into());
     jobs.0
         .spawn(move |ctx| organize::number_copy(&PathBuf::from(path), password.as_deref(), &request, &suffix, ctx))
+}
+
+/// Guarda una copia con las páginas en el orden, giro y selección que dejó la persona en Organizar (también «Extraer»).
+#[tauri::command]
+pub fn organize_pages(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    edits: Vec<PageEdit>,
+    suffix: Option<String>,
+) -> JobId {
+    let suffix = suffix.unwrap_or_else(|| "organizado".into());
+    jobs.0
+        .spawn(move |ctx| organize::pages_copy(&PathBuf::from(path), password.as_deref(), &edits, &suffix, ctx))
 }

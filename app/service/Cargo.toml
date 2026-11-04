@@ -11,6 +11,7 @@ pliego-core.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
+pliego-annot = { path = "../../crates/pliego-annot" }
 pliego-organize.workspace = true
 pliego-stamp.workspace = true
 png = "0.17"

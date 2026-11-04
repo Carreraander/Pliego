@@ -1,15 +1,14 @@
 //! `pliego run accion.toml entrada... -o salida`: aplica una acción guardada a archivos y carpetas de PDFs.
 //!
-//! Aquí se registran los pasos disponibles: cada uno traduce las opciones serializables de su módulo.
+//! Los pasos disponibles se registran en `pliego-steps`.
 
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use clap::Args;
-use pliego_actions::{Action, Batch, Registry, RunOptions, StepRunner, collect_inputs};
-use pliego_core::{Error, JobContext, PageRange, Progress, Report, Result};
-use serde::{Deserialize, de::DeserializeOwned};
-use serde_json::Value;
+use pliego_actions::{Action, RunOptions, collect_inputs};
+use pliego_core::{JobContext, Progress};
+use pliego_steps::builtin_registry;
 
 #[derive(Args)]
 pub struct RunArgs {
@@ -27,179 +26,6 @@ pub struct RunArgs {
     /// Lista los pasos disponibles y sale.
     #[arg(long)]
     pub list_steps: bool,
-}
-
-fn parse<T: DeserializeOwned>(v: &Value) -> Result<T> {
-    serde_json::from_value(v.clone()).map_err(|e| Error::InvalidInput(format!("opciones no válidas: {e}")))
-}
-
-/// Paso definido por una función con sus opciones ya tipadas.
-struct Typed<T, F>(F, std::marker::PhantomData<fn() -> T>);
-
-fn typed<T, F>(f: F) -> Typed<T, F>
-where
-    T: DeserializeOwned,
-    F: Fn(&Path, &Path, T, &JobContext) -> Result<Report> + Send + Sync,
-{
-    Typed(f, std::marker::PhantomData)
-}
-
-impl<T, F> StepRunner for Typed<T, F>
-where
-    T: DeserializeOwned,
-    F: Fn(&Path, &Path, T, &JobContext) -> Result<Report> + Send + Sync,
-{
-    fn validate(&self, options: &Value) -> Result<()> {
-        parse::<T>(options).map(|_| ())
-    }
-    fn run(&self, input: &Path, output: &Path, options: &Value, ctx: &JobContext) -> Result<Report> {
-        (self.0)(input, output, parse(options)?, ctx)
-    }
-}
-
-/// Opciones de los pasos sobre páginas y sellos.
-#[derive(Deserialize)]
-struct OnPages<T> {
-    #[serde(default)]
-    pages: Option<String>,
-    #[serde(default)]
-    password: Option<String>,
-    #[serde(flatten)]
-    inner: T,
-}
-
-#[derive(Deserialize)]
-struct Degrees {
-    degrees: i32,
-}
-
-#[derive(Deserialize)]
-struct Nothing {}
-
-#[derive(Deserialize)]
-struct Encrypt {
-    #[serde(default)]
-    input_password: Option<String>,
-    #[serde(default)]
-    cipher: Option<pliego_protect::Cipher>,
-    #[serde(default)]
-    user_password: String,
-    #[serde(default)]
-    owner_password: String,
-    #[serde(default)]
-    permissions: Option<pliego_protect::Permissions>,
-}
-
-impl Encrypt {
-    fn encryption(self) -> (Option<String>, pliego_protect::Encryption) {
-        let d = pliego_protect::Encryption::default();
-        let enc = pliego_protect::Encryption {
-            cipher: self.cipher.unwrap_or(d.cipher),
-            user_password: self.user_password,
-            owner_password: self.owner_password,
-            permissions: self.permissions.unwrap_or(d.permissions),
-        };
-        (self.input_password, enc)
-    }
-}
-
-#[derive(Deserialize)]
-struct Sanitize {
-    #[serde(default)]
-    password: Option<String>,
-    #[serde(default)]
-    options: Option<pliego_protect::SanitizeOptions>,
-}
-
-fn page_range(pages: &Option<String>) -> Result<PageRange> {
-    pages
-        .as_deref()
-        .unwrap_or("all")
-        .parse()
-        .map_err(|e: Error| Error::InvalidInput(format!("rango de páginas: {e}")))
-}
-
-/// Abre, aplica `f` a las páginas elegidas y guarda.
-fn edit_pages<T, F>(input: &Path, output: &Path, o: OnPages<T>, f: F) -> Result<Report>
-where
-    F: FnOnce(&mut pliego_organize::PdfDocument, &[u32], T) -> Result<()>,
-{
-    let mut doc = pliego_organize::open(input, o.password.as_deref())?;
-    let sel = page_range(&o.pages)?.resolve(pliego_organize::page_count(&doc)?)?;
-    f(&mut doc, &sel, o.inner)?;
-    pliego_organize::save(&doc, output)?;
-    Ok(Report::default())
-}
-
-fn file_name(p: &Path) -> String {
-    p.file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default()
-}
-
-/// Registro con todos los pasos que ofrece la CLI.
-pub fn builtin_registry() -> Registry {
-    let mut r = Registry::new();
-    r.register(
-        "optimize",
-        typed(
-            |i: &Path, o: &Path, opts: pliego_optimize::OptimizeOptions, ctx: &JobContext| {
-                pliego_optimize::optimize(i, o, &opts, ctx)
-            },
-        ),
-    );
-    r.register(
-        "ocr",
-        typed(|i: &Path, o: &Path, opts: pliego_ocr::OcrOptions, ctx: &JobContext| {
-            pliego_ocr::ocr_document(i, o, &opts, ctx)
-        }),
-    );
-    r.register(
-        "protect.encrypt",
-        typed(|i: &Path, o: &Path, e: Encrypt, _: &JobContext| {
-            let (pw, enc) = e.encryption();
-            pliego_protect::encrypt(i, o, pw.as_deref(), &enc)
-        }),
-    );
-    r.register(
-        "protect.sanitize",
-        typed(|i: &Path, o: &Path, s: Sanitize, ctx: &JobContext| {
-            pliego_protect::sanitize(i, o, s.password.as_deref(), &s.options.unwrap_or_default(), ctx)
-        }),
-    );
-    r.register(
-        "pages.rotate",
-        typed(|i: &Path, o: &Path, p: OnPages<Degrees>, _: &JobContext| {
-            edit_pages(i, o, p, |d, sel, x| pliego_organize::rotate(d, sel, x.degrees))
-        }),
-    );
-    r.register(
-        "pages.delete",
-        typed(|i: &Path, o: &Path, p: OnPages<Nothing>, _: &JobContext| {
-            edit_pages(i, o, p, |d, sel, _| pliego_organize::delete(d, sel))
-        }),
-    );
-    r.register(
-        "stamp.header_footer",
-        typed(
-            |i: &Path, o: &Path, p: OnPages<pliego_stamp::HeaderFooter>, ctx: &JobContext| {
-                let sctx = pliego_stamp::StampContext::today(file_name(i));
-                edit_pages(i, o, p, |d, sel, hf| {
-                    pliego_stamp::header_footer(d, sel, &hf, &sctx, ctx)
-                })
-            },
-        ),
-    );
-    r.register(
-        "stamp.watermark",
-        typed(
-            |i: &Path, o: &Path, p: OnPages<pliego_stamp::Watermark>, ctx: &JobContext| {
-                edit_pages(i, o, p, |d, sel, w| pliego_stamp::watermark(d, sel, &w, ctx))
-            },
-        ),
-    );
-    r.register("stamp.bates", BatesStep);
-    r
 }
 
 /// Progreso por línea en stderr (no estorba a `--json` en stdout).
@@ -257,56 +83,4 @@ pub fn run(a: RunArgs, json: bool) -> anyhow::Result<()> {
         std::process::exit(2);
     }
     Ok(())
-}
-
-/// Opciones del paso `stamp.bates`: las de `pliego-stamp` más `continuous`.
-#[derive(Deserialize)]
-struct BatesStepOptions {
-    /// La numeración sigue de un archivo al siguiente del lote (por defecto), como en un expediente.
-    /// Con `false` cada archivo empieza en `start`.
-    #[serde(default = "yes")]
-    continuous: bool,
-    #[serde(flatten)]
-    inner: OnPages<pliego_stamp::BatesOptions>,
-}
-
-fn yes() -> bool {
-    true
-}
-
-/// `stamp.bates` con numeración continua entre archivos: el contador del lote guarda cuántas páginas se
-/// han numerado ya y se suma a `start`.
-struct BatesStep;
-
-impl StepRunner for BatesStep {
-    fn validate(&self, options: &Value) -> Result<()> {
-        parse::<BatesStepOptions>(options).map(|_| ())
-    }
-
-    fn run(&self, input: &Path, output: &Path, options: &Value, ctx: &JobContext) -> Result<Report> {
-        self.run_in_batch(input, output, options, ctx, &Batch::default())
-    }
-
-    fn run_in_batch(
-        &self,
-        input: &Path,
-        output: &Path,
-        options: &Value,
-        ctx: &JobContext,
-        batch: &Batch,
-    ) -> Result<Report> {
-        const KEY: &str = "stamp.bates";
-        let o: BatesStepOptions = parse(options)?;
-        let offset = if o.continuous { batch.get(KEY) } else { 0 };
-        let mut stamped = 0;
-        let report = edit_pages(input, output, o.inner, |d, sel, mut b| {
-            b.start += offset;
-            stamped = sel.len() as u64;
-            pliego_stamp::bates(d, sel, &b, ctx)
-        })?;
-        if o.continuous {
-            batch.add(KEY, stamped);
-        }
-        Ok(report)
-    }
 }

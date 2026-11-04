@@ -2,7 +2,20 @@
 # Sustituye el dominio por el tuyo (el registro DNS A/AAAA debe apuntar ya al VPS).
 actualizaciones.ejemplo.es {
 	root * /srv/pliego-actualizaciones
-	file_server
+	file_server {
+		# Sin listado de directorios.
+		hide .*
+	}
+
+	# Solo lectura: todo lo que no sea GET/HEAD se rechaza.
+	@escritura not method GET HEAD
+	respond @escritura 405
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
 
 	# Los manifiestos cambian en cada publicación: que ninguna caché los guarde.
 	header /v1/* Cache-Control "no-cache"

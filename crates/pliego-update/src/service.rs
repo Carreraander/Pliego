@@ -83,6 +83,13 @@ pub struct Status {
     pub rollback: Option<(Version, Version)>,
 }
 
+/// Dónde se guarda el sobre firmado de un paquete: `<paquete>.manifest.json`, a su lado.
+pub fn manifest_path(package: &Path) -> PathBuf {
+    let mut name = package.as_os_str().to_owned();
+    name.push(".manifest.json");
+    PathBuf::from(name)
+}
+
 pub struct UpdateService<S: Stager> {
     config: UpdateConfig,
     kind: InstallKind,
@@ -259,6 +266,9 @@ impl<S: Stager> UpdateService<S> {
         let result = UpdateClient::new(self.config.clone())
             .and_then(|c| c.download(&verdict.package, &self.downloads, ctx))
             .and_then(|path| {
+                if !verdict.envelope.is_empty() {
+                    std::fs::write(manifest_path(&path), &verdict.envelope)?;
+                }
                 self.stager
                     .stage(&path, &version)
                     .map_err(|e| UpdateError::Malformed(format!("no se pudo preparar la versión {version}: {e}")))

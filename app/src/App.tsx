@@ -15,6 +15,7 @@ import { closeScreen, currentScreen, installNavigation, NavigationHost, openShor
 import { Home, installHome, openHome, openSettings, recordOpened } from "./home";
 import { installJobs } from "./jobs";
 import { initSettings } from "./settings";
+import { installUpdates } from "./updates";
 import { Dynamic } from "solid-js/web";
 import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode, type DocTab } from "./shell";
 import { Button, Dialog, Field, IconButton, TextInput, toast, ToolbarSeparator } from "./ui";
@@ -61,6 +62,7 @@ export function App() {
     ];
     offs.push(installNavigation(), installHome((p) => void open(p)));
     offs.push(await installJobs((p) => void open(p)));
+    offs.push(await installUpdates());
     setMode("read");
     setActivePanel("viewer.thumbnails");
     const unlisten = await Promise.all([

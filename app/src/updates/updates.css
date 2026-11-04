@@ -1,0 +1,8 @@
+.pl-updpill { display: inline-flex; align-items: center; gap: var(--pl-space-2); height: 26px; padding: 0 var(--pl-space-3); border: 1px solid var(--pl-border); border-radius: var(--pl-radius-full); background: var(--pl-surface); color: var(--pl-text); font-size: var(--pl-text-sm, 12px); }
+.pl-updpill:hover { background: var(--pl-hover); }
+.pl-updpill__dot { width: 8px; height: 8px; border-radius: var(--pl-radius-full); background: var(--pl-accent); }
+.pl-updpop { width: 340px; }
+.pl-updpop__body { display: flex; flex-direction: column; gap: var(--pl-space-3); padding: var(--pl-space-5); }
+.pl-updpop__body h2, .pl-updpop__body h3, .pl-updpop__body p { margin: 0; }
+.pl-updpop__notes { margin: 0; padding-left: var(--pl-space-5); max-height: 160px; overflow: auto; }
+.pl-updpop__actions { display: flex; flex-wrap: wrap; gap: var(--pl-space-3); }

@@ -29,3 +29,11 @@ set PLIEGO_UPDATE_URL=http://127.0.0.1:8787            # Windows (cmd); la app u
 ```
 Mudar de proveedor: `rsync` de la carpeta al servidor nuevo, repuntar el DNS y listo. Los clientes no cambian
 porque la URL base es el dominio, no la IP.
+
+## VPS compartido
+
+Si el VPS ya sirve otros sitios con Caddy, `setup-vps.sh` **no toca** `/etc/caddy/Caddyfile`: escribe solo
+`/etc/caddy/sites.d/pliego.caddy`, que el Caddyfile existente debe importar con
+`import /etc/caddy/sites.d/*.caddy` (si no lo hace, el script se detiene y lo explica). Antes de recargar valida la
+configuración completa y, si falla, deshace el cambio. El `Caddyfile` del repositorio solo admite GET/HEAD, añade
+HSTS y `nosniff`, oculta la cabecera `Server` y no lista directorios.

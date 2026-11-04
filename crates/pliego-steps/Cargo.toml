@@ -1,0 +1,25 @@
+[package]
+name = "pliego-steps"
+description = "Pasos de las acciones en lote: el registro con todos los módulos, compartido por la CLI y la app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+# El paso `ocr` enlaza Tesseract: lo activa la CLI; la app no lo lleva.
+ocr = ["dep:pliego-ocr"]
+
+[dependencies]
+pliego-core.workspace = true
+pliego-actions = { path = "../pliego-actions" }
+pliego-optimize = { path = "../pliego-optimize" }
+pliego-organize.workspace = true
+pliego-stamp.workspace = true
+pliego-protect = { path = "../pliego-protect" }
+pliego-ocr = { path = "../pliego-ocr", optional = true }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

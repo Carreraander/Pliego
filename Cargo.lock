@@ -4166,6 +4166,7 @@ dependencies = [
  "pliego-sign",
  "pliego-signflow",
  "pliego-stamp",
+ "pliego-steps",
  "rcgen",
  "serde",
  "serde_json",
@@ -4504,6 +4505,21 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pliego-steps"
+version = "0.1.0"
+dependencies = [
+ "pliego-actions",
+ "pliego-core",
+ "pliego-ocr",
+ "pliego-optimize",
+ "pliego-organize",
+ "pliego-protect",
+ "pliego-stamp",
  "serde",
  "serde_json",
 ]

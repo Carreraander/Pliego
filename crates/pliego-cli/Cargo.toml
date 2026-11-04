@@ -49,6 +49,7 @@ pliego-ocr = { path = "../pliego-ocr" }
 
 # [W15 run e índice]
 pliego-actions = { path = "../pliego-actions" }
+pliego-steps = { path = "../pliego-steps", features = ["ocr"] }
 pliego-index = { path = "../pliego-index" }
 pliego-measure = { path = "../pliego-measure" }
 pliego-portfolio = { path = "../pliego-portfolio" }

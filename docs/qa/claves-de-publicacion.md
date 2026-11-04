@@ -14,6 +14,17 @@ aceptan manifiestos firmados por las claves públicas que traen compiladas. Por 
 Motivo: si la clave de firma estuviera en la CI, un flujo o una dependencia comprometidos podrían firmar una
 actualización maliciosa, y esa clave es la única barrera. Subir archivos (la clave SSH) no da poder para firmar.
 
+## Claves de producción (generadas en acr12 el 2026-11-04)
+
+| Papel | Archivo | Huella (`key_id`) | Clave pública |
+| --- | --- | --- | --- |
+| Activa | `pliego-update.key` | `ab6fa8bae6005ac0` | `ed25519:mWq30UarbH3bZHlR4NEJafc5NVkq+X3bmFdSZn93+XQ=` |
+| Reserva | `pliego-reserva.key` | `9d886dc4f92cdbde` | `ed25519:H8pykJe7e8W2PnOonRlJ8d2zcuTEy/Fj9R3axSp/XJY=` |
+
+Las dos públicas están en `BUILTIN_RELEASE_KEYS` (`crates/pliego-update/src/keys.rs`). Las privadas están en
+`D:\dev-cache\release-keys\` de acr12 (solo el usuario acr12). **Ander tiene que copiar esa carpeta a una USB cifrada
+sin conexión** (pasos abajo); la de reserva no debería volver a conectarse a ningún equipo salvo para rotar.
+
 ## Copia de seguridad (Ander, una sola vez por clave)
 1. En el equipo donde se generó, abrir PowerShell y comprobar que existe `pliego-update.key` y `pliego-update.pub`.
 2. Copiar `pliego-update.key` (y la de reserva) a una **memoria USB cifrada** (BitLocker To Go: clic derecho en la

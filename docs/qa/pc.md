@@ -87,11 +87,10 @@ Si algún día se instala C++ en VS 18 (o se quita VS 18), el script deja de hac
 | WiX | ya estaba | 5.0.2 |
 | Tesseract/Leptonica | ya estaba | vcpkg en `C:\dev-tools\vcpkg\installed\x64-windows-release` |
 | veraPDF | instalado | 1.30.3 en `C:\dev-tools\veraPDF`, con JRE 21 portátil en `C:\dev-tools\jre` |
-| Acrobat Reader | **pendiente** | lo instala winget en todo el equipo: pide UAC, que solo puede aceptar Ander |
-| Ghostscript | **pendiente** | igual que Reader (UAC) |
+| Acrobat Reader | instalado (UAC aceptado por Ander) | winget `Adobe.Acrobat.Reader.64-bit`, en `C:\Program Files\Adobe\Acrobat DC` |
+| Ghostscript | instalado (UAC aceptado por Ander) | 10.08.0 en `C:\Program Files\gs`; ya no está en winget: instalador firmado de Artifex (GitHub) |
 | Office | no se instala | regla del proyecto |
 
 Comprobación: `.\tools\pc-turno.ps1 -Flujo w10 -- cargo build -p pliego-cli` desde cero compila en **~6 min**
 (mupdf-sys ~4,5 min). El target de `pliego-w10` ocupa **3,5 GB** (sin información de depuración ni incremental).
-Para instalar Reader y Ghostscript con Ander delante:
-`powershell -ExecutionPolicy Bypass -File tools\setup-windows.ps1 -Disco C: -SinLlvm19 -ConTesseract -ConExtras`.
+Lo que se instala en todo el equipo (Reader, Ghostscript) pide UAC: se lanza con Ander delante de la pantalla.

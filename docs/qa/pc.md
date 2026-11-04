@@ -41,10 +41,10 @@ para forzar otras rutas.
 ## Reglas de compilación en pc (obligatorias)
 
 1. **Todo en `C:\dev`, `C:\dev-tools` y `C:\dev-cache`.** Nada fuera de ahí, y nunca carpetas de otros proyectos.
-2. **Cada flujo, su propio clon** `C:\dev\pliego-<flujo>`. Solo se pueden borrar `target` y `node_modules`
+2. **Cada flujo, su propio clon** (pero el `target` es compartido; el turno único evita bloqueos) `C:\dev\pliego-<flujo>`. Solo se pueden borrar `target` y `node_modules`
    regenerables de clones `pliego-*` (y `C:\dev-cache\target\pliego-*`).
 3. **En cada terminal:** `. .\tools\pc-env.ps1` (con punto). Pone `clang.exe` en el PATH (LLVM del sistema si no hay
-   LLVM 19), `CARGO_TARGET_DIR=C:\dev-cache\target\<clon>`, temporales y cachés en `C:\dev-cache`, Tesseract y
+   LLVM 19), `CARGO_TARGET_DIR=C:\dev-cache\target\compartido` (un solo target para todos los flujos de pc, no uno por clon), temporales y cachés en `C:\dev-cache`, Tesseract y
    `CARGO_BUILD_JOBS=4`. Por el poco disco, en C: además pone `CARGO_INCREMENTAL=0` y `CARGO_PROFILE_DEV_DEBUG=0`
    (sin información de depuración: si hace falta depurar, ponla a mano en esa terminal).
 4. **Un solo turno**, con el mismo mutex que acr12: `.\tools\pc-turno.ps1 -Flujo wNN -- <orden>`.
@@ -52,6 +52,11 @@ para forzar otras rutas.
    `target` propio. Nada de `cargo build --workspace` completo ni `--release` de toda la app salvo que haya sitio
    (un target completo ocupa ~15 GB en acr12).
 6. Lo que no termina (`tauri dev`, servidores) va fuera del turno. Cerrar lo propio al acabar.
+
+## Límite de uso de pc
+
+Con ~8 GB libres en C: **no cabe un target de Rust completo (más de 10 GB) ni el modelo de llama de W18**. Por ahora
+la segunda cola de pc solo vale para tareas ligeras: veraPDF, la CLI en debug y las pruebas de un crate.
 
 ## Visual Studio 18 Insiders sin C++ (arreglado en `pliego-env.ps1`)
 

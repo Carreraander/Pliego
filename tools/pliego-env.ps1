@@ -86,6 +86,7 @@
     # --- Target, temporales y cachés en el disco de trabajo ----------------------------------------------
     $repo = Split-Path -Parent $raiz
     $env:CARGO_TARGET_DIR = Join-Path (Join-Path $cache 'target') (Split-Path -Leaf $repo)
+    if ($env:PLIEGO_TARGET_COMPARTIDO -eq '1') { $env:CARGO_TARGET_DIR = Join-Path (Join-Path $cache 'target') 'compartido' }  # un solo target para todos los clones (equipos con poco disco)
     foreach ($d in 'tmp', 'npm', 'ms-playwright', 'vcpkg-binary', 'turnos') { New-Item -ItemType Directory -Force -Path (Join-Path $cache $d) | Out-Null }
     $env:TEMP = $env:TMP = Join-Path $cache 'tmp'
     $env:npm_config_cache = Join-Path $cache 'npm'

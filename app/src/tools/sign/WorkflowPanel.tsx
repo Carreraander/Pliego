@@ -1,10 +1,9 @@
 import "./sign.css";
 import { createResource, createSignal, For, Match, Show, Switch } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { trackJob } from "../../jobs";
 import { activeDoc } from "../../state/documents";
-import { Button, Field, IconButton, Notice, Radio, RadioGroup, TaskPanel, TextInput, toast } from "../../ui";
-import { errorMessage } from "./errors";
+import { Button, Field, IconButton, Notice, Radio, RadioGroup, TaskPanel, TextInput } from "../../ui";
+import { errorText, fileName, runToolJob } from "../run";
 import { KeyChooser } from "./KeyChooser";
 import { emptyKey, keySource, signerSpecs, type KeyChoice, type SignerRow } from "./request";
 import { st } from "./text";
@@ -15,7 +14,6 @@ interface AuditEntry {
   time: string | null; event?: string; certificate?: string; expected?: string | null; in_order?: boolean; integrity?: boolean; signers?: string[];
 }
 
-const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 const blank = (): SignerRow => ({ name: "", email: "", certificateContains: "" });
 
 export default function WorkflowPanel(p: { onClose: () => void }) {
@@ -27,9 +25,9 @@ export default function WorkflowPanel(p: { onClose: () => void }) {
 
   // Turno y registro: solo se piden cuando se muestran (el documento puede no ser un paquete).
   const [turn] = createResource(() => (mode() === "sign" ? path() : null), (src) =>
-    invoke<Pending | null>("signflow_next", { path: src }).then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e: errorMessage(e) })));
+    invoke<Pending | null>("signflow_next", { path: src }).then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e: errorText(e) })));
   const [audit] = createResource(() => (mode() === "audit" ? path() : null), (src) =>
-    invoke<AuditEntry[]>("signflow_audit", { path: src }).then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e: errorMessage(e) })));
+    invoke<AuditEntry[]>("signflow_audit", { path: src }).then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e: errorText(e) })));
 
   const specs = () => signerSpecs(rows());
   const edit = (i: number, patch: Partial<SignerRow>) => setRows((all) => all.map((r, k) => (k === i ? { ...r, ...patch } : r)));
@@ -42,14 +40,8 @@ export default function WorkflowPanel(p: { onClose: () => void }) {
   });
 
   const launch = async (command: string, args: Record<string, unknown>, title: string, started: string) => {
-    try {
-      const id = await invoke<number>(command, args);
-      trackJob(id, { title, retry: () => void launch(command, args, title, started) });
-      toast({ tone: "info", text: started });
-      p.onClose();
-    } catch (e) {
-      setError(errorMessage(e));
-    }
+    const id = await runToolJob({ command, args, title, started });
+    if (id !== null) p.onClose();
   };
   const prepare = () => launch("signflow_prepare", { path: path(), signers: specs() }, st("flow.prepare.job", { name: fileName(path()) }), st("flow.prepare.started"));
   const signTurn = () => {

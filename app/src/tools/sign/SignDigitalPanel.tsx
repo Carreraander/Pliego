@@ -1,22 +1,17 @@
 import "./sign.css";
 import { createSignal, Show } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { trackJob } from "../../jobs";
 import { currentPageIndex, activeDoc } from "../../state/documents";
-import { Checkbox, Field, Notice, Select, TaskPanel, TextInput, toast } from "../../ui";
-import { errorMessage } from "./errors";
+import { Checkbox, Field, Notice, Select, TaskPanel, TextInput } from "../../ui";
+import { fileName, runToolJob } from "../run";
 import { KeyChooser } from "./KeyChooser";
 import { emptyKey, keySource, missing, needsTimestamp, signOptions, type Corner, type Level, type SignForm } from "./request";
 import { st } from "./text";
-
-const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 export default function SignDigitalPanel(p: { onClose: () => void }) {
   const [form, setForm] = createSignal<SignForm>({
     key: emptyKey(), level: "b-b", tsa: "", visible: false, page: currentPageIndex() + 1, corner: "bottom-right",
     certify: 0, reason: "", location: "", contact: "",
   });
-  const [error, setError] = createSignal<string | null>(null);
   const [tried, setTried] = createSignal(false);
   const set = (patch: Partial<SignForm>) => setForm((f) => ({ ...f, ...patch }));
   const problem = () => missing(form());
@@ -27,16 +22,11 @@ export default function SignDigitalPanel(p: { onClose: () => void }) {
     setTried(true);
     if (problem()) return;
     const f = form();
-    try {
-      const id = await invoke<number>("sign_pdf", {
-        path: doc.path, key: keySource(f.key), options: signOptions(f, doc.sizes[f.page - 1]),
-      });
-      trackJob(id, { title: st("sign.job", { name: fileName(doc.path) }), retry: () => void run() });
-      toast({ tone: "info", text: st("sign.started") });
-      p.onClose();
-    } catch (e) {
-      setError(errorMessage(e));
-    }
+    const id = await runToolJob({
+      command: "sign_pdf", args: { path: doc.path, key: keySource(f.key), options: signOptions(f, doc.sizes[f.page - 1]) },
+      title: st("sign.job", { name: fileName(doc.path) }), started: st("sign.started"),
+    });
+    if (id !== null) p.onClose();
   };
 
   return (
@@ -44,7 +34,7 @@ export default function SignDigitalPanel(p: { onClose: () => void }) {
       title={st("sign.title")} onClose={p.onClose}
       primary={{ label: st("sign.run"), icon: "sign-digital", onClick: () => void run() }}
       estimate={st("sign.hint")}
-      notice={<Show when={error() ?? (tried() && problem() ? st(`sign.missing.${problem()}`) : null)}>{(m) => <Notice tone="danger" inline>{m()}</Notice>}</Show>}
+      notice={<Show when={tried() && problem() ? st(`sign.missing.${problem()}`) : null}>{(m) => <Notice tone="danger" inline>{m()}</Notice>}</Show>}
       advanced={
         <>
           <Field label={st("sign.certify")}>

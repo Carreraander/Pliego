@@ -4081,7 +4081,9 @@ name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
  "p12-keystore",
+ "pliego-appdata",
  "pliego-core",
+ "pliego-optimize",
  "pliego-sign",
  "pliego-signflow",
  "pliego-worker",

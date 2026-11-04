@@ -13,6 +13,7 @@ pub mod index;
 pub mod jobs;
 pub mod optimize;
 pub mod organize;
+pub mod portfolio;
 pub mod protect;
 pub mod recents;
 pub mod search;
@@ -29,6 +30,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         dialog::pick_pdf_files,
         dialog::pick_key_file,
         dialog::pick_folder,
+        dialog::pick_any_files,
         dialog::pick_image_file,
         dialog::pick_source_files,
         document::open_document,
@@ -60,6 +62,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::pick_xfdf_file,
         index::index_folder,
         index::index_search,
+        portfolio::portfolio_create,
+        portfolio::portfolio_list,
+        portfolio::portfolio_extract,
         convert::export_pdf,
         convert::pdfa_convert,
         convert::office_export_pdf,

@@ -8,6 +8,12 @@ export const indexFolder: ToolManifest = {
   icon: "database", keywords: ["índice", "indexar", "buscar", "carpeta"], pinnable: true, load: () => import("./IndexPanel"),
 };
 
+export const portfolio: ToolManifest = {
+  id: "batch.portfolio", group: "automate", kind: "task", title: "tools.batch.portfolio.title", description: "tools.batch.portfolio.description",
+  icon: "folders", keywords: ["cartera", "portfolio", "adjuntos", "incrustados"], pinnable: true, load: () => import("./PortfolioPanel"),
+};
+
 export function registerBatchTools(): void {
   registerTool(indexFolder);
+  registerTool(portfolio);
 }

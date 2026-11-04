@@ -14,4 +14,13 @@ describe("herramientas de lotes (W29)", () => {
     const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
     expect(toolState(t, none).enabled).toBe(true);
   });
+  it("Carteras sustituye a la fantasma y tampoco pide documento", () => {
+    registerBaseTools();
+    registerBatchTools();
+    const t = getTool("batch.portfolio")!;
+    expect(t.ghost).toBeFalsy();
+    expect(t.kind).toBe("task");
+    const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
+    expect(toolState(t, none).enabled).toBe(true);
+  });
 });

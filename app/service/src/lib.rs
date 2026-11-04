@@ -10,6 +10,7 @@ pub mod checks;
 pub mod convert;
 pub mod optimize;
 pub mod organize;
+pub mod portfolio;
 pub mod protect;
 pub mod search_index;
 pub mod sign;

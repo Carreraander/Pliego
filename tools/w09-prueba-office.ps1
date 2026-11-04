@@ -46,5 +46,4 @@ foreach ($e in 'docx', 'xlsx', 'pptx') {
     "{0,-5} {1} ({2} bytes)" -f $e, $res, $(if (Test-Path $pdf) { (Get-Item $pdf).Length } else { 0 })
     if ($res -eq 'OK') { & $Pliego text $pdf | Select-Object -First 3 }
 }
-Get-Process WINWORD, EXCEL, POWERPNT -EA 0 | ? StartTime -gt (Get-Date).AddMinutes(-10) | Stop-Process -Force
 if (-not $ok) { exit 1 }

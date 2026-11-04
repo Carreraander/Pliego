@@ -4,10 +4,12 @@ Cómo montar `Pliego-Setup-<versión>-beta.exe` en acr12 con una sola orden y un
 Responsable: flujo W21 (`tools/build-beta.ps1`). La versión oficial se publica con `docs/releasing.md`.
 
 ## Qué es y qué no es
-- Es un instalador **de prueba**: compilado con una clave de firma de **PRUEBA**
-  (`D:\dev-cache\beta-keys\pliego-PRUEBA-beta.key`). La clave de producción la genera Ander sin conexión
-  (`docs/releasing.md` §1) y no tiene nada que ver con esta. La clave de prueba **no** va al repositorio ni a
-  ningún servidor; el script se niega a usar una carpeta dentro del repo.
+- Es un instalador **de prueba**. **Confía en producción + prueba**: acepta manifiestos firmados con las claves de
+  producción del repo (`BUILTIN_RELEASE_KEYS` en `crates/pliego-update/src/keys.rs`, #129) **y** con la clave de
+  **PRUEBA** (`D:\dev-cache\beta-keys\pliego-PRUEBA-beta.key`), que se añade solo en esta compilación con
+  `PLIEGO_UPDATE_PUBKEYS` para firmar el 0.1.1 del E2E (`release_keys()` admite ambas). La de producción no tiene
+  nada que ver con la de prueba (`docs/qa/claves-de-publicacion.md`). La clave de prueba **no** va al repositorio ni
+  a ningún servidor; el script se niega a usar una carpeta dentro del repo.
 - Sin Authenticode (aparecerá SmartScreen). La app comprueba actualizaciones solo contra `http://127.0.0.1:8787`
   (servidor local de `pliego-release serve`) salvo que se cambie `-UpdateUrl` o `PLIEGO_UPDATE_URL` en ejecución.
 
@@ -44,5 +46,8 @@ Tras aplicar, el lanzador activa `pending` (por usuario) o, por equipo, pide UAC
 - La app de 0.1.1 es el mismo binario que 0.1.0: el número que muestra la app no cambia (sí el del paquete, el
   registro de Windows tras `post_update` y la carpeta `app-0.1.1`). Para probar con un binario distinto, reconstruir con
   otra versión del workspace.
-- Las claves de producción siguen vacías en el repo: un binario sin `PLIEGO_UPDATE_PUBKEYS` rechaza todo.
-- Escrito sin poder ejecutar PowerShell en Linux; se valida la primera vez en acr12.
+- El script usa `powershell.exe` 5.1: por eso `build-beta.ps1` se guarda en UTF-8 **con BOM** (sin él, 5.1 lo lee
+  como ANSI y las notas «Versión…» llegan estropeadas al manifiesto firmado).
+- Volver a lanzarlo republica 0.1.1 sobre el árbol existente; para empezar de cero, borrar antes
+  `D:\dev\pliego-beta\actualizaciones`.
+- Validado en acr12 el 2026-11-04 (compilación completa, `publish` y `verify` correctos).

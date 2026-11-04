@@ -32,7 +32,7 @@ diseño general https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw, prototipo nav
 https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente está en `docs/design/`
 (`prototipo.html` se abre en local).
 
-## Estado global a 2026-11-04 11:00 UTC
+## Estado global a 2026-11-04 11:30 UTC
 
 - **Proyecto trasladado a la cuenta nueva** (2026-11-04). Hilo de gestión: «Gestionar el desarrollo de Pliego»; un
   hilo Sonnet por flujo. La cola de acr12 (una sesión de Remote Control a la vez) la lleva gestión.
@@ -40,8 +40,9 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
   con cifras de acr12), #110 (W21), #111 (W02 job object con `CREATE_SUSPENDED`), #112 (W01 worker como sidecar y
   `forget`), #113 (W06 catálogo de modelos), #114 (W07 docs), #115 (W16 comparación con Ghostscript), #116 (W22
   servicio de actualizaciones), #118 (W05 OCSP, VRI, B-LTA), #119 (W19), #121 (W12 PDF/A: `/ID`, capas, adjuntos y
-  `/AA` de página; sustituye a #96, cerrado).
-- **PRs abiertos:** #120 (W21: `--update` elevado verifica la firma Ed25519 del manifiesto; marca `install-kind`).
+  `/AA` de página; sustituye a #96, cerrado), #120 (W21: `--update` elevado verifica la firma Ed25519 del manifiesto;
+  marca `install-kind`).
+- **PRs abiertos:** ninguno de código.
 - **Issues abiertas:** ninguna.
 
 ### Resumen por flujo

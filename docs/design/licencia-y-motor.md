@@ -11,7 +11,10 @@ licencias ni dependencias**. Las decisiones son de Ander.
 
 > **Decidido (Ander, 2026-11-04 23:20):** opción (a): uso gratis para todos, empresas incluidas; paga solo quien
 > venda Pliego o derivados, lo integre en un producto de pago o lo ofrezca como servicio de pago. Licencia candidata:
-> BSL 1.1. Queda pendiente el motor (A, B o C) y la revisión legal.
+> BSL 1.1.
+>
+> **Decidido (Ander, 2026-11-04 23:22):** motor **B1**, sustituir MuPDF por PDFium + lopdf detrás de la capa
+> `pliego-pdf`, por las fases de §7. La licencia no cambia hasta que MuPDF salga del binario; antes, revisión legal.
 
 1. **Modelo de licencia.** Lo que pide Ander («cualquiera lo usa y ve el código, pero quien lo comercialice me paga una
    comisión») no es *open source* según la OSI: es **source-available** (código visible). Hay que elegir qué cuenta

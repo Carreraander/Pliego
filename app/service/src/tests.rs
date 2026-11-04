@@ -35,8 +35,15 @@ fn worker_exe() -> PathBuf {
     .clone()
 }
 
+/// Configuración del worker de pruebas: límite por petición holgado, por si la máquina de CI va justa de CPU.
+fn config() -> WorkerConfig {
+    let mut c = WorkerConfig::new(worker_exe());
+    c.timeout = std::time::Duration::from_secs(120);
+    c
+}
+
 fn service() -> DocumentService {
-    DocumentService::new(WorkerConfig::new(worker_exe()))
+    DocumentService::new(config())
 }
 
 fn req(page: u32) -> TileRequest {
@@ -51,6 +58,7 @@ fn req(page: u32) -> TileRequest {
 
 #[test]
 fn open_info_sizes_and_close() {
+    let _serial = crate::test_support::serial();
     let svc = service();
     let doc = svc.open_document(&corpus(), None).unwrap();
     let info = svc.document_info(doc).unwrap();
@@ -63,11 +71,13 @@ fn open_info_sizes_and_close() {
 
 #[test]
 fn open_missing_file_fails() {
+    let _serial = crate::test_support::serial();
     assert!(service().open_document(Path::new("no-existe.pdf"), None).is_err());
 }
 
 #[test]
 fn tile_is_png_and_cached() {
+    let _serial = crate::test_support::serial();
     let svc = service();
     let doc = svc.open_document(&corpus(), None).unwrap();
     let a = svc.tile(doc, req(0)).unwrap();
@@ -79,6 +89,7 @@ fn tile_is_png_and_cached() {
 
 #[test]
 fn tile_out_of_range_is_error() {
+    let _serial = crate::test_support::serial();
     let svc = service();
     let doc = svc.open_document(&corpus(), None).unwrap();
     assert!(svc.tile(doc, req(999)).is_err());
@@ -86,6 +97,7 @@ fn tile_out_of_range_is_error() {
 
 #[test]
 fn tile_from_uri_works() {
+    let _serial = crate::test_support::serial();
     let svc = service();
     let doc = svc.open_document(&corpus(), None).unwrap();
     let png = svc.tile_from_uri(&format!("pliego://tile/{}/0/1/0/0", doc.0)).unwrap();
@@ -98,10 +110,10 @@ fn tile_from_uri_works() {
 
 #[test]
 fn bump_revision_invalidates_tiles_and_emits_event() {
+    let _serial = crate::test_support::serial();
     let events = Arc::new(Mutex::new(Vec::new()));
     let sink = events.clone();
-    let svc = DocumentService::new(WorkerConfig::new(worker_exe()))
-        .on_document_changed(move |e| sink.lock().unwrap().push(e));
+    let svc = DocumentService::new(config()).on_document_changed(move |e| sink.lock().unwrap().push(e));
     let doc = svc.open_document(&corpus(), None).unwrap();
     svc.tile(doc, req(0)).unwrap();
     assert_eq!(svc.cached_tiles(), 1);
@@ -123,6 +135,7 @@ fn bump_revision_invalidates_tiles_and_emits_event() {
 
 #[test]
 fn reload_bytes_replaces_content() {
+    let _serial = crate::test_support::serial();
     let svc = service();
     let doc = svc.open_document(&corpus(), None).unwrap();
     let bytes = std::fs::read(corpus()).unwrap();
@@ -132,6 +145,7 @@ fn reload_bytes_replaces_content() {
 
 #[test]
 fn search_text_and_outline() {
+    let _serial = crate::test_support::serial();
     let svc = service();
     let doc = svc.open_document(&corpus(), None).unwrap();
     let text = svc.page_text(doc, 0).unwrap();

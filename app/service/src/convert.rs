@@ -272,6 +272,7 @@ mod tests {
 
     #[test]
     fn images_go_to_a_new_folder_next_to_the_original() {
+        let _serial = crate::test_support::serial();
         let Some((dir, input)) = sample() else { return };
         let r = export_copy(&input, &export("png", "imágenes"), &JobContext::silent()).unwrap();
         let folder = dir.path().join("doc (imágenes)");
@@ -283,6 +284,7 @@ mod tests {
 
     #[test]
     fn text_and_html_are_single_files() {
+        let _serial = crate::test_support::serial();
         let Some((dir, input)) = sample() else { return };
         let t = export_copy(&input, &export("txt", "texto"), &JobContext::silent()).unwrap();
         assert_eq!(t.outputs, vec![dir.path().join("doc (texto).txt")]);
@@ -298,6 +300,7 @@ mod tests {
 
     #[test]
     fn bad_requests_fail_without_creating_anything() {
+        let _serial = crate::test_support::serial();
         let Some((dir, input)) = sample() else { return };
         let ctx = JobContext::silent();
         assert!(matches!(
@@ -315,6 +318,7 @@ mod tests {
 
     #[test]
     fn office_formats_save_a_copy() {
+        let _serial = crate::test_support::serial();
         let Some((dir, input)) = sample() else { return };
         for ext in ["docx", "xlsx", "pptx"] {
             let req = OfficeRequest {
@@ -340,6 +344,7 @@ mod tests {
 
     #[test]
     fn creates_a_pdf_from_text_and_rejects_bad_requests() {
+        let _serial = crate::test_support::serial();
         let dir = tempfile::tempdir().unwrap();
         let txt = dir.path().join("nota.txt");
         std::fs::write(&txt, "Hola desde Pliego").unwrap();
@@ -374,6 +379,7 @@ mod tests {
 
     #[test]
     fn pdfa_rejects_unknown_levels_and_never_overwrites() {
+        let _serial = crate::test_support::serial();
         let Some((dir, input)) = sample() else { return };
         let ctx = JobContext::silent();
         assert!(matches!(

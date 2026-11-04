@@ -1,7 +1,8 @@
 import { createEffect, createRoot } from "solid-js";
 import { locale } from "../i18n";
 import { setPaletteOpener, setToolsOpener } from "../shell";
-import { installSignatures, registerAppTools, registerBaseTools, registerToolIcons, tools, toolTitle } from "../tools";
+import { activeDoc } from "../state/documents";
+import { installSignatures, registerAppTools, registerBaseTools, registerToolIcons, setDocFacts, tools, toolTitle } from "../tools";
 import { activateTool } from "./activate";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { installCommandProviders } from "./commands";
@@ -47,6 +48,8 @@ export function installNavigation(): () => void {
   ];
   // Atajos de las herramientas reales (los de las fantasma no hacen nada hasta que existan).
   const dispose = createRoot((d) => {
+    // `when.document` de las herramientas: sigue al documento activo del visor.
+    createEffect(() => setDocFacts({ document: activeDoc() !== null }));
     let toolOffs: (() => void)[] = [];
     createEffect(() => {
       toolOffs.forEach((off) => off());

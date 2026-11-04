@@ -284,14 +284,23 @@ mod tests {
     }
 
     #[test]
-    fn split_and_merge_round_trip() {
+    fn split_writes_parts_next_to_the_original() {
         let Some((dir, input)) = setup() else { return };
         let ctx = JobContext::silent();
         let r = split_copy(&input, None, &SplitRule::EveryN { n: 1 }, "partes", &ctx).unwrap();
         assert!(!r.outputs.is_empty());
         assert!(r.outputs[0].starts_with(dir.path().join("doc (partes)")));
-        let m = merge_copy(&r.outputs, &MergeOptions::default(), "combinado", &ctx).unwrap();
-        assert_eq!(pages(&m.outputs[0]), pages(&input));
+    }
+
+    #[test]
+    fn merge_combines_files_in_order_into_a_copy() {
+        let Some((dir, input)) = setup() else { return };
+        let ctx = JobContext::silent();
+        let other = dir.path().join("otro.pdf");
+        std::fs::copy(&input, &other).unwrap();
+        let m = merge_copy(&[input.clone(), other], &MergeOptions::default(), "combinado", &ctx).unwrap();
+        assert_eq!(m.outputs, vec![dir.path().join("doc (combinado).pdf")]);
+        assert_eq!(pages(&m.outputs[0]), pages(&input) * 2);
         assert!(merge_copy(&[], &MergeOptions::default(), "combinado", &ctx).is_err());
     }
 }

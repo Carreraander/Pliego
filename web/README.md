@@ -1,6 +1,8 @@
 # web/ · sitio pdfpliego.com
 
-Sitio estático de Pliego: HTML y CSS a mano, sin compilación, sin JavaScript y sin peticiones a terceros.
+Sitio estático de Pliego: HTML y CSS a mano, sin compilación y sin peticiones a terceros.
+El único script es `assets/demo.js`, la demo interactiva de la portada (mejora progresiva: sin él se ve la ventana
+estática).
 Diseño y estrategia SEO: [`docs/design/landing-y-seo.md`](../docs/design/landing-y-seo.md).
 
 | Archivo | Qué es |
@@ -10,6 +12,7 @@ Diseño y estrategia SEO: [`docs/design/landing-y-seo.md`](../docs/design/landin
 | `privacidad/index.html` | Privacidad del sitio y del programa |
 | `404.html` | Página no encontrada |
 | `assets/site.css` | Estilos; tokens copiados de `docs/design/tokens.css` |
+| `assets/demo.js` | Demo interactiva de la ventana de Pliego (todo simulado, sin dependencias) |
 | `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `og.png`, `site.webmanifest` | Iconos e imagen para redes |
 | `robots.txt`, `sitemap.xml` | Rastreo |
 | `Caddyfile.propuesta` | Bloque de Caddy para el VPS (no desplegado) |

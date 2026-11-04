@@ -25,7 +25,7 @@ export function noticeText(reports: SignatureReport[]): string {
 }
 
 /**
- * Registra el panel «Firmas» del raíl y mantiene al día los hechos del documento activo (`document`, `signatures`) y el
+ * Registra el panel «Firmas» del raíl y mantiene al día los hechos del documento activo (`signatures`; `document` lo fija la navegación) y el
  * aviso «Firmado por…». Devuelve cómo desmontarlo.
  */
 export function installSignatures(): () => void {
@@ -37,8 +37,8 @@ export function installSignatures(): () => void {
       () => { const doc = activeDoc(); return doc ? { id: String(doc.id), path: doc.path, revision: doc.revision } : null; },
       async (key) => {
         clearNotice();
-        if (!key) { setDocFacts({ document: false, signatures: false }); return; }
-        setDocFacts({ document: true, signatures: false });
+        if (!key) { setDocFacts({ signatures: false }); return; }
+        setDocFacts({ signatures: false });
         const reports = await validateDoc(key.path);
         if (String(activeDoc()?.id) !== key.id) return; // se cambió de documento mientras tanto
         setDocFacts({ signatures: reports.length > 0 });

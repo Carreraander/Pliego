@@ -1,3 +1,5 @@
+# AVISO: esta propuesta firma en la CI con PLIEGO_UPDATE_SIGNING_KEY. Decisión de gestión (2026-11-04): la clave de firma
+# NO estará en GitHub. Hay que rehacerla: la CI solo compila y sube lo ya firmado a mano en acr12 (docs/releasing.md §9).
 # PROPUESTA para W10 (dueño de .github/): copiar a .github/workflows/release.yml.
 # Publica una versión al empujar una etiqueta v*. Requiere el entorno protegido `release` (aprobación de Ander).
 name: release

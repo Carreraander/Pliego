@@ -20,6 +20,13 @@ pub use autotag::{AutotagOptions, AutotagSummary, autotag, autotag_file};
 pub use check::{check, is_valid_language_tag};
 pub use edit::{FixOptions, fix_file, set_alt_text, set_language, set_tab_order, set_title};
 pub use report::{A11yIssue, A11yReport, IssueCode, Severity};
+pub use structure::{ReadingItem, reading_order};
+
+/// Abre `path` y devuelve su orden de lectura (`None` si no está etiquetado).
+pub fn reading_order_file(path: &Path, password: Option<&str>) -> pliego_core::Result<Option<Vec<ReadingItem>>> {
+    let doc = io::open_pdf(path, password)?;
+    reading_order(&doc)
+}
 
 /// Abre `path` y lo comprueba.
 pub fn check_file(path: &Path, password: Option<&str>) -> pliego_core::Result<A11yReport> {

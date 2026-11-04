@@ -9,6 +9,7 @@ pub mod convert;
 pub mod optimize;
 pub mod organize;
 pub mod protect;
+pub mod sign;
 pub mod stamp;
 pub mod stamps;
 pub mod uri;

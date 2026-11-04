@@ -51,3 +51,4 @@ foreach ($k in $kinds) {
 }
 Remove-Item -Recurse -Force $work
 if ($failed) { exit 1 }
+exit 0

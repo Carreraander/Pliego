@@ -3,6 +3,7 @@ export { addToolStrings } from "./strings";
 export { registerBaseTools } from "./base";
 export { registerToolIcons } from "./icons";
 import { registerOrganizeTools } from "./organize/manifest";
+import { registerConvertTools } from "./convert/manifest";
 import { registerOptimizeTools } from "./optimize/manifest";
 import { registerStampTools } from "./stamp/manifest";
 
@@ -10,5 +11,6 @@ import { registerStampTools } from "./stamp/manifest";
 export function registerAppTools(): void {
   registerOrganizeTools(); // W23
   registerOptimizeTools(); // W24
+  registerConvertTools(); // W24
   registerStampTools(); // W27
 }

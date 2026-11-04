@@ -4080,7 +4080,9 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-appdata",
+ "pliego-convert",
  "pliego-core",
+ "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",
  "pliego-stamp",

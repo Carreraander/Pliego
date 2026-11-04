@@ -13,6 +13,8 @@ pub enum Level {
     BT,
     #[value(name = "b-lt")]
     BLt,
+    #[value(name = "b-lta")]
+    BLta,
 }
 
 #[derive(Args)]
@@ -35,7 +37,7 @@ pub struct SignArgs {
     /// Página (desde 1) donde se coloca el campo de firma.
     #[arg(long, default_value_t = 1)]
     pub page: usize,
-    /// Nivel PAdES: b-b (básico), b-t (con sello de tiempo, requiere --tsa) o b-lt (además, con certificados y CRL incrustados).
+    /// Nivel PAdES: b-b (básico), b-t (con sello de tiempo, requiere --tsa) o b-lt (además, con certificados, CRL y OCSP incrustados) o b-lta (además, con sello de tiempo del documento).
     #[arg(long, value_enum, default_value = "b-b")]
     pub level: Level,
     /// Dirección http del servidor de sellado de tiempo (RFC 3161).
@@ -110,6 +112,7 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
             Level::BB => PadesLevel::BB,
             Level::BT => PadesLevel::BT,
             Level::BLt => PadesLevel::BLt,
+            Level::BLta => PadesLevel::BLta,
         },
         timestamp_url: a.tsa,
         crl_files: a.crl,
@@ -147,7 +150,7 @@ fn level_text(l: PadesLevel) -> &'static str {
         PadesLevel::BB => "B-B",
         PadesLevel::BT => "B-T (con sello de tiempo)",
         PadesLevel::BLt => "B-LT (validación a largo plazo)",
-        PadesLevel::BLta => "B-LTA",
+        PadesLevel::BLta => "B-LTA (sello de tiempo del documento)",
     }
 }
 

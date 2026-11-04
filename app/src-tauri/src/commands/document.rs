@@ -7,6 +7,7 @@ use pliego_core::{DocInfo, PageSize};
 use tauri::State;
 
 use crate::AppState;
+use crate::commands::assistant::AssistantState;
 use pliego_app_service::api::{ApiError, ApiResult};
 
 #[tauri::command]
@@ -15,8 +16,14 @@ pub fn open_document(state: State<'_, AppState>, path: String, password: Option<
 }
 
 #[tauri::command]
-pub fn close_document(state: State<'_, AppState>, doc_id: DocId) -> ApiResult<()> {
-    Ok(state.service.close_document(doc_id)?)
+pub fn close_document(
+    state: State<'_, AppState>,
+    assistant: State<'_, AssistantState>,
+    doc_id: DocId,
+) -> ApiResult<()> {
+    state.service.close_document(doc_id)?;
+    assistant.forget(doc_id);
+    Ok(())
 }
 
 #[tauri::command]

@@ -202,6 +202,103 @@ mod long_term {
         assert!(r.modifications_allowed && r.is_valid(), "{:?}", r.problems);
     }
 
+    fn lta_setup() -> (Vec<u8>, ValidationOptions) {
+        let pki = make_pki(true);
+        let tsa_pki = make_pki_for(true, true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let tsa = LocalTsa {
+            signer: Pkcs12Signer::from_bytes(&tsa_pki.p12, PASSWORD).unwrap(),
+            digest: pliego_sign::DigestAlg::Sha256,
+        };
+        let rev = StaticRevocation(RevocationData {
+            crls: vec![pki.crl_der.clone(), tsa_pki.crl_der.clone()],
+            ocsps: vec![],
+        });
+        let opts = SignOptions {
+            level: PadesLevel::BLta,
+            ..Default::default()
+        };
+        let signed = sign_bytes_with(&corpus_pdf(), &signer, &opts, Some(&tsa), Some(&rev)).unwrap();
+        if let Ok(dir) = std::env::var("PLIEGO_SIGN_OUT") {
+            std::fs::write(format!("{dir}/firmado-blta.pdf"), &signed).unwrap();
+            std::fs::write(format!("{dir}/ca-blta.der"), &pki.ca_der).unwrap();
+            std::fs::write(format!("{dir}/ca-blta-tsa.der"), &tsa_pki.ca_der).unwrap();
+        }
+        let both = ValidationOptions {
+            trust_anchors: vec![
+                Certificate::from_der(&pki.ca_der).unwrap(),
+                Certificate::from_der(&tsa_pki.ca_der).unwrap(),
+            ],
+        };
+        (signed, both)
+    }
+
+    #[test]
+    fn b_lta_adds_a_valid_document_timestamp_and_vri() {
+        let (signed, both) = lta_setup();
+        let reports = validate_bytes(&signed, &both).unwrap();
+        assert_eq!(reports.len(), 1, "el sello del documento no es una firma más");
+        let r = &reports[0];
+        assert_eq!(r.level, PadesLevel::BLta, "{:?}", r.problems);
+        assert!(r.document_timestamp.as_ref().is_some_and(|t| t.valid));
+        assert!(r.is_valid(), "{:?}", r.problems);
+        let text = String::from_utf8_lossy(&signed);
+        assert!(text.contains("/DocTimeStamp") && text.contains("/ETSI.RFC3161"));
+        assert!(text.contains("/VRI"), "el DSS lleva la entrada VRI de la firma");
+    }
+
+    #[test]
+    fn tampering_after_the_document_timestamp_is_detected() {
+        let (mut signed, both) = lta_setup();
+        let at = signed.windows(5).position(|w| w == b"Hola ").unwrap();
+        signed[at] = b'h';
+        let reports = validate_bytes(&signed, &both).unwrap();
+        assert!(reports.iter().all(|r| !r.is_valid()));
+    }
+
+    #[test]
+    fn b_lta_needs_revocation_source() {
+        let pki = make_pki(true);
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let tsa = LocalTsa {
+            signer: Pkcs12Signer::from_bytes(&make_pki_for(true, true).p12, PASSWORD).unwrap(),
+            digest: pliego_sign::DigestAlg::Sha256,
+        };
+        let opts = SignOptions {
+            level: PadesLevel::BLta,
+            ..Default::default()
+        };
+        assert!(sign_bytes_with(&corpus_pdf(), &signer, &opts, Some(&tsa), None).is_err());
+    }
+
+    #[test]
+    fn ocsp_request_is_well_formed_and_responses_are_checked() {
+        use der::Decode as _;
+        let pki = make_pki(true);
+        let ca = Certificate::from_der(&pki.ca_der).unwrap();
+        let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+        let leaf = pliego_sign::Signer::certificate_chain(&signer)[0].clone();
+        let req = pliego_sign::build_ocsp_request(&leaf, &ca).unwrap();
+        // OCSPRequest > TBSRequest > requestList > Request > CertID con SHA-1 (20 bytes) y el número de serie.
+        assert_eq!(req[0], 0x30);
+        assert!(
+            req.windows(7).any(|w| w == [0x06, 0x05, 0x2B, 0x0E, 0x03, 0x02, 0x1A]),
+            "OID SHA-1"
+        );
+        let serial = leaf.tbs_certificate.serial_number.as_bytes();
+        assert!(req.windows(serial.len()).any(|w| w == serial));
+        // Respuesta: 0 = successful con cuerpo; 1 = malformedRequest; sin cuerpo no sirve.
+        let ok = [0x30, 0x0A, 0x0A, 0x01, 0x00, 0xA0, 0x05, 0x30, 0x03, 0x02, 0x01, 0x00];
+        assert!(pliego_sign::ocsp_response_is_successful(&ok));
+        assert!(!pliego_sign::ocsp_response_is_successful(&[
+            0x30, 0x03, 0x0A, 0x01, 0x01
+        ]));
+        assert!(!pliego_sign::ocsp_response_is_successful(&[
+            0x30, 0x03, 0x0A, 0x01, 0x00
+        ]));
+        assert!(!pliego_sign::ocsp_response_is_successful(b"<html>"));
+    }
+
     #[test]
     fn b_lt_without_any_revocation_data_fails() {
         let pki = make_pki(true);

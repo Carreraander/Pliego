@@ -7,6 +7,7 @@
 mod appearance;
 mod changes;
 mod cms;
+mod doctimestamp;
 mod dss;
 mod pdfwrite;
 mod platform;
@@ -15,7 +16,10 @@ mod signer;
 mod timestamp;
 mod validate;
 
-pub use dss::{HttpRevocation, RevocationData, RevocationSource, StaticRevocation, add_dss, collect_revocation};
+pub use dss::{
+    HttpRevocation, RevocationData, RevocationSource, StaticRevocation, add_dss, add_dss_vri, build_ocsp_request,
+    collect_revocation, ocsp_response_is_successful,
+};
 #[cfg(windows)]
 pub use platform::windows::{WindowsCertificate, WindowsStoreSigner, list_windows_certificates};
 pub use sign::{PadesLevel, SignOptions, VisibleSignature, sign, sign_bytes, sign_bytes_with, sign_bytes_with_tsa};

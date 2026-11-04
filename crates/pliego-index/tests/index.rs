@@ -107,3 +107,29 @@ fn thousand_pdfs_search_under_200ms() {
     println!("búsqueda: {dt:?}, {} resultados", hits.len());
     assert!(dt.as_millis() < 200);
 }
+
+/// Perfil de un solo PDF: separa abrir, cargar página y extraer texto, repitiendo 5 veces con el mismo archivo.
+/// `cargo test -p pliego-index --release -- --ignored --nocapture profile_single_pdf`
+#[test]
+#[ignore = "diagnóstico: se ejecuta a mano (acr12)"]
+fn profile_single_pdf() {
+    use mupdf::{Document, TextPageFlags};
+    for name in ["compare/base.pdf", "basic/hola.pdf"] {
+        let bytes = std::fs::read(corpus(name)).unwrap();
+        for round in 0..5 {
+            let t = std::time::Instant::now();
+            let doc = Document::from_bytes(&bytes, "application/pdf").unwrap();
+            let t_open = t.elapsed();
+            let t = std::time::Instant::now();
+            let page = doc.load_page(0).unwrap();
+            let t_load = t.elapsed();
+            let t = std::time::Instant::now();
+            let tp = page.to_text_page(TextPageFlags::empty()).unwrap();
+            let t_tp = t.elapsed();
+            let t = std::time::Instant::now();
+            let _ = tp.to_text().unwrap();
+            let t_text = t.elapsed();
+            println!("{name} #{round}: abrir {t_open:?}, cargar {t_load:?}, textpage {t_tp:?}, texto {t_text:?}");
+        }
+    }
+}

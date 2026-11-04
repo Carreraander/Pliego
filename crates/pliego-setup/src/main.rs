@@ -16,6 +16,7 @@ mod platform;
 mod system;
 #[cfg(windows)]
 mod ui;
+mod verify;
 
 fn main() {
     // `std::process::exit` admite el código completo de Windows (1602, 1603…); `ExitCode` solo un byte.

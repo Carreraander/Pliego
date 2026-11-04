@@ -109,6 +109,9 @@ pub struct DataDirs {
     pub cache: PathBuf,
 }
 
+/// Marca del tipo de instalación que lee la autoactualización.
+pub const KIND_FILE: &str = "install-kind";
+
 fn drive_of(path: &Path) -> String {
     path.components()
         .next()
@@ -340,6 +343,13 @@ pub fn install(
             shortcuts,
         };
         write_info(root, &info)?;
+        // Marca para la autoactualización (`pliego-update`): `user` o `machine` (el MSI de W10 escribe `msi`).
+        let kind = if opts.scope == Scope::Machine {
+            "machine"
+        } else {
+            "user"
+        };
+        fs::write(root.join(KIND_FILE), kind)?;
 
         report("finishing", 96);
         let _ = layout.cleanup(2);
@@ -390,6 +400,7 @@ pub fn remove_installed_files(root: &Path) -> io::Result<()> {
         "rolled-back",
         "rolled-back.tmp",
         INFO_FILE,
+        KIND_FILE,
     ] {
         match fs::remove_file(root.join(f)) {
             Ok(()) => {}
@@ -509,14 +520,41 @@ fn same_content(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// Actualización por máquina (`--update --paq`, elevado): extrae y verifica la versión y la deja como `pending`.
-/// El registro (versión mostrada, lanzadores) lo renueva `post_update` cuando el lanzador la activa.
-pub fn update_from_paq(root: &Path, paq_file: &Path) -> Result<String> {
+/// Actualización por máquina (`--update --paq --manifest`, elevado): copia el `.paq` a una carpeta protegida,
+/// verifica la firma Ed25519 del manifiesto y el SHA-256 de la copia, y solo entonces la extrae y la deja como
+/// `pending`. El registro (versión mostrada, lanzadores) lo renueva `post_update` cuando el lanzador la activa.
+pub fn update_from_paq(
+    root: &Path,
+    paq_file: &Path,
+    manifest: &Path,
+    trusted: &[pliego_update::PublicKey],
+) -> Result<String> {
     let layout = Layout::new(root);
     ensure_layout_exists(&layout)?;
-    let version = layout.stage(paq_file)?;
-    logging::info(&format!("actualización preparada: {version}"));
-    Ok(version)
+    let verified = crate::verify::copy_and_verify(root, paq_file, manifest, trusted)?;
+    let result = (|| {
+        if let Some(current) = active_version(root)
+            && cmp_versions(&verified.version, &current) != std::cmp::Ordering::Greater
+        {
+            return Err(SetupError::Corrupt(format!(
+                "la versión {} no es posterior a la instalada ({current})",
+                verified.version
+            )));
+        }
+        let version = layout.stage(&verified.copy)?;
+        if version != verified.version {
+            return Err(SetupError::Corrupt(format!(
+                "el paquete trae la versión {version} y el manifiesto firmado {}",
+                verified.version
+            )));
+        }
+        Ok(version)
+    })();
+    crate::verify::clean(root);
+    if let Ok(v) = &result {
+        logging::info(&format!("actualización preparada: {v}"));
+    }
+    result
 }
 
 fn ensure_layout_exists(layout: &Layout) -> Result<()> {
@@ -532,6 +570,8 @@ fn ensure_layout_exists(layout: &Layout) -> Result<()> {
 mod tests {
     use super::*;
     use crate::system::fake::FakeSystem;
+    use crate::verify::tests::{manifest_for, write_env};
+    use pliego_update::sign::ReleaseKey;
 
     /// Crea un `.paq` de una app falsa con lanzadores y setup.
     fn make_paq(dir: &Path, version: &str, app_marker: &str) -> PathBuf {
@@ -842,10 +882,43 @@ mod tests {
             &mut |_| {},
         )
         .unwrap();
-        let v = update_from_paq(&root, &make_paq(d.path(), "0.5.0", "b")).unwrap();
+        assert_eq!(fs::read_to_string(root.join(KIND_FILE)).unwrap(), "user");
+
+        let key = ReleaseKey::generate().unwrap();
+        let trusted = [key.public()];
+        let signed = |paq: &Path, version: &str, key: &ReleaseKey| {
+            let m = manifest_for(&fs::read(paq).unwrap(), version);
+            let dir = paq
+                .parent()
+                .unwrap()
+                .join(format!("m-{version}-{}", key.public().key_id()));
+            fs::create_dir_all(&dir).unwrap();
+            write_env(&dir, &m, key)
+        };
+        let paq = make_paq(d.path(), "0.5.0", "b");
+
+        // Firmado por una clave desconocida, o sin claves: no se extrae nada.
+        let other = signed(&paq, "0.5.0", &ReleaseKey::generate().unwrap());
+        assert!(update_from_paq(&root, &paq, &other, &trusted).is_err());
+        assert!(update_from_paq(&root, &paq, &other, &[]).is_err());
+        assert_eq!(Layout::new(&root).pending().unwrap(), None);
+
+        let man = signed(&paq, "0.5.0", &key);
+        let v = update_from_paq(&root, &paq, &man, &trusted).unwrap();
         assert_eq!(v, "0.5.0");
         assert_eq!(Layout::new(&root).pending().unwrap().as_deref(), Some("0.5.0"));
-        assert!(update_from_paq(&d.path().join("vacia"), &make_paq(d.path(), "0.6.0", "c")).is_err());
+        assert!(
+            !root.join(crate::verify::STAGING_DIR).exists(),
+            "limpia la copia protegida"
+        );
+
+        // La versión del manifiesto firmado debe coincidir con la del paquete y ser posterior a la instalada.
+        let liar = signed(&paq, "0.9.0", &key);
+        assert!(update_from_paq(&root, &paq, &liar, &trusted).is_err());
+        let old = make_paq(d.path(), "0.3.0", "z");
+        let man_old = signed(&old, "0.3.0", &key);
+        assert!(update_from_paq(&root, &old, &man_old, &trusted).is_err());
+        assert!(update_from_paq(&d.path().join("vacia"), &paq, &man, &trusted).is_err());
     }
 
     #[test]

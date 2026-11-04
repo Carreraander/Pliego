@@ -10,6 +10,8 @@ repository.workspace = true
 pliego-install = { path = "../pliego-install" }
 serde.workspace = true
 serde_json.workspace = true
+pliego-update = { path = "../pliego-update" }
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 wry = "0.57"
@@ -41,6 +43,7 @@ windows = { version = "0.62", features = [
 embed-resource = "3"
 
 [dev-dependencies]
+pliego-update = { path = "../pliego-update", features = ["sign"] }
 tempfile.workspace = true
 
 [lints]

@@ -211,3 +211,75 @@ fn attachment_embeds_file() {
     assert_eq!(data, b"contenido adjunto");
     std::fs::remove_dir_all(dir).ok();
 }
+
+#[test]
+fn stamps_survive_xfdf_roundtrip() {
+    let mut doc = blank();
+    for source in [
+        StampSource::Preset {
+            preset: StampPreset::Aprobado,
+        },
+        StampSource::Text {
+            text: "RECIBIDO".into(),
+            color: [0.1, 0.3, 0.7],
+        },
+    ] {
+        add(
+            &mut doc,
+            &AnnotSpec::new(
+                0,
+                Geometry::Stamp {
+                    rect: [50.0, 50.0, 200.0, 100.0],
+                    source,
+                },
+            ),
+        )
+        .unwrap();
+    }
+    let xfdf = export_xfdf(&mut doc).unwrap();
+    assert_eq!(xfdf.matches("<stamp ").count(), 2);
+    let mut other = blank();
+    assert_eq!(import_xfdf(&mut other, &xfdf).unwrap(), 2);
+    let stamps: Vec<_> = list(&mut other, None)
+        .unwrap()
+        .into_iter()
+        .filter(|i| i.kind == AnnotKind::Stamp)
+        .collect();
+    assert_eq!(stamps.len(), 2);
+    assert!(
+        stamps
+            .iter()
+            .any(|s| s.stamp.as_ref().is_some_and(|(t, _)| t == "RECIBIDO"))
+    );
+    assert!(ink_in(&other, 0, [50, 50, 200, 100]) > 0);
+}
+
+#[test]
+fn link_and_freetext_accept_author_and_color() {
+    let mut doc = blank();
+    let mut link = AnnotSpec::new(
+        0,
+        Geometry::Link {
+            rect: [10.0, 10.0, 100.0, 30.0],
+            target: LinkTarget::Uri {
+                uri: "https://example.org".into(),
+            },
+        },
+    );
+    link.author = Some("Ana".into());
+    add(&mut doc, &link).unwrap();
+    let mut ft = AnnotSpec::new(
+        0,
+        Geometry::FreeText {
+            rect: [100.0, 100.0, 300.0, 140.0],
+            font_size: 14.0,
+        },
+    );
+    ft.contents = Some("Hola mundo".into());
+    ft.style.color = Some([0.0, 0.0, 0.0]);
+    add(&mut doc, &ft).unwrap();
+    let doc = reopen(&doc);
+    // El texto negro sobre fondo transparente deja zonas en blanco dentro del recuadro.
+    let total = 200 * 40;
+    assert!(ink_in(&doc, 0, [100, 100, 300, 140]) < total / 2);
+}

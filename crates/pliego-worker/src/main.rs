@@ -1,6 +1,9 @@
 //! Proceso `pliego-worker`: abre UN documento con MuPDF y atiende peticiones por stdin/stdout.
 //! Si un PDF hostil tumba este proceso, la app sigue viva y lo relanza (ver `WorkerEngine`).
 
+// En Windows sin subsistema de consola: evita el conhost.exe colgado del proceso (stdio va por tuberías).
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 use std::io::{self, BufReader, BufWriter, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 

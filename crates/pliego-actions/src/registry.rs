@@ -1,8 +1,39 @@
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Mutex;
 
 use pliego_core::{Error, JobContext, Report, Result};
 use serde_json::Value;
+
+/// Contadores compartidos entre los archivos de un lote, por nombre. Sirven para pasos que continúan de un
+/// archivo al siguiente (p. ej. la numeración Bates de un expediente). El ejecutor los guarda en el diario tras
+/// cada archivo, de modo que `--resume` los retoma, y los restaura si un archivo falla (sin huecos).
+#[derive(Debug, Default)]
+pub struct Batch {
+    counters: Mutex<BTreeMap<String, u64>>,
+}
+
+impl Batch {
+    pub fn get(&self, key: &str) -> u64 {
+        self.lock().get(key).copied().unwrap_or(0)
+    }
+
+    pub fn add(&self, key: &str, n: u64) {
+        *self.lock().entry(key.to_string()).or_insert(0) += n;
+    }
+
+    pub(crate) fn snapshot(&self) -> BTreeMap<String, u64> {
+        self.lock().clone()
+    }
+
+    pub(crate) fn restore(&self, counters: BTreeMap<String, u64>) {
+        *self.lock() = counters;
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, BTreeMap<String, u64>> {
+        self.counters.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
 
 /// Un tipo de paso. Lee `input`, escribe un PDF nuevo en `output` (nunca modifica `input`) y devuelve su informe.
 pub trait StepRunner: Send + Sync {
@@ -12,6 +43,18 @@ pub trait StepRunner: Send + Sync {
     }
 
     fn run(&self, input: &Path, output: &Path, options: &Value, ctx: &JobContext) -> Result<Report>;
+
+    /// Como [`StepRunner::run`], con acceso a los contadores del lote. Por defecto los ignora.
+    fn run_in_batch(
+        &self,
+        input: &Path,
+        output: &Path,
+        options: &Value,
+        ctx: &JobContext,
+        _batch: &Batch,
+    ) -> Result<Report> {
+        self.run(input, output, options, ctx)
+    }
 }
 
 /// Pasos disponibles por nombre (`optimize`, `protect.encrypt`…).

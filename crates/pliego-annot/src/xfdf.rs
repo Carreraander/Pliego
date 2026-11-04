@@ -57,11 +57,13 @@ fn tag(k: AnnotKind) -> Option<&'static str> {
         AnnotKind::Polygon => "polygon",
         AnnotKind::PolyLine => "polyline",
         AnnotKind::Ink => "ink",
+        AnnotKind::Stamp => "stamp",
         _ => return None,
     })
 }
 
-/// Exporta los comentarios del documento como XFDF. Se omiten sellos, adjuntos y enlaces.
+/// Exporta los comentarios del documento como XFDF. Se omiten adjuntos, enlaces y sellos de imagen
+/// (los sellos de texto y predefinidos se exportan como `<stamp>`).
 pub fn export_xfdf(doc: &mut PdfDocument) -> Result<String> {
     let hs = page_heights(doc)?;
     let items = list(doc, None)?;
@@ -71,6 +73,9 @@ pub fn export_xfdf(doc: &mut PdfDocument) -> Result<String> {
     );
     for i in &items {
         let Some(t) = tag(i.kind) else { continue };
+        if i.kind == AnnotKind::Stamp && i.stamp.is_none() {
+            continue;
+        }
         let h = hs[i.id.page];
         let pt = |p: PointPts| format!("{},{}", num(p[0]), num(h - p[1]));
         let r = i.rect;
@@ -85,6 +90,14 @@ pub fn export_xfdf(doc: &mut PdfDocument) -> Result<String> {
         );
         if let Some(nm) = &i.nm {
             let _ = write!(s, " name=\"{}\"", escape(nm));
+        }
+        if let Some((text, c)) = &i.stamp {
+            let _ = write!(
+                s,
+                " icon=\"Custom\" pliego-text=\"{}\" pliego-color=\"{}\"",
+                escape(text),
+                hex(*c)
+            );
         }
         if let Some(c) = i.style.color {
             let _ = write!(s, " color=\"{}\"", hex(c));
@@ -274,6 +287,16 @@ fn build(n: &xml::Node, hs: &[f32], known: &[(String, AnnotId)]) -> Result<Built
                 .child("inklist")
                 .map(|l| l.children.iter().map(|g| points(&g.text, h)).collect())
                 .unwrap_or_default(),
+        },
+        "stamp" => match n.attr("pliego-text") {
+            Some(text) => Geometry::Stamp {
+                rect: need_rect()?,
+                source: StampSource::Text {
+                    text: text.to_owned(),
+                    color: n.attr("pliego-color").and_then(parse_hex).unwrap_or([0.1, 0.3, 0.7]),
+                },
+            },
+            None => return Ok(Built::Skip),
         },
         _ => return Ok(Built::Skip),
     };

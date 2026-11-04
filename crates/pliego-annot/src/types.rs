@@ -306,4 +306,7 @@ pub struct AnnotInfo {
     pub state: Option<ReviewState>,
     /// Destino de un enlace: dirección web o `#página` (desde 1).
     pub link: Option<String>,
+    /// Texto y color de un sello de texto o predefinido creado por Pliego (permite exportarlo a XFDF).
+    #[serde(default)]
+    pub stamp: Option<(String, Rgb)>,
 }

@@ -19,6 +19,9 @@ pub enum Outcome {
 pub struct Entry {
     pub size: u64,
     pub mtime_secs: u64,
+    /// Contadores del lote tras procesar este archivo (numeración continua).
+    #[serde(default)]
+    pub counters: BTreeMap<String, u64>,
     #[serde(flatten)]
     pub outcome: Outcome,
 }
@@ -53,15 +56,26 @@ impl Journal {
         std::fs::rename(&tmp, dir.join(FILE_NAME)).map_err(|e| Error::io_at(dir, e))
     }
 
-    /// ¿Ya se procesó este archivo con éxito y no ha cambiado?
-    pub fn is_done(&self, rel: &str, size: u64, mtime_secs: u64) -> Option<&Path> {
+    /// ¿Ya se procesó este archivo con éxito y no ha cambiado? Devuelve su salida y los contadores resultantes.
+    pub fn is_done(&self, rel: &str, size: u64, mtime_secs: u64) -> Option<(&Path, &BTreeMap<String, u64>)> {
         match self.entries.get(rel) {
             Some(Entry {
                 size: s,
                 mtime_secs: m,
+                counters,
                 outcome: Outcome::Done { output },
-            }) if *s == size && *m == mtime_secs && output.exists() => Some(output),
+            }) if *s == size && *m == mtime_secs && output.exists() => Some((output, counters)),
             _ => None,
         }
+    }
+
+    pub fn had_failed(&self, rel: &str) -> bool {
+        matches!(
+            self.entries.get(rel),
+            Some(Entry {
+                outcome: Outcome::Failed { .. },
+                ..
+            })
+        )
     }
 }

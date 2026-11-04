@@ -4,6 +4,9 @@
 
 use std::path::Path;
 
+mod fonts;
+pub use fonts::{SystemFonts, init_fonts};
+
 use mupdf::{Colorspace, Device, Document, IRect, Matrix, MetadataName, Pixmap, TextPageFlags};
 use pliego_core::{
     DocInfo, EngineDocument, Error, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
@@ -43,6 +46,7 @@ impl PdfEngine for MupdfEngine {
     type Doc = MupdfDocument;
 
     fn open(&self, path: &Path, password: Option<&str>) -> Result<MupdfDocument> {
+        init_fonts();
         if !path.exists() {
             return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
         }

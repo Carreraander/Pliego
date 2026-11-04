@@ -10,6 +10,32 @@ export type UpdateState =
   | { kind: "up-to-date"; lastCheck: Date }
   | { kind: "available"; version: string; lastCheck: Date };
 
+/** Estado real que emite el servicio de Rust (`update_status` / `update-state-changed`); `null` fuera de la app. */
+export type UpdatePhase =
+  | { phase: "not-configured" | "disabled" | "up-to-date" }
+  | { phase: "available"; version: string; mandatory: boolean; notes: string | null; notes_url: string | null; can_download: boolean }
+  | { phase: "downloading"; done: number; total: number }
+  | { phase: "ready"; version: string; mandatory: boolean; notes: string | null; needs_elevation: boolean }
+  | { phase: "failed"; message: string; retry_at: string };
+export type UpdateSnapshot = UpdatePhase & {
+  current_version: string;
+  channel: "stable" | "beta";
+  mode: "automatic" | "notify-only" | "disabled";
+  /** Directiva de la organización: los controles quedan bloqueados. */
+  managed: boolean;
+  install_kind: "per-user" | "per-machine" | "msi" | "portable";
+  last_check: string | null;
+  server: string | null;
+  history: [string, string][];
+  whats_new: string | null;
+  whats_new_notes: string | null;
+  rollback: [string, string] | null;
+  busy: boolean;
+};
+const [snapshot, setSnapshot] = createSignal<UpdateSnapshot | null>(null);
+export const updateSnapshot = snapshot;
+export const setUpdateSnapshot = (s: UpdateSnapshot | null): void => { setSnapshot(s); };
+
 export interface UpdateService {
   /** Versión instalada. */
   currentVersion(): string;

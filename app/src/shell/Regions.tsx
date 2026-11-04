@@ -82,7 +82,7 @@ export function NoticeBar(props: { docId: string | null }) {
   return (
     <Show when={n()} keyed>
       {(notice) => (
-        <Notice tone={notice.tone} actions={notice.actions} onDismiss={notice.dismissible ? () => dismissNotice(props.docId!, notice.id) : undefined}>{notice.text}</Notice>
+        <Notice tone={notice.tone} actions={notice.actions} onDismiss={notice.dismissible ? () => { dismissNotice(props.docId!, notice.id); notice.onDismiss?.(); } : undefined}>{notice.text}</Notice>
       )}
     </Show>
   );

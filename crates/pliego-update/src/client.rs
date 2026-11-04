@@ -30,9 +30,13 @@ pub struct Verdict {
     pub package: Artifact,
     /// Crítica, por debajo de la mínima soportada o versión bloqueada: la interfaz no deja posponerla sin fin.
     pub mandatory: bool,
+    /// Sobre firmado tal como lo sirvió el servidor (lo llena `UpdateClient::check`). Se guarda junto al paquete para
+    /// que `pliego-setup --update --manifest` vuelva a verificar la firma con privilegios.
+    pub envelope: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)] // Se crea una vez por comprobación; no merece una caja.
 pub enum CheckOutcome {
     UpToDate,
     Available(Verdict),
@@ -108,6 +112,7 @@ pub fn evaluate(
         release: release.clone(),
         package: package.clone(),
         mandatory,
+        envelope: Vec::new(),
     }))
 }
 
@@ -175,6 +180,11 @@ impl UpdateClient {
 
     /// Descarga y verifica la firma del manifiesto del canal.
     pub fn fetch_manifest(&self) -> Result<Manifest> {
+        self.fetch_envelope().map(|(_, m)| m)
+    }
+
+    /// Igual que [`Self::fetch_manifest`], devolviendo también los bytes del sobre firmado.
+    pub fn fetch_envelope(&self) -> Result<(Vec<u8>, Manifest)> {
         let mut resp = self.get(&self.manifest_url())?;
         let bytes = resp
             .body_mut()
@@ -182,15 +192,19 @@ impl UpdateClient {
             .limit(MAX_MANIFEST_BYTES)
             .read_to_vec()
             .map_err(|e| UpdateError::Network(e.to_string()))?;
-        Envelope::from_json(&bytes)?.open(&self.config.trusted_keys)
+        let manifest = Envelope::from_json(&bytes)?.open(&self.config.trusted_keys)?;
+        Ok((bytes, manifest))
     }
 
     /// Comprueba si hay versión nueva y actualiza `state` (serial y hora) si el manifiesto es válido.
     /// El llamador guarda `state` después.
     pub fn check(&self, state: &mut UpdateState) -> Result<CheckOutcome> {
-        let manifest = self.fetch_manifest()?;
+        let (bytes, manifest) = self.fetch_envelope()?;
         let now = OffsetDateTime::now_utc();
-        let outcome = evaluate(&manifest, &self.config, state, now)?;
+        let mut outcome = evaluate(&manifest, &self.config, state, now)?;
+        if let CheckOutcome::Available(v) = &mut outcome {
+            v.envelope = bytes;
+        }
         state.last_serial.insert(self.config.channel.clone(), manifest.serial);
         state.last_check = Some(format_time(now));
         Ok(outcome)

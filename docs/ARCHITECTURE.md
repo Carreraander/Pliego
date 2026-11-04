@@ -28,6 +28,11 @@ Documento de diseño completo: https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw
   revisión anterior se invalidan.
 - **Proceso aislado:** `pliego-worker` ejecuta MuPDF para PDFs no confiables; si cae, la app reabre el documento
   y muestra un aviso, sin cerrarse.
+- **Fuentes del sistema:** `mupdf` se compila sin `system-fonts` (font-kit enumeraba todas las fuentes en cada
+  búsqueda: ~1,3 s por documento en Windows). `pliego_engine_mupdf::init_fonts()` registra un `FontLoader` propio con
+  un índice perezoso de `%WINDIR%\Fonts` y `%LOCALAPPDATA%\Microsoft\Windows\Fonts`; fuera de Windows no hace nada. Todo
+  `main` que use MuPDF (CLI, worker) y `Index::add_folder` lo llaman; `MupdfEngine::open` también. Quien abra
+  documentos con `mupdf` directamente en un proceso nuevo debe llamarlo antes.
 - **Módulos:** biblioteca + subcomando CLI. La app los integra llamando a la biblioteca desde comandos Tauri.
 
 ## Rendimiento objetivo (medido en acr12)

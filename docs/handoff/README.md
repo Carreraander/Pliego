@@ -32,7 +32,7 @@ diseño general https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw, prototipo nav
 https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente está en `docs/design/`
 (`prototipo.html` se abre en local).
 
-## Estado global a 2026-11-04 11:30 UTC
+## Estado global a 2026-11-04 14:05 UTC
 
 - **Proyecto trasladado a la cuenta nueva** (2026-11-04). Hilo de gestión: «Gestionar el desarrollo de Pliego»; un
   hilo Sonnet por flujo. La cola de acr12 (una sesión de Remote Control a la vez) la lleva gestión.
@@ -42,8 +42,15 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
   servicio de actualizaciones), #118 (W05 OCSP, VRI, B-LTA), #119 (W19), #121 (W12 PDF/A: `/ID`, capas, adjuntos y
   `/AA` de página; sustituye a #96, cerrado), #120 (W21: `--update` elevado verifica la firma Ed25519 del manifiesto;
   marca `install-kind`), #122 (W22: interfaz de actualizaciones, reinicio por equipo con `--manifest`, VPS compartido
-  con `sites.d`), #123 (web `web/` de pdfpliego.com y `docs/design/landing-y-seo.md`; publicar en el VPS espera el
-  visto bueno de Ander).
+  con `sites.d`), #123 y #125 (web de pdfpliego.com con demo; **publicada** en el VPS), #124 (W15: MuPDF sin
+  `system-fonts`, `FontLoader` propio), #126 (W03 docs), #127 (W21 `tools/build-beta.ps1`), #128 y #129 (W22: servidor
+  de actualizaciones real en actualizaciones.pdfpliego.com, claves públicas de producción), #130 y #131 (W10: lab «pc»).
+- **Beta:** `Pliego-Setup-0.1.0-beta.exe` (16,6 MB) en acr12, `D:\dev\pliego-beta\`. Sin firma de código todavía (Ander
+  comprará el certificado). E2E de autoactualización en curso (W22).
+- **Claves:** firma Ed25519 de producción solo en acr12 (`D:\dev-cache\release-keys`) y en el USB de Ander; nunca en
+  GitHub, el VPS ni el repo (solo las públicas). SSH de despliegue en «pc» y en el secreto `UPDATE_SSH_KEY`.
+- **Equipos de pruebas:** acr12 (cola principal) y «pc» (Windows 11, solo tareas ligeras: C: casi lleno).
+  Computer use desde Remote Control se deniega solo (W03, 3 intentos): falta decidir con Ander cómo revisar en Reader/Edge.
 - **PRs abiertos:** ninguno de código.
 - **Issues abiertas:** ninguna.
 
@@ -62,10 +69,10 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W09](flujos/w09.md) | Crear y convertir | Fusionado | Prueba con Word, Excel y PowerPoint reales en acr12 |
 | [W10](flujos/w10.md) | Build, QA, Windows | Fusionado (parcial) + **PR #93** | Benchmarks, `crates/pliego-shell`, MSI/ZIP, firma de código |
 | [W11](flujos/w11.md) | Edición de texto e imágenes | Fusionado | **Ander:** abrir en Reader los PDFs de `D:\dev\pliego-w11-out\` |
-| [W12](flujos/w12.md) | PDF/A, PDF/UA | Fusionado + **PR #96** | veraPDF en acr12 con #96, aviso 6.5.2 |
+| [W12](flujos/w12.md) | PDF/A, PDF/UA | **Cerrado** (44/44 veraPDF) | Nada |
 | [W13](flujos/w13.md) | Diseñador de formularios | Fusionado | Prueba en Reader (10+5 → «15,00 €», 200 rechazado); ONNX opcional no hecho |
 | [W14](flujos/w14.md) | Exportar a Office | Fusionado | Revisión visual con Word real en acr12; unificar extracción con pliego-convert |
-| [W15](flujos/w15.md) | Lote, índice, medidas | Fusionado | Indexado lento en acr12 (20 min/1.000 PDF): medir extracción vs escritura, antivirus |
+| [W15](flujos/w15.md) | Lote, índice, medidas | Fusionado (#124) | Repetir en acr12 el índice de 1.000 PDFs y el render sin fuentes incrustadas con el `FontLoader` propio |
 | [W16](flujos/w16.md) | Impresión | Fusionado | Prueba en acr12; planchas de color directo y sobreimpresión (limitación de mupdf 0.8) |
 | [W17](flujos/w17.md) | Flujo de firmas | Fusionado | Tests de signflow en acr12 con corpus limpio, tres firmantes en Reader |
 | [W18](flujos/w18.md) | Asistente IA local | Fusionado | Compilar CLI/app con `--features llama` en Windows y probar de punta a punta; `Session::forget` |
@@ -117,5 +124,6 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
    400 MB contando WebView2.
 5. **DNIe/FNMT (W05):** acr12 no tiene lector de tarjetas conectado (#106); conectar uno o descartar la prueba.
 6. ~~Modelos GGUF de W18 en C:~~: **Ander autorizó moverlos a D: (2026-11-04)**; lo hace W18.
-7. **Excluir `D:\dev-cache` del antivirus** si el indexado de W15 lo confirma como causa (necesita administrador).
+7. ~~Excluir `D:\dev-cache` del antivirus~~: no hace falta. La causa del indexado lento era `system-fonts` de MuPDF
+   (font-kit enumera las fuentes en cada búsqueda); resuelto en #124 con un `FontLoader` propio.
 8. En la cuenta nueva: los pasos manuales de [`prompt-nuevo-proyecto.md`](prompt-nuevo-proyecto.md).

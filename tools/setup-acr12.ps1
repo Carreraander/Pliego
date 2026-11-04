@@ -17,7 +17,7 @@
 [CmdletBinding()]
 param(
     [switch]$CheckOnly,
-    [string]$DevRoot = (Join-Path $env:USERPROFILE 'dev'),
+    [string]$DevRoot = $(if (Test-Path 'D:\') { 'D:\dev' } else { Join-Path $env:USERPROFILE 'dev' }),
     [string]$Report
 )
 

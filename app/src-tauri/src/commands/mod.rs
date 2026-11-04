@@ -10,6 +10,7 @@ pub mod document;
 pub mod jobs;
 pub mod optimize;
 pub mod organize;
+pub mod protect;
 pub mod recents;
 pub mod search;
 pub mod settings;
@@ -54,6 +55,11 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         sign::signflow_next,
         sign::signflow_sign,
         sign::signflow_audit,
+        protect::protect_encrypt,
+        protect::protect_remove,
+        protect::protect_sanitize,
+        protect::redact_find,
+        protect::redact_apply,
         organize::insert_pages,
         organize::number_pages,
         stamp::stamp_pdf,

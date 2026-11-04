@@ -113,9 +113,15 @@ pub fn run(root: &Path, target: Target, args: Vec<std::ffi::OsString>) -> Result
     Ok(exit_byte(status.code()))
 }
 
-/// Trabajo posterior al arranque: si se acaba de activar una versión nueva, lanza las tareas de `--post-update`.
+/// ¿Hay que renovar el registro de Windows? Tras activar una versión nueva **o** tras volver atrás por la regla de
+/// salud: `DisplayVersion` y los lanzadores deben reflejar la versión en uso, no la que falló.
+fn needs_post_update(plan: &LaunchPlan) -> bool {
+    plan.activated.is_some() || plan.rolled_back_from.is_some()
+}
+
+/// Trabajo posterior al arranque: si cambió la versión en uso, lanza las tareas de `--post-update`.
 fn after_spawn(layout: &Layout, plan: &LaunchPlan) {
-    if plan.activated.is_none() {
+    if !needs_post_update(plan) {
         return;
     }
     let setup = plan.dir.join("pliego-setup.exe");
@@ -146,6 +152,19 @@ mod tests {
         assert_eq!(exit_byte(Some(42)), 42);
         assert_eq!(exit_byte(Some(-1)), 1);
         assert_eq!(exit_byte(None), 1);
+    }
+
+    #[test]
+    fn post_update_runs_after_activation_and_after_rollback() {
+        let plan = |activated: Option<&str>, back: Option<&str>| LaunchPlan {
+            version: "0.4.0".into(),
+            dir: PathBuf::from("x"),
+            activated: activated.map(String::from),
+            rolled_back_from: back.map(String::from),
+        };
+        assert!(needs_post_update(&plan(Some("0.5.0"), None)));
+        assert!(needs_post_update(&plan(None, Some("0.5.0"))));
+        assert!(!needs_post_update(&plan(None, None)));
     }
 
     #[test]

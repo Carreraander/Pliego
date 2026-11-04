@@ -109,6 +109,9 @@ pub struct DataDirs {
     pub cache: PathBuf,
 }
 
+/// Subcarpetas de `%LOCALAPPDATA%\Pliego` que se borran siempre al desinstalar (se vuelven a descargar).
+const REGENERABLE_CACHE: &[&str] = &["updates"];
+
 /// Marca del tipo de instalación que lee la autoactualización.
 pub const KIND_FILE: &str = "install-kind";
 
@@ -455,8 +458,13 @@ pub fn uninstall(
     remove_installed_files(root)
         .map_err(|e| SetupError::Other(format!("no se pudo borrar {}: {e}", root.display())))?;
     report("removing", 80);
-    let _ = fs::remove_dir_all(&data.cache);
+    // Sin `purge` solo se borra lo regenerable (descargas de actualizaciones). `%LOCALAPPDATA%\Pliego` también guarda
+    // `tessdata` (modelos de OCR), `models`, `update-state.json`…: eso solo desaparece con `--purge`.
+    for sub in REGENERABLE_CACHE {
+        let _ = fs::remove_dir_all(data.cache.join(sub));
+    }
     if purge {
+        let _ = fs::remove_dir_all(&data.cache);
         let _ = fs::remove_dir_all(&data.settings);
     }
     report("removing", 100);
@@ -596,7 +604,11 @@ mod tests {
         fs::create_dir_all(&s).unwrap();
         fs::create_dir_all(&c).unwrap();
         fs::write(s.join("settings.json"), "{}").unwrap();
-        fs::write(c.join("cache.bin"), "x").unwrap();
+        fs::write(c.join("update-state.json"), "{}").unwrap();
+        fs::create_dir_all(c.join("tessdata")).unwrap();
+        fs::write(c.join("tessdata/spa.traineddata"), "modelo").unwrap();
+        fs::create_dir_all(c.join("updates")).unwrap();
+        fs::write(c.join("updates/pliego.paq"), "x").unwrap();
         DataDirs { settings: s, cache: c }
     }
 
@@ -820,11 +832,38 @@ mod tests {
         assert!(root.join("mis-notas.txt").is_file(), "no se borran archivos ajenos");
         assert!(!root.join("Pliego.exe").exists() && !root.join("app-0.4.0").exists() && !root.join("bin").exists());
         assert!(dd.settings.join("settings.json").is_file(), "los ajustes se conservan");
-        assert!(!dd.cache.exists(), "la caché siempre se borra");
+        assert!(
+            !dd.cache.join("updates").exists(),
+            "las descargas regenerables se borran"
+        );
+        assert!(
+            dd.cache.join("tessdata/spa.traineddata").is_file(),
+            "los modelos de OCR se conservan"
+        );
+        assert!(
+            dd.cache.join("update-state.json").is_file(),
+            "el estado del actualizador se conserva"
+        );
         let c = sys.calls();
         assert!(
             c.contains(&"unregister_uninstall User".to_string()) && c.contains(&"shell register=false".to_string())
         );
+    }
+
+    #[test]
+    fn registry_version_follows_rollback_via_post_update() {
+        let d = tempfile::tempdir().unwrap();
+        let root = d.path().join("P");
+        let sys = FakeSystem::new();
+        for v in ["0.4.0", "0.5.0"] {
+            let src = Source::from_file(make_paq(d.path(), v, "a")).unwrap();
+            install(&src, &opts(&root), &sys, &AtomicBool::new(false), &mut |_| {}).unwrap();
+        }
+        assert_eq!(read_info(&root).unwrap().version, "0.5.0");
+        Layout::new(&root).rollback().unwrap();
+        post_update(&root, &sys).unwrap();
+        assert_eq!(read_info(&root).unwrap().version, "0.4.0");
+        assert!(sys.calls().contains(&"register_uninstall User 0.4.0".to_string()));
     }
 
     #[test]

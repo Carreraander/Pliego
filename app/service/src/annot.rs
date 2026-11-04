@@ -133,21 +133,66 @@ impl Editor {
         lock(&self.undo).get(path).map_or(0, Vec::len)
     }
 
+    /// Aplica `op` a un `PdfDocument` del archivo (copia de seguridad la primera vez, deshacer y guardado atómico).
+    /// Lo usan los demás modos que modifican el PDF abierto (diseño de formularios, edición de texto) para compartir
+    /// la misma pila de deshacer que los comentarios.
+    pub fn edit_pdf(
+        &self,
+        path: &Path,
+        backup_suffix: &str,
+        op: impl FnOnce(&mut PdfDocument) -> Result<()>,
+    ) -> Result<Vec<u8>> {
+        self.edit_with(
+            path,
+            backup_suffix,
+            |bytes| PdfDocument::from_bytes(bytes).map_err(pe),
+            op,
+            |d| d,
+        )
+    }
+
+    /// Igual que [`Editor::edit_pdf`] pero sobre un `pliego_document::Document` (lo que piden `pliego-edit`).
+    pub fn edit_document(
+        &self,
+        path: &Path,
+        backup_suffix: &str,
+        op: impl FnOnce(&mut pliego_document::Document) -> Result<()>,
+    ) -> Result<Vec<u8>> {
+        self.edit_with(
+            path,
+            backup_suffix,
+            |bytes| pliego_document::Document::open_bytes(bytes, None),
+            op,
+            |d| d.pdf(),
+        )
+    }
+
     fn edit(
         &self,
         path: &Path,
         backup_suffix: &str,
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
+        self.edit_pdf(path, backup_suffix, op)
+    }
+
+    fn edit_with<D>(
+        &self,
+        path: &Path,
+        backup_suffix: &str,
+        open: impl FnOnce(&[u8]) -> Result<D>,
+        op: impl FnOnce(&mut D) -> Result<()>,
+        pdf_of: impl for<'a> Fn(&'a D) -> &'a PdfDocument,
+    ) -> Result<Vec<u8>> {
         let before = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-        let mut doc = PdfDocument::from_bytes(&before).map_err(pe)?;
+        let mut doc = open(&before)?;
         op(&mut doc)?;
         let first = !lock(&self.undo).contains_key(path);
         if first {
             // La copia de seguridad se escribe antes de tocar el original.
             write_bytes(&unique_sibling(path, backup_suffix, "pdf"), &before)?;
         }
-        save(&doc, path)?;
+        save(pdf_of(&doc), path)?;
         let after = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
         let mut all = lock(&self.undo);
         let stack = all.entry(path.to_path_buf()).or_default();

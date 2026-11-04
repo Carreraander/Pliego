@@ -12,6 +12,7 @@ import { registerSignTools } from "./sign/manifest";
 import { registerProtectTools } from "./protect";
 import { registerBatchTools } from "./batch/manifest";
 import { registerStampTools } from "./stamp/manifest";
+import { registerFormTools } from "./forms/manifest";
 
 /** Herramientas reales conectadas a la app: cada flujo añade aquí una línea y sustituye a su fantasma de `base.ts`. */
 export function registerAppTools(): void {
@@ -24,4 +25,5 @@ export function registerAppTools(): void {
   registerBatchTools(); // W29
   registerConvertTools(); // W24
   registerStampTools(); // W27
+  registerFormTools(); // W29b
 }

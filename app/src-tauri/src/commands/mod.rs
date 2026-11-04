@@ -9,6 +9,7 @@ pub mod checks;
 pub mod convert;
 pub mod dialog;
 pub mod document;
+pub mod formdesign;
 pub mod index;
 pub mod jobs;
 pub mod optimize;
@@ -58,6 +59,10 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,
         annot::pick_xfdf_file,
+        formdesign::form_fields,
+        formdesign::form_add_field,
+        formdesign::form_update_field,
+        formdesign::form_delete_field,
         index::index_folder,
         index::index_search,
         convert::export_pdf,

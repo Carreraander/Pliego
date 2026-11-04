@@ -1,0 +1,10 @@
+.pl-forms-layer { position: absolute; inset: 0; z-index: var(--pl-z-canvas-overlay); touch-action: none; user-select: none; }
+.pl-forms-layer:not([data-tool="select"]) { cursor: crosshair; }
+.pl-forms-box { all: unset; box-sizing: border-box; position: absolute; border: 1px dashed var(--pl-accent); background: var(--pl-selection); cursor: pointer; overflow: hidden; }
+.pl-forms-box:hover { border-style: solid; }
+.pl-forms-box:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 1px; }
+.pl-forms-box--selected { border-style: solid; border-width: 2px; }
+.pl-forms-box__name { position: absolute; left: 2px; top: 0; font-size: 10px; line-height: 1.2; color: var(--pl-text); white-space: nowrap; pointer-events: none; }
+.pl-forms-layer:not([data-tool="select"]) .pl-forms-box { pointer-events: none; }
+.pl-forms-preview { position: absolute; background: var(--pl-selection); outline: 1px solid var(--pl-accent); pointer-events: none; }
+.pl-forms-hint { color: var(--pl-text-2); font-size: 0.85em; margin-inline-start: var(--pl-space-2); }

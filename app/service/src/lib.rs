@@ -8,6 +8,7 @@ pub mod annot;
 pub mod api;
 pub mod checks;
 pub mod convert;
+pub mod formdesign;
 pub mod optimize;
 pub mod organize;
 pub mod protect;

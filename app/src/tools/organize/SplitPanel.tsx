@@ -1,9 +1,7 @@
 import { createSignal, Show } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { isApiError } from "../../api";
-import { trackJob } from "../../jobs";
 import { activeDoc } from "../../state/documents";
-import { Field, Notice, Select, TaskPanel, TextInput, toast } from "../../ui";
+import { Field, Notice, Select, TaskPanel, TextInput } from "../../ui";
+import { fileName, runToolJob } from "../run";
 import { parseRanges } from "./ranges";
 import { ot } from "./text";
 
@@ -30,14 +28,13 @@ export default function SplitPanel(p: { onClose: () => void }) {
     const doc = activeDoc();
     const r = rule();
     if (!doc || !r) { setError(ot("organize.split.invalid")); return; }
-    try {
-      const id = await invoke<number>("split_pdf", { path: doc.path, rule: r });
-      trackJob(id, { title: ot("organize.split.job", { name: doc.title }), retry: () => void run() });
-      toast({ tone: "info", text: ot("organize.split.started") });
-      p.onClose();
-    } catch (e) {
-      setError(isApiError(e) ? e.message : String(e));
-    }
+    const id = await runToolJob({
+      command: "split_pdf",
+      args: { path: doc.path, rule: r, suffix: ot("organize.split.suffix") },
+      title: ot("organize.split.job", { name: fileName(doc.path) }),
+      started: ot("organize.split.started"),
+    });
+    if (id !== null) p.onClose();
   };
 
   return (

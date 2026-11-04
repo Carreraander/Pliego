@@ -4079,8 +4079,11 @@ name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
  "mupdf",
+ "pliego-annot",
  "pliego-appdata",
+ "pliego-convert",
  "pliego-core",
+ "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",
  "pliego-protect",

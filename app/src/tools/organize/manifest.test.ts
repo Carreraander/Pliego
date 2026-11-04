@@ -8,7 +8,7 @@ describe("herramientas de Organizar", () => {
     registerBaseTools();
     expect(getTool("pages.merge")?.ghost).toBe(true);
     registerOrganizeTools();
-    for (const id of ["pages.merge", "pages.split"]) {
+    for (const id of ["pages.merge", "pages.split", "pages.insert", "pages.number"]) {
       const t = getTool(id)!;
       expect(t.ghost).toBeFalsy();
       expect(typeof t.load).toBe("function");

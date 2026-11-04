@@ -23,6 +23,12 @@ export function registerProtectTools(): () => void {
       keywords: ["sanear", "limpiar", "metadatos"], when: { document: true }, pinnable: true,
       load: () => import("./SanitizePanel"),
     }),
+    registerTool({
+      id: "protect.redact", group: "protect", kind: "task",
+      title: "tools.protect.redact.title", description: "tools.protect.redact.description", icon: "redact",
+      keywords: ["redactar", "tapar", "datos personales", "dni", "iban"], when: { document: true }, pinnable: true,
+      load: () => import("./RedactPanel"),
+    }),
     registerMode({
       id: "protect.protect", icon: "lock", order: 60, needsDocument: true,
       get title() { const t = getTool("protect.protect"); return t ? toolTitle(t) : "protect.protect"; },

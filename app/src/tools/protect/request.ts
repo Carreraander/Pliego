@@ -61,3 +61,47 @@ export function buildSanitizeRequest(path: string, current: string, options: San
 
 /** Nombre de archivo para el título de la tarea. */
 export const baseName = (path: string): string => path.split(/[\\/]/).pop() ?? path;
+
+// ── Redactar ────────────────────────────────────────────────────────────────────────
+
+export const REDACT_PATTERNS = ["dni", "nie", "cif", "iban", "email", "telefono", "fecha"] as const;
+export type RedactPattern = (typeof REDACT_PATTERNS)[number];
+
+export interface RedactForm {
+  patterns: RedactPattern[];
+  /** Expresión regular propia; vacía = no se usa. */
+  regex: string;
+  /** Si la casilla de la expresión propia está marcada. */
+  useRegex: boolean;
+  areas: { page: number; x0: number; y0: number; x1: number; y1: number }[];
+  fill: "Black" | "None";
+  images: "Pixels" | "Remove" | "Keep";
+  removeLineArt: boolean;
+  current: string;
+}
+
+export interface RedactRequest {
+  path: string;
+  password: string | null;
+  areas: RedactForm["areas"];
+  patterns: string[];
+  options: { fill: RedactForm["fill"]; images: RedactForm["images"]; remove_line_art: boolean };
+}
+
+/** Los patrones que se pasan al motor (`dni`, … o `regex:<expresión>`). */
+export function patternNames(f: Pick<RedactForm, "patterns" | "useRegex" | "regex">): string[] {
+  return [...f.patterns, ...(f.useRegex && f.regex.trim() ? [`regex:${f.regex.trim()}`] : [])];
+}
+
+export function buildRedactRequest(path: string, f: RedactForm): Built<RedactRequest> {
+  if (f.useRegex && !f.regex.trim()) return { ok: false, error: "redact.err.regex" };
+  const patterns = patternNames(f);
+  if (patterns.length === 0 && f.areas.length === 0) return { ok: false, error: "redact.err.nothing" };
+  return {
+    ok: true,
+    request: {
+      path, password: f.current || null, areas: f.areas.map((a) => ({ ...a })), patterns,
+      options: { fill: f.fill, images: f.images, remove_line_art: f.removeLineArt },
+    },
+  };
+}

@@ -31,7 +31,15 @@ Mismo sistema que la app: «grafito y tinta» ([sistema-visual.md](sistema-visua
   de agua, sin límites, uso en empresas, MuPDF, licencia) → Preguntas → Llamada final → Pie con avisos de marcas.
 - **Tipografía:** la del sistema (Segoe UI Variable en Windows, que es justo el público). Sin fuentes web.
 - **Tema:** claro y oscuro con `prefers-color-scheme`; alto contraste con `forced-colors`; `prefers-reduced-motion`.
-- **Sin JavaScript.** Las preguntas usan `<details>`. Cero peticiones a terceros: ni fuentes, ni analítica, ni CDN.
+- **Demo que se puede usar** (`web/assets/demo.js`, a petición de Ander el 2026-11-04): la ventana de la portada es
+  interactiva. Pestañas (cambiar, cerrar, nueva pestaña con la pantalla de Inicio), los seis modos con sus
+  herramientas (resaltar líneas con colores, notas y sellos donde se haga clic, rotar/duplicar/eliminar páginas,
+  editar el título de la página, marca de agua, Bates, redactar y aplicar, contraseña), Herramientas, Ctrl+K con
+  búsqueda y flechas, paneles del raíl (miniaturas, marcadores, comentarios, firmas), zoom, `Alt+1…6` y el asistente
+  de firma completo hasta «Firmar y guardar». Las tareas (Comprimir, OCR, PDF/A, Comparar) muestran progreso en la
+  barra de estado y avisan de la copia guardada. Todo es simulado: no se abre ni se envía ningún archivo.
+- **Mejora progresiva:** sin JavaScript se ve la ventana estática. Las preguntas usan `<details>`. Cero peticiones a
+  terceros: ni fuentes, ni analítica, ni CDN.
   Es coherente con el mensaje de privacidad y deja el sitio en lo más alto de Core Web Vitals (HTML 30 KB, CSS 20 KB).
 - **Accesibilidad:** enlace «Saltar al contenido», jerarquía h1→h2→h3, foco visible, iconos con `aria-hidden`, las
   maquetas de la app como `role="img"` con descripción, contraste ≥ 4,5:1 (mismos pares que la app).
@@ -134,8 +142,8 @@ asistentes. Validar con el Rich Results Test y validator.schema.org antes de pub
 
 ## 6. Rendimiento y seguridad
 
-- Objetivo: LCP < 1,5 s en 4G, CLS 0, sin JavaScript. Las imágenes del sitio son solo `og.png` y los iconos.
-- Cabeceras en `web/Caddyfile.propuesta`: HSTS, CSP estricta (`script-src 'none'`), `nosniff`,
+- Objetivo: LCP < 1,5 s en 4G, CLS 0. Único script: la demo (≈33 KB sin comprimir, `defer`, propio). Las imágenes del sitio son solo `og.png` y los iconos.
+- Cabeceras en `web/Caddyfile.propuesta`: HSTS, CSP estricta (`script-src 'self'`), `nosniff`,
   `Referrer-Policy`, `Permissions-Policy`, compresión zstd/gzip, HTML sin caché y estáticos una semana.
 - Registro de acceso 7 días, igual que dice `/privacidad/`.
 

@@ -29,7 +29,7 @@ pdfpliego.com {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; style-src-attr 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; style-src-attr 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'"
 		-Server
 	}
 	# HTML siempre fresco; CSS e imágenes una semana (sin huella en el nombre todavía).

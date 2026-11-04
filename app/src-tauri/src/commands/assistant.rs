@@ -25,6 +25,13 @@ pub struct AssistantState {
     jobs: Arc<Mutex<HashMap<String, CancelToken>>>,
 }
 
+impl AssistantState {
+    /// Libera el índice y el texto en caché de un documento cerrado.
+    pub fn forget(&self, doc: u64) {
+        lock(&self.session).forget(doc);
+    }
+}
+
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }

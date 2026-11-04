@@ -4087,6 +4087,7 @@ dependencies = [
  "pliego-appdata",
  "pliego-convert",
  "pliego-core",
+ "pliego-index",
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",

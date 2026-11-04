@@ -1,0 +1,5 @@
+.pl-index-hits { list-style: none; margin: var(--pl-space-3, 12px) 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pl-index-hits button { all: unset; cursor: pointer; display: block; width: 100%; }
+.pl-index-hits button:focus-visible { outline: 2px solid var(--pl-accent, currentColor); }
+.pl-index-hits strong { display: block; }
+.pl-index-hits mark { background: var(--pl-warn-soft, transparent); color: inherit; font-weight: 600; }

@@ -50,6 +50,8 @@ export const api = {
   pickFolder: (title?: string) => invoke<string | null>("pick_folder", { title }),
   /** Selector nativo de una imagen PNG o JPEG; `null` si se cancela. */
   pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title }),
+  /** Selector nativo de imágenes, texto y documentos de Office para «Crear PDF». */
+  pickSourceFiles: (title?: string) => invoke<string[]>("pick_source_files", { title }),
 };
 
 export const events = {

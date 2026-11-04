@@ -66,6 +66,7 @@ mod tests {
 
     #[test]
     fn saves_a_copy_and_keeps_the_original() {
+        let _serial = crate::test_support::serial();
         let Some(src) = corpus() else { return };
         let dir = tempfile::tempdir().unwrap();
         let input = dir.path().join("doc.pdf");
@@ -87,6 +88,7 @@ mod tests {
 
     #[test]
     fn rejects_bad_input_before_touching_disk() {
+        let _serial = crate::test_support::serial();
         let req = |preset: &str, dpi, q| CompressRequest {
             preset: preset.into(),
             dpi,
@@ -114,6 +116,7 @@ mod tests {
 
     #[test]
     fn cancelled_job_leaves_no_copy() {
+        let _serial = crate::test_support::serial();
         let Some(src) = corpus() else { return };
         let dir = tempfile::tempdir().unwrap();
         let input = dir.path().join("doc.pdf");

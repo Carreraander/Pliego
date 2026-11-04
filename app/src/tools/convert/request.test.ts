@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportArgs, normalizePages, officeArgs, optionalNumber, usesDpi } from "./request";
+import { createArgs, createProblem, exportArgs, pdfaArgs, normalizePages, officeArgs, optionalNumber, usesDpi } from "./request";
 import { convertStrings } from "./strings";
 
 describe("argumentos de Convertir", () => {
@@ -26,5 +26,14 @@ describe("argumentos de Convertir", () => {
   });
   it("los textos están en español e inglés", () => {
     expect(Object.keys(convertStrings.en).sort()).toEqual(Object.keys(convertStrings.es).sort());
+  });
+  it("Crear PDF: texto y Office van de uno en uno, las imágenes se pueden juntar", () => {
+    expect(createProblem([])).toBe("empty");
+    expect(createProblem(["a.png", "b.JPG"])).toBeNull();
+    expect(createProblem(["nota.txt"])).toBeNull();
+    expect(createProblem(["nota.txt", "a.png"])).toBe("single");
+    expect(createProblem(["C:\\x\\informe.DOCX", "b.docx"])).toBe("single");
+    expect(createArgs(["a.png"], "a4", null, "auto", false, "PDF")).toEqual({ paths: ["a.png"], pageSize: "a4", marginMm: 0, orientation: "auto", upscale: false, label: "PDF" });
+    expect(pdfaArgs("a.pdf", "2b", "PDF-A")).toEqual({ path: "a.pdf", level: "2b", label: "PDF-A" });
   });
 });

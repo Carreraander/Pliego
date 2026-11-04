@@ -4065,6 +4065,7 @@ dependencies = [
  "pliego-core",
  "pliego-install",
  "pliego-organize",
+ "pliego-stamp",
  "pliego-update",
  "serde",
  "serde_json",
@@ -4482,8 +4483,10 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
+ "pliego-organize",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

@@ -256,6 +256,12 @@ pub fn apply(
     Ok(report)
 }
 
+/// Busca `patterns` en el archivo `path` (vista previa de coincidencias, sin modificar nada).
+pub fn find_in_file(path: &Path, password: Option<&str>, patterns: &[Pattern]) -> Result<Vec<crate::patterns::Match>> {
+    let doc = open_pdf(path, password)?;
+    find_patterns(&doc, patterns)
+}
+
 fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));

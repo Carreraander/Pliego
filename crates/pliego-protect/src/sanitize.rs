@@ -400,7 +400,7 @@ pub fn sanitize(
     let mut write = PdfWriteOptions::default();
     // Nivel 3: quita objetos sin referencia, renumera y deduplica.
     write.set_garbage(true).set_garbage_level(3);
-    save_atomic(&doc, input, output, write)?;
+    save_atomic(doc, input, output, write)?;
 
     let mut report = Report::with_output(output, String::new());
     report.summary = if removed.is_empty() {

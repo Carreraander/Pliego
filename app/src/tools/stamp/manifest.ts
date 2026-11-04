@@ -20,6 +20,12 @@ export const bates: ToolManifest = {
   icon: "bates", keywords: ["bates", "legal", "numeración"], when: { document: true }, pinnable: true, load: () => import("./BatesPanel"),
 };
 
+/** Sellos (anotación): sustituye a la fantasma `stamp.stamps`. Colocar con clic y arrastrar llegará con la capa del visor (W26). */
+export const stamps: ToolManifest = {
+  id: "stamp.stamps", group: "comment", kind: "task", title: "tools.stamp.stamps.title", description: "tools.stamp.stamps.description",
+  icon: "stamp", keywords: ["sello", "stamp", "aprobado", "confidencial"], when: { document: true }, pinnable: true, load: () => import("./StampsPanel"),
+};
+
 export function registerStampTools(): void {
-  for (const t of [watermark, headerFooter, background, bates]) registerTool(t);
+  for (const t of [stamps, watermark, headerFooter, background, bates]) registerTool(t);
 }

@@ -1,0 +1,2 @@
+# PDF de ejemplo binario: sin conversión de saltos de línea.
+*.pdf -text

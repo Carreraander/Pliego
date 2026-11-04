@@ -66,8 +66,8 @@ fn name_string(table: &[u8], id: u16) -> Option<String> {
             3 | 0 => (
                 if be16(table, r)? == 3 { 0 } else { 1 },
                 String::from_utf16_lossy(
-                    &raw.chunks_exact(2)
-                        .map(|c| u16::from_be_bytes([c[0], c[1]]))
+                    &raw.chunks(2)
+                        .map(|c| u16::from_be_bytes([c[0], c.get(1).copied().unwrap_or(0)]))
                         .collect::<Vec<_>>(),
                 ),
             ),

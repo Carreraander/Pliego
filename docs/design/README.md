@@ -11,6 +11,7 @@ Versión 1 (2026-11-03), hilo de diseño "Diseñar app de escritorio de Pliego".
 | [instalador.md](instalador.md) | Instalador propio `pliego-setup`: estructura en disco con lanzador, paquete `.paq`, pantallas, registro en Windows, línea de órdenes, desinstalación, firma de código |
 | [landing-y-seo.md](landing-y-seo.md) | Web pdfpliego.com: diseño de la landing, afirmaciones permitidas, palabras clave, metadatos y schema. Código en `web/` |
 | [actualizaciones.md](actualizaciones.md) | Protocolo de actualizaciones firmadas (Ed25519), configuración, experiencia de usuario, aplicar y volver atrás, publicar, VPS |
+| [licencia-y-motor.md](licencia-y-motor.md) | Estudio de decisión: licencia propia (source-available) y sustituir MuPDF (Artifex, PDFium + lopdf, motor propio). Pendiente de Ander |
 
 Código de referencia ya escrito:
 - `crates/pliego-update`: cliente de actualizaciones (manifiesto firmado, canales, despliegue gradual, anti-reproducción,

@@ -50,10 +50,11 @@ export function NavigationDemo() {
     const offs = [
       registerMode({ id: "read", title: "Leer", icon: "mouse-pointer", order: 10, toolbar: () => <span class="pl-muted">Barra de Leer</span> }),
       registerStatusItem({ id: "demo.page", slot: "start", hideOnHome: true, text: () => "Pág. 1 de 12" }),
+      installNavigation(),
       // Una herramienta nueva = un manifiesto + una línea de registro (sustituye a la fantasma con el mismo id).
+      // Va después de installNavigation: aquí el panel de ejemplo sustituye al real de W24 para las pruebas visuales.
       registerTool({ id: "optimize.compress", group: "compare-optimize", kind: "task", title: "tools.optimize.compress.title", description: "tools.optimize.compress.description",
         icon: "file-down", keywords: ["reducir", "tamaño"], when: { document: true }, pinnable: true, load: async () => ({ default: CompressPanel }) }),
-      installNavigation(),
       installHome(() => undefined),
     ];
     void installJobs(() => undefined).then((off) => offs.push(off));

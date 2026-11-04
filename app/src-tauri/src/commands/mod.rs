@@ -8,6 +8,7 @@ pub mod checks;
 pub mod dialog;
 pub mod document;
 pub mod jobs;
+pub mod optimize;
 pub mod organize;
 pub mod recents;
 pub mod search;
@@ -39,6 +40,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         checks::check_accessibility,
         checks::validate_pdfa,
         checks::preflight_pdf,
+        optimize::compress_pdf,
+        optimize::analyze_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
         text::outline,

@@ -8,6 +8,11 @@ repository.workspace = true
 
 [dependencies]
 pliego-core.workspace = true
+pliego-optimize = { path = "../../crates/pliego-optimize" }
+pliego-a11y.workspace = true
+pliego-pdfa.workspace = true
+pliego-print.workspace = true
+pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
 png = "0.17"
 serde.workspace = true

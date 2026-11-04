@@ -1,7 +1,7 @@
 import "./checks.css";
 import { createSignal, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { isApiError } from "../../api";
+import { errorText } from "../run";
 import { activeDoc } from "../../state/documents";
 import { Field, Notice, Select, TaskPanel } from "../../ui";
 import { ct } from "./text";
@@ -27,7 +27,7 @@ export default function ChecksPanel(p: { toolId: Kind; onClose: () => void }) {
       else if (p.toolId === "access.validate-pdfa") setResult(fromPdfa(await invoke<PdfaValidation>("validate_pdfa", { path: doc.path, level: level() })));
       else setResult(fromPreflight(await invoke<PreflightReport>("preflight_pdf", { path: doc.path, profile: profile() })));
     } catch (e) {
-      setError(ct("checks.failed", { error: isApiError(e) ? e.message : String(e) }));
+      setError(ct("checks.failed", { error: errorText(e) }));
     } finally {
       setBusy(false);
     }

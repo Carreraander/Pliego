@@ -5,6 +5,8 @@
 //! (`app/src-tauri`) solo traduce comandos y el protocolo `pliego://tile/...` a llamadas de este servicio.
 
 pub mod api;
+pub mod checks;
+pub mod optimize;
 pub mod uri;
 
 use std::collections::HashMap;

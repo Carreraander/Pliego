@@ -14,6 +14,7 @@ tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-a11y.workspace = true
 pliego-index = { path = "../../crates/pliego-index" }
+pliego-portfolio = { path = "../../crates/pliego-portfolio" }
 pliego-pdfa.workspace = true
 pliego-print.workspace = true
 pliego-convert = { path = "../../crates/pliego-convert" }

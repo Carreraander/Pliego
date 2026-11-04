@@ -80,3 +80,19 @@ pub async fn pick_folder(app: tauri::AppHandle, title: Option<String>) -> Option
         .and_then(|p| p.into_path().ok())
         .map(|p| p.to_string_lossy().into_owned())
 }
+
+/// Selector de archivos de cualquier tipo (cartera PDF). Vacío si se cancela.
+#[tauri::command]
+pub async fn pick_any_files(app: tauri::AppHandle, title: Option<String>) -> Vec<String> {
+    let mut dialog = app.dialog().file();
+    if let Some(t) = title {
+        dialog = dialog.set_title(t);
+    }
+    dialog
+        .blocking_pick_files()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect()
+}

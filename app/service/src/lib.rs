@@ -11,6 +11,7 @@ pub mod convert;
 pub mod formdesign;
 pub mod optimize;
 pub mod organize;
+pub mod pageedit;
 pub mod protect;
 pub mod search_index;
 pub mod sign;

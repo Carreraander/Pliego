@@ -14,6 +14,7 @@ pub mod index;
 pub mod jobs;
 pub mod optimize;
 pub mod organize;
+pub mod pageedit;
 pub mod protect;
 pub mod recents;
 pub mod search;
@@ -63,6 +64,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         formdesign::form_add_field,
         formdesign::form_update_field,
         formdesign::form_delete_field,
+        pageedit::edit_text_blocks,
+        pageedit::edit_text_replace,
+        pageedit::edit_text_insert,
         index::index_folder,
         index::index_search,
         convert::export_pdf,

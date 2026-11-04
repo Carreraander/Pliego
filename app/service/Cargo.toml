@@ -14,10 +14,13 @@ tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
+pliego-organize.workspace = true
+pliego-stamp.workspace = true
 png = "0.17"
 serde.workspace = true
 
 [dev-dependencies]
+mupdf.workspace = true
 serde_json.workspace = true
 
 [lints]

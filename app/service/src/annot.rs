@@ -4,7 +4,9 @@
 //! Son las funciones que llaman los comandos de la app (que no tienen pruebas propias): reciben rutas y nunca
 //! tocan el original; las que escriben un PDF lo hacen a una ruta distinta, de forma atómica.
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 
 use mupdf::Document;
 use mupdf::pdf::{PdfDocument, PdfWriteOptions};
@@ -13,7 +15,7 @@ use pliego_core::{Error, Result};
 use pliego_appdata::copyjob::unique_sibling;
 use pliego_core::Report;
 
-pub use pliego_annot::CommentSummary;
+pub use pliego_annot::{AnnotId, AnnotSpec, CommentSummary};
 use pliego_annot::{export_xfdf, import_xfdf, summary};
 
 fn pe(e: mupdf::Error) -> Error {
@@ -49,6 +51,10 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
     let mut opts = PdfWriteOptions::default();
     opts.set_garbage_level(3).set_compress(true);
     doc.save_with_options(path, opts).map_err(pe)?;
+    persist_with_retry(tmp, out)
+}
+
+fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
     // En Windows un antivirus o el indexador pueden tener el archivo recién escrito unos milisegundos.
     let mut tmp = tmp;
     for attempt in 0..5 {
@@ -86,6 +92,87 @@ pub fn import_xfdf_copy(src: &Path, password: Option<&str>, xfdf: &Path, suffix:
     let out = unique_sibling(src, suffix, "pdf");
     save(&doc, &out)?;
     Ok(Report::with_output(out, format!("{added} comentario(s) importados")))
+}
+
+/// Máximo de pasos que se pueden deshacer por documento.
+const MAX_UNDO: usize = 30;
+
+/// Edición de comentarios **sobre el propio PDF** con deshacer. Antes del primer cambio de cada archivo se guarda una
+/// copia de seguridad `<nombre> (copia de seguridad).pdf`; cada cambio apila el contenido anterior (en memoria).
+#[derive(Default)]
+pub struct Editor {
+    undo: Mutex<HashMap<PathBuf, Vec<Vec<u8>>>>,
+}
+
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+impl Editor {
+    /// Añade una anotación al archivo y devuelve el contenido nuevo (para recargar el visor).
+    pub fn add(&self, path: &Path, spec: &AnnotSpec, backup_suffix: &str) -> Result<Vec<u8>> {
+        self.edit(path, backup_suffix, |doc| pliego_annot::add(doc, spec).map(drop))
+    }
+
+    /// Borra una anotación del archivo.
+    pub fn delete(&self, path: &Path, id: AnnotId, backup_suffix: &str) -> Result<Vec<u8>> {
+        self.edit(path, backup_suffix, |doc| pliego_annot::delete(doc, id))
+    }
+
+    /// Deshace el último cambio; `None` si no hay nada que deshacer.
+    pub fn undo(&self, path: &Path) -> Result<Option<Vec<u8>>> {
+        let Some(prev) = lock(&self.undo).get_mut(path).and_then(Vec::pop) else {
+            return Ok(None);
+        };
+        write_bytes(path, &prev)?;
+        Ok(Some(prev))
+    }
+
+    /// Cuántos cambios se pueden deshacer.
+    pub fn undo_depth(&self, path: &Path) -> usize {
+        lock(&self.undo).get(path).map_or(0, Vec::len)
+    }
+
+    fn edit(
+        &self,
+        path: &Path,
+        backup_suffix: &str,
+        op: impl FnOnce(&mut PdfDocument) -> Result<()>,
+    ) -> Result<Vec<u8>> {
+        let before = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
+        let mut doc = PdfDocument::from_bytes(&before).map_err(pe)?;
+        op(&mut doc)?;
+        let first = !lock(&self.undo).contains_key(path);
+        if first {
+            // La copia de seguridad se escribe antes de tocar el original.
+            write_bytes(&unique_sibling(path, backup_suffix, "pdf"), &before)?;
+        }
+        save(&doc, path)?;
+        let after = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
+        let mut all = lock(&self.undo);
+        let stack = all.entry(path.to_path_buf()).or_default();
+        stack.push(before);
+        if stack.len() > MAX_UNDO {
+            stack.remove(0);
+        }
+        Ok(after)
+    }
+}
+
+/// Escribe `bytes` en `out` de forma atómica (temporal + renombrado).
+fn write_bytes(out: &Path, bytes: &[u8]) -> Result<()> {
+    let dir = out
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut tmp = tempfile::Builder::new()
+        .prefix(".pliego-")
+        .suffix(".tmp")
+        .tempfile_in(dir)
+        .map_err(|e| Error::io_at(dir, e))?;
+    std::io::Write::write_all(&mut tmp, bytes).map_err(|e| Error::io_at(out, e))?;
+    let tmp = tmp.into_temp_path();
+    persist_with_retry(tmp, out)
 }
 
 #[cfg(test)]
@@ -143,5 +230,50 @@ mod tests {
     #[test]
     fn missing_file_is_an_error() {
         assert!(open(Path::new("/no/existe.pdf"), None).is_err());
+    }
+
+    #[test]
+    fn editing_in_place_keeps_a_backup_and_can_be_undone() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("a.pdf");
+        pdf_with_notes(&p, 1);
+        let original = std::fs::read(&p).unwrap();
+        let ed = Editor::default();
+        let spec = AnnotSpec::new(
+            0,
+            Geometry::Highlight {
+                quads: vec![[10.0, 10.0, 90.0, 10.0, 10.0, 24.0, 90.0, 24.0]],
+            },
+        );
+        let after = ed.add(&p, &spec, "copia de seguridad").unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), after);
+        assert_eq!(summary_of(&p, None).unwrap().total, 2);
+        assert_eq!(
+            std::fs::read(dir.path().join("a (copia de seguridad).pdf")).unwrap(),
+            original
+        );
+        // Un segundo cambio no crea otra copia de seguridad.
+        ed.add(&p, &spec, "copia de seguridad").unwrap();
+        assert!(!dir.path().join("a (copia de seguridad 2).pdf").exists());
+        assert_eq!(ed.undo_depth(&p), 2);
+        ed.undo(&p).unwrap().unwrap();
+        assert_eq!(summary_of(&p, None).unwrap().total, 2);
+        ed.undo(&p).unwrap().unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), original);
+        assert!(ed.undo(&p).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_failed_edit_leaves_the_file_and_the_undo_stack_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("a.pdf");
+        pdf_with_notes(&p, 1);
+        let before = std::fs::read(&p).unwrap();
+        let ed = Editor::default();
+        let bad = AnnotSpec::new(99, Geometry::Note { at: [1.0, 1.0] });
+        assert!(ed.add(&p, &bad, "copia de seguridad").is_err());
+        assert_eq!(std::fs::read(&p).unwrap(), before);
+        assert_eq!(ed.undo_depth(&p), 0);
+        assert!(!dir.path().join("a (copia de seguridad).pdf").exists());
     }
 }

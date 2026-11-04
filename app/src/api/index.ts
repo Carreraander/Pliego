@@ -16,6 +16,12 @@ export interface DocInfo {
   page_count: number;
   title: string | null;
   author: string | null;
+  subject?: string | null;
+  keywords?: string | null;
+  creator?: string | null;
+  producer?: string | null;
+  format?: string | null;
+  encryption?: string | null;
   is_pdf: boolean;
 }
 export interface OutlineItem {

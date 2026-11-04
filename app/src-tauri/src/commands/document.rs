@@ -41,3 +41,9 @@ pub fn page_sizes(state: State<'_, AppState>, doc_id: DocId) -> ApiResult<Vec<Pa
 pub fn bump_revision(state: State<'_, AppState>, doc_id: DocId) -> Result<u64, ApiError> {
     Ok(state.service.bump_revision(doc_id)?)
 }
+
+/// Tamaño y fecha del archivo de un documento (Propiedades del documento).
+#[tauri::command]
+pub fn file_facts(path: String) -> ApiResult<pliego_app_service::facts::FileFacts> {
+    pliego_app_service::facts::file_facts(std::path::Path::new(&path)).map_err(ApiError::from)
+}

@@ -1,0 +1,19 @@
+[package]
+name = "pdfium-spike"
+description = "Spike W35: carga dinámica de pdfium.dll, arranque, render y memoria. No forma parte del workspace."
+version = "0.0.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+# Crate aislado (no es miembro del workspace de Pliego): no altera Cargo.lock ni la CI.
+[workspace]
+
+[dependencies]
+# Sin `thread_safe`/`sync`: el worker será un proceso con un hilo de PDFium. `pdfium_latest` = API de la última
+# versión de pdfium-binaries que la crate conoce; la DLL fijada debe ser compatible (se comprueba al cargar).
+pdfium-render = { version = "0.9", default-features = false, features = ["pdfium_latest"] }
+serde_json = "1"
+
+[lints.rust]
+unsafe_code = "deny"

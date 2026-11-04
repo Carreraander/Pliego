@@ -17,6 +17,7 @@ use pliego_core::Report;
 
 pub use pliego_annot::{AnnotId, AnnotSpec, CommentSummary};
 use pliego_annot::{export_xfdf, import_xfdf, summary};
+pub use pliego_forms::{FieldInfo, FieldValue, FieldValues};
 
 fn pe(e: mupdf::Error) -> Error {
     Error::Pdf(e.to_string())
@@ -70,6 +71,11 @@ fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
     unreachable!("el bucle devuelve en el último intento")
 }
 
+/// Campos del formulario de `src` (con su recuadro en la página) para dibujar los controles sobre el visor.
+pub fn form_fields(src: &Path, password: Option<&str>) -> Result<Vec<FieldInfo>> {
+    pliego_forms::fields(&mut open(src, password)?)
+}
+
 /// Resumen de los comentarios de `src`.
 pub fn summary_of(src: &Path, password: Option<&str>) -> Result<CommentSummary> {
     summary(&mut open(src, password)?)
@@ -117,6 +123,21 @@ impl Editor {
     /// Borra una anotación del archivo.
     pub fn delete(&self, path: &Path, id: AnnotId, backup_suffix: &str) -> Result<Vec<u8>> {
         self.edit(path, backup_suffix, |doc| pliego_annot::delete(doc, id))
+    }
+
+    /// Rellena campos de formulario en el archivo (Rellenar y firmar). Comparte la pila de deshacer con los comentarios.
+    pub fn fill(&self, path: &Path, values: &FieldValues, backup_suffix: &str) -> Result<Vec<u8>> {
+        self.edit(path, backup_suffix, |doc| {
+            let r = pliego_forms::fill(doc, values)?;
+            if r.filled.is_empty() {
+                return Err(Error::InvalidInput(format!(
+                    "ningún campo aceptó el valor ({} rechazados, {} no encontrados)",
+                    r.rejected.len(),
+                    r.not_found.len()
+                )));
+            }
+            Ok(())
+        })
     }
 
     /// Deshace el último cambio; `None` si no hay nada que deshacer.
@@ -275,5 +296,40 @@ mod tests {
         assert_eq!(std::fs::read(&p).unwrap(), before);
         assert_eq!(ed.undo_depth(&p), 0);
         assert!(!dir.path().join("a (copia de seguridad).pdf").exists());
+    }
+
+    fn form_pdf(path: &Path) {
+        // Un formulario mínimo con un campo de texto, escrito a mano.
+        let src = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[4 0 R]/DA(/Helv 0 Tf 0 g)/DR<</Font<</Helv 5 0 R>>>>>>>>endobj\n\
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n\
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Annots[4 0 R]>>endobj\n\
+4 0 obj<</Type/Annot/Subtype/Widget/FT/Tx/T(nombre)/Rect[20 150 180 170]/F 4/P 3 0 R/DA(/Helv 12 Tf 0 g)>>endobj\n\
+5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n\
+trailer<</Root 1 0 R/Size 6>>\n%%EOF\n";
+        std::fs::write(path, src).unwrap();
+    }
+
+    #[test]
+    fn fills_a_form_field_with_backup_and_undo() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("f.pdf");
+        form_pdf(&p);
+        let fs = form_fields(&p, None).unwrap();
+        assert_eq!(fs.len(), 1);
+        let r = fs[0].rect.unwrap();
+        assert!(r[3] > r[1] && r[2] > r[0]);
+        let ed = Editor::default();
+        let mut v = FieldValues::new();
+        v.insert("nombre".into(), FieldValue::Text("Ñandú".into()));
+        ed.fill(&p, &v, "copia de seguridad").unwrap();
+        assert_eq!(form_fields(&p, None).unwrap()[0].value.as_deref(), Some("Ñandú"));
+        assert!(dir.path().join("f (copia de seguridad).pdf").exists());
+        // Un nombre inexistente no cuenta como cambio.
+        let mut bad = FieldValues::new();
+        bad.insert("nadie".into(), FieldValue::Text("x".into()));
+        assert!(ed.fill(&p, &bad, "copia de seguridad").is_err());
+        assert_eq!(ed.undo_depth(&p), 1);
+        ed.undo(&p).unwrap().unwrap();
+        assert_eq!(form_fields(&p, None).unwrap()[0].value.as_deref().unwrap_or(""), "");
     }
 }

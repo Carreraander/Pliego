@@ -50,7 +50,8 @@ pub fn diff_images(a: &RgbaImage, b: &RgbaImage, tolerance: u8) -> ImageDiff {
     for y in 0..h {
         let ra = &a.data[y * a.width as usize * 4..][..w * 4];
         let rb = &b.data[y * b.width as usize * 4..][..w * 4];
-        for (pa, pb) in ra.chunks_exact(4).zip(rb.chunks_exact(4)) {
+        for x in 0..w {
+            let (pa, pb) = (&ra[x * 4..x * 4 + 3], &rb[x * 4..x * 4 + 3]);
             let d = (0..3).map(|i| pa[i].abs_diff(pb[i])).max().unwrap_or(0);
             sum += u64::from(d);
             max = max.max(d);

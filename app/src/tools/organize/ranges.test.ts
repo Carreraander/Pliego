@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRanges } from "./ranges";
+import { parsePageList, parseRanges } from "./ranges";
 
 describe("parseRanges", () => {
   it("pasa de páginas desde 1 a tramos desde 0", () => {
@@ -11,5 +11,17 @@ describe("parseRanges", () => {
     expect(parseRanges("0-2", 5)).toBeNull();
     expect(parseRanges("4-2", 5)).toBeNull();
     expect(parseRanges("3-6", 5)).toBeNull();
+  });
+});
+
+describe("parsePageList", () => {
+  it("expande tramos a índices desde 0", () => {
+    expect(parsePageList("1, 3-4")).toEqual([0, 2, 3]);
+    expect(parsePageList("  ")).toEqual([]);
+  });
+  it("rechaza lo mal escrito", () => {
+    expect(parsePageList("x")).toBeNull();
+    expect(parsePageList("0")).toBeNull();
+    expect(parsePageList("5-2")).toBeNull();
   });
 });

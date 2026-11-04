@@ -1,18 +1,16 @@
 import "./organize.css";
-import { createSignal, For, Show } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { api, isApiError } from "../../api";
-import { trackJob } from "../../jobs";
+import { createSignal, For } from "solid-js";
+import { api } from "../../api";
 import { activeDoc } from "../../state/documents";
-import { Checkbox, IconButton, Notice, TaskPanel, toast } from "../../ui";
+import { Checkbox, IconButton, TaskPanel } from "../../ui";
+import { fileName, runToolJob } from "../run";
 import { ot } from "./text";
 
-const base = (p: string) => p.split(/[\\/]/).pop() ?? p;
+const base = fileName;
 
 export default function MergePanel(p: { onClose: () => void }) {
   const [files, setFiles] = createSignal<string[]>(activeDoc() ? [activeDoc()!.path] : []);
   const [perFile, setPerFile] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
 
   const add = async () => {
     const picked = await api.pickPdfFiles();
@@ -27,14 +25,13 @@ export default function MergePanel(p: { onClose: () => void }) {
   });
   const run = async () => {
     const paths = files();
-    try {
-      const id = await invoke<number>("merge_pdfs", { paths, options: { keep_bookmarks: true, bookmark_per_file: perFile() } });
-      trackJob(id, { title: ot("organize.merge.job", { n: paths.length }), retry: () => void run() });
-      toast({ tone: "info", text: ot("organize.merge.started", { n: paths.length }) });
-      p.onClose();
-    } catch (e) {
-      setError(isApiError(e) ? e.message : String(e));
-    }
+    const id = await runToolJob({
+      command: "merge_pdfs",
+      args: { paths, options: { keep_bookmarks: true, bookmark_per_file: perFile() }, suffix: ot("organize.merge.suffix") },
+      title: ot("organize.merge.job", { n: paths.length }),
+      started: ot("organize.merge.started", { n: paths.length }),
+    });
+    if (id !== null) p.onClose();
   };
 
   return (
@@ -43,7 +40,6 @@ export default function MergePanel(p: { onClose: () => void }) {
       primary={{ label: ot("organize.merge.run"), icon: "combine", disabled: files().length < 2, onClick: () => void run() }}
       secondary={[{ label: ot("organize.add"), icon: "file-plus", onClick: () => void add() }]}
       estimate={files().length < 2 ? ot("organize.merge.min") : ot("organize.merge.hint")}
-      notice={<Show when={error()}><Notice tone="danger" inline>{error()}</Notice></Show>}
     >
       <p class="pl-field__label">{ot("organize.merge.files")}</p>
       <ol class="pl-organize-files">

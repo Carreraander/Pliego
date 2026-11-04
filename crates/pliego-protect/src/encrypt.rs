@@ -163,7 +163,7 @@ fn write_options(enc: &Encryption) -> PdfWriteOptions {
 pub fn encrypt(input: &Path, output: &Path, input_password: Option<&str>, enc: &Encryption) -> Result<Report> {
     enc.validate()?;
     let doc = open_pdf(input, input_password)?;
-    save_atomic(&doc, input, output, write_options(enc))?;
+    save_atomic(doc, input, output, write_options(enc))?;
     let algo = match enc.cipher {
         Cipher::Aes256 => "AES-256",
         Cipher::Aes128 => "AES-128",
@@ -176,7 +176,7 @@ pub fn decrypt(input: &Path, output: &Path, password: &str) -> Result<Report> {
     let doc = open_pdf(input, Some(password))?;
     let mut o = PdfWriteOptions::default();
     o.set_encryption(MuEncryption::None);
-    save_atomic(&doc, input, output, o)?;
+    save_atomic(doc, input, output, o)?;
     Ok(Report::with_output(output, "Protección eliminada."))
 }
 

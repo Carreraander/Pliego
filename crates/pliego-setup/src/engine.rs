@@ -149,7 +149,34 @@ pub fn replace_file(src: &Path, dst: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Comprueba que la carpeta de destino se puede usar antes de tocar nada.
+fn check_dir(dir: &Path) -> Result<()> {
+    let shown = dir.display();
+    if dir.as_os_str().is_empty() {
+        return Err(SetupError::BadPath("la ruta está vacía".into()));
+    }
+    if !dir.is_absolute() {
+        return Err(SetupError::BadPath(format!("{shown} no es una ruta absoluta")));
+    }
+    if dir.is_file() {
+        return Err(SetupError::BadPath(format!("{shown} es un archivo, no una carpeta")));
+    }
+    // Una unidad que no existe (p. ej. `Z:\Pliego`) no tiene ningún ancestro existente.
+    let anchor = nearest_existing(dir);
+    if !anchor.exists() {
+        return Err(SetupError::BadPath(format!("la unidad de {shown} no existe")));
+    }
+    if anchor.is_file() {
+        return Err(SetupError::BadPath(format!(
+            "{} es un archivo y no puede contener {shown}",
+            anchor.display()
+        )));
+    }
+    Ok(())
+}
+
 fn check_environment(sys: &dyn System, opts: &Options, manifest: &Manifest) -> Result<()> {
+    check_dir(&opts.dir)?;
     let build = sys.windows_build();
     if build != 0 && build < MIN_WINDOWS_BUILD {
         return Err(SetupError::OldWindows(build));
@@ -670,6 +697,20 @@ mod tests {
         let e = install(&src, &opts(&root), &sys, &AtomicBool::new(false), &mut |_| {}).unwrap_err();
         assert!(matches!(e, SetupError::NoSpace { .. }), "{e}");
         assert!(!root.join("current").exists());
+
+        // Rutas no válidas: vacía, relativa y bajo un archivo.
+        let sys = FakeSystem::new();
+        let file = d.path().join("archivo");
+        fs::write(&file, b"x").unwrap();
+        for bad in [
+            PathBuf::new(),
+            PathBuf::from("relativa/Pliego"),
+            file.clone(),
+            file.join("Pliego"),
+        ] {
+            let e = install(&src, &opts(&bad), &sys, &AtomicBool::new(false), &mut |_| {}).unwrap_err();
+            assert!(matches!(e, SetupError::BadPath(_)), "{bad:?}: {e}");
+        }
 
         let mut sys = FakeSystem::new();
         sys.build = 18363;

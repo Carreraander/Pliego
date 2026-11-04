@@ -391,13 +391,19 @@ fn blocks(a: BlocksArgs, json: bool) -> anyhow::Result<()> {
 
 fn replace(a: ReplaceArgs, json: bool) -> anyhow::Result<()> {
     let (mut doc, page) = open(&a.doc)?;
-    let report = pliego_edit::replace_text(&mut doc, page, a.block, &a.text, &style(&a.style)?)?;
+    let report = pliego_edit::replace_text(&mut doc, page, a.block, &unescape(&a.text), &style(&a.style)?)?;
     finish(doc, &a.doc.input, &a.out, &report, json)
 }
 
 fn insert_text(a: InsertTextArgs, json: bool) -> anyhow::Result<()> {
     let (mut doc, page) = open(&a.doc)?;
-    let report = pliego_edit::insert_text(&mut doc, page, parse_rect(&a.rect)?, &a.text, &style(&a.style)?)?;
+    let report = pliego_edit::insert_text(
+        &mut doc,
+        page,
+        parse_rect(&a.rect)?,
+        &unescape(&a.text),
+        &style(&a.style)?,
+    )?;
     finish(doc, &a.doc.input, &a.out, &report, json)
 }
 
@@ -434,4 +440,9 @@ fn images(a: BlocksArgs, json: bool) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Un `\n` escrito en la línea de órdenes (dos caracteres) vale como salto de párrafo.
+fn unescape(text: &str) -> String {
+    text.replace("\\n", "\n")
 }

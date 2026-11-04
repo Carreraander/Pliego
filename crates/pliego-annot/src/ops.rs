@@ -215,8 +215,17 @@ fn info_of(page_no: usize, a: &PdfAnnotation) -> Result<Option<AnnotInfo>> {
         line: None,
         reply_to,
         link: None,
+        stamp: None,
         state: dict_string(&obj, "State").and_then(|s| ReviewState::from_pdf_name(&s)),
     };
+    if kind == AnnotKind::Stamp {
+        info.stamp = dict_string(&obj, "PliegoStamp").and_then(|s| {
+            let (hex, text) = s.split_once(' ')?;
+            let v = u32::from_str_radix(hex, 16).ok()?;
+            let c = |sh: u32| ((v >> sh) & 0xFF) as f32 / 255.0;
+            Some((text.to_owned(), [c(16), c(8), c(0)]))
+        });
+    }
     match kind {
         AnnotKind::Highlight | AnnotKind::Underline | AnnotKind::StrikeOut | AnnotKind::Squiggly => {
             info.quads = a.quad_points().map_err(pe)?.iter().map(quad_pts).collect();
@@ -263,7 +272,8 @@ pub fn list(doc: &mut PdfDocument, page: Option<usize>) -> Result<Vec<AnnotInfo>
 }
 
 fn apply_style(a: &mut PdfAnnotation, s: &Style) -> Result<()> {
-    if let Some(c) = s.color {
+    // En FreeText el color va solo en la cadena de apariencia por defecto (texto); /C sería el fondo.
+    if let Some(c) = s.color.filter(|_| a.r#type().ok() != Some(PdfAnnotationType::FreeText)) {
         a.set_color(rgb(c)).map_err(pe)?;
     }
     if let Some(c) = s.interior_color {
@@ -307,7 +317,8 @@ fn apply_meta(
     contents: &Option<String>,
 ) -> Result<()> {
     if let Some(x) = author {
-        a.set_author(x).map_err(pe)?;
+        // /T directo: set_author falla en tipos sin título propio (p. ej. enlaces).
+        put_string(&mut a.object(), "T", x)?;
     }
     if let Some(x) = contents {
         a.set_contents(x).map_err(pe)?;

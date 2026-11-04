@@ -8,3 +8,4 @@
 /app/test-results/
 /app/playwright-report/
 /tests/corpus/external/
+/app/src-tauri/binaries/

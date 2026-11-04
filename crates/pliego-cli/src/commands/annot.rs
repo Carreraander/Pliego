@@ -119,9 +119,9 @@ pub fn run(cmd: AnnotCommand, json: bool) -> anyhow::Result<()> {
 }
 
 fn open(a: &DocArgs) -> anyhow::Result<PdfDocument> {
-    // mupdf-rs no acepta `&Path` en Windows: se pasa la ruta como `&str` UTF-8.
-    let path = a.input.to_str().context("la ruta del PDF no es UTF-8 válida")?;
-    let mut doc = PdfDocument::open(path).with_context(|| format!("no se pudo abrir {}", a.input.display()))?;
+    // Se lee a memoria para no dejar el archivo abierto: en Windows `--in-place` no puede renombrar sobre él.
+    let bytes = std::fs::read(&a.input).with_context(|| format!("no se pudo leer {}", a.input.display()))?;
+    let mut doc = PdfDocument::from_bytes(&bytes).with_context(|| format!("no se pudo abrir {}", a.input.display()))?;
     if doc.needs_password()? && !doc.authenticate(a.password.as_deref().unwrap_or(""))? {
         bail!("el documento necesita contraseña o la contraseña no es válida");
     }

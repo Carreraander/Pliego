@@ -207,3 +207,45 @@ fn certify_is_reported_by_verify() {
         .unwrap();
     assert!(!bad.status.success());
 }
+
+#[test]
+fn key_source_is_required_and_exclusive() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("x.pdf");
+    let none = pliego().arg("sign").arg(corpus()).arg("-o").arg(&out).output().unwrap();
+    assert!(!none.status.success());
+    let both = pliego()
+        .arg("sign")
+        .arg(corpus())
+        .arg("-o")
+        .arg(&out)
+        .args(["--p12", "a.p12", "--store", &"00".repeat(20)])
+        .output()
+        .unwrap();
+    assert!(!both.status.success());
+    assert!(!out.exists());
+}
+
+/// En Windows, una huella inexistente da un error claro; fuera de Windows, `--store` no está disponible.
+#[test]
+fn store_with_unknown_thumbprint_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("x.pdf");
+    let r = pliego()
+        .arg("sign")
+        .arg(corpus())
+        .arg("-o")
+        .arg(&out)
+        .args(["--store", &"00".repeat(20)])
+        .output()
+        .unwrap();
+    assert!(!r.status.success());
+    let err = String::from_utf8_lossy(&r.stderr);
+    let expected = if cfg!(windows) {
+        "huella"
+    } else {
+        "solo está disponible en Windows"
+    };
+    assert!(err.contains(expected), "{err}");
+    assert!(!out.exists());
+}

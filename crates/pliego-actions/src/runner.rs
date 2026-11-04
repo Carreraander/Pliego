@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::action::{Action, ErrorPolicy};
 use crate::inputs::Input;
 use crate::journal::{self, Entry, Journal, Outcome};
-use crate::registry::Registry;
+use crate::registry::{Batch, Registry};
 
 #[derive(Debug, Clone)]
 pub struct RunOptions {
@@ -88,17 +88,31 @@ pub fn run(
         journal.entries.clear();
     }
 
+    let batch = Batch::default();
     let total = inputs.len() as u64;
     for (n, input) in inputs.iter().enumerate() {
         ctx.step(n as u64, total, &describe(&input.rel))?;
         let key = input.rel.to_string_lossy().replace('\\', "/");
         let (size, mtime) = journal::stamp_of(&input.path)?;
-        if let Some(out) = journal.is_done(&key, size, mtime) {
+        if let Some((out, counters)) = journal.is_done(&key, size, mtime) {
             report.resumed += 1;
             report.report.outputs.push(out.to_path_buf());
+            batch.restore(counters.clone());
             continue;
         }
-        match process_one(action, registry, input, &opts.output_dir, ctx) {
+        if journal.had_failed(&key)
+            && inputs[n + 1..].iter().any(|later| {
+                let k = later.rel.to_string_lossy().replace('\\', "/");
+                journal::stamp_of(&later.path).is_ok_and(|(s, m)| journal.is_done(&k, s, m).is_some())
+            })
+        {
+            report.report.warnings.push(format!(
+                "{}: se reintenta tras archivos ya procesados; si el lote usa numeración continua puede repetir números (relanza sin --resume para renumerar todo)",
+                describe(&input.rel)
+            ));
+        }
+        let before = batch.snapshot();
+        match process_one(action, registry, input, &opts.output_dir, &batch, ctx) {
             Ok((out, warnings)) => {
                 report.processed += 1;
                 report.report.outputs.push(out.clone());
@@ -111,15 +125,18 @@ pub fn run(
                     Entry {
                         size,
                         mtime_secs: mtime,
+                        counters: batch.snapshot(),
                         outcome: Outcome::Done { output: out },
                     },
                 );
             }
             Err(Error::Cancelled) => {
+                batch.restore(before);
                 journal.save(&opts.output_dir)?;
                 return Err(Error::Cancelled);
             }
             Err(e) => {
+                batch.restore(before);
                 let msg = e.to_string();
                 report.report.warnings.push(format!("{}: {msg}", describe(&input.rel)));
                 report.failures.push(FileFailure {
@@ -131,6 +148,7 @@ pub fn run(
                     Entry {
                         size,
                         mtime_secs: mtime,
+                        counters: Default::default(),
                         outcome: Outcome::Failed { error: msg },
                     },
                 );
@@ -160,6 +178,7 @@ fn process_one(
     registry: &Registry,
     input: &Input,
     out_dir: &Path,
+    batch: &Batch,
     ctx: &JobContext,
 ) -> Result<(PathBuf, Vec<String>)> {
     let tmp = tempfile::Builder::new()
@@ -175,7 +194,7 @@ fn process_one(
         let next = tmp.path().join(format!("paso{}.pdf", i + 1));
         let r = registry
             .get(&step.kind)?
-            .run(&current, &next, &step.options_value(), ctx)
+            .run_in_batch(&current, &next, &step.options_value(), ctx, batch)
             .map_err(|e| match e {
                 Error::Cancelled => e,
                 other => Error::Other(format!("paso {} ({}): {other}", i + 1, step.kind)),
@@ -208,6 +227,7 @@ mod tests {
     use super::*;
     use crate::action::Step;
     use crate::inputs::collect_inputs;
+    use crate::registry::Batch;
 
     /// Paso de prueba: copia la entrada y añade una marca.
     fn mark(
@@ -429,6 +449,85 @@ mod tests {
         };
         let e = run(&a, &reg, &inputs, &o, &NoProgressCtx::ctx()).unwrap_err();
         assert!(e.to_string().contains("coincidiría"));
+    }
+
+    /// Paso con contador de lote: escribe en la salida el número en el que empieza y avanza 2.
+    struct Numbered;
+    impl crate::registry::StepRunner for Numbered {
+        fn run(&self, _: &Path, _: &Path, _: &Value, _: &JobContext) -> Result<Report> {
+            unreachable!("solo se usa dentro de un lote")
+        }
+        fn run_in_batch(&self, i: &Path, o: &Path, _: &Value, _: &JobContext, batch: &Batch) -> Result<Report> {
+            if i.to_string_lossy().contains("doc002") {
+                return Err(Error::Password);
+            }
+            std::fs::write(o, batch.get("n").to_string())?;
+            batch.add("n", 2);
+            Ok(Report::default())
+        }
+    }
+
+    fn starts(out: &Path) -> Vec<String> {
+        fn walk(dir: &Path, acc: &mut Vec<(PathBuf, String)>) {
+            for e in std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()) {
+                let p = e.path();
+                if p.is_dir() {
+                    walk(&p, acc);
+                } else if p.extension().is_some_and(|x| x == "pdf") {
+                    acc.push((p.clone(), std::fs::read_to_string(&p).unwrap()));
+                }
+            }
+        }
+        let mut acc = Vec::new();
+        walk(out, &mut acc);
+        // El orden del lote es el de los nombres de archivo (doc000, doc001...), no el de carpetas.
+        acc.sort_by_key(|(p, _)| p.file_name().map(|n| n.to_owned()));
+        acc.into_iter().map(|(_, v)| v).collect()
+    }
+
+    #[test]
+    fn batch_counters_continue_skip_failures_and_survive_resume() {
+        let (dir, src) = setup(6);
+        let mut reg = Registry::new();
+        reg.register("n", Numbered);
+        let a = Action {
+            name: String::new(),
+            description: String::new(),
+            on_error: ErrorPolicy::Continue,
+            steps: vec![Step::new("n")],
+        };
+        let inputs = collect_inputs(&[src], None).unwrap();
+        let o = RunOptions {
+            output_dir: dir.path().join("o"),
+            resume: false,
+        };
+        let r = run(&a, &reg, &inputs, &o, &JobContext::silent()).unwrap();
+        assert_eq!(r.failures.len(), 1);
+        // Orden del lote: doc000, doc002 (falla, no consume números), doc004, luego la subcarpeta
+        // (doc001, doc003, doc005): 0, -, 2, 4, 6, 8 sin huecos. Ordenados por nombre de archivo:
+        let expected = ["0", "4", "6", "2", "8"];
+        assert_eq!(starts(&o.output_dir), expected);
+
+        // Reanudar: nada se repite y los contadores se retoman del diario; el que falló se reintenta
+        // (sigue fallando) tras archivos ya numerados, y se avisa.
+        let r2 = run(
+            &a,
+            &reg,
+            &inputs,
+            &RunOptions {
+                resume: true,
+                ..o.clone()
+            },
+            &JobContext::silent(),
+        )
+        .unwrap();
+        assert_eq!(r2.resumed, 5);
+        assert!(
+            r2.report.warnings.iter().any(|w| w.contains("numeración continua")),
+            "{:?}",
+            r2.report.warnings
+        );
+        assert_eq!(starts(&o.output_dir), expected);
     }
 
     struct NoProgressCtx;

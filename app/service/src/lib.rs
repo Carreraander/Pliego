@@ -69,7 +69,9 @@ impl DocumentService {
 
     /// Abre un documento en el worker. Devuelve `Error::Password` si hace falta contraseña.
     pub fn open_document(&self, path: &Path, password: Option<&str>) -> Result<DocId> {
+        let t0 = std::time::Instant::now();
         let doc = self.engine.open(path, password)?;
+        trace("open_document", t0);
         let id = DocId(doc.id());
         lock(&self.docs).insert(id, Arc::new(doc));
         Ok(id)
@@ -88,8 +90,11 @@ impl DocumentService {
     }
 
     pub fn page_sizes(&self, doc: DocId) -> Result<Vec<PageSize>> {
+        let t0 = std::time::Instant::now();
         let d = self.doc(doc)?;
-        (0..d.page_count()?).map(|p| d.page_size(p)).collect()
+        let sizes = (0..d.page_count()?).map(|p| d.page_size(p)).collect();
+        trace("page_sizes", t0);
+        sizes
     }
 
     pub fn outline(&self, doc: DocId) -> Result<Vec<OutlineItem>> {
@@ -150,8 +155,13 @@ impl DocumentService {
 
     /// PNG de una tesela; el RGBA sale de la caché compartida del motor.
     pub fn tile(&self, doc: DocId, req: TileRequest) -> Result<Vec<u8>> {
+        let t0 = std::time::Instant::now();
         let img = self.doc(doc)?.render_tile_cached(req)?;
-        encode_png(&img)
+        trace("tile_render", t0);
+        let t1 = std::time::Instant::now();
+        let png = encode_png(&img);
+        trace("tile_png", t1);
+        png
     }
 
     /// Atiende una URI `pliego://tile/<doc>/<page>/<zoom>/<col>/<row>` y devuelve el PNG.
@@ -182,3 +192,13 @@ fn encode_png(img: &RgbaImage) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests;
+
+/// Con `PLIEGO_TRACE` definida escribe en stderr cuánto tarda cada paso (diagnóstico de rendimiento).
+fn trace(step: &str, since: std::time::Instant) {
+    if std::env::var_os("PLIEGO_TRACE").is_some() {
+        eprintln!(
+            "[pliego-trace] {step}: {:.1} ms",
+            since.elapsed().as_secs_f64() * 1000.0
+        );
+    }
+}

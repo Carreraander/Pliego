@@ -13,6 +13,7 @@ sign = []
 
 [dependencies]
 pliego-core.workspace = true
+pliego-install = { path = "../pliego-install" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -25,6 +26,7 @@ time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
 ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "gzip"] }
 
 [target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Registry", "Networking_Connectivity"] }
 ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "gzip", "win-system-proxy"] }
 
 [dev-dependencies]

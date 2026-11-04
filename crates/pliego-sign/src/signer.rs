@@ -1,4 +1,4 @@
-//! Abstracción de claves de firma: PKCS#12 ahora; almacén de Windows y tarjetas más adelante.
+//! Abstracción de claves de firma: PKCS#12 aquí; almacén de Windows y tarjetas en `platform::windows`.
 
 use der::{Decode, DecodePem, Encode};
 use pkcs8::DecodePrivateKey;
@@ -136,8 +136,13 @@ impl Signer for Pkcs12Signer {
 
 /// Nombre legible del titular de un certificado (CN si existe, si no el sujeto completo).
 pub fn subject_name(cert: &Certificate) -> String {
+    name_text(&cert.tbs_certificate.subject)
+}
+
+/// CN de un nombre X.500 si existe; si no, el nombre completo.
+pub(crate) fn name_text(name: &x509_cert::name::Name) -> String {
     use const_oid::db::rfc4519::CN;
-    for rdn in cert.tbs_certificate.subject.0.iter() {
+    for rdn in name.0.iter() {
         for atv in rdn.0.iter() {
             if atv.oid == CN {
                 if let Ok(s) = atv.value.decode_as::<der::asn1::Utf8StringRef>() {
@@ -149,7 +154,7 @@ pub fn subject_name(cert: &Certificate) -> String {
             }
         }
     }
-    cert.tbs_certificate.subject.to_string()
+    name.to_string()
 }
 
 pub(crate) fn cert_der(cert: &Certificate) -> Result<Vec<u8>> {

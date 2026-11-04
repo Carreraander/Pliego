@@ -50,9 +50,54 @@ pub struct Policy {
 }
 
 impl Policy {
+    /// Construye la directiva con los valores leídos del registro (`Disabled` DWORD; `Url`, `Channel`, `Mode` texto).
+    /// Los valores no válidos se ignoran: una directiva mal escrita no debe romper las actualizaciones.
+    pub fn from_values(disabled: Option<u32>, url: Option<&str>, channel: Option<&str>, mode: Option<&str>) -> Self {
+        let text = |s: Option<&str>| s.map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned);
+        Self {
+            disabled: disabled.is_some_and(|d| d != 0),
+            url: text(url),
+            channel: text(channel)
+                .map(|c| c.to_ascii_lowercase())
+                .filter(|c| c == "stable" || c == "beta"),
+            mode: text(mode).and_then(|m| match m.to_ascii_lowercase().as_str() {
+                "automatic" => Some(UpdateMode::Automatic),
+                "notify-only" => Some(UpdateMode::NotifyOnly),
+                "disabled" => Some(UpdateMode::Disabled),
+                _ => None,
+            }),
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         *self == Policy::default()
     }
+}
+
+impl UserSettings {
+    /// Lee `updates.{mode,channel,metered}` de `settings.json` (esquema de la interfaz: `auto|notify|off`,
+    /// `stable|beta`). Devuelve también si hay que respetar la conexión de uso medido (por defecto sí).
+    pub fn from_app_settings(settings: Option<&serde_json::Value>) -> (Self, bool) {
+        let updates = settings.and_then(|s| s.get("updates"));
+        let get = |k: &str| updates.and_then(|u| u.get(k));
+        let mode = match get("mode").and_then(|v| v.as_str()) {
+            Some("notify") => UpdateMode::NotifyOnly,
+            Some("off") => UpdateMode::Disabled,
+            _ => UpdateMode::Automatic,
+        };
+        let channel = get("channel")
+            .and_then(|v| v.as_str())
+            .filter(|c| *c == "stable" || *c == "beta")
+            .map(str::to_owned);
+        let metered = get("metered").and_then(|v| v.as_bool()).unwrap_or(true);
+        (Self { mode, channel }, metered)
+    }
+}
+
+/// URL fijada al compilar la versión oficial (`PLIEGO_UPDATE_URL`). Sin ella, las compilaciones de desarrollo no
+/// buscan nada.
+pub fn build_url() -> Option<&'static str> {
+    option_env!("PLIEGO_UPDATE_URL").filter(|u| !u.trim().is_empty())
 }
 
 /// Configuración efectiva.
@@ -223,6 +268,32 @@ mod tests {
     fn no_url_or_no_keys_means_disabled() {
         let c = resolve(None, None, &UserSettings::default(), &Policy::default(), v(), vec![]);
         assert!(!c.enabled());
+    }
+
+    #[test]
+    fn policy_values_are_validated() {
+        let p = Policy::from_values(Some(0), Some(" https://x "), Some("BETA"), Some("Notify-Only"));
+        assert_eq!(p.url.as_deref(), Some("https://x"));
+        assert_eq!(p.channel.as_deref(), Some("beta"));
+        assert_eq!(p.mode, Some(UpdateMode::NotifyOnly));
+        assert!(!p.disabled && !p.is_empty());
+        let bad = Policy::from_values(None, Some(""), Some("nightly"), Some("sometimes"));
+        assert!(bad.is_empty(), "valores inválidos no cuentan como directiva");
+        assert!(Policy::from_values(Some(1), None, None, None).disabled);
+    }
+
+    #[test]
+    fn app_settings_map_to_user_settings() {
+        let json = serde_json::json!({ "updates": { "mode": "notify", "channel": "beta", "metered": false } });
+        let (u, metered) = UserSettings::from_app_settings(Some(&json));
+        assert_eq!(
+            (u.mode, u.channel.as_deref(), metered),
+            (UpdateMode::NotifyOnly, Some("beta"), false)
+        );
+        let (u, metered) = UserSettings::from_app_settings(None);
+        assert_eq!((u.mode, u.channel, metered), (UpdateMode::Automatic, None, true));
+        let off = serde_json::json!({ "updates": { "mode": "off" } });
+        assert_eq!(UserSettings::from_app_settings(Some(&off)).0.mode, UpdateMode::Disabled);
     }
 
     #[test]

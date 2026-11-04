@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use clap::Args;
-use pliego_actions::{Action, Registry, RunOptions, StepRunner, collect_inputs};
+use pliego_actions::{Action, Batch, Registry, RunOptions, StepRunner, collect_inputs};
 use pliego_core::{Error, JobContext, PageRange, Progress, Report, Result};
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -198,14 +198,7 @@ pub fn builtin_registry() -> Registry {
             },
         ),
     );
-    r.register(
-        "stamp.bates",
-        typed(
-            |i: &Path, o: &Path, p: OnPages<pliego_stamp::BatesOptions>, ctx: &JobContext| {
-                edit_pages(i, o, p, |d, sel, b| pliego_stamp::bates(d, sel, &b, ctx))
-            },
-        ),
-    );
+    r.register("stamp.bates", BatesStep);
     r
 }
 
@@ -264,4 +257,56 @@ pub fn run(a: RunArgs, json: bool) -> anyhow::Result<()> {
         std::process::exit(2);
     }
     Ok(())
+}
+
+/// Opciones del paso `stamp.bates`: las de `pliego-stamp` más `continuous`.
+#[derive(Deserialize)]
+struct BatesStepOptions {
+    /// La numeración sigue de un archivo al siguiente del lote (por defecto), como en un expediente.
+    /// Con `false` cada archivo empieza en `start`.
+    #[serde(default = "yes")]
+    continuous: bool,
+    #[serde(flatten)]
+    inner: OnPages<pliego_stamp::BatesOptions>,
+}
+
+fn yes() -> bool {
+    true
+}
+
+/// `stamp.bates` con numeración continua entre archivos: el contador del lote guarda cuántas páginas se
+/// han numerado ya y se suma a `start`.
+struct BatesStep;
+
+impl StepRunner for BatesStep {
+    fn validate(&self, options: &Value) -> Result<()> {
+        parse::<BatesStepOptions>(options).map(|_| ())
+    }
+
+    fn run(&self, input: &Path, output: &Path, options: &Value, ctx: &JobContext) -> Result<Report> {
+        self.run_in_batch(input, output, options, ctx, &Batch::default())
+    }
+
+    fn run_in_batch(
+        &self,
+        input: &Path,
+        output: &Path,
+        options: &Value,
+        ctx: &JobContext,
+        batch: &Batch,
+    ) -> Result<Report> {
+        const KEY: &str = "stamp.bates";
+        let o: BatesStepOptions = parse(options)?;
+        let offset = if o.continuous { batch.get(KEY) } else { 0 };
+        let mut stamped = 0;
+        let report = edit_pages(input, output, o.inner, |d, sel, mut b| {
+            b.start += offset;
+            stamped = sel.len() as u64;
+            pliego_stamp::bates(d, sel, &b, ctx)
+        })?;
+        if o.continuous {
+            batch.add(KEY, stamped);
+        }
+        Ok(report)
+    }
 }

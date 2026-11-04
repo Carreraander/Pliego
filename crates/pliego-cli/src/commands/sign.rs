@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, bail};
 use clap::{Args, ValueEnum};
 use pliego_core::JobContext;
-use pliego_sign::{ChainStatus, PadesLevel, Pkcs12Signer, SignOptions, ValidationOptions, VisibleSignature};
+use pliego_sign::{ChainStatus, PadesLevel, Pkcs12Signer, SignOptions, Signer, ValidationOptions, VisibleSignature};
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum Level {
@@ -13,9 +13,12 @@ pub enum Level {
     BT,
     #[value(name = "b-lt")]
     BLt,
+    #[value(name = "b-lta")]
+    BLta,
 }
 
 #[derive(Args)]
+#[command(group = clap::ArgGroup::new("key").required(true).args(["p12", "store"]))]
 pub struct SignArgs {
     /// PDF de entrada (no se modifica).
     pub input: PathBuf,
@@ -24,14 +27,17 @@ pub struct SignArgs {
     pub output: PathBuf,
     /// Certificado y clave privada en un archivo PKCS#12 (.pfx/.p12).
     #[arg(long)]
-    pub p12: PathBuf,
+    pub p12: Option<PathBuf>,
+    /// Huella SHA-1 de un certificado del almacén personal de Windows (la clave puede estar en tarjeta, como el DNIe).
+    #[arg(long, value_name = "HUELLA")]
+    pub store: Option<String>,
     /// Contraseña del archivo PKCS#12 (también en la variable PLIEGO_P12_PASSWORD).
     #[arg(long)]
     pub password: Option<String>,
     /// Página (desde 1) donde se coloca el campo de firma.
     #[arg(long, default_value_t = 1)]
     pub page: usize,
-    /// Nivel PAdES: b-b (básico), b-t (con sello de tiempo, requiere --tsa) o b-lt (además, con certificados y CRL incrustados).
+    /// Nivel PAdES: b-b (básico), b-t (con sello de tiempo, requiere --tsa) o b-lt (además, con certificados, CRL y OCSP incrustados) o b-lta (además, con sello de tiempo del documento).
     #[arg(long, value_enum, default_value = "b-b")]
     pub level: Level,
     /// Dirección http del servidor de sellado de tiempo (RFC 3161).
@@ -89,16 +95,24 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
     if a.page == 0 {
         bail!("las páginas se numeran desde 1");
     }
-    let password = a
-        .password
-        .or_else(|| std::env::var("PLIEGO_P12_PASSWORD").ok())
-        .unwrap_or_default();
-    let signer = Pkcs12Signer::from_file(&a.p12, &password)?;
+    let signer: Box<dyn Signer> = match (&a.p12, &a.store) {
+        (Some(p12), _) => {
+            let password = a
+                .password
+                .clone()
+                .or_else(|| std::env::var("PLIEGO_P12_PASSWORD").ok())
+                .unwrap_or_default();
+            Box::new(Pkcs12Signer::from_file(p12, &password)?)
+        }
+        (None, Some(thumbprint)) => store_signer(thumbprint)?,
+        (None, None) => bail!("indique --p12 o --store"),
+    };
     let opts = SignOptions {
         level: match a.level {
             Level::BB => PadesLevel::BB,
             Level::BT => PadesLevel::BT,
             Level::BLt => PadesLevel::BLt,
+            Level::BLta => PadesLevel::BLta,
         },
         timestamp_url: a.tsa,
         crl_files: a.crl,
@@ -111,7 +125,7 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
         contact: a.contact,
         ..Default::default()
     };
-    let report = pliego_sign::sign(&a.input, &a.output, &signer, opts, &JobContext::silent())
+    let report = pliego_sign::sign(&a.input, &a.output, signer.as_ref(), opts, &JobContext::silent())
         .with_context(|| format!("no se pudo firmar {}", a.input.display()))?;
     if json {
         println!("{}", serde_json::to_string_pretty(&report)?);
@@ -121,12 +135,22 @@ pub fn sign(a: SignArgs, json: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
+fn store_signer(thumbprint: &str) -> anyhow::Result<Box<dyn Signer>> {
+    Ok(Box::new(pliego_sign::WindowsStoreSigner::open(thumbprint)?))
+}
+
+#[cfg(not(windows))]
+fn store_signer(_thumbprint: &str) -> anyhow::Result<Box<dyn Signer>> {
+    bail!("--store solo está disponible en Windows")
+}
+
 fn level_text(l: PadesLevel) -> &'static str {
     match l {
         PadesLevel::BB => "B-B",
         PadesLevel::BT => "B-T (con sello de tiempo)",
         PadesLevel::BLt => "B-LT (validación a largo plazo)",
-        PadesLevel::BLta => "B-LTA",
+        PadesLevel::BLta => "B-LTA (sello de tiempo del documento)",
     }
 }
 

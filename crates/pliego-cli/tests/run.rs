@@ -148,3 +148,58 @@ fn ocr_step_validates_its_options_before_the_batch() {
     );
     assert!(!dir.path().join("o/a.pdf").exists());
 }
+
+fn text_of(pdf: &std::path::Path) -> String {
+    let r = pliego().arg("text").arg(pdf).output().unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    String::from_utf8_lossy(&r.stdout).into_owned()
+}
+
+#[test]
+fn bates_numbering_continues_across_files_unless_disabled() {
+    let organize = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/organize");
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("entrada");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::copy(organize.join("a.pdf"), src.join("a.pdf")).unwrap(); // 3 páginas
+    std::fs::copy(organize.join("b.pdf"), src.join("b.pdf")).unwrap(); // 2 páginas
+    let action = dir.path().join("a.toml");
+
+    let run = |toml: &str, out: &str| {
+        std::fs::write(&action, toml).unwrap();
+        let o = dir.path().join(out);
+        let r = pliego()
+            .arg("run")
+            .arg(&action)
+            .arg(&src)
+            .arg("-o")
+            .arg(&o)
+            .output()
+            .unwrap();
+        assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+        o
+    };
+
+    // Por defecto: continua (a.pdf 1-3, b.pdf 4-5).
+    let o = run(
+        "[[steps]]\nkind = \"stamp.bates\"\nprefix = \"EXP-\"\ndigits = 3\n",
+        "continuo",
+    );
+    let (a, b) = (text_of(&o.join("a.pdf")), text_of(&o.join("b.pdf")));
+    assert!(a.contains("EXP-001") && a.contains("EXP-003"), "{a}");
+    assert!(
+        b.contains("EXP-004") && b.contains("EXP-005") && !b.contains("EXP-001"),
+        "{b}"
+    );
+
+    // Con continuous = false, cada archivo empieza en 1.
+    let o = run(
+        "[[steps]]\nkind = \"stamp.bates\"\nprefix = \"EXP-\"\ndigits = 3\ncontinuous = false\n",
+        "por-archivo",
+    );
+    let b = text_of(&o.join("b.pdf"));
+    assert!(
+        b.contains("EXP-001") && b.contains("EXP-002") && !b.contains("EXP-004"),
+        "{b}"
+    );
+}

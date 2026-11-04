@@ -11,6 +11,7 @@ pub mod checks;
 pub mod convert;
 pub mod facts;
 pub mod formdesign;
+pub mod measure;
 pub mod optimize;
 pub mod organize;
 pub mod outputpreview;

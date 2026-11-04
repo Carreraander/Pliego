@@ -14,6 +14,7 @@ pub mod formdesign;
 pub mod formdetect;
 pub mod index;
 pub mod jobs;
+pub mod measure;
 pub mod optimize;
 pub mod organize;
 pub mod outputpreview;
@@ -58,6 +59,11 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         jobs::cancel_job,
         convert::create_pdf,
         checks::check_accessibility,
+        measure::measure_page_scale,
+        measure::measure_calibrate,
+        measure::measure_ratio,
+        measure::measure_shape,
+        measure::measure_save,
         outputpreview::output_preview,
         checks::reading_order,
         checks::tab_order_copy,

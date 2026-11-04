@@ -17,6 +17,7 @@ import { registerViewTools } from "./view/manifest";
 import { registerStampTools } from "./stamp/manifest";
 import { registerFormTools } from "./formdesign/manifest";
 import { registerEditTools } from "./edit/manifest";
+import { registerMeasureTools } from "./measure/manifest";
 
 /** Herramientas reales conectadas a la app: cada flujo añade aquí una línea y sustituye a su fantasma de `base.ts`. */
 export function registerAppTools(): void {
@@ -33,4 +34,5 @@ export function registerAppTools(): void {
   registerStampTools(); // W27
   registerFormTools(); // W29b
   registerEditTools(); // W29b
+  registerMeasureTools(); // W29
 }

@@ -4094,6 +4094,7 @@ dependencies = [
  "pliego-formdesign",
  "pliego-forms",
  "pliego-index",
+ "pliego-measure",
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",

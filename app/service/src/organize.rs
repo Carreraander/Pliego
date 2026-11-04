@@ -85,6 +85,44 @@ pub fn insert_copy(
     Ok(Report::with_output(out, format!("{added} páginas insertadas")))
 }
 
+/// Una página del resultado: la página `page` del original (desde 0) con un giro extra de `rotate` grados.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageEdit {
+    pub page: u32,
+    #[serde(default)]
+    pub rotate: i32,
+}
+
+/// Construye un documento con las páginas de `edits` en ese orden (reordenar, borrar = no incluir, duplicar = repetir,
+/// girar, extraer) y guarda una copia `<nombre> (<etiqueta>).pdf`. El original no cambia.
+pub fn pages_copy(
+    input: &Path,
+    password: Option<&str>,
+    edits: &[PageEdit],
+    suffix: &str,
+    ctx: &JobContext,
+) -> Result<Report> {
+    if edits.is_empty() {
+        return Err(Error::InvalidInput("no queda ninguna página".into()));
+    }
+    if let Some(bad) = edits.iter().find(|e| e.rotate % 90 != 0) {
+        return Err(Error::InvalidInput(format!("giro no válido: {}", bad.rotate)));
+    }
+    let src = pliego_organize::open(input, password)?;
+    ctx.step(0, 2, "Reorganizando páginas")?;
+    let order: Vec<u32> = edits.iter().map(|e| e.page).collect();
+    let mut doc = pliego_organize::extract(&src, &order)?;
+    for (i, e) in edits.iter().enumerate() {
+        if e.rotate.rem_euclid(360) != 0 {
+            pliego_organize::rotate(&mut doc, &[i as u32], e.rotate)?;
+        }
+    }
+    ctx.step(1, 2, "Guardando")?;
+    let out = unique_sibling(input, suffix, "pdf");
+    pliego_organize::save(&doc, &out)?;
+    Ok(Report::with_output(out, format!("{} páginas", edits.len())))
+}
+
 /// Dónde se imprime el número: línea (encabezado o pie) y hueco (izquierda, centro, derecha).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -281,6 +319,30 @@ mod tests {
             ..number_req()
         };
         assert!(number_copy(&input, None, &bad_size, "n", &ctx).is_err());
+    }
+
+    #[test]
+    fn pages_copy_reorders_deletes_duplicates_and_rotates() {
+        let Some((dir, input)) = setup() else { return };
+        let ctx = JobContext::silent();
+        let before = std::fs::read(&input).unwrap();
+        let edits = [PageEdit { page: 0, rotate: 90 }, PageEdit { page: 0, rotate: 0 }];
+        let r = pages_copy(&input, None, &edits, "organizado", &ctx).unwrap();
+        assert_eq!(r.outputs, vec![dir.path().join("doc (organizado).pdf")]);
+        assert_eq!(pages(&r.outputs[0]), 2);
+        assert_eq!(std::fs::read(&input).unwrap(), before);
+        let doc = pliego_organize::open(&r.outputs[0], None).unwrap();
+        assert_eq!(doc.load_pdf_page(0).unwrap().rotation().unwrap(), 90);
+        assert_eq!(doc.load_pdf_page(1).unwrap().rotation().unwrap(), 0);
+    }
+
+    #[test]
+    fn pages_copy_rejects_empty_bad_rotation_and_missing_pages() {
+        let Some((_dir, input)) = setup() else { return };
+        let ctx = JobContext::silent();
+        assert!(pages_copy(&input, None, &[], "x", &ctx).is_err());
+        assert!(pages_copy(&input, None, &[PageEdit { page: 0, rotate: 45 }], "x", &ctx).is_err());
+        assert!(pages_copy(&input, None, &[PageEdit { page: 99, rotate: 0 }], "x", &ctx).is_err());
     }
 
     #[test]

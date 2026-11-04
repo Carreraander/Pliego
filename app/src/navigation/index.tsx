@@ -2,7 +2,7 @@ import { createEffect, createRoot } from "solid-js";
 import { locale } from "../i18n";
 import { setPaletteOpener, setToolsOpener } from "../shell";
 import { activeDoc } from "../state/documents";
-import { registerAppTools, registerBaseTools, registerToolIcons, setDocFacts, tools, toolTitle } from "../tools";
+import { installOrganizeMode, registerAppTools, registerBaseTools, registerToolIcons, setDocFacts, tools, toolTitle } from "../tools";
 import { activateTool } from "./activate";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { installCommandProviders } from "./commands";
@@ -39,6 +39,7 @@ export function installNavigation(): () => void {
   setToolsOpener(toggleToolsPalette);
   const offs = [
     installCommandProviders(),
+    installOrganizeMode(), // W23: el modo Organizar sustituye al marcador de installModes
     installModes(),
     registerShortcut({ id: "help.shortcuts", section: "panels", keys: "F1", title: () => nt("nav.cmd.shortcuts"), run: openShortcutSheet }),
     registerShortcut({ id: "nav.goto", section: "navigation", keys: "Ctrl+G", title: () => (locale() === "es" ? "Ir a la página" : "Go to page"), run: () => openCommandPalette("") }),

@@ -13,6 +13,7 @@ mupdf.workspace = true
 tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-a11y.workspace = true
+pliego-index = { path = "../../crates/pliego-index" }
 pliego-pdfa.workspace = true
 pliego-print.workspace = true
 pliego-convert = { path = "../../crates/pliego-convert" }

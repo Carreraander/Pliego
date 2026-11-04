@@ -4585,6 +4585,7 @@ dependencies = [
  "spki 0.7.3",
  "tempfile",
  "ureq",
+ "windows-sys 0.61.2",
  "x509-cert 0.2.5",
 ]
 

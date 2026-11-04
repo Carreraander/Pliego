@@ -197,7 +197,20 @@ if ($ConExtras) {
 
     $gs = Get-ChildItem "$env:ProgramFiles\gs\*\bin\gswin64c.exe" -ErrorAction SilentlyContinue | Select-Object -Last 1
     if (-not $gs -and -not $CheckOnly) {
-        Install-Winget 'ArtifexSoftware.GhostScript' | Out-Null
+        # Ghostscript ya no está en winget (2026-11): instalador oficial de Artifex en GitHub, con su firma comprobada.
+        # Instala en todo el equipo: pide UAC.
+        try {
+            $rel = Invoke-RestMethod 'https://api.github.com/repos/ArtifexSoftware/ghostpdl-downloads/releases/latest'
+            $asset = $rel.assets | Where-Object name -match '^gs\d+w64\.exe$' | Select-Object -First 1
+            $tmp = Join-Path $cacheRoot 'tmp\ghostscript'
+            New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+            $exe = Join-Path $tmp $asset.name
+            Invoke-WebRequest $asset.browser_download_url -OutFile $exe
+            $firma = Get-AuthenticodeSignature $exe
+            if ($firma.Status -ne 'Valid' -or $firma.SignerCertificate.Subject -notlike '*Artifex Software*') { throw "firma no válida: $($firma.Status)" }
+            Start-Process $exe -ArgumentList '/S' -Verb RunAs -Wait
+            Remove-Item -Recurse -Force $tmp
+        } catch { Write-Warning "No se pudo instalar Ghostscript: $_" }
         $gs = Get-ChildItem "$env:ProgramFiles\gs\*\bin\gswin64c.exe" -ErrorAction SilentlyContinue | Select-Object -Last 1
         Add-Result 'Ghostscript' $(if ($gs) { 'instalado' } else { 'FALTA' }) "$($gs.FullName)"
     } else { Add-Result 'Ghostscript' $(if ($gs) { 'ya estaba' } else { 'FALTA' }) "$($gs.FullName)" }

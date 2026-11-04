@@ -1,12 +1,13 @@
 //! Convertir desde la app (flujo W24): exportar a imágenes o texto y exportar a Office. Siempre guarda una copia
 //! junto al original (archivo o carpeta) y no lo modifica.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use pliego_appdata::copyjob::{unique_in, unique_sibling};
 use pliego_convert::{
-    ExportImageFormat, ExtractImagesOptions, PdfToImagesOptions, TextExportOptions, extract_images, pdf_to_html,
-    pdf_to_images, pdf_to_svg, pdf_to_text,
+    ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
+    TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, office_to_pdf,
+    pdf_to_html, pdf_to_images, pdf_to_svg, pdf_to_text, text_to_pdf,
 };
 use pliego_core::{Error, JobContext, PageRange, Report, Result};
 use pliego_office_export::{CommonOptions, DocxOptions, PptxOptions, ScannedPolicy, XlsxOptions};
@@ -148,6 +149,103 @@ pub fn office_copy(input: &Path, req: &OfficeRequest, ctx: &JobContext) -> Resul
     }
 }
 
+/// Lo que pide el panel «Crear PDF».
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CreateRequest {
+    /// `fit`, `a3`, `a4`, `a5`, `letter` o `legal`.
+    pub page_size: String,
+    pub margin_mm: f32,
+    /// `auto`, `portrait` o `landscape` (solo imágenes).
+    pub orientation: String,
+    pub upscale: bool,
+    /// Etiqueta del nombre del PDF («PDF»).
+    pub label: String,
+}
+
+type TextConverter = fn(&Path, &Path, &TextToPdfOptions, &JobContext) -> Result<Report>;
+
+const OFFICE_EXTENSIONS: &[&str] = &[
+    "doc", "docx", "docm", "dot", "dotx", "rtf", "odt", "xls", "xlsx", "xlsm", "xlsb", "csv", "ods", "ppt", "pptx",
+    "pptm", "pps", "ppsx", "odp",
+];
+
+/// Crea un PDF a partir de imágenes (una página por imagen), de un `.txt`, `.md` o `.html`, o de un documento de
+/// Office. El nombre sale del primer archivo: `<primero> (<etiqueta>).pdf`.
+pub fn create_copy(inputs: &[PathBuf], req: &CreateRequest, ctx: &JobContext) -> Result<Report> {
+    let first = inputs
+        .first()
+        .ok_or_else(|| Error::InvalidInput("no se indicó ningún archivo".into()))?;
+    let page_size: PageSizeSpec = if req.page_size.trim().is_empty() {
+        "fit"
+    } else {
+        req.page_size.trim()
+    }
+    .parse()?;
+    if !req.margin_mm.is_finite() || !(0.0..=100.0).contains(&req.margin_mm) {
+        return Err(Error::InvalidInput(format!("margen fuera de rango: {}", req.margin_mm)));
+    }
+    let margin_pt = req.margin_mm * 72.0 / 25.4;
+    let orientation = match req.orientation.as_str() {
+        "" | "auto" => Orientation::Auto,
+        "portrait" => Orientation::Portrait,
+        "landscape" => Orientation::Landscape,
+        other => return Err(Error::InvalidInput(format!("orientación desconocida: {other:?}"))),
+    };
+    let ext = first.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let one_only = |what: &str| {
+        if inputs.len() == 1 {
+            Ok(())
+        } else {
+            Err(Error::InvalidInput(format!("{what} se convierten de uno en uno")))
+        }
+    };
+    let out = unique_sibling(first, &req.label, "pdf");
+    if OFFICE_EXTENSIONS.contains(&ext.as_str()) {
+        one_only("los documentos de Office")?;
+        return office_to_pdf(first, &out, ctx);
+    }
+    let text_fn: Option<TextConverter> = match ext.as_str() {
+        "txt" => Some(text_to_pdf),
+        "md" | "markdown" => Some(markdown_to_pdf),
+        "html" | "htm" => Some(html_to_pdf),
+        _ => None,
+    };
+    if let Some(convert) = text_fn {
+        one_only("los archivos de texto, Markdown y HTML")?;
+        let opts = TextToPdfOptions {
+            page_size: if page_size == PageSizeSpec::Fit {
+                PageSizeSpec::A4
+            } else {
+                page_size
+            },
+            margin_pt: if req.margin_mm > 0.0 {
+                margin_pt
+            } else {
+                TextToPdfOptions::default().margin_pt
+            },
+            ..Default::default()
+        };
+        return convert(first, &out, &opts, ctx);
+    }
+    let opts = ImagesToPdfOptions {
+        page_size,
+        margin_pt,
+        orientation,
+        upscale: req.upscale,
+        ..Default::default()
+    };
+    images_to_pdf(inputs, &out, &opts, ctx)
+}
+
+/// Guarda `<nombre> (<etiqueta>).pdf` en el nivel PDF/A pedido (`1b`, `2b`, `2u` o `3b`).
+pub fn pdfa_copy(input: &Path, level: &str, label: &str, ctx: &JobContext) -> Result<Report> {
+    let level: pliego_pdfa::Level = level
+        .parse()
+        .map_err(|_| Error::InvalidInput(format!("nivel PDF/A desconocido: {level:?} (usa 1b, 2b, 2u o 3b)")))?;
+    let out = unique_sibling(input, label, "pdf");
+    pliego_pdfa::convert(input, &out, level, ctx)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -238,5 +336,54 @@ mod tests {
             office_copy(&input, &bad, &JobContext::silent()),
             Err(Error::InvalidInput(_))
         ));
+    }
+
+    #[test]
+    fn creates_a_pdf_from_text_and_rejects_bad_requests() {
+        let dir = tempfile::tempdir().unwrap();
+        let txt = dir.path().join("nota.txt");
+        std::fs::write(&txt, "Hola desde Pliego").unwrap();
+        let req = CreateRequest {
+            page_size: "a4".into(),
+            orientation: "auto".into(),
+            label: "PDF".into(),
+            ..Default::default()
+        };
+        let r = create_copy(std::slice::from_ref(&txt), &req, &JobContext::silent()).unwrap();
+        assert_eq!(r.outputs, vec![dir.path().join("nota (PDF).pdf")]);
+        assert!(std::fs::metadata(&r.outputs[0]).unwrap().len() > 0);
+        let ctx = JobContext::silent();
+        assert!(matches!(create_copy(&[], &req, &ctx), Err(Error::InvalidInput(_))));
+        let two = [txt.clone(), txt.clone()];
+        assert!(matches!(create_copy(&two, &req, &ctx), Err(Error::InvalidInput(_))));
+        let bad = CreateRequest {
+            page_size: "a4".into(),
+            margin_mm: -1.0,
+            ..req.clone()
+        };
+        assert!(matches!(
+            create_copy(std::slice::from_ref(&txt), &bad, &ctx),
+            Err(Error::InvalidInput(_))
+        ));
+        let bad = CreateRequest {
+            orientation: "diagonal".into(),
+            ..req
+        };
+        assert!(matches!(create_copy(&[txt], &bad, &ctx), Err(Error::InvalidInput(_))));
+    }
+
+    #[test]
+    fn pdfa_rejects_unknown_levels_and_never_overwrites() {
+        let Some((dir, input)) = sample() else { return };
+        let ctx = JobContext::silent();
+        assert!(matches!(
+            pdfa_copy(&input, "9z", "PDF-A", &ctx),
+            Err(Error::InvalidInput(_))
+        ));
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+        // El resultado (si el motor puede convertir este documento) va a una copia nueva.
+        if let Ok(r) = pdfa_copy(&input, "2b", "PDF-A", &ctx) {
+            assert_eq!(r.outputs, vec![dir.path().join("doc (PDF-A).pdf")]);
+        }
     }
 }

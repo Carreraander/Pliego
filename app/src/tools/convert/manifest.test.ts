@@ -10,10 +10,11 @@ describe("Convertir", () => {
   it("las herramientas reales sustituyen a las fantasma", () => {
     expect(getTool("convert.export")?.ghost).toBe(true);
     registerConvertTools();
-    for (const id of ["convert.export", "convert.office"]) {
+    for (const id of ["convert.export", "convert.office", "convert.create", "convert.pdfa"]) {
       expect(getTool(id)?.ghost).toBeUndefined();
-      expect(toolState(getTool(id)!).enabled).toBe(false);
+      if (id !== "convert.create") expect(toolState(getTool(id)!).enabled).toBe(false);
     }
+    expect(toolState(getTool("convert.create")!).enabled).toBe(true); // no necesita documento
     setDocFacts({ document: true });
     expect(toolState(getTool("convert.office")!).enabled).toBe(true);
   });

@@ -84,6 +84,15 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W21](flujos/w21.md) | Instalador y lanzador | Fusionado | Mica, escalas 100/150/200 %, Narrador, sin WebView2, por máquina (UAC) |
 | [W22](flujos/w22.md) | Autoactualizaciones | Fusionado (parcial) | Comandos Tauri, directiva HKLM, UI en Ajustes y prueba de extremo a extremo en acr12 |
 
+## Decisiones de gestión de la ola 4 (2026-11-04)
+
+- Los trabajos archivo → archivo corren en el proceso de la app (patrón de `docs/app-integration.md`); antes de la 1.0
+  pasan a un proceso aislado con el mismo `JobId` y eventos (pendiente de W02).
+- OCR desde la app: `pliego.exe ocr` como proceso hijo (la app no enlaza Tesseract), con progreso JSON por líneas.
+- Patrón común: lógica en `app/service/src/<área>.rs` con pruebas; comandos Tauri que solo traducen; copias con
+  `pliego_appdata::copyjob`; frontend con `runToolJob` y una línea en `registerAppTools()`.
+- «Numerar páginas» imprime el número en la hoja (`pliego_stamp::header_footer`); las etiquetas del PDF son opción avanzada.
+
 ## Decisiones tomadas (no reabrir sin Ander)
 
 - **Licencia AGPL-3.0-or-later con MuPDF** (Ander, 2026-11-02), sabiendo que una edición cerrada o comercial

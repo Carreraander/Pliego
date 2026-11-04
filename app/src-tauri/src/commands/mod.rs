@@ -23,6 +23,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
     tauri::generate_handler![
         dialog::pick_pdf_files,
         dialog::pick_image_file,
+        dialog::pick_source_files,
         document::open_document,
         document::close_document,
         document::document_info,
@@ -39,7 +40,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::reveal_path,
         recents::about_info,
         jobs::cancel_job,
+        convert::create_pdf,
         convert::export_pdf,
+        convert::pdfa_convert,
         convert::office_export_pdf,
         optimize::compress_pdf,
         optimize::analyze_pdf,

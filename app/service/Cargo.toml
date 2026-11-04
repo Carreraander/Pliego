@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 pliego-core.workspace = true
 pliego-annot = { path = "../../crates/pliego-annot" }
+pliego-forms = { path = "../../crates/pliego-forms" }
 mupdf.workspace = true
 tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }

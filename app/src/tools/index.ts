@@ -8,6 +8,7 @@ import { registerConvertTools } from "./convert/manifest";
 import { registerOptimizeTools } from "./optimize/manifest";
 import { registerCheckTools } from "./checks/manifest";
 import { registerAnnotateTools } from "./annotate/manifest";
+import { registerFormsTools } from "./forms/manifest";
 import { registerSignTools } from "./sign/manifest";
 import { registerProtectTools } from "./protect";
 import { registerBatchTools } from "./batch/manifest";
@@ -19,6 +20,7 @@ export function registerAppTools(): void {
   registerOptimizeTools(); // W24
   registerCheckTools(); // W29
   registerAnnotateTools(); // W26
+  registerFormsTools(); // W26
   registerSignTools(); // W28
   registerProtectTools(); // W25
   registerBatchTools(); // W29

@@ -94,3 +94,12 @@ CI usa un clippy más nuevo que el local: evitar lints conocidos (`nonminimal_bo
 8. Clones creados antes de `tests/corpus/.gitattributes` pueden tener los PDF con CRLF (xref rota, «object ID 4 0
    not found»): `git checkout -- tests/corpus` o reclonar.
 9. Gestión reparte el turno cuando hay cola y avisa a los flujos de cada cambio en los scripts.
+
+## Segundo equipo de pruebas «pc»
+
+- `DESKTOP-TBC7MHI`, usuario `pc`, Windows 11 Home (con Mica), 32 GB de RAM, **un solo disco C: con muy poco sitio**.
+  Sin Office. Detalle, rutas y reglas en `docs/qa/pc.md`.
+- Mismas reglas que acr12 cambiando D: por C:: clones en `C:\dev\pliego-<flujo>`, `. .\tools\pc-env.ps1` en cada
+  terminal y lo pesado con `.\tools\pc-turno.ps1 -Flujo wNN -- <orden>`. Mirar el espacio libre antes de compilar.
+- Los scripts de acr12 son envoltorios de `tools/setup-windows.ps1`, `tools/pliego-env.ps1` y
+  `tools/pliego-turno.ps1`: los cambios se hacen en los genéricos.

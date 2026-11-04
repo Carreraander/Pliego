@@ -5,6 +5,7 @@
 
 pub mod annot;
 pub mod assistant;
+pub mod checks;
 pub mod convert;
 pub mod dialog;
 pub mod document;
@@ -43,6 +44,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::reveal_path,
         recents::about_info,
         jobs::cancel_job,
+        checks::check_accessibility,
+        checks::validate_pdfa,
+        checks::preflight_pdf,
         annot::annot_summary,
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,

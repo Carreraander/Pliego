@@ -4082,6 +4082,7 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "p12-keystore",
+ "pliego-a11y",
  "pliego-annot",
  "pliego-appdata",
  "pliego-convert",
@@ -4089,6 +4090,8 @@ dependencies = [
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",
+ "pliego-pdfa",
+ "pliego-print",
  "pliego-protect",
  "pliego-redact",
  "pliego-sign",

@@ -12,6 +12,9 @@ pliego-annot = { path = "../../crates/pliego-annot" }
 mupdf.workspace = true
 tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
+pliego-a11y.workspace = true
+pliego-pdfa.workspace = true
+pliego-print.workspace = true
 pliego-convert = { path = "../../crates/pliego-convert" }
 pliego-office-export = { path = "../../crates/pliego-office-export" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }

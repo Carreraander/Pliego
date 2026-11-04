@@ -32,4 +32,13 @@ describe("herramientas de Ver (W29)", () => {
     const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
     expect(toolState(t, none).enabled).toBe(false);
   });
+  it("Presentación sustituye a la fantasma, lleva F11 y pide un documento", () => {
+    registerBaseTools();
+    registerViewTools();
+    const t = getTool("viewer.present")!;
+    expect(t.ghost).toBeFalsy();
+    expect(t.shortcut).toBe("F11");
+    const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
+    expect(toolState(t, none).enabled).toBe(false);
+  });
 });

@@ -286,9 +286,11 @@ fn read_pam_cmyk(bytes: &[u8]) -> (usize, usize, Vec<Vec<u8>>) {
     let (w, h) = (field("WIDTH"), field("HEIGHT"));
     assert_eq!(field("DEPTH"), 4);
     let mut planes: Vec<Vec<u8>> = (0..4).map(|_| Vec::with_capacity(w * h)).collect();
-    for px in bytes[end..].chunks_exact(4).take(w * h) {
+    let data = &bytes[end..];
+    assert!(data.len() >= w * h * 4, "PAM truncado");
+    for i in 0..w * h {
         for (c, plane) in planes.iter_mut().enumerate() {
-            plane.push(px[c]);
+            plane.push(data[i * 4 + c]);
         }
     }
     (w, h, planes)

@@ -88,6 +88,39 @@ pub fn delete(editor: &Editor, path: &Path, name: &str, backup_suffix: &str) -> 
     editor.edit_pdf(path, backup_suffix, |doc| pliego_formdesign::delete_field(doc, name))
 }
 
+/// Detecta campos en todas las páginas de `path` y, si encuentra alguno, guarda una copia
+/// `<nombre> (<suffix>).pdf` junto al original con los campos creados. El original no cambia; sin campos no se crea nada.
+pub fn detect_copy(
+    path: &Path,
+    password: Option<&str>,
+    suffix: &str,
+    ctx: &pliego_core::JobContext,
+) -> Result<pliego_core::Report> {
+    let mut doc = open(path, password)?;
+    let pages = doc.page_count().map_err(pe)?.max(0) as usize;
+    let mut found = Vec::new();
+    for p in 0..pages {
+        ctx.step(p as u64, pages as u64, "")?;
+        found.extend(pliego_formdesign::detect_fields(&doc, p, ctx)?);
+    }
+    if found.is_empty() {
+        return Ok(pliego_core::Report {
+            summary: "No se encontraron campos".into(),
+            ..Default::default()
+        });
+    }
+    for f in &found {
+        pliego_formdesign::add_field(&mut doc, f)?;
+    }
+    let out = pliego_appdata::copyjob::unique_sibling(path, suffix, "pdf");
+    crate::annot::save(&doc, &out)?;
+    ctx.step(pages as u64, pages as u64, "Terminado")?;
+    Ok(pliego_core::Report::with_output(
+        &out,
+        format!("{} campos creados", found.len()),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

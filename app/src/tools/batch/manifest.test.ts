@@ -22,6 +22,14 @@ describe("herramientas de lotes (W29)", () => {
     const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
     expect(toolState(t, none).enabled).toBe(true);
   });
+  it("Detectar campos sustituye a la fantasma y pide un documento", () => {
+    registerBaseTools();
+    registerBatchTools();
+    const t = getTool("forms.detect")!;
+    expect(t.ghost).toBeFalsy();
+    const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
+    expect(toolState(t, none).enabled).toBe(false);
+  });
   it("Carteras sustituye a la fantasma y tampoco pide documento", () => {
     registerBaseTools();
     registerBatchTools();

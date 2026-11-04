@@ -45,6 +45,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         optimize::analyze_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
+        organize::insert_pages,
+        organize::number_pages,
         stamp::stamp_pdf,
         stamp::stamp_annot_pdf,
         text::outline,

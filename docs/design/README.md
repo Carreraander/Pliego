@@ -9,6 +9,7 @@ Versión 1 (2026-11-03), hilo de diseño "Diseñar app de escritorio de Pliego".
 | [sistema-visual.md](sistema-visual.md) | Color, tipografía, espaciado, iconos, logo, movimiento |
 | [tokens.css](tokens.css) | Tokens de diseño (`--pl-*`), fuente de verdad. Se copia a `app/src/styles/tokens.css` |
 | [instalador.md](instalador.md) | Instalador propio `pliego-setup`: estructura en disco con lanzador, paquete `.paq`, pantallas, registro en Windows, línea de órdenes, desinstalación, firma de código |
+| [landing-y-seo.md](landing-y-seo.md) | Web pdfpliego.com: diseño de la landing, afirmaciones permitidas, palabras clave, metadatos y schema. Código en `web/` |
 | [actualizaciones.md](actualizaciones.md) | Protocolo de actualizaciones firmadas (Ed25519), configuración, experiencia de usuario, aplicar y volver atrás, publicar, VPS |
 
 Código de referencia ya escrito:

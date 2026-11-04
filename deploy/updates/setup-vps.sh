@@ -7,6 +7,7 @@
 #
 # Crea el usuario `pliego` (sin shell: solo puede ejecutar rsync dentro de la carpeta), la carpeta
 # /srv/pliego-actualizaciones y deja Caddy sirviéndola con HTTPS. No guarda ningún secreto de firma.
+# En un VPS compartido no sobrescribe el Caddyfile: añade solo /etc/caddy/sites.d/pliego.caddy (ver más abajo).
 set -euo pipefail
 
 DOMAIN="${1:?Falta el dominio. Uso: $0 <dominio> \"<clave ssh pública>\"}"
@@ -43,12 +44,35 @@ fi
 echo "restrict,command=\"$RRSYNC $ROOT_DIR\" $SSH_KEY" >/home/pliego/.ssh/authorized_keys
 chown pliego:pliego /home/pliego/.ssh/authorized_keys && chmod 600 /home/pliego/.ssh/authorized_keys
 
-# Caddy: copia el Caddyfile cambiando el dominio y recarga.
-sed "s/actualizaciones\.ejemplo\.es/$DOMAIN/" "$HERE/Caddyfile" >/etc/caddy/Caddyfile
+# Caddy. Dos casos:
+#  - VPS dedicado (sin Caddyfile propio): se escribe /etc/caddy/Caddyfile.
+#  - VPS compartido (ya hay un Caddyfile con otros sitios): NUNCA se toca. Se escribe solo
+#    /etc/caddy/sites.d/pliego.caddy, que el Caddyfile existente debe importar (`import /etc/caddy/sites.d/*.caddy`).
+#    Se valida la configuración completa y, si falla, se deshace el cambio sin recargar.
+SITE="$(sed "s/actualizaciones\.ejemplo\.es/$DOMAIN/" "$HERE/Caddyfile")"
+MAIN=/etc/caddy/Caddyfile
 install -d -o caddy -g caddy /var/log/caddy
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-systemctl enable --now caddy
-systemctl reload caddy
+if [ -s "$MAIN" ] && ! grep -q 'actualizaciones.ejemplo.es\|pliego-actualizaciones' "$MAIN"; then
+  grep -Eq '^[[:space:]]*import[[:space:]]+/etc/caddy/sites\.d/' "$MAIN" || {
+    echo "Ya hay un Caddyfile en uso y no importa /etc/caddy/sites.d/*.caddy. No lo toco." >&2
+    echo "Añade esa línea (import /etc/caddy/sites.d/*.caddy) a mano y vuelve a ejecutar el script." >&2
+    exit 1
+  }
+  install -d /etc/caddy/sites.d
+  TARGET=/etc/caddy/sites.d/pliego.caddy
+else
+  TARGET="$MAIN"
+fi
+BACKUP=""
+[ -f "$TARGET" ] && { BACKUP="$(mktemp)"; cp -p "$TARGET" "$BACKUP"; }
+printf '%s\n' "$SITE" >"$TARGET"
+if ! caddy validate --config "$MAIN" --adapter caddyfile; then
+  if [ -n "$BACKUP" ]; then cp -p "$BACKUP" "$TARGET"; else rm -f "$TARGET"; fi
+  echo "La configuración de Caddy no es válida: cambio deshecho, Caddy sin recargar." >&2
+  exit 1
+fi
+[ -n "$BACKUP" ] && rm -f "$BACKUP"
+if systemctl is-active --quiet caddy; then systemctl reload caddy; else systemctl enable --now caddy; fi
 
 echo "Listo. Comprueba:  curl -I https://$DOMAIN/v1/stable/manifest.json  (404 hasta la primera publicación)"
 echo "Sube con:  rsync -av --delete-after dist/actualizaciones/ pliego@$DOMAIN:/"

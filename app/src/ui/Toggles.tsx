@@ -61,19 +61,19 @@ export function Radio(props: { value: string; label: string; hint?: string; disa
 export interface ToggleOption { value: string; label?: string; icon?: string; title?: string }
 
 /** Grupo de botones conmutables exclusivos (p. ej. vista continua / página / doble). */
-export function ToggleGroup(props: { label: string; options: ToggleOption[]; value: string; onChange: (v: string) => void; class?: string }) {
+export function ToggleGroup(props: { label: string; options: ToggleOption[]; value: string; onChange: (v: string) => void; class?: string; disabled?: boolean }) {
   return (
     <div class={`pl-togglegroup ${props.class ?? ""}`} role="radiogroup" aria-label={props.label}>
       <For each={props.options}>{(o) => (
-        <ToggleItem option={o} active={o.value === props.value} onSelect={() => props.onChange(o.value)} />
+        <ToggleItem option={o} active={o.value === props.value} disabled={props.disabled} onSelect={() => props.onChange(o.value)} />
       )}</For>
     </div>
   );
 }
-function ToggleItem(props: { option: ToggleOption; active: boolean; onSelect: () => void }) {
+function ToggleItem(props: { option: ToggleOption; active: boolean; disabled?: boolean; onSelect: () => void }) {
   return (
     <button type="button" role="radio" aria-checked={props.active} aria-label={props.option.title ?? props.option.label} title={props.option.title ?? props.option.label}
-      tabindex={props.active ? 0 : -1} class="pl-togglegroup__item" onClick={() => props.onSelect()}
+      tabindex={props.active ? 0 : -1} disabled={props.disabled} class="pl-togglegroup__item" onClick={() => props.onSelect()}
       onKeyDown={(e) => {
         const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
         if (!dir) return;

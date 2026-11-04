@@ -68,9 +68,9 @@ export const accessibilityRows: SettingRow[] = [
   row("accessibility.strongFocus", "row.accessibility.strongFocus", "row.accessibility.strongFocus.hint", toggle("accessibility", "strongFocus"), ["foco", "teclado", "contorno"]),
 ];
 
-export function UpdateModeToggle() {
+export function UpdateModeToggle(props: { disabled?: boolean }) {
   return (
-    <ToggleGroup label={st("row.updates.channel")} value={settings().updates.channel} onChange={(v) => updateSettings("updates", { channel: v as "stable" | "beta" })}
+    <ToggleGroup disabled={props.disabled} label={st("row.updates.channel")} value={settings().updates.channel} onChange={(v) => updateSettings("updates", { channel: v as "stable" | "beta" })}
       options={[{ value: "stable", label: st("opt.stable") }, { value: "beta", label: st("opt.beta") }]} />
   );
 }

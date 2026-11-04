@@ -65,7 +65,7 @@ export function toggleInspector(): void {
 /** Orden de prioridad de §5.2: reparado > firmado > protegido > formulario > PDF/A > modo restringido. */
 export const NOTICE_PRIORITY = ["repaired", "signed", "protected", "form", "pdfa", "restricted", "other"] as const;
 export type NoticeKind = (typeof NOTICE_PRIORITY)[number];
-export interface DocNotice { kind?: NoticeKind; id?: string; tone?: NoticeTone; text: string; actions?: NoticeAction[]; dismissible?: boolean }
+export interface DocNotice { kind?: NoticeKind; id?: string; tone?: NoticeTone; text: string; actions?: NoticeAction[]; dismissible?: boolean; /** Se llama cuando la persona cierra el aviso con la ✕. */ onDismiss?: () => void }
 interface StoredNotice extends DocNotice { id: string }
 const [notices, setNotices] = createSignal<Record<string, StoredNotice[]>>({});
 let noticeSeq = 0;

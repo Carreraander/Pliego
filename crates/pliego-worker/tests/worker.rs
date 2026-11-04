@@ -269,7 +269,7 @@ fn layered_pdf() -> Vec<u8> {
 }
 
 fn dark_pixels(img: &pliego_core::RgbaImage) -> usize {
-    img.data.chunks_exact(4).filter(|p| p[0] < 128).count()
+    img.data.iter().step_by(4).filter(|&&r| r < 128).count()
 }
 
 #[test]

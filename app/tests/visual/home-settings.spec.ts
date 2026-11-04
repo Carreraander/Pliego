@@ -28,6 +28,7 @@ test.describe("Inicio", () => {
     await expect(rows.nth(2)).toHaveClass(/pl-recent--missing/);
     await expect(rows.nth(2)).toContainText("No se encuentra");
     await expect(home).toContainText("AGPL-3.0");
+    await expect(page.locator(".pl-modebar")).toHaveCount(0);
   });
   test("fijar y quitar un reciente, y personalizar las acciones rápidas", async ({ page }) => {
     await open(page, "home");
@@ -57,6 +58,7 @@ test.describe("Ajustes", () => {
   test("cambia el tema con efecto inmediato y se conserva", async ({ page }) => {
     await open(page, "settings");
     const settings = page.getByTestId("settings");
+    await expect(page.locator(".pl-modebar")).toHaveCount(0);
     await expect(settings.getByRole("heading", { name: "General" })).toBeVisible();
     await settings.getByLabel("Tema").selectOption("dark");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

@@ -16,6 +16,7 @@ pub mod index;
 pub mod jobs;
 pub mod optimize;
 pub mod organize;
+pub mod outputpreview;
 pub mod pageedit;
 pub mod portfolio;
 pub mod protect;
@@ -57,6 +58,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         jobs::cancel_job,
         convert::create_pdf,
         checks::check_accessibility,
+        outputpreview::output_preview,
         checks::reading_order,
         checks::tab_order_copy,
         checks::validate_pdfa,

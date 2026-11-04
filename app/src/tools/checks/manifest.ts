@@ -23,9 +23,15 @@ export const readingOrder: ToolManifest = {
   icon: "list-ordered", keywords: ["lectura", "orden", "tabulación"], when: { document: true }, load: () => import("./OrderPanel"),
 };
 
+export const outputPreview: ToolManifest = {
+  id: "print.preview", group: "print", kind: "task", title: "tools.print.preview.title", description: "tools.print.preview.description",
+  icon: "printer", keywords: ["imprenta", "separaciones", "cmyk", "tinta total"], when: { document: true }, load: () => import("./OutputPanel"),
+};
+
 export function registerCheckTools(): void {
   registerTool(accessCheck);
   registerTool(validatePdfa);
   registerTool(preflight);
   registerTool(readingOrder);
+  registerTool(outputPreview);
 }

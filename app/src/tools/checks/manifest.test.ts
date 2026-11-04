@@ -3,7 +3,7 @@ import { getTool, toolState } from "../registry";
 import { registerBaseTools } from "../base";
 import { registerCheckTools } from "./manifest";
 
-const IDS = ["access.check", "access.validate-pdfa", "print.preflight", "access.order"];
+const IDS = ["access.check", "access.validate-pdfa", "print.preflight", "access.order", "print.preview"];
 
 describe("comprobaciones (W29)", () => {
   it("sustituyen a las fantasma de base.ts", () => {

@@ -124,6 +124,11 @@ pub(crate) fn create(doc: &mut PdfDocument, page: &mut PdfPage, geometry: &Geome
             if w < 4.0 || h < 4.0 {
                 return Err(Error::InvalidInput("el recuadro del sello es demasiado pequeño".into()));
             }
+            let label = match source {
+                StampSource::Preset { preset } => Some((preset.text().to_owned(), preset.color())),
+                StampSource::Text { text, color } => Some((text.clone(), *color)),
+                StampSource::Image { .. } => None,
+            };
             let stream = match source {
                 StampSource::Preset { preset } => text_stamp(doc, w, h, preset.text(), preset.color())?,
                 StampSource::Text { text, color } => text_stamp(doc, w, h, text, *color)?,
@@ -131,6 +136,16 @@ pub(crate) fn create(doc: &mut PdfDocument, page: &mut PdfPage, geometry: &Geome
             };
             let a = page.add_stamp_annotation(r, "Custom").map_err(pe)?;
             set_normal_appearance(doc, &a, stream)?;
+            if let Some((text, c)) = label {
+                let b = |x: f32| (x.clamp(0.0, 1.0) * 255.0).round() as u32;
+                let v = (b(c[0]) << 16) | (b(c[1]) << 8) | b(c[2]);
+                a.object()
+                    .dict_put(
+                        "PliegoStamp",
+                        PdfObject::new_string(&format!("{v:06X} {text}")).map_err(pe)?,
+                    )
+                    .map_err(pe)?;
+            }
             Ok((a, true))
         }
         Geometry::Link { rect, target } => {
@@ -282,6 +297,7 @@ pub(crate) fn list_links(doc: &PdfDocument, page: &PdfPage, page_no: usize, out:
             reply_to: None,
             state: None,
             link,
+            stamp: None,
         });
     }
     Ok(())

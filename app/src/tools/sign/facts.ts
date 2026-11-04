@@ -29,7 +29,12 @@ export function noticeText(reports: SignatureReport[]): string {
  * aviso «Firmado por…». Devuelve cómo desmontarlo.
  */
 export function installSignatures(): () => void {
-  const offPanel = registerPanel({ id: PANEL_ID, title: st("validate.title"), icon: "badge-check", order: 60, component: SignaturesPanel });
+  // El panel solo existe mientras el documento activo tenga firmas (así el raíl no ofrece un panel vacío).
+  let offPanel: (() => void) | null = null;
+  const setPanel = (on: boolean) => {
+    if (on && !offPanel) offPanel = registerPanel({ id: PANEL_ID, title: st("validate.title"), icon: "badge-check", order: 60, component: SignaturesPanel });
+    if (!on && offPanel) { offPanel(); offPanel = null; }
+  };
   let shown: { docId: string } | null = null;
   const clearNotice = () => { if (shown) { dismissNotice(shown.docId, NOTICE_ID); shown = null; } };
   const dispose = createRoot((d) => {
@@ -37,11 +42,13 @@ export function installSignatures(): () => void {
       () => { const doc = activeDoc(); return doc ? { id: String(doc.id), path: doc.path, revision: doc.revision } : null; },
       async (key) => {
         clearNotice();
+        setPanel(false);
         if (!key) { setDocFacts({ signatures: false }); return; }
         setDocFacts({ signatures: false });
         const reports = await validateDoc(key.path);
         if (String(activeDoc()?.id) !== key.id) return; // se cambió de documento mientras tanto
         setDocFacts({ signatures: reports.length > 0 });
+        setPanel(reports.length > 0);
         if (!reports.length) return;
         const v = overall(reports)!;
         showNotice(key.id, {
@@ -54,6 +61,6 @@ export function installSignatures(): () => void {
     ));
     return d;
   });
-  return () => { offPanel(); clearNotice(); dispose(); };
+  return () => { setPanel(false); clearNotice(); dispose(); };
 }
 

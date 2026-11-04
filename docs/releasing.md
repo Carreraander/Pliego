@@ -10,7 +10,7 @@ pliego-release keygen --out D:\claves-pliego
 ```
 Genera `pliego-update.key` (SECRETA) y `pliego-update.pub` (`ed25519:…`).
 - La clave secreta **nunca** va al repositorio ni al VPS. Guárdala en dos copias fuera de línea (gestor de contraseñas
-  y memoria USB cifrada). Su contenido, en el secreto `PLIEGO_UPDATE_SIGNING_KEY` del entorno protegido `release`.
+  y memoria USB cifrada). **No** va como secreto de GitHub ni a la CI: el manifiesto se firma a mano (ver §9).
 - Haz una **segunda clave de reserva** (`--name pliego-reserva`) y guárdala solo sin conexión: sirve para rotar.
 - Las claves públicas (activa y reserva) van en la variable `PLIEGO_UPDATE_PUBKEYS` (separadas por comas) al compilar,
   o en `BUILTIN_RELEASE_KEYS` de `crates/pliego-update/src/keys.rs`.
@@ -57,6 +57,25 @@ No se baja nunca a nadie de versión: se publica una versión nueva con número 
   clave de reserva nueva y sin la comprometida. Hasta que esa versión llegue, solo la firma de reserva es válida:
   publica el manifiesto firmado con ambas durante la transición (`--key` se puede repetir).
 - *Rotación programada (anual):* igual, sin urgencia.
+
+## 9. El servidor real (montado el 2026-11-04)
+
+- URL: `https://actualizaciones.pdfpliego.com` (DNS A a `161.97.73.247`). Compilar la versión oficial con
+  `PLIEGO_UPDATE_URL=https://actualizaciones.pdfpliego.com`.
+- El VPS (`vmi3425742`, Ubuntu 24.04) es **compartido** con otros proyectos de Ander y con la web `pdfpliego.com`.
+  `deploy/updates/setup-vps.sh` solo añadió `/etc/caddy/sites.d/pliego.caddy` (el Caddyfile global y los demás sitios
+  no se tocan), el usuario de sistema `pliego` y `/srv/pliego-actualizaciones`. Copia previa de Caddy en
+  `/root/caddy-backup-20261104/`.
+- `pliego` no tiene shell: su `authorized_keys` ejecuta `rrsync /srv/pliego-actualizaciones` con la clave de despliegue
+  `pliego-deploy`. La privada está solo en el secreto `UPDATE_SSH_KEY` del entorno `release` de GitHub y en el PC donde
+  se generó. Para cambiarla: generar otra, sustituir la línea en `/home/pliego/.ssh/authorized_keys` y el secreto.
+- Comprobado: 404 en `/v1/stable/manifest.json` (aún sin publicar), certificado de Let's Encrypt válido, 405 a todo lo
+  que no sea GET/HEAD. `pdfpliego.com` envía HSTS con `includeSubDomains`: este subdominio debe seguir siempre en HTTPS.
+- Reparto de poderes: la CI compila y deja los artefactos; **la firma del manifiesto se hace a mano en acr12** con
+  `pliego-release` y la clave de `D:\dev-cache\release-keys\`; una vez firmado, la CI puede subir con `UPDATE_SSH_KEY`.
+- Pendiente: la clave de firma de producción (ver `docs/qa/claves-de-publicacion.md`) y el primer `publish`.
+- Conocido: las respuestas de error (404) salen sin HSTS ni `nosniff` y con `Server: Caddy`, porque Caddy no aplica
+  el bloque `header` con borrado a los errores. No afecta a la seguridad (la integridad la dan las firmas).
 
 ## 8. Probar sin VPS
 ```

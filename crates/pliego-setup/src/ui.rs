@@ -268,7 +268,10 @@ pub fn run(req: UiRequest) -> u32 {
     center(&window);
     apply_dwm(&window, dark, mica);
 
-    let mut ctx = wry::WebContext::new(Some(std::env::temp_dir().join("pliego-setup-webview2")));
+    // Datos temporales de WebView2: se limpian al empezar (restos de un cierre brusco) y al cerrar.
+    let webview_data = std::env::temp_dir().join("pliego-setup-webview2");
+    let _ = std::fs::remove_dir_all(&webview_data);
+    let mut ctx = wry::WebContext::new(Some(webview_data.clone()));
     let handler_shared = shared.clone();
     let handler_proxy = proxy.clone();
     let init_json = init.clone();
@@ -312,6 +315,10 @@ pub fn run(req: UiRequest) -> u32 {
                 event: WindowEvent::CloseRequested,
                 ..
             } => *flow = ControlFlow::ExitWithCode(shared.code.load(Ordering::Relaxed) as i32),
+            Event::LoopDestroyed => {
+                // Mejor esfuerzo: si WebView2 aún retiene archivos, el borrado del próximo arranque termina el trabajo.
+                let _ = std::fs::remove_dir_all(&webview_data);
+            }
             _ => {}
         }
     })

@@ -109,6 +109,12 @@ pub struct DataDirs {
     pub cache: PathBuf,
 }
 
+/// Subcarpetas de `%LOCALAPPDATA%\Pliego` que se borran siempre al desinstalar (se vuelven a descargar).
+const REGENERABLE_CACHE: &[&str] = &["updates"];
+
+/// Marca del tipo de instalación que lee la autoactualización.
+pub const KIND_FILE: &str = "install-kind";
+
 fn drive_of(path: &Path) -> String {
     path.components()
         .next()
@@ -149,7 +155,34 @@ pub fn replace_file(src: &Path, dst: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Comprueba que la carpeta de destino se puede usar antes de tocar nada.
+fn check_dir(dir: &Path) -> Result<()> {
+    let shown = dir.display();
+    if dir.as_os_str().is_empty() {
+        return Err(SetupError::BadPath("la ruta está vacía".into()));
+    }
+    if !dir.is_absolute() {
+        return Err(SetupError::BadPath(format!("{shown} no es una ruta absoluta")));
+    }
+    if dir.is_file() {
+        return Err(SetupError::BadPath(format!("{shown} es un archivo, no una carpeta")));
+    }
+    // Una unidad que no existe (p. ej. `Z:\Pliego`) no tiene ningún ancestro existente.
+    let anchor = nearest_existing(dir);
+    if !anchor.exists() {
+        return Err(SetupError::BadPath(format!("la unidad de {shown} no existe")));
+    }
+    if anchor.is_file() {
+        return Err(SetupError::BadPath(format!(
+            "{} es un archivo y no puede contener {shown}",
+            anchor.display()
+        )));
+    }
+    Ok(())
+}
+
 fn check_environment(sys: &dyn System, opts: &Options, manifest: &Manifest) -> Result<()> {
+    check_dir(&opts.dir)?;
     let build = sys.windows_build();
     if build != 0 && build < MIN_WINDOWS_BUILD {
         return Err(SetupError::OldWindows(build));
@@ -313,6 +346,13 @@ pub fn install(
             shortcuts,
         };
         write_info(root, &info)?;
+        // Marca para la autoactualización (`pliego-update`): `user` o `machine` (el MSI de W10 escribe `msi`).
+        let kind = if opts.scope == Scope::Machine {
+            "machine"
+        } else {
+            "user"
+        };
+        fs::write(root.join(KIND_FILE), kind)?;
 
         report("finishing", 96);
         let _ = layout.cleanup(2);
@@ -363,6 +403,7 @@ pub fn remove_installed_files(root: &Path) -> io::Result<()> {
         "rolled-back",
         "rolled-back.tmp",
         INFO_FILE,
+        KIND_FILE,
     ] {
         match fs::remove_file(root.join(f)) {
             Ok(()) => {}
@@ -417,8 +458,13 @@ pub fn uninstall(
     remove_installed_files(root)
         .map_err(|e| SetupError::Other(format!("no se pudo borrar {}: {e}", root.display())))?;
     report("removing", 80);
-    let _ = fs::remove_dir_all(&data.cache);
+    // Sin `purge` solo se borra lo regenerable (descargas de actualizaciones). `%LOCALAPPDATA%\Pliego` también guarda
+    // `tessdata` (modelos de OCR), `models`, `update-state.json`…: eso solo desaparece con `--purge`.
+    for sub in REGENERABLE_CACHE {
+        let _ = fs::remove_dir_all(data.cache.join(sub));
+    }
     if purge {
+        let _ = fs::remove_dir_all(&data.cache);
         let _ = fs::remove_dir_all(&data.settings);
     }
     report("removing", 100);
@@ -482,14 +528,41 @@ fn same_content(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// Actualización por máquina (`--update --paq`, elevado): extrae y verifica la versión y la deja como `pending`.
-/// El registro (versión mostrada, lanzadores) lo renueva `post_update` cuando el lanzador la activa.
-pub fn update_from_paq(root: &Path, paq_file: &Path) -> Result<String> {
+/// Actualización por máquina (`--update --paq --manifest`, elevado): copia el `.paq` a una carpeta protegida,
+/// verifica la firma Ed25519 del manifiesto y el SHA-256 de la copia, y solo entonces la extrae y la deja como
+/// `pending`. El registro (versión mostrada, lanzadores) lo renueva `post_update` cuando el lanzador la activa.
+pub fn update_from_paq(
+    root: &Path,
+    paq_file: &Path,
+    manifest: &Path,
+    trusted: &[pliego_update::PublicKey],
+) -> Result<String> {
     let layout = Layout::new(root);
     ensure_layout_exists(&layout)?;
-    let version = layout.stage(paq_file)?;
-    logging::info(&format!("actualización preparada: {version}"));
-    Ok(version)
+    let verified = crate::verify::copy_and_verify(root, paq_file, manifest, trusted)?;
+    let result = (|| {
+        if let Some(current) = active_version(root)
+            && cmp_versions(&verified.version, &current) != std::cmp::Ordering::Greater
+        {
+            return Err(SetupError::Corrupt(format!(
+                "la versión {} no es posterior a la instalada ({current})",
+                verified.version
+            )));
+        }
+        let version = layout.stage(&verified.copy)?;
+        if version != verified.version {
+            return Err(SetupError::Corrupt(format!(
+                "el paquete trae la versión {version} y el manifiesto firmado {}",
+                verified.version
+            )));
+        }
+        Ok(version)
+    })();
+    crate::verify::clean(root);
+    if let Ok(v) = &result {
+        logging::info(&format!("actualización preparada: {v}"));
+    }
+    result
 }
 
 fn ensure_layout_exists(layout: &Layout) -> Result<()> {
@@ -505,6 +578,8 @@ fn ensure_layout_exists(layout: &Layout) -> Result<()> {
 mod tests {
     use super::*;
     use crate::system::fake::FakeSystem;
+    use crate::verify::tests::{manifest_for, write_env};
+    use pliego_update::sign::ReleaseKey;
 
     /// Crea un `.paq` de una app falsa con lanzadores y setup.
     fn make_paq(dir: &Path, version: &str, app_marker: &str) -> PathBuf {
@@ -529,7 +604,11 @@ mod tests {
         fs::create_dir_all(&s).unwrap();
         fs::create_dir_all(&c).unwrap();
         fs::write(s.join("settings.json"), "{}").unwrap();
-        fs::write(c.join("cache.bin"), "x").unwrap();
+        fs::write(c.join("update-state.json"), "{}").unwrap();
+        fs::create_dir_all(c.join("tessdata")).unwrap();
+        fs::write(c.join("tessdata/spa.traineddata"), "modelo").unwrap();
+        fs::create_dir_all(c.join("updates")).unwrap();
+        fs::write(c.join("updates/pliego.paq"), "x").unwrap();
         DataDirs { settings: s, cache: c }
     }
 
@@ -671,6 +750,20 @@ mod tests {
         assert!(matches!(e, SetupError::NoSpace { .. }), "{e}");
         assert!(!root.join("current").exists());
 
+        // Rutas no válidas: vacía, relativa y bajo un archivo.
+        let sys = FakeSystem::new();
+        let file = d.path().join("archivo");
+        fs::write(&file, b"x").unwrap();
+        for bad in [
+            PathBuf::new(),
+            PathBuf::from("relativa/Pliego"),
+            file.clone(),
+            file.join("Pliego"),
+        ] {
+            let e = install(&src, &opts(&bad), &sys, &AtomicBool::new(false), &mut |_| {}).unwrap_err();
+            assert!(matches!(e, SetupError::BadPath(_)), "{bad:?}: {e}");
+        }
+
         let mut sys = FakeSystem::new();
         sys.build = 18363;
         assert!(matches!(
@@ -739,11 +832,38 @@ mod tests {
         assert!(root.join("mis-notas.txt").is_file(), "no se borran archivos ajenos");
         assert!(!root.join("Pliego.exe").exists() && !root.join("app-0.4.0").exists() && !root.join("bin").exists());
         assert!(dd.settings.join("settings.json").is_file(), "los ajustes se conservan");
-        assert!(!dd.cache.exists(), "la caché siempre se borra");
+        assert!(
+            !dd.cache.join("updates").exists(),
+            "las descargas regenerables se borran"
+        );
+        assert!(
+            dd.cache.join("tessdata/spa.traineddata").is_file(),
+            "los modelos de OCR se conservan"
+        );
+        assert!(
+            dd.cache.join("update-state.json").is_file(),
+            "el estado del actualizador se conserva"
+        );
         let c = sys.calls();
         assert!(
             c.contains(&"unregister_uninstall User".to_string()) && c.contains(&"shell register=false".to_string())
         );
+    }
+
+    #[test]
+    fn registry_version_follows_rollback_via_post_update() {
+        let d = tempfile::tempdir().unwrap();
+        let root = d.path().join("P");
+        let sys = FakeSystem::new();
+        for v in ["0.4.0", "0.5.0"] {
+            let src = Source::from_file(make_paq(d.path(), v, "a")).unwrap();
+            install(&src, &opts(&root), &sys, &AtomicBool::new(false), &mut |_| {}).unwrap();
+        }
+        assert_eq!(read_info(&root).unwrap().version, "0.5.0");
+        Layout::new(&root).rollback().unwrap();
+        post_update(&root, &sys).unwrap();
+        assert_eq!(read_info(&root).unwrap().version, "0.4.0");
+        assert!(sys.calls().contains(&"register_uninstall User 0.4.0".to_string()));
     }
 
     #[test]
@@ -801,10 +921,43 @@ mod tests {
             &mut |_| {},
         )
         .unwrap();
-        let v = update_from_paq(&root, &make_paq(d.path(), "0.5.0", "b")).unwrap();
+        assert_eq!(fs::read_to_string(root.join(KIND_FILE)).unwrap(), "user");
+
+        let key = ReleaseKey::generate().unwrap();
+        let trusted = [key.public()];
+        let signed = |paq: &Path, version: &str, key: &ReleaseKey| {
+            let m = manifest_for(&fs::read(paq).unwrap(), version);
+            let dir = paq
+                .parent()
+                .unwrap()
+                .join(format!("m-{version}-{}", key.public().key_id()));
+            fs::create_dir_all(&dir).unwrap();
+            write_env(&dir, &m, key)
+        };
+        let paq = make_paq(d.path(), "0.5.0", "b");
+
+        // Firmado por una clave desconocida, o sin claves: no se extrae nada.
+        let other = signed(&paq, "0.5.0", &ReleaseKey::generate().unwrap());
+        assert!(update_from_paq(&root, &paq, &other, &trusted).is_err());
+        assert!(update_from_paq(&root, &paq, &other, &[]).is_err());
+        assert_eq!(Layout::new(&root).pending().unwrap(), None);
+
+        let man = signed(&paq, "0.5.0", &key);
+        let v = update_from_paq(&root, &paq, &man, &trusted).unwrap();
         assert_eq!(v, "0.5.0");
         assert_eq!(Layout::new(&root).pending().unwrap().as_deref(), Some("0.5.0"));
-        assert!(update_from_paq(&d.path().join("vacia"), &make_paq(d.path(), "0.6.0", "c")).is_err());
+        assert!(
+            !root.join(crate::verify::STAGING_DIR).exists(),
+            "limpia la copia protegida"
+        );
+
+        // La versión del manifiesto firmado debe coincidir con la del paquete y ser posterior a la instalada.
+        let liar = signed(&paq, "0.9.0", &key);
+        assert!(update_from_paq(&root, &paq, &liar, &trusted).is_err());
+        let old = make_paq(d.path(), "0.3.0", "z");
+        let man_old = signed(&old, "0.3.0", &key);
+        assert!(update_from_paq(&root, &old, &man_old, &trusted).is_err());
+        assert!(update_from_paq(&d.path().join("vacia"), &paq, &man, &trusted).is_err());
     }
 
     #[test]

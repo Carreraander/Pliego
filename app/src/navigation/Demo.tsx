@@ -23,7 +23,7 @@ function CompressPanel(p: { onClose: () => void }) {
 
 /** Navegación con un documento falso, para probar paletas, modos y atajos sin Tauri (solo desarrollo): `/nav-demo`. */
 export function NavigationDemo() {
-  const onHome = () => currentScreen()?.id === "home";
+  const onScreen = () => currentScreen() !== null && currentScreen() !== undefined;
   const day = 86_400;
   const nowSec = Math.floor(Date.now() / 1000);
   setRecentsBackend(memoryBackend([
@@ -61,7 +61,7 @@ export function NavigationDemo() {
     onCleanup(() => offs.forEach((off) => off()));
   });
   return (
-    <AppWindow tabs={onHome() ? [{ id: "home", title: "Inicio", kind: "screen" as const }, { id: "1", title: "contrato.pdf" }] : [{ id: "1", title: "contrato.pdf" }, { id: "2", title: "factura-octubre.pdf" }]} activeId={onHome() ? "home" : "1"} onSelectTab={() => {}} onCloseTab={() => {}} onNewTab={() => {}} onReorderTabs={() => {}} appMenu={[]}>
+    <AppWindow tabs={onScreen() ? [{ id: "screen", title: currentScreen()!.title?.() ?? currentScreen()!.id, kind: "screen" as const }, { id: "1", title: "contrato.pdf" }] : [{ id: "1", title: "contrato.pdf" }, { id: "2", title: "factura-octubre.pdf" }]} activeId={onScreen() ? "screen" : "1"} onSelectTab={() => {}} onCloseTab={() => {}} onNewTab={() => {}} onReorderTabs={() => {}} appMenu={[]}>
       <NavigationHost />
       <Show when={currentScreen()} keyed fallback={<EmptyState icon="file-text" title="Documento de ejemplo" hint="Prueba Ctrl+K, Ctrl+Mayús+A, Alt+1…9 y F1." />}>{(s) => <Dynamic component={s.component} />}</Show>
     </AppWindow>

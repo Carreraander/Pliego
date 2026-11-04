@@ -1,7 +1,7 @@
 #![no_main]
 //! Leer los marcadores de un PDF arbitrario no debe tumbar el proceso.
-//! CONOCIDO: con mupdf-rs 0.8.0 un marcador sin /Title provoca un NULL en `walk_outlines`
-//! (ver docs de W02); mientras no se corrija, este objetivo cae y no entra en `tools/fuzz.sh`.
+//! Un PDF pasa por el recorrido propio de `outline.rs`, que tolera marcadores sin /Title (fallo de
+//! `walk_outlines` en mupdf-rs 0.8.0); solo los no PDF usan `outlines()`. Entra en `tools/fuzz.sh`.
 use libfuzzer_sys::fuzz_target;
 use pliego_core::{EngineDocument, PdfEngine};
 use pliego_engine_mupdf::MupdfEngine;

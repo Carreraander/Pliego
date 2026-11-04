@@ -56,13 +56,18 @@ pub struct SignatureReport {
     pub has_timestamp: bool,
     /// Detalle del sello de tiempo, si lo hay.
     pub timestamp: Option<crate::timestamp::TimestampInfo>,
+    /// Sello de tiempo del documento (B-LTA) que cubre esta firma y su DSS, si lo hay.
+    pub document_timestamp: Option<crate::timestamp::TimestampInfo>,
     pub problems: Vec<String>,
 }
 
 impl SignatureReport {
     /// Firma íntegra, sin cambios posteriores y con cadena de confianza.
     pub fn is_valid(&self) -> bool {
-        self.integrity && self.modifications_allowed && self.chain == ChainStatus::Trusted
+        self.integrity
+            && self.modifications_allowed
+            && self.chain == ChainStatus::Trusted
+            && self.document_timestamp.as_ref().is_none_or(|t| t.valid)
     }
 }
 
@@ -122,9 +127,14 @@ pub fn validate_bytes(data: &[u8], opts: &ValidationOptions) -> Result<Vec<Signa
     let doc = lopdf::Document::load_mem(data).map_err(|e| Error::Pdf(format!("no se pudo leer el PDF: {e}")))?;
     let has_dss = doc.catalog().is_ok_and(|c| c.has(b"DSS"));
     let mut reports = Vec::new();
+    let mut doc_stamps = Vec::new();
     for (&id, obj) in &doc.objects {
         let Object::Dictionary(d) = obj else { continue };
         if !(d.has(b"ByteRange") && d.has(b"Contents")) {
+            continue;
+        }
+        if d.get(b"SubFilter").ok() == Some(&Object::Name(b"ETSI.RFC3161".to_vec())) {
+            doc_stamps.push(check_document_timestamp(data, d, opts));
             continue;
         }
         // Nombre del campo: el widget cuyo /V apunta a esta firma.
@@ -141,7 +151,67 @@ pub fn validate_bytes(data: &[u8], opts: &ValidationOptions) -> Result<Vec<Signa
         };
         reports.push(r);
     }
+    // El sello más reciente (el último) es el que protege la firma a largo plazo.
+    if let Some(stamp) = doc_stamps.pop() {
+        for r in &mut reports {
+            if !stamp.valid {
+                r.problems.push("el sello de tiempo del documento no es válido".into());
+            } else if r.level == crate::PadesLevel::BLt {
+                r.level = crate::PadesLevel::BLta;
+            }
+            r.document_timestamp = Some(stamp.clone());
+        }
+    }
     Ok(reports)
+}
+
+/// Comprueba un `DocTimeStamp`: el token RFC 3161 de `/Contents` debe sellar los bytes cubiertos por su `ByteRange`.
+fn check_document_timestamp(
+    data: &[u8],
+    d: &lopdf::Dictionary,
+    opts: &ValidationOptions,
+) -> crate::timestamp::TimestampInfo {
+    let broken = |why: &str| crate::timestamp::TimestampInfo {
+        time: why.to_string(),
+        valid: false,
+        signer: String::new(),
+        chain: ChainStatus::Invalid,
+    };
+    let br: Vec<usize> = match d.get(b"ByteRange").and_then(Object::as_array) {
+        Ok(a) => a.iter().filter_map(|o| o.as_i64().ok().map(|v| v as usize)).collect(),
+        Err(_) => return broken("ByteRange ilegible"),
+    };
+    let [0, l1, s2, l2] = br[..] else {
+        return broken("el sello no cubre el documento desde el principio");
+    };
+    if s2 < l1 + 2 || s2.checked_add(l2).is_none_or(|e| e > data.len()) {
+        return broken("ByteRange fuera del documento");
+    }
+    let Ok(Object::String(contents, _)) = d.get(b"Contents") else {
+        return broken("falta el contenido del sello");
+    };
+    let gap = &data[l1..s2];
+    if gap.first() != Some(&b'<')
+        || gap.last() != Some(&b'>')
+        || hex::decode(&gap[1..gap.len() - 1]).ok().as_deref() != Some(&contents[..])
+    {
+        return broken("el sello no ocupa el hueco que deja ByteRange");
+    }
+    let Some(len) = der_prefix_len(contents).filter(|l| *l <= contents.len()) else {
+        return broken("sello ilegible");
+    };
+    let mut covered = data[..l1].to_vec();
+    covered.extend_from_slice(&data[s2..s2 + l2]);
+    match crate::timestamp::check_token(&contents[..len], &covered, &opts.trust_anchors) {
+        Ok(mut t) => {
+            // El sello debe llegar hasta el final del archivo, salvo que solo se hayan añadido datos de validación.
+            if s2 + l2 != data.len() && crate::changes::check_updates(data, s2 + l2, None).is_err() {
+                t.valid = false;
+            }
+            t
+        }
+        Err(e) => broken(&e.to_string()),
+    }
 }
 
 fn check_signature(
@@ -166,6 +236,7 @@ fn check_signature(
         chain: ChainStatus::Incomplete,
         has_timestamp: false,
         timestamp: None,
+        document_timestamp: None,
         problems: Vec::new(),
     };
     if let Err(msg) = check_inner(data, d, opts, &mut r) {

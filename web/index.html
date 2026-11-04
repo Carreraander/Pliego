@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pliego · Programa PDF gratis y libre para Windows</title>
+<meta name="description" content="Pliego es un programa PDF gratuito y libre para Windows: lee, comenta, rellena, firma con certificado digital, organiza, aplica OCR y protege tus PDF sin nube ni cuenta.">
+<link rel="canonical" href="https://pdfpliego.com/">
+<link rel="alternate" hreflang="es" href="https://pdfpliego.com/">
+<link rel="alternate" hreflang="x-default" href="https://pdfpliego.com/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#f2f3f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1d1c" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/demo.js" defer></script>
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pliego">
+<meta property="og:locale" content="es_ES">
+<meta property="og:url" content="https://pdfpliego.com/">
+<meta property="og:title" content="Pliego: el programa PDF libre y gratuito para Windows">
+<meta property="og:description" content="Lee, comenta, firma, organiza, reconoce texto y protege tus PDF. Sin nube, sin cuenta, sin marcas de agua.">
+<meta property="og:image" content="https://pdfpliego.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Ventana de Pliego con un contrato abierto y el panel de firma digital">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://pdfpliego.com/#web",
+      "url": "https://pdfpliego.com/",
+      "name": "Pliego",
+      "inLanguage": "es"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://pdfpliego.com/#app",
+      "name": "Pliego",
+      "url": "https://pdfpliego.com/",
+      "description": "Programa PDF libre y gratuito para Windows: leer, comentar, rellenar y firmar, organizar, editar, proteger, OCR, comparar, comprimir, convertir y PDF/A.",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Editor de PDF",
+      "operatingSystem": "Windows 10, Windows 11",
+      "inLanguage": "es",
+      "isAccessibleForFree": true,
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "image": "https://pdfpliego.com/og.png",
+      "sameAs": ["https://github.com/Carreraander/Pliego"],
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+      "featureList": [
+        "Leer y buscar en PDF",
+        "Comentar, resaltar y sellar",
+        "Rellenar formularios",
+        "Firma electrónica PAdES con certificado digital",
+        "Combinar, dividir, rotar y reordenar páginas",
+        "Editar texto e imágenes",
+        "Contraseñas, permisos y redacción de datos",
+        "Reconocimiento de texto (OCR)",
+        "Comparar documentos",
+        "Comprimir PDF",
+        "Exportar a Word, Excel y PowerPoint",
+        "Guardar y validar PDF/A"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://pdfpliego.com/#preguntas",
+      "mainEntity": [
+        { "@type": "Question", "name": "¿Pliego es gratis?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sí. Pliego es software libre con licencia AGPL-3.0: se descarga y se usa gratis, en casa o en la empresa, sin suscripción, sin marcas de agua y sin límite de páginas ni de documentos." } },
+        { "@type": "Question", "name": "¿Funciona sin conexión a internet?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sí. Todo el trabajo con tus PDF, incluido el OCR, se hace en tu equipo. Pliego solo se conecta para buscar actualizaciones, y puedes desactivarlo en Ajustes." } },
+        { "@type": "Question", "name": "¿Puedo firmar un PDF con mi certificado digital?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sí. Pliego crea firmas electrónicas PAdES con el certificado que tengas instalado en Windows o en un archivo .p12 o .pfx, y valida las firmas que ya tenga el documento." } },
+        { "@type": "Question", "name": "¿Es una alternativa a Adobe Acrobat?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Pliego cubre las tareas habituales de un editor PDF de escritorio: leer, comentar, rellenar, firmar, organizar páginas, proteger, OCR, comparar, comprimir y convertir. Es un proyecto independiente y no tiene relación con Adobe." } },
+        { "@type": "Question", "name": "¿Qué necesito para instalarlo?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Windows 10 o Windows 11 de 64 bits. El instalador no pide permisos de administrador: se instala para tu usuario." } },
+        { "@type": "Question", "name": "¿Pliego envía mis documentos o datos de uso a algún sitio?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Pliego no tiene cuenta de usuario ni telemetría. Tus documentos no salen de tu equipo." } },
+        { "@type": "Question", "name": "¿Puedo ver el código fuente?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sí. El código completo está en GitHub bajo licencia AGPL-3.0. Pliego usa MuPDF como motor de PDF." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#contenido">Saltar al contenido</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="logo" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+    <symbol id="i-reg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25"><circle cx="12" cy="12" r="6"/><path d="M12 1v22M1 12h22"/></symbol>
+    <symbol id="i-crop" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1"><path d="M0 14.5h9M14.5 0v9"/></symbol>
+    <symbol id="i-sign" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 16c2-6 4-9 5.5-9s-.5 7 1 7 2-3 3.5-3 1 2 3 2"/></symbol>
+    <symbol id="i-cert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8 10h8M8 14h5"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="4" width="7" height="9" rx="1"/><rect x="4" y="15" width="16" height="5" rx="1"/></symbol>
+    <symbol id="i-compare" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="7" height="16" rx="1"/><rect x="13.5" y="4" width="7" height="16" rx="1"/><path d="M6 9h2M16 9h2M6 13h2M16 13h2"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/></symbol>
+    <symbol id="i-form" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12.5h3.5M14 12.5h2"/><rect x="8" y="15.5" width="8" height="2" rx=".5"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V3.5h10V9M7 17H5a1.5 1.5 0 0 1-1.5-1.5v-5A1.5 1.5 0 0 1 5 9h14a1.5 1.5 0 0 1 1.5 1.5v5A1.5 1.5 0 0 1 19 17h-2"/><rect x="7" y="14" width="10" height="6.5" rx="1"/></symbol>
+    <symbol id="i-access" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="1.5"/><path d="M5 8.5l7 1.5 7-1.5M12 10v4.5M12 14.5 9 21M12 14.5 15 21"/></symbol>
+    <symbol id="i-batch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h9.5A1.5 1.5 0 0 1 19 5v12M5.5 6.5h9A1.5 1.5 0 0 1 16 8v11.5a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V7.5a1 1 0 0 1 1-1z"/></symbol>
+    <symbol id="i-offline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="11" rx="1.5"/><path d="M8.5 20h7M12 15.5V20"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12S7 5.5 12 5.5c1.5 0 2.8.5 4 1.2M20.5 12s-3.5 6.5-8.5 6.5c-1.5 0-2.8-.5-4-1.2M4 20 20 4"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 0 1-13.2 4.9M4.5 12a7.5 7.5 0 0 1 13.2-4.9M18 3.5v4h-4M6 20.5v-4h4"/></symbol>
+    <symbol id="i-thumbs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="7" height="7" rx="1"/><rect x="13" y="3.5" width="7" height="7" rx="1"/><rect x="4" y="13.5" width="7" height="7" rx="1"/><rect x="13" y="13.5" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></symbol>
+    <symbol id="i-comment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h0A1.5 1.5 0 0 1 4 14.5z"/></symbol>
+    <symbol id="i-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 12h12"/></symbol>
+    <symbol id="i-max" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></symbol>
+    <symbol id="i-zip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v6M8.5 6.5 12 10l3.5-3.5M12 20.5v-6M8.5 17.5 12 14l3.5 3.5M4 12h16"/></symbol>
+    <symbol id="i-cursor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3.5 18.5 10l-6 1.8-2.3 6.2z"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V5.5a1.5 1.5 0 0 1 3 0V11M11 10V4.5a1.5 1.5 0 0 1 3 0V11M14 10.5V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7.5-6.5 7.5-2.5 0-4-1.5-5.5-4l-1.8-3a1.5 1.5 0 0 1 2.5-1.6L8 13.5"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/></symbol>
+    <symbol id="i-hl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 4.5 5 5-8 8H7.5V13.5zM4 20.5h7"/></symbol>
+    <symbol id="i-stamp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4h5v5l-1 3h4a1.5 1.5 0 0 1 1.5 1.5V16H5v-2.5A1.5 1.5 0 0 1 6.5 12h4l-1-3zM5 19.5h14"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12A7.5 7.5 0 1 1 15 5.1M19.5 4v4h-4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="1.5"/><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6.5V4.5h14v2M12 4.5v15M9 19.5h6"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9.5 4 8 20M16 4l-1.5 16M4.5 9h15M4 15h15"/></symbol>
+    <symbol id="i-redact" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9" width="17" height="6" rx="1" fill="currentColor"/><path d="M4 5h9M4 19h12"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></symbol>
+  </defs>
+</svg>
+
+<header class="site-header">
+  <div class="sheet">
+    <a class="brand" href="/" aria-label="Pliego, inicio"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
+    <nav class="site-nav" aria-label="Secciones">
+      <a href="#modos">Funciones</a>
+      <a href="#privacidad">Privacidad</a>
+      <a href="#libre">Software libre</a>
+      <a href="#preguntas">Preguntas</a>
+    </nav>
+    <a class="btn btn-primary" href="/descargar/"><svg aria-hidden="true"><use href="#i-down"/></svg>Descargar</a>
+  </div>
+</header>
+
+<main id="contenido">
+
+<!-- ═════ Portada ═════ -->
+<section class="hero" aria-labelledby="titulo">
+  <div class="sheet">
+    <div class="hero-copy">
+      <span class="status-pill"><svg aria-hidden="true"><use href="#i-reg"/></svg>En desarrollo · primera versión de prueba muy pronto</span>
+      <h1 id="titulo">Todo lo que haces con un PDF, <em>en tu equipo y gratis.</em></h1>
+      <p class="lede">Pliego es un programa PDF libre para Windows. Lee, comenta, rellena y firma con tu certificado digital, organiza páginas, reconoce texto escaneado y protege tus documentos. Sin cuenta, sin nube y sin marcas de agua.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/descargar/"><svg aria-hidden="true"><use href="#i-down"/></svg>Descargar para Windows</a>
+        <a class="btn btn-quiet" href="https://github.com/Carreraander/Pliego"><svg aria-hidden="true"><use href="#i-code"/></svg>Ver el código</a>
+      </div>
+      <ul class="facts">
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Windows 10 y 11</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Sin permisos de administrador</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Licencia AGPL-3.0</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Funciona sin internet</li>
+      </ul>
+    </div>
+
+    <figure class="press" style="margin-inline:0;margin-bottom:0">
+      <svg class="crop tl" aria-hidden="true"><use href="#i-crop"/></svg>
+      <svg class="crop tr" aria-hidden="true"><use href="#i-crop"/></svg>
+      <svg class="reg" aria-hidden="true"><use href="#i-reg"/></svg>
+      <span class="press-note" aria-hidden="true">pliego 1 · cara A</span>
+      <div class="win" id="demo" role="img" aria-label="Ventana de Pliego: un contrato abierto en el modo Rellenar y firmar, con el campo de firma en la página y el asistente de firma digital a la derecha.">
+        <div class="win-title">
+          <svg class="logo" aria-hidden="true"><use href="#logo"/></svg>
+          <span class="tab on">contrato-alquiler.pdf <svg aria-hidden="true"><use href="#i-x"/></svg></span>
+          <span class="tab extra">factura-0425.pdf</span>
+          <span class="cmdk"><svg aria-hidden="true"><use href="#i-search"/></svg><span class="t">Buscar o ejecutar…</span><kbd>Ctrl K</kbd></span>
+          <span class="winbtns"><span><svg><use href="#i-min"/></svg></span><span><svg><use href="#i-max"/></svg></span><span><svg><use href="#i-x"/></svg></span></span>
+        </div>
+        <div class="win-modes">
+          <span class="mode">Leer</span><span class="mode">Comentar</span><span class="mode on">Rellenar y firmar</span><span class="mode">Organizar</span><span class="mode">Editar</span><span class="mode">Proteger</span>
+          <span class="mode-sep"></span><span class="mode">Herramientas</span>
+          <span class="mode-tools"><span><svg><use href="#i-form"/></svg>Rellenar campos</span><span><svg><use href="#i-sign"/></svg>Mi firma</span><span class="primary"><svg><use href="#i-cert"/></svg>Firma digital…</span></span>
+        </div>
+        <div class="win-body">
+          <div class="rail"><span class="on"><svg><use href="#i-thumbs"/></svg></span><span><svg><use href="#i-bookmark"/></svg></span><span><svg><use href="#i-comment"/></svg></span><span><svg><use href="#i-cert"/></svg></span></div>
+          <div class="thumbs"><span class="thumb"><i></i>1</span><span class="thumb on"><i></i>2</span><span class="thumb"><i></i>3</span></div>
+          <div class="canvas">
+            <div class="page">
+              <b>Cláusulas y firma</b>
+              <span class="ln" style="width:100%"></span><span class="ln" style="width:96%"></span><span class="ln" style="width:91%"></span><span class="ln" style="width:100%"></span><span class="ln" style="width:62%"></span>
+              <span class="ln" style="width:100%;margin-top:8px"></span><span class="ln" style="width:94%"></span><span class="ln" style="width:80%"></span>
+              <div class="sig-field live"><span>Campo de firma</span><small>Lucía Ortega Ruiz</small></div>
+            </div>
+            <div class="zoom"><span>−</span><span class="num">100 %</span><span>+</span></div>
+          </div>
+          <div class="inspector">
+            <h4>Firma digital</h4>
+            <ol class="steps"><li class="done" data-n="1">Certificado</li><li class="done" data-n="2">Dónde firmar</li><li class="on" data-n="3">Aspecto y motivo</li><li data-n="4">Firmar y guardar</li></ol>
+            <div class="field">Certificado<div><svg><use href="#i-cert"/></svg>Lucía Ortega Ruiz</div></div>
+            <div class="field">Motivo<div>Conforme con el contrato</div></div>
+            <div class="fake-btn">Siguiente</div>
+          </div>
+        </div>
+        <div class="win-status">
+          <span class="num">Pág. 2 de 3</span><span class="num hide-s">A4 · 210 × 297 mm</span>
+          <span class="muted">Sin firmar</span>
+          <span class="push num hide-s">100 %</span>
+        </div>
+      </div>
+      <p class="demo-hint" id="demo-hint" hidden>Es una demostración que puedes usar: cambia de modo, abre la otra pestaña, pulsa <span class="kbd">Ctrl K</span> o termina la firma con «Siguiente».</p>
+    </figure>
+  </div>
+</section>
+
+<!-- ═════ Seis modos ═════ -->
+<section class="band" id="modos" aria-labelledby="modos-t">
+  <div class="sheet">
+    <div class="band-head">
+      <p class="eyebrow"><svg aria-hidden="true"><use href="#i-reg"/></svg>Funciones</p>
+      <h2 id="modos-t">Seis modos de trabajo, siempre en el mismo sitio</h2>
+      <p class="lede">Cada modo cambia la barra de herramientas y deja lo demás quieto. Lo que necesitas para cada tarea aparece en el panel de la derecha, sin ventanas que se interpongan.</p>
+    </div>
+    <ol class="modes">
+      <li><div class="mode-key"><h3>Leer</h3><kbd>Alt+1</kbd></div><p>Abre PDF grandes con rapidez, busca en todo el texto y presenta a pantalla completa.</p><p class="tools">Vista continua, doble página o libro · Leer en voz alta · Marcadores</p></li>
+      <li><div class="mode-key"><h3>Comentar</h3><kbd>Alt+2</kbd></div><p>Resalta, subraya y deja notas que cualquier lector de PDF muestra igual.</p><p class="tools">Notas · Texto · Dibujo · Formas · Sellos · Comentarios en XFDF</p></li>
+      <li><div class="mode-key"><h3>Rellenar y firmar</h3><kbd>Alt+3</kbd></div><p>Completa formularios y firma con tu certificado digital o con tu firma manuscrita.</p><p class="tools">Firma PAdES · Validar firmas · Pedir firmas a otras personas</p></li>
+      <li><div class="mode-key"><h3>Organizar</h3><kbd>Alt+4</kbd></div><p>Combina archivos, reordena páginas arrastrándolas, rota, extrae o divide.</p><p class="tools">Insertar · Eliminar · Recortar · Numerar páginas</p></li>
+      <li><div class="mode-key"><h3>Editar</h3><kbd>Alt+5</kbd></div><p>Corrige texto e imágenes directamente sobre la página.</p><p class="tools">Enlaces · Encabezado y pie · Marca de agua · Numeración Bates</p></li>
+      <li><div class="mode-key"><h3>Proteger</h3><kbd>Alt+6</kbd></div><p>Pon contraseña, limita permisos y elimina de verdad los datos que no deben verse.</p><p class="tools">Cifrado · Redactar · Buscar datos personales · Sanear documento</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ═════ Ctrl+K ═════ -->
+<section class="band band-alt" aria-labelledby="cmdk-t">
+  <div class="sheet split">
+    <div class="band-head">
+      <p class="eyebrow"><svg aria-hidden="true"><use href="#i-search"/></svg>Ctrl+K</p>
+      <h2 id="cmdk-t">Escribe lo que quieres hacer</h2>
+      <p class="lede">La paleta de órdenes encuentra cualquier herramienta, ajuste, documento reciente o página. Ninguna función queda escondida en un menú.</p>
+      <ul class="shortcuts">
+        <li><span class="kbd">Ctrl K</span>Buscar o ejecutar</li>
+        <li><span class="kbd">Ctrl Mayús A</span>Todas las herramientas</li>
+        <li><span class="kbd">F4</span>Panel lateral</li>
+      </ul>
+    </div>
+    <div class="palette" role="img" aria-label="Paleta de órdenes con la búsqueda «comprimir» y sus resultados.">
+      <div class="palette-q"><svg><use href="#i-search"/></svg><span>comprimir</span><span class="caret"></span></div>
+      <div class="palette-group"><span>Herramientas</span>
+        <div class="palette-row on"><svg><use href="#i-zip"/></svg><div><b>Comprimir</b><small>Reduce el tamaño del archivo sin tocar el texto</small></div><span class="kbd">Intro</span></div>
+        <div class="palette-row"><svg><use href="#i-layers"/></svg><div><b>Optimizar avanzado</b><small>Imágenes, fuentes y objetos sin usar</small></div></div>
+        <div class="palette-row"><svg><use href="#i-batch"/></svg><div><b>Acción en lote: comprimir carpeta</b><small>Aplica la misma tarea a muchos archivos</small></div></div>
+      </div>
+      <div class="palette-group"><span>Recientes</span>
+        <div class="palette-row"><svg><use href="#i-form"/></svg><div><b>memoria-anual-2025.pdf</b><small>Documentos · 18,4 MB</small></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ Herramientas ═════ -->
+<section class="band" id="herramientas" aria-labelledby="herr-t">
+  <div class="sheet">
+    <div class="band-head">
+      <p class="eyebrow"><svg aria-hidden="true"><use href="#i-thumbs"/></svg>Herramientas</p>
+      <h2 id="herr-t">Y lo que no se hace todos los días, también</h2>
+      <p class="lede">Las tareas largas corren en segundo plano: puedes seguir leyendo mientras se reconoce el texto de otro documento. Y por defecto guardan una copia, así tu original no se toca.</p>
+    </div>
+    <dl class="toolindex">
+      <div><dt><svg aria-hidden="true"><use href="#i-scan"/></svg>Escanear y OCR</dt><dd>Convierte escaneos en PDF con texto que se puede buscar y copiar. Endereza y limpia páginas torcidas.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-swap"/></svg>Convertir</dt><dd>Crea PDF desde Word, Excel, PowerPoint e imágenes. Exporta a Word, Excel, PowerPoint, imágenes o texto.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-compare"/></svg>Comparar</dt><dd>Dos versiones lado a lado con la lista de cambios de texto y las diferencias visuales.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-zip"/></svg>Comprimir</dt><dd>Reduce el peso para enviarlo por correo, con vista previa de la calidad antes de guardar.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-form"/></svg>Formularios</dt><dd>Diseña formularios rellenables con casillas, listas, cálculos y validaciones.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-access"/></svg>PDF/A y accesibilidad</dt><dd>Guarda para archivo a largo plazo en PDF/A y revisa el orden de lectura y las etiquetas.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-batch"/></svg>Acciones en lote</dt><dd>Aplica OCR, compresión, marcas de agua o numeración Bates a una carpeta entera.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-print"/></svg>Impresión</dt><dd>Vista previa de salida y comprobación previa antes de mandar el archivo a imprenta.</dd></div>
+      <div><dt><svg aria-hidden="true"><use href="#i-code"/></svg>Línea de órdenes</dt><dd>La orden <span class="mono">pliego</span> automatiza las mismas tareas desde scripts.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ═════ Privacidad ═════ -->
+<section class="band band-alt" id="privacidad" aria-labelledby="priv-t">
+  <div class="sheet">
+    <div class="band-head">
+      <p class="eyebrow"><svg aria-hidden="true"><use href="#i-lock"/></svg>Privacidad</p>
+      <h2 id="priv-t">Tus documentos no salen de tu equipo</h2>
+      <p class="lede">Contratos, nóminas, historiales médicos. Lo que abres en Pliego se procesa en tu ordenador, también el reconocimiento de texto.</p>
+    </div>
+    <ul class="pledges">
+      <li><h3>Sin cuenta y sin nube</h3><p>No hay que registrarse ni iniciar sesión. Nada se sube a un servidor para convertirlo, comprimirlo o firmarlo.</p></li>
+      <li><h3>Sin telemetría</h3><p>Pliego no recoge datos de uso. La única conexión es la búsqueda de actualizaciones, y solo envía la versión instalada.</p></li>
+      <li><h3>Actualizaciones firmadas</h3><p>Cada actualización va firmada y se comprueba antes de instalarse. Puedes desactivarlas y Pliego no volverá a conectarse.</p></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═════ Libre ═════ -->
+<section class="band" id="libre" aria-labelledby="libre-t">
+  <div class="sheet free">
+    <div class="band-head">
+      <p class="eyebrow"><svg aria-hidden="true"><use href="#i-code"/></svg>Software libre</p>
+      <h2 id="libre-t">Gratis hoy y mañana, porque el código es de todos</h2>
+      <p class="lede">Pliego se publica con licencia AGPL-3.0. Puedes usarlo, estudiarlo, modificarlo y compartirlo. Nadie puede cerrarlo ni ponerle una suscripción a la versión que ya tienes.</p>
+      <p><a href="https://github.com/Carreraander/Pliego">Código fuente en GitHub</a></p>
+    </div>
+    <dl class="ledger">
+      <div><dt>Precio</dt><dd class="num">0 €, sin periodo de prueba</dd></div>
+      <div><dt>Marcas de agua</dt><dd>Ninguna</dd></div>
+      <div><dt>Límites</dt><dd>Sin límite de páginas ni de archivos</dd></div>
+      <div><dt>Uso en empresas</dt><dd>Permitido</dd></div>
+      <div><dt>Motor PDF</dt><dd>MuPDF</dd></div>
+      <div><dt>Licencia</dt><dd>AGPL-3.0-or-later</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ═════ Preguntas ═════ -->
+<section class="band band-alt" id="preguntas" aria-labelledby="faq-t">
+  <div class="sheet">
+    <div class="band-head"><h2 id="faq-t">Preguntas frecuentes</h2></div>
+    <div class="faq">
+      <details open><summary>¿Pliego es gratis?</summary><div><p>Sí. Pliego es software libre con licencia AGPL-3.0: se descarga y se usa gratis, en casa o en la empresa, sin suscripción, sin marcas de agua y sin límite de páginas ni de documentos.</p></div></details>
+      <details><summary>¿Funciona sin conexión a internet?</summary><div><p>Sí. Todo el trabajo con tus PDF, incluido el OCR, se hace en tu equipo. Pliego solo se conecta para buscar actualizaciones, y puedes desactivarlo en Ajustes.</p></div></details>
+      <details><summary>¿Puedo firmar un PDF con mi certificado digital?</summary><div><p>Sí. Pliego crea firmas electrónicas PAdES con el certificado que tengas instalado en Windows o en un archivo .p12 o .pfx, y valida las firmas que ya tenga el documento.</p></div></details>
+      <details><summary>¿Es una alternativa a Adobe Acrobat?</summary><div><p>Pliego cubre las tareas habituales de un editor PDF de escritorio: leer, comentar, rellenar, firmar, organizar páginas, proteger, OCR, comparar, comprimir y convertir. Es un proyecto independiente y no tiene relación con Adobe.</p><p>Si dependes de una función concreta, búscala en la <a href="#modos">lista de funciones</a> o pregunta en GitHub.</p></div></details>
+      <details><summary>¿Qué necesito para instalarlo?</summary><div><p>Windows 10 o Windows 11 de 64 bits. El instalador no pide permisos de administrador: se instala para tu usuario.</p></div></details>
+      <details><summary>¿Pliego envía mis documentos o datos de uso a algún sitio?</summary><div><p>No. Pliego no tiene cuenta de usuario ni telemetría. Tus documentos no salen de tu equipo.</p></div></details>
+      <details><summary>¿Puedo ver el código fuente?</summary><div><p>Sí. El código completo está en <a href="https://github.com/Carreraander/Pliego">GitHub</a> bajo licencia AGPL-3.0. Pliego usa MuPDF como motor de PDF.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ Cierre ═════ -->
+<section class="band" aria-labelledby="fin-t">
+  <div class="sheet closing">
+    <h2 id="fin-t">Abre tu próximo PDF con Pliego</h2>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/descargar/"><svg aria-hidden="true"><use href="#i-down"/></svg>Descargar para Windows</a>
+      <a class="btn btn-quiet" href="https://github.com/Carreraander/Pliego"><svg aria-hidden="true"><use href="#i-code"/></svg>Ver el código</a>
+    </div>
+    <p class="sysreq">Windows 10 o 11 de 64 bits · Se instala para tu usuario, sin administrador · Español</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="sheet">
+    <div class="foot-cols">
+      <a class="brand" href="/" aria-label="Pliego, inicio"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
+      <nav aria-label="Producto"><h2>Producto</h2><a href="/descargar/">Descargar</a><a href="#modos">Funciones</a><a href="#preguntas">Preguntas</a></nav>
+      <nav aria-label="Proyecto"><h2>Proyecto</h2><a href="https://github.com/Carreraander/Pliego">Código fuente</a><a href="https://github.com/Carreraander/Pliego/issues">Avisar de un fallo</a><a href="https://github.com/Carreraander/Pliego/blob/main/LICENSE">Licencia AGPL-3.0</a></nav>
+      <nav aria-label="Legal"><h2>Este sitio</h2><a href="/privacidad/">Privacidad</a></nav>
+    </div>
+    <div class="legal">
+      <p>Pliego es software libre distribuido bajo la licencia GNU AGPL-3.0-or-later. Usa MuPDF de Artifex Software.</p>
+      <p>Adobe y Acrobat son marcas registradas de Adobe Inc. en Estados Unidos y otros países. Microsoft, Windows, Word, Excel y PowerPoint son marcas de Microsoft Corporation. Pliego es un proyecto independiente, sin relación con estas empresas.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

@@ -21,3 +21,8 @@ Con `--worker` el ejecutor renderiza mediante `pliego-worker` (como la app): los
 como `rechazado` y el worker sigue usable. Hace falta compilar antes el worker:
 `cargo build --release -p pliego-worker -p pliego-qa && target/release/corpus-runner tests/corpus/external --worker`.
 Sin `--worker` se mide el motor en proceso y esos 5 salen como `conocido` (ver `known-issues.txt`).
+
+## Benchmarks
+`python tools/gen_bench_pdf.py` genera `tests/output/bench-500.pdf` (500 páginas de texto, ignorado por git).
+En acr12: `. .\tools\acr12-env.ps1; .\tools\bench.ps1` mide apertura, tesela de 512 px, página a 2x y memoria máxima, y guarda
+`docs/qa/bench/<versión>-<commit>.json`. Objetivos: abrir 500 páginas < 1,5 s; tesela 512 px < 30 ms de media.

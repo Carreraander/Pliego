@@ -1,0 +1,16 @@
+{
+  "fecha": "2026-11-04T11:23:20",
+  "equipo": "DESKTOP-41TJN0V",
+  "windows": "10.0.19045",
+  "version": "0.1.0",
+  "commit": "d05ebc1",
+  "pico_memoria_mb": 47.3,
+  "resultado": {
+    "pages": 500,
+    "open_median_ms": 0.61,
+    "open_p95_ms": 0.75,
+    "tile512_mean_ms": 16.99,
+    "tile512_p95_ms": 2.17,
+    "page_2x_ms": 7.9
+  }
+}

@@ -335,6 +335,77 @@ fn fix_annotations(doc: &mut PdfDocument, page_no: usize, notes: &mut Notes, lev
     Ok(())
 }
 
+fn mime_for(ext: &str) -> &'static str {
+    match ext {
+        "pdf" => "application/pdf",
+        "xml" => "text/xml",
+        "txt" => "text/plain",
+        "csv" => "text/csv",
+        "json" => "application/json",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Identificador del documento: ISO 19005 exige `/ID` (dos cadenas) en el trailer.
+fn ensure_trailer_id(doc: &mut PdfDocument, seed: &[u8]) -> Result<()> {
+    use std::hash::{DefaultHasher, Hash, Hasher};
+    let mut trailer = doc.trailer().map_err(pdf_err)?;
+    if let Some(id) = get(&trailer, "ID")
+        && id.is_array().unwrap_or(false)
+        && array_items(&id)
+            .iter()
+            .filter(|s| s.is_string().unwrap_or(false))
+            .count()
+            >= 2
+    {
+        return Ok(());
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let mut hex = String::with_capacity(32);
+    for salt in [1u8, 2u8] {
+        let mut h = DefaultHasher::new();
+        (salt, nanos, seed.len()).hash(&mut h);
+        seed.hash(&mut h);
+        hex.push_str(&format!("{:016x}", h.finish()));
+    }
+    let a = doc.new_object_from_str(&format!("<{}>", &hex[..32])).map_err(pdf_err)?;
+    let b = doc.new_object_from_str(&format!("<{}>", &hex[..32])).map_err(pdf_err)?;
+    let mut arr = doc.new_array().map_err(pdf_err)?;
+    arr.array_push(a).map_err(pdf_err)?;
+    arr.array_push(b).map_err(pdf_err)?;
+    trailer.dict_put("ID", arr).map_err(pdf_err)?;
+    Ok(())
+}
+
+/// Contenido opcional (PDF/A-2 y 3): cada configuración necesita un nombre (6.9).
+fn name_oc_configs(doc: &PdfDocument, catalog: &PdfObject) -> Result<()> {
+    let Some(ocp) = get(catalog, "OCProperties") else {
+        return Ok(());
+    };
+    let mut configs: Vec<PdfObject> = Vec::new();
+    if let Some(d) = get(&ocp, "D") {
+        configs.push(d);
+    }
+    if let Some(c) = get(&ocp, "Configs") {
+        configs.extend(array_items(&c));
+    }
+    for (i, mut c) in configs.into_iter().enumerate() {
+        if c.is_dict().unwrap_or(false) && get(&c, "Name").is_none() {
+            c.dict_put(
+                "Name",
+                doc.new_string(&format!("Configuración {}", i + 1)).map_err(pdf_err)?,
+            )
+            .map_err(pdf_err)?;
+        }
+    }
+    Ok(())
+}
+
 /// Adjuntos en PDF/A-3: cada archivo incrustado se asocia al documento (AF con AFRelationship).
 fn associate_attachments(doc: &PdfDocument, catalog: &mut PdfObject) -> Result<usize> {
     fn collect(node: &PdfObject, out: &mut Vec<PdfObject>, depth: usize) {
@@ -370,6 +441,23 @@ fn associate_attachments(doc: &PdfDocument, catalog: &mut PdfObject) -> Result<u
             && let Some(f) = get(&s, "F")
         {
             s.dict_put("UF", f).map_err(pdf_err)?;
+        }
+        // ISO 19005-3 (6.8): el flujo del archivo incrustado debe declarar su tipo MIME (Subtype).
+        if let Some(mut ef) = get(&s, "EF").and_then(|e| get(&e, "F"))
+            && ef.is_stream().unwrap_or(false)
+            && get(&ef, "Subtype").is_none()
+        {
+            let name = get(&s, "UF")
+                .or_else(|| get(&s, "F"))
+                .and_then(|f| {
+                    f.as_string()
+                        .ok()
+                        .map(|b| String::from_utf8_lossy(b.as_bytes()).to_lowercase())
+                })
+                .unwrap_or_default();
+            let ext = name.rsplit('.').next().unwrap_or("");
+            ef.dict_put("Subtype", PdfObject::new_name(mime_for(ext)).map_err(pdf_err)?)
+                .map_err(pdf_err)?;
         }
         af.array_push(s).map_err(pdf_err)?;
         n += 1;
@@ -542,6 +630,9 @@ pub fn convert(input: &Path, output: &Path, level: Level, ctx: &JobContext) -> R
             .warnings
             .push("Se quitaron las capas (contenido opcional), que PDF/A-1 no permite.".into());
     }
+    if level != Level::A1b {
+        name_oc_configs(&doc, &catalog)?;
+    }
     if level.allows_attachments() {
         associate_attachments(&doc, &mut catalog)?;
     }
@@ -577,6 +668,10 @@ pub fn convert(input: &Path, output: &Path, level: Level, ctx: &JobContext) -> R
             }
         }
         notes.removed_actions += strip_additional_actions(&mut page)?;
+        // PDF/A-2 y -3 (6.5.2) no admiten ni la entrada /AA de página, aunque quede vacía.
+        if level.allows_transparency() && get(&page, "AA").is_some() {
+            page.dict_delete("AA").map_err(pdf_err)?;
+        }
         fix_annotations(&mut doc, p, &mut notes, level)?;
     }
 
@@ -590,6 +685,10 @@ pub fn convert(input: &Path, output: &Path, level: Level, ctx: &JobContext) -> R
 
     ctx.step(pages as u64 + 1, pages as u64 + 2, "Escribiendo metadatos")?;
     write_metadata_and_intent(&mut doc, level)?;
+    let seed = std::fs::read(input)
+        .map(|b| b.len().to_le_bytes().to_vec())
+        .unwrap_or_default();
+    ensure_trailer_id(&mut doc, &[input.as_os_str().as_encoded_bytes(), &seed].concat())?;
 
     let mut options = PdfWriteOptions::default();
     options.set_garbage_level(1);

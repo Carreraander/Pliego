@@ -37,7 +37,7 @@ El script es idempotente (instala lo que falte con winget y cargo; `-CheckOnly` 
   Soluciones por probar: `$env:BINDGEN_EXTRA_CLANG_ARGS="-std=c11"` con recompilación limpia de `mupdf-sys`, o instalar un LLVM más antiguo.
 - `cargo test --workspace`: pendiente hasta resolver lo anterior.
 - `CARGO_TARGET_DIR` global en acr12 apunta a `D:\dev-cache\cargo-target`. Cada flujo usa `. .\tools\acr12-env.ps1` para tener el suyo en `D:\dev-cache\target\<clon>` y LLVM 19 en `D:\LLVM19` (C: tiene poco espacio).
-- Benchmarks por versión: pendiente.
+- Benchmarks por versión: ver «Benchmarks del motor» más abajo.
 
 ## Resultados con el entorno completo (2026-11-03, clon en `1c9fb8a`)
 
@@ -65,3 +65,26 @@ C: pasó de 28,8 GB a 41,2 GB libres (12,4 GB liberados): borrados los `target` 
 temporales de Playwright y `%LOCALAPPDATA%\ms-playwright`. Ocupaban sitio y siguen en C: (no se tocan): `.rustup` 4,4 GB, `vcpkg` 3 GB,
 `%TEMP%` 5,9 GB (ajeno a Pliego), `.cargo` 0,3 GB; modelos GGUF de pliego-w18 (5,6 GB) pendientes de decisión de Ander.
 Los temporales, `target`, npm y Playwright de ahora en adelante van a D: con `. .\\tools\\acr12-env.ps1`.
+
+## Benchmarks del motor (2026-11-04, rama del PR #93 en `d05ebc1`, versión 0.1.0)
+
+`tools\bench.ps1` por turno (`acr12-turno.ps1 -Flujo w10`), 3 ejecuciones seguidas con `bench.exe` en release
+(compilado en 2 min 57 s por turno). PDF: `tests\output\bench-500.pdf` (500 páginas de texto, Helvetica, 2,3 MB).
+Sin compilaciones ni otros benchmarks en marcha y con la CPU casi en reposo, pero con poca RAM libre (sesiones de
+Claude, Chrome y otras apps abiertas). Cifras de la pasada `--json`, que es la que mide la memoria:
+
+| Ejecución | RAM libre antes | CPU antes | Abrir mediana / p95 | Tesela 512 media / p95 | Página 2x | Memoria máxima |
+|---|---|---|---|---|---|---|
+| 1 | 2 948 MB | 1 % | 0,56 / 0,61 ms | 16,2 / 2,2 ms | 8,8 ms | 39,9 MB |
+| 2 | 3 380 MB | 20 % | 0,54 / 0,61 ms | 18,9 / 5,5 ms | 12,9 ms | 46,5 MB |
+| 3 | 3 252 MB | 7 % | 0,61 / 0,75 ms | 17,0 / 2,2 ms | 7,9 ms | 47,3 MB |
+
+Objetivos (abrir < 1 500 ms, tesela 512 < 30 ms de media, memoria < 150 MB): **cumplidos** en las tres ejecuciones. La
+pasada sin `--json` que imprime el script dio cifras parecidas (abrir 0,5-0,8 ms, tesela 16-21 ms, página 8-15 ms). El
+JSON de la última ejecución queda en `docs/qa/bench/0.1.0-d05ebc1.json` (el script lo sobrescribe en cada ejecución).
+
+**Ojo: la primera tesela en frío tarda ~1,5 s.** Por eso la media de tesela (16-19 ms) sale muy por encima del p95
+(2-5 ms): con `bench.exe --tiles 1` la única tesela tarda 1 497 ms y 1 503 ms en dos ejecuciones, y las 99 siguientes,
+unos 2 ms. Es un coste de arranque, probablemente la carga de la fuente Helvetica (no incrustada) o la inicialización
+de MuPDF en el primer render. En la app sería un retraso de 1,5 s en la primera página que se ve: hay que investigarlo
+(W02), precalentar el motor en segundo plano y medir aparte en `bench` la primera tesela y la media sin ella.

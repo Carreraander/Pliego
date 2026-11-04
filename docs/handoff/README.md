@@ -32,22 +32,27 @@ diseño general https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw, prototipo nav
 https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente está en `docs/design/`
 (`prototipo.html` se abre en local).
 
-## Estado global a 2026-11-04 09:30 UTC
+## Estado global a 2026-11-04 14:05 UTC
 
-- **101 commits en `main`**, último `3a2b504` (W15, Bates continua, #103). Unos 100 PRs fusionados.
-- **El código de los 22 flujos está en `main`** con CI verde en Linux y Windows. Lo que queda es sobre todo
-  **verificación en acr12** (Acrobat Reader, Office real, rendimiento, Narrador) y algunas partes aplazadas.
-- **PRs abiertos: 3** (además de este traspaso, #105)
-  - **#104** W03: los 4 arreglos hallados en acr12 (texto de anotación ilegible, enlace con autor, `--in-place` en
-    Windows, sellos ausentes en XFDF). Revisar CI y fusionar.
-  - **#96** W12: PDF/A pasa las reglas de `/ID`, capas y adjuntos que veraPDF rechazaba (rama
-    `claude/project-thread-5j99if`). Falta repetir veraPDF en acr12 con el binario nuevo y revisar el aviso 6.5.2
-    de `protect/sucio.pdf`. Revisar CI y fusionar.
-  - **#93** W10: benchmarks reproducibles de rendimiento (rama `claude/project-thread-itd0jc`). Falta medir en
-    acr12 con la máquina tranquila (3 ejecuciones de `tools/bench.ps1` con el turno cogido) y añadir cifras.
+- **Proyecto trasladado a la cuenta nueva** (2026-11-04). Hilo de gestión: «Gestionar el desarrollo de Pliego»; un
+  hilo Sonnet por flujo. La cola de acr12 (una sesión de Remote Control a la vez) la lleva gestión.
+- **Fusionados tras el traspaso:** #104 (W03), #106 (W05 almacén de Windows), #107 (W03 docs), #93 (W10 benchmarks
+  con cifras de acr12), #110 (W21), #111 (W02 job object con `CREATE_SUSPENDED`), #112 (W01 worker como sidecar y
+  `forget`), #113 (W06 catálogo de modelos), #114 (W07 docs), #115 (W16 comparación con Ghostscript), #116 (W22
+  servicio de actualizaciones), #118 (W05 OCSP, VRI, B-LTA), #119 (W19), #121 (W12 PDF/A: `/ID`, capas, adjuntos y
+  `/AA` de página; sustituye a #96, cerrado), #120 (W21: `--update` elevado verifica la firma Ed25519 del manifiesto;
+  marca `install-kind`), #122 (W22: interfaz de actualizaciones, reinicio por equipo con `--manifest`, VPS compartido
+  con `sites.d`), #123 y #125 (web de pdfpliego.com con demo; **publicada** en el VPS), #124 (W15: MuPDF sin
+  `system-fonts`, `FontLoader` propio), #126 (W03 docs), #127 (W21 `tools/build-beta.ps1`), #128 y #129 (W22: servidor
+  de actualizaciones real en actualizaciones.pdfpliego.com, claves públicas de producción), #130 y #131 (W10: lab «pc»).
+- **Beta:** `Pliego-Setup-0.1.0-beta.exe` (16,6 MB) en acr12, `D:\dev\pliego-beta\`. Sin firma de código todavía (Ander
+  comprará el certificado). E2E de autoactualización en curso (W22).
+- **Claves:** firma Ed25519 de producción solo en acr12 (`D:\dev-cache\release-keys`) y en el USB de Ander; nunca en
+  GitHub, el VPS ni el repo (solo las públicas). SSH de despliegue en «pc» y en el secreto `UPDATE_SSH_KEY`.
+- **Equipos de pruebas:** acr12 (cola principal) y «pc» (Windows 11, solo tareas ligeras: C: casi lleno).
+  Computer use desde Remote Control se deniega solo (W03, 3 intentos): falta decidir con Ander cómo revisar en Reader/Edge.
+- **PRs abiertos:** ninguno de código.
 - **Issues abiertas:** ninguna.
-- **Trabajo en curso en el momento del traspaso:** W03 hacía capturas de sus PDF en Reader y Edge
-  (`D:\dev\pliego-w03\capturas`). W05 iba a subir la firma con el almacén de Windows desde su clon de acr12.
 
 ### Resumen por flujo
 
@@ -55,19 +60,19 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | --- | --- | --- | --- |
 | [W01](flujos/w01.md) | App y visor | Fusionado | Medir los ~1,9 s de la primera página en acr12, locale `es` por defecto, worker como sidecar, criterio de memoria |
 | [W02](flujos/w02.md) | Motor, worker, guardado | Fusionado | Cifras de acr12 (tesela 512 px, job object, PDFs patológicos), carrera del job object, `outline` en fuzz.sh |
-| [W03](flujos/w03.md) | Anotaciones y formularios | Fusionado + **PR #104** | Fusionar #104 (4 arreglos de acr12), capturas Reader/Edge |
+| [W03](flujos/w03.md) | Anotaciones y formularios | Fusionado | Capturas Reader/Edge (necesita el permiso de pantalla) |
 | [W04](flujos/w04.md) | Organizar y sellos | Fusionado | Combinar 50 PDFs en < 5 s en acr12, captura de Bates/marca de agua en Reader |
-| [W05](flujos/w05.md) | Firma PAdES | Fusionado (parcial) | `WindowsStoreSigner`/`--store` (sin PR; quizá en el clon local de acr12), OCSP, B-LTA, VRI, Reader, DNIe |
+| [W05](flujos/w05.md) | Firma PAdES | Fusionado (parcial) | OCSP, B-LTA, VRI, captura en Reader, DNIe (acr12 no tiene lector) |
 | [W06](flujos/w06.md) | OCR | Fusionado | Catálogo de modelos con SHA-256, CER y benchmark de 20 páginas en acr12 |
 | [W07](flujos/w07.md) | Proteger y redactar | Fusionado | Prueba en Acrobat Reader (contraseña, permisos, saneado) |
 | [W08](flujos/w08.md) | Comparar y optimizar | Fusionado | Medir en acr12, abrir resultados en Reader; aplazados linealizar, subset de fuentes, JBIG2/CCITT |
 | [W09](flujos/w09.md) | Crear y convertir | Fusionado | Prueba con Word, Excel y PowerPoint reales en acr12 |
 | [W10](flujos/w10.md) | Build, QA, Windows | Fusionado (parcial) + **PR #93** | Benchmarks, `crates/pliego-shell`, MSI/ZIP, firma de código |
 | [W11](flujos/w11.md) | Edición de texto e imágenes | Fusionado | **Ander:** abrir en Reader los PDFs de `D:\dev\pliego-w11-out\` |
-| [W12](flujos/w12.md) | PDF/A, PDF/UA | Fusionado + **PR #96** | veraPDF en acr12 con #96, aviso 6.5.2 |
+| [W12](flujos/w12.md) | PDF/A, PDF/UA | **Cerrado** (44/44 veraPDF) | Nada |
 | [W13](flujos/w13.md) | Diseñador de formularios | Fusionado | Prueba en Reader (10+5 → «15,00 €», 200 rechazado); ONNX opcional no hecho |
 | [W14](flujos/w14.md) | Exportar a Office | Fusionado | Revisión visual con Word real en acr12; unificar extracción con pliego-convert |
-| [W15](flujos/w15.md) | Lote, índice, medidas | Fusionado | Indexado lento en acr12 (20 min/1.000 PDF): medir extracción vs escritura, antivirus |
+| [W15](flujos/w15.md) | Lote, índice, medidas | Fusionado (#124) | Repetir en acr12 el índice de 1.000 PDFs y el render sin fuentes incrustadas con el `FontLoader` propio |
 | [W16](flujos/w16.md) | Impresión | Fusionado | Prueba en acr12; planchas de color directo y sobreimpresión (limitación de mupdf 0.8) |
 | [W17](flujos/w17.md) | Flujo de firmas | Fusionado | Tests de signflow en acr12 con corpus limpio, tres firmantes en Reader |
 | [W18](flujos/w18.md) | Asistente IA local | Fusionado | Compilar CLI/app con `--features llama` en Windows y probar de punta a punta; `Session::forget` |
@@ -96,6 +101,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 - **Actualizaciones:** servidor estático (Caddy en un VPS que pondrá Ander), manifiesto firmado Ed25519
   `v1/<canal>/manifest.json`. La clave secreta de producción la genera Ander sin conexión: **nunca al repo ni al
   VPS**. Con las actualizaciones «Desactivadas» la app no hace ninguna petición.
+- **Memoria en reposo (W01, Ander, 2026-11-04):** 150 MB para app + worker; techo de 400 MB contando WebView2.
 - **Bates continua en lote:** en las acciones en lote la numeración Bates sigue entre archivos y está activada por
   defecto (#103), como se espera en un expediente.
 - **TLS:** https con rustls + proveedor ring (licencias compatibles con AGPL). Dependencias RustCrypto en la
@@ -114,9 +120,10 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
    mal o Reader avisa de reparaciones (a los hilos no se les dejó manejar Acrobat).
 3. **W20 (y W03):** aceptar en acr12 el diálogo de control de pantalla (computer-use) para `pliego-app.exe`,
    Narrador, Acrobat Reader y Edge, para que los hilos hagan las pruebas de teclado, Narrador y capturas.
-4. **Criterio de memoria de W01** (tarjeta sin respuesta): ¿cómo se mide el límite de 150 MB en reposo?
-   Recomendado: 150 MB para app + worker (hoy ~67 MB) y techo total de 400 MB con WebView2 (hoy ~370 MB).
-5. **DNIe/FNMT (W05):** decir si acr12 tiene lector de tarjetas y certificado para probar.
-6. **Modelos GGUF de W18 en C:** (5,6 GB) se iban a mover a D:; confirmar que se puede.
-7. **Excluir `D:\dev-cache` del antivirus** si el indexado de W15 lo confirma como causa (necesita administrador).
+4. ~~Criterio de memoria de W01~~: **decidido por Ander (2026-11-04)**: 150 MB para app + worker y techo total de
+   400 MB contando WebView2.
+5. **DNIe/FNMT (W05):** acr12 no tiene lector de tarjetas conectado (#106); conectar uno o descartar la prueba.
+6. ~~Modelos GGUF de W18 en C:~~: **Ander autorizó moverlos a D: (2026-11-04)**; lo hace W18.
+7. ~~Excluir `D:\dev-cache` del antivirus~~: no hace falta. La causa del indexado lento era `system-fonts` de MuPDF
+   (font-kit enumera las fuentes en cada búsqueda); resuelto en #124 con un `FontLoader` propio.
 8. En la cuenta nueva: los pasos manuales de [`prompt-nuevo-proyecto.md`](prompt-nuevo-proyecto.md).

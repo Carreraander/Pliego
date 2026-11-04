@@ -19,6 +19,7 @@ const MAX_OBJECTS: usize = 200_000;
 #[serde(rename_all = "snake_case")]
 pub enum Rule {
     Encrypted,
+    NoTrailerId,
     NoXmp,
     XmpWithoutPdfaId,
     XmpLevelMismatch,
@@ -27,6 +28,7 @@ pub enum Rule {
     FontNotEmbedded,
     FontWithoutUnicode,
     ForbiddenAction,
+    PageAdditionalActions,
     Transparency,
     EmbeddedFile,
     AttachmentWithoutRelationship,
@@ -377,6 +379,22 @@ fn check_catalog(ctx: &mut Ctx) -> Result<()> {
         );
     }
 
+    let id_ok = get(&trailer, "ID").is_some_and(|id| {
+        id.is_array().unwrap_or(false)
+            && array_items(&id)
+                .iter()
+                .filter(|s| s.is_string().unwrap_or(false))
+                .count()
+                >= 2
+    });
+    if !id_ok {
+        ctx.add(
+            Rule::NoTrailerId,
+            None,
+            "El trailer del archivo no tiene identificador (/ID) con dos cadenas, que PDF/A exige.",
+        );
+    }
+
     // Metadatos XMP con la identificación PDF/A.
     match get(&catalog, "Metadata").and_then(|m| m.read_stream().ok()) {
         None => ctx.add(Rule::NoXmp, None, "No tiene metadatos XMP."),
@@ -510,6 +528,18 @@ pub fn validate_doc(doc: &PdfDocument, level: Level) -> Result<Validation> {
             }
         }
         check_additional_actions(&mut ctx, &page, Some(p));
+        // ISO 19005-2/-3 6.5.2: la página no puede llevar la entrada /AA, ni vacía.
+        if ctx.level.allows_transparency() && get(&page, "AA").is_some() {
+            ctx.add(
+                Rule::PageAdditionalActions,
+                Some(p),
+                format!(
+                    "La página {} tiene acciones adicionales (/AA), que {} no permite.",
+                    p + 1,
+                    ctx.level.name()
+                ),
+            );
+        }
         check_annotations(&mut ctx, &page, p);
     }
     if ctx.truncated {

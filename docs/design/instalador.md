@@ -115,6 +115,7 @@ Pliego-Setup.exe /S | --silent       sin interfaz, opciones por defecto
   --log <archivo>                    registro (por defecto %TEMP%\pliego-setup.log)
 Uninstall.exe --uninstall [--silent] [--purge]   --purge borra también ajustes
 Uninstall.exe --post-update          tareas tras cambiar de versión (lo llama el lanzador, ver actualizaciones.md)
+Uninstall.exe --update --paq <p> --manifest <m>   instalación por equipo, elevado: copia el .paq a <raíz>\updates-staging, verifica la firma Ed25519 del manifiesto y el SHA-256 de la copia, y deja la versión como `pending`
 pliego-setup --pack --base <exe> --paq <archivo> --out <exe>   (solo compilación)
 ```
 Códigos de salida: 0 bien, 1602 cancelado por el usuario, 1603 error, 3010 hace falta reiniciar (no se espera).

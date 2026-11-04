@@ -7,7 +7,8 @@ import { isTauri } from "../shell/platform";
 import { accessibilityRows, extraSections, generalRows, UpdateModeToggle, viewerRows, type SettingRow, type SettingsSection } from "./sections";
 import { resetSettings, settings, updateSettings } from "./store";
 import { st } from "./strings";
-import { checkForUpdates, updateService, updateState } from "./updates";
+import { checkForUpdates, updateService, updateSnapshot, updateState } from "./updates";
+import { downloadPercent, requestRestart } from "../updates";
 import "./settings.css";
 
 interface About { version: string; license: string; source_url: string; components: { name: string; version: string; license: string }[] }
@@ -33,33 +34,45 @@ function formatWhen(d: Date | null): string {
 
 function UpdatesSection() {
   const state = updateState;
+  const real = updateSnapshot;
+  const managed = () => real()?.managed === true;
   const text = () => {
     const s = state();
-    if (settings().updates.mode === "off") return st("updates.off");
-    if (s.kind === "checking") return st("updates.checking");
+    const r = real();
+    if (r?.phase === "not-configured") return st("updates.notConfigured");
+    if (r?.phase === "disabled" || (!r && settings().updates.mode === "off") || r?.mode === "disabled") return st("updates.off");
+    if (r?.phase === "downloading") return st("updates.downloading", { version: "", pct: downloadPercent(r) ?? 0 });
+    if (r?.phase === "ready") return st("updates.ready", { version: r.version });
+    if (r?.phase === "failed") return r.message;
+    if (r?.phase === "available") return st("updates.available", { version: r.version });
+    if (s.kind === "checking" || r?.busy) return st("updates.checking");
     if (s.kind === "available") return st("updates.available", { version: s.version });
-    if (s.kind === "up-to-date") return st("updates.upToDate");
     return st("updates.upToDate");
   };
-  const last = () => { const s = state(); return s.kind === "up-to-date" || s.kind === "available" ? s.lastCheck : s.kind === "idle" ? s.lastCheck : null; };
+  const last = () => { const r = real(); if (r) return r.last_check ? new Date(r.last_check) : null; const s = state(); return s.kind === "up-to-date" || s.kind === "available" ? s.lastCheck : s.kind === "idle" ? s.lastCheck : null; };
+  const off = () => (real() ? real()!.mode === "disabled" || real()!.phase === "not-configured" : settings().updates.mode === "off");
   return (
     <>
+      <Show when={managed()}><Notice tone="info">{st("updates.managed")}</Notice></Show>
       <div class="pl-card pl-update" role="status">
         <span class="pl-update__ring"><Icon name="refresh" size={20} /></span>
         <div class="pl-update__text"><b>{text()}</b><span class="pl-row__hint">{updateService().currentVersion()} · {st("updates.lastCheck", { when: formatWhen(last()) })}</span></div>
-        <Button onClick={() => void checkForUpdates()} disabled={state().kind === "checking" || settings().updates.mode === "off"} icon="refresh">{st("updates.checkNow")}</Button>
+        <Show when={real()?.phase === "available" && (real() as { can_download?: boolean }).can_download}><Button onClick={() => void invoke("update_download")} icon="download">{st("updates.download")}</Button></Show>
+        <Show when={real()?.phase === "ready"}><Button variant="primary" onClick={() => void requestRestart()} icon="refresh">{st("updates.restart")}</Button></Show>
+        <Button onClick={() => void checkForUpdates()} disabled={state().kind === "checking" || real()?.busy || off()} icon="refresh">{st("updates.checkNow")}</Button>
       </div>
       <div class="pl-card">
         <div class="pl-row"><div><span class="pl-row__label">{st("row.updates.mode")}</span><span class="pl-row__hint">{st("row.updates.mode.hint")}</span></div>
-          <Select aria-label={st("row.updates.mode")} value={settings().updates.mode} onChange={(e) => updateSettings("updates", { mode: e.currentTarget.value as "auto" })}
+          <Select aria-label={st("row.updates.mode")} disabled={managed()} value={real() ? ({ automatic: "auto", "notify-only": "notify", disabled: "off" } as const)[real()!.mode] : settings().updates.mode} onChange={(e) => updateSettings("updates", { mode: e.currentTarget.value as "auto" })}
             options={[{ value: "auto", label: st("updates.mode.auto") }, { value: "notify", label: st("updates.mode.notify") }, { value: "off", label: st("updates.mode.off") }]} /></div>
-        <div class="pl-row"><div><span class="pl-row__label">{st("row.updates.channel")}</span><span class="pl-row__hint">{st("row.updates.channel.hint")}</span></div><UpdateModeToggle /></div>
+        <div class="pl-row"><div><span class="pl-row__label">{st("row.updates.channel")}</span><span class="pl-row__hint">{st("row.updates.channel.hint")}</span></div><UpdateModeToggle disabled={managed()} /></div>
         <div class="pl-row"><div><span class="pl-row__label">{st("row.updates.metered")}</span><span class="pl-row__hint">{st("row.updates.metered.hint")}</span></div>
-          <Switch label="" aria-label={st("row.updates.metered")} checked={settings().updates.metered} onChange={(e) => updateSettings("updates", { metered: e.currentTarget.checked })} /></div>
+          <Switch label="" aria-label={st("row.updates.metered")} disabled={managed()} checked={settings().updates.metered} onChange={(e) => updateSettings("updates", { metered: e.currentTarget.checked })} /></div>
       </div>
       <div class="pl-card"><div class="pl-row"><div><span class="pl-row__label">{st("updates.history")}</span>
-        <span class="pl-row__hint pl-num">{updateService().history().map((h) => `${h.version} · ${h.date}`).join("  ·  ")}</span></div></div></div>
-      <Notice tone="info">{st("updates.simulated")}</Notice>
+        <span class="pl-row__hint pl-num">{updateService().history().map((h) => `${h.version} · ${h.date}`).join("  ·  ")}</span></div></div>
+        <Show when={real()?.server}><div class="pl-row"><div><span class="pl-row__label">{st("updates.server")}</span><span class="pl-row__hint pl-num">{real()!.server}</span></div></div></Show></div>
+      <Show when={!real()}><Notice tone="info">{st("updates.simulated")}</Notice></Show>
       <p class="pl-row__hint">{st("updates.privacy")}</p>
     </>
   );

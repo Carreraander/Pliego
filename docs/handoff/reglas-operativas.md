@@ -5,7 +5,7 @@ Cómo se ha trabajado hasta el 2026-11-04 y cómo debe seguir el proyecto nuevo.
 ## Organización de hilos y modelos
 
 - **Coordinador** del proyecto: habla con Ander, abre hilos, pasa mensajes.
-- **Hilo de gestión** («Diseñar alternativa open source a Acrobat Pro»), con **Opus 5.5** (`claude-opus-5-5`):
+- **Hilo de gestión** («Gestionar el desarrollo de Pliego» en la cuenta nueva; antes «Diseñar alternativa open source a Acrobat Pro»), con **Opus 5.5** (`claude-opus-5-5`):
   revisa y fusiona PRs, mantiene interfaces compartidas (`pliego-core`, `pliego-engine-mupdf`, `tools/acr12-*`,
   CI), reparte turnos de acr12, decide prioridades y resuelve dudas de los flujos.
 - **Hilo de diseño de la app** («Diseñar app de escritorio de Pliego»), con **Opus 5.5**: dueño de `docs/design/`;
@@ -94,3 +94,12 @@ CI usa un clippy más nuevo que el local: evitar lints conocidos (`nonminimal_bo
 8. Clones creados antes de `tests/corpus/.gitattributes` pueden tener los PDF con CRLF (xref rota, «object ID 4 0
    not found»): `git checkout -- tests/corpus` o reclonar.
 9. Gestión reparte el turno cuando hay cola y avisa a los flujos de cada cambio en los scripts.
+
+## Segundo equipo de pruebas «pc»
+
+- `DESKTOP-TBC7MHI`, usuario `pc`, Windows 11 Home (con Mica), 32 GB de RAM, **un solo disco C: con muy poco sitio**.
+  Sin Office. Detalle, rutas y reglas en `docs/qa/pc.md`.
+- Mismas reglas que acr12 cambiando D: por C:: clones en `C:\dev\pliego-<flujo>`, `. .\tools\pc-env.ps1` en cada
+  terminal y lo pesado con `.\tools\pc-turno.ps1 -Flujo wNN -- <orden>`. Mirar el espacio libre antes de compilar.
+- Los scripts de acr12 son envoltorios de `tools/setup-windows.ps1`, `tools/pliego-env.ps1` y
+  `tools/pliego-turno.ps1`: los cambios se hacen en los genéricos.

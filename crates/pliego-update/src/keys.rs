@@ -12,10 +12,15 @@ pub const SIGNING_CONTEXT: &[u8] = b"pliego-update-manifest-v1\n";
 
 /// Claves de publicación de producción, en formato `ed25519:<base64>`.
 ///
-/// Vacía hasta que Ander genere la clave real con `pliego-release keygen` en un equipo de confianza.
+/// Claves reales generadas con `pliego-release keygen` (las privadas viven solo en acr12 y en la copia sin conexión).
 /// Se recomiendan dos: la activa y una de reserva guardada sin conexión para poder rotar.
 /// También se pueden añadir en compilación con la variable `PLIEGO_UPDATE_PUBKEYS` (separadas por comas).
-const BUILTIN_RELEASE_KEYS: &[&str] = &[];
+const BUILTIN_RELEASE_KEYS: &[&str] = &[
+    // Activa (id ab6fa8bae6005ac0), generada en acr12 el 2026-11-04.
+    "ed25519:mWq30UarbH3bZHlR4NEJafc5NVkq+X3bmFdSZn93+XQ=",
+    // Reserva (id 9d886dc4f92cdbde): se guarda solo sin conexión; sirve para rotar.
+    "ed25519:H8pykJe7e8W2PnOonRlJ8d2zcuTEy/Fj9R3axSp/XJY=",
+];
 
 /// Claves de producción compiladas en este binario.
 pub fn release_keys() -> Vec<PublicKey> {

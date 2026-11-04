@@ -78,8 +78,16 @@ pub struct Status {
     pub history: Vec<(Version, String)>,
     /// Novedades de la versión recién instalada, para la tarjeta de Inicio.
     pub whats_new: Option<Version>,
+    pub whats_new_notes: Option<String>,
     /// "Se volvió a X porque Y no arrancaba."
     pub rollback: Option<(Version, Version)>,
+}
+
+/// Dónde se guarda el sobre firmado de un paquete: `<paquete>.manifest.json`, a su lado.
+pub fn manifest_path(package: &Path) -> PathBuf {
+    let mut name = package.as_os_str().to_owned();
+    name.push(".manifest.json");
+    PathBuf::from(name)
 }
 
 pub struct UpdateService<S: Stager> {
@@ -168,6 +176,7 @@ impl<S: Stager> UpdateService<S> {
                 .map(|h| (h.version.clone(), h.at.clone()))
                 .collect(),
             whats_new: self.state.whats_new.clone(),
+            whats_new_notes: self.state.whats_new_notes.clone(),
             rollback: self
                 .state
                 .rollback_notice
@@ -257,6 +266,9 @@ impl<S: Stager> UpdateService<S> {
         let result = UpdateClient::new(self.config.clone())
             .and_then(|c| c.download(&verdict.package, &self.downloads, ctx))
             .and_then(|path| {
+                if !verdict.envelope.is_empty() {
+                    std::fs::write(manifest_path(&path), &verdict.envelope)?;
+                }
                 self.stager
                     .stage(&path, &version)
                     .map_err(|e| UpdateError::Malformed(format!("no se pudo preparar la versión {version}: {e}")))
@@ -308,6 +320,13 @@ impl<S: Stager> UpdateService<S> {
     /// El usuario cerró la tarjeta de novedades o el aviso de vuelta atrás.
     pub fn dismiss_notices(&mut self) -> Result<()> {
         self.state.whats_new = None;
+        self.state.whats_new_notes = None;
+        self.state.rollback_notice = None;
+        self.state.save(&self.state_path)
+    }
+
+    /// El usuario cerró solo el aviso de vuelta atrás: la tarjeta de novedades pendiente se conserva.
+    pub fn dismiss_rollback(&mut self) -> Result<()> {
         self.state.rollback_notice = None;
         self.state.save(&self.state_path)
     }

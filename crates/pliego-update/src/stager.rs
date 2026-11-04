@@ -16,6 +16,18 @@ use crate::service::Stager;
 pub struct StagedPackage {
     pub version: Version,
     pub paq: PathBuf,
+    /// SHA-256 del `.paq` en el momento de prepararlo (ya verificado contra el manifiesto firmado). El reinicio lo
+    /// vuelve a comprobar justo antes de pedir elevación.
+    pub sha256: String,
+}
+
+/// SHA-256 de un archivo, en hexadecimal.
+pub fn file_sha256(path: &Path) -> std::io::Result<String> {
+    use sha2::{Digest, Sha256};
+    let mut f = std::fs::File::open(path)?;
+    let mut h = Sha256::new();
+    std::io::copy(&mut f, &mut h)?;
+    Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
 
 const STAGED_FILE: &str = "staged.json";
@@ -56,6 +68,7 @@ impl Stager for LayoutStager {
                 let staged = StagedPackage {
                     version: version.clone(),
                     paq: package.to_path_buf(),
+                    sha256: file_sha256(package).map_err(|e| e.to_string())?,
                 };
                 let json = serde_json::to_vec_pretty(&staged).map_err(|e| e.to_string())?;
                 std::fs::create_dir_all(&self.downloads).map_err(|e| e.to_string())?;
@@ -112,7 +125,12 @@ mod tests {
         stager.stage(&paq, &Version::new(0, 1, 1)).unwrap();
         assert!(!root.exists(), "no se toca Program Files sin elevación");
         let staged = staged_package(&dl).unwrap();
-        assert_eq!((staged.version, staged.paq), (Version::new(0, 1, 1), paq.clone()));
+        assert_eq!(
+            (staged.version, staged.paq.clone()),
+            (Version::new(0, 1, 1), paq.clone())
+        );
+        assert_eq!(staged.sha256, file_sha256(&paq).unwrap());
+        assert_eq!(staged.sha256.len(), 64);
         std::fs::remove_file(&paq).unwrap();
         assert!(
             staged_package(&dl).is_none(),

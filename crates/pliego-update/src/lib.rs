@@ -43,5 +43,5 @@ pub use rollout::bucket;
 pub use runtime::{Runner, Snapshot};
 pub use semver::Version;
 pub use service::{Phase, Stager, Status, UpdateService};
-pub use stager::{LayoutStager, StagedPackage, staged_package};
+pub use stager::{LayoutStager, StagedPackage, file_sha256, staged_package};
 pub use state::{HistoryEntry, PendingUpdate, RollbackNotice, UpdateState};

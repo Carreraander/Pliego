@@ -3,6 +3,7 @@
 //! Para añadir los tuyos: crea `commands/<area>.rs`, declara `pub mod <area>;` aquí y añade tus funciones
 //! a la lista de `handler()`. Ver `docs/app-integration.md`.
 
+pub mod annot;
 pub mod assistant;
 pub mod dialog;
 pub mod document;
@@ -35,6 +36,10 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::reveal_path,
         recents::about_info,
         jobs::cancel_job,
+        annot::annot_summary,
+        annot::export_comments_xfdf,
+        annot::import_comments_xfdf,
+        annot::pick_xfdf_file,
         organize::merge_pdfs,
         organize::split_pdf,
         text::outline,

@@ -4053,12 +4053,14 @@ dependencies = [
  "pliego-core",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
 name = "pliego-app"
 version = "0.1.0"
 dependencies = [
+ "pliego-annot",
  "pliego-app-service",
  "pliego-appdata",
  "pliego-assistant",

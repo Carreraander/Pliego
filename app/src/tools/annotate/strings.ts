@@ -1,0 +1,38 @@
+import { addToolStrings } from "../strings";
+
+addToolStrings({
+  es: {
+    "tools.annotate.xfdf.title": "Importar o exportar comentarios",
+    "tools.annotate.xfdf.description": "Intercambia comentarios en formato XFDF",
+    "tools.annotate.summary.title": "Resumen de comentarios",
+    "tools.annotate.summary.description": "Lista todos los comentarios del documento",
+    "annotate.xfdf.title": "Comentarios XFDF", "annotate.xfdf.direction": "Qué quieres hacer",
+    "annotate.xfdf.export": "Exportar comentarios", "annotate.xfdf.import": "Importar comentarios",
+    "annotate.xfdf.exportHint": "Se guarda un archivo .xfdf junto al documento.",
+    "annotate.xfdf.importHint": "Se guarda una copia con los comentarios; el original no cambia.",
+    "annotate.xfdf.exportJob": "Exportar comentarios de {name}", "annotate.xfdf.importJob": "Importar comentarios en {name}",
+    "annotate.xfdf.started": "Trabajando… sigue en el centro de tareas", "annotate.xfdf.pick": "Elegir archivo XFDF…",
+    "annotate.xfdf.pickTitle": "Archivo XFDF", "annotate.xfdf.noFile": "Elige primero el archivo XFDF",
+    "annotate.summary.title": "Resumen de comentarios", "annotate.summary.close": "Cerrar",
+    "annotate.summary.total": "{n} comentarios", "annotate.summary.none": "Este documento no tiene comentarios.",
+    "annotate.summary.page": "Pág. {n}", "annotate.summary.noAuthor": "(sin autor)", "annotate.summary.loading": "Leyendo comentarios…",
+    "annotate.summary.empty": "(sin texto)",
+  },
+  en: {
+    "tools.annotate.xfdf.title": "Import or export comments",
+    "tools.annotate.xfdf.description": "Exchange comments as XFDF",
+    "tools.annotate.summary.title": "Comments summary",
+    "tools.annotate.summary.description": "List every comment in the document",
+    "annotate.xfdf.title": "XFDF comments", "annotate.xfdf.direction": "What do you want to do",
+    "annotate.xfdf.export": "Export comments", "annotate.xfdf.import": "Import comments",
+    "annotate.xfdf.exportHint": "An .xfdf file is saved next to the document.",
+    "annotate.xfdf.importHint": "A copy with the comments is saved; the original does not change.",
+    "annotate.xfdf.exportJob": "Export comments of {name}", "annotate.xfdf.importJob": "Import comments into {name}",
+    "annotate.xfdf.started": "Working… follow it in the task center", "annotate.xfdf.pick": "Choose XFDF file…",
+    "annotate.xfdf.pickTitle": "XFDF file", "annotate.xfdf.noFile": "Choose the XFDF file first",
+    "annotate.summary.title": "Comments summary", "annotate.summary.close": "Close",
+    "annotate.summary.total": "{n} comments", "annotate.summary.none": "This document has no comments.",
+    "annotate.summary.page": "Page {n}", "annotate.summary.noAuthor": "(no author)", "annotate.summary.loading": "Reading comments…",
+    "annotate.summary.empty": "(no text)",
+  },
+});

@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { activeDoc } from "../../state/documents";
 import { Notice, Radio, RadioGroup, TaskPanel } from "../../ui";
 import { fileName, runToolJob } from "../run";
@@ -25,7 +25,7 @@ export default function PdfaPanel(p: { onClose: () => void }) {
     <TaskPanel title={ct("convert.pdfa.title")} onClose={p.onClose} primary={{ label: ct("convert.pdfa.run"), onClick: run, disabled: !doc() }}
       notice={<Show when={!doc()}><Notice tone="warn" inline>{ct("convert.noDoc")}</Notice></Show>}>
       <RadioGroup legend={ct("convert.pdfa.level")} value={level()} onChange={(v) => setLevel(v as PdfaLevel)}>
-        {levels.map((l) => <Radio value={l} label={ct(`convert.pdfa.${l}`)} hint={ct(`convert.pdfa.${l}.hint`)} />)}
+        <For each={levels}>{(l) => <Radio value={l} label={ct(`convert.pdfa.${l}`)} hint={ct(`convert.pdfa.${l}.hint`)} />}</For>
       </RadioGroup>
       <p class="pl-muted">{ct("convert.pdfa.note")}</p>
     </TaskPanel>

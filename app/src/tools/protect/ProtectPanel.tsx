@@ -1,8 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { createSignal, For, Show } from "solid-js";
 import { createStore } from "solid-js/store";
-import { Checkbox, Field, Notice, Select, TaskPanel, TextInput, toast } from "../../ui";
-import { trackJob } from "../../jobs";
+import { Checkbox, Field, Notice, Select, TaskPanel, TextInput } from "../../ui";
+import { runToolJob } from "../run";
 import { activeDoc } from "../../state/documents";
 import { ALL_ALLOWED, baseName, buildProtectRequest, PERMISSIONS, type Permissions } from "./request";
 import { pt } from "./strings";
@@ -27,10 +26,11 @@ export default function ProtectPanel(p: { onClose?: () => void }) {
     });
     if (!built.ok) { setError(pt(built.error)); return; }
     setError(null);
-    const id = await invoke<number>("protect_encrypt", { request: built.request });
-    trackJob(id, { title: pt("protect.job", { name: baseName(doc.path) }), retry: () => void apply() });
-    toast({ tone: "info", text: pt("protect.started") });
-    p.onClose?.();
+    const id = await runToolJob({
+      command: "protect_encrypt", args: { request: built.request },
+      title: pt("protect.job", { name: baseName(doc.path) }), started: pt("protect.started"),
+    });
+    if (id !== null) p.onClose?.();
   };
 
   const remove = async () => {
@@ -38,10 +38,11 @@ export default function ProtectPanel(p: { onClose?: () => void }) {
     if (!doc) return;
     if (!current()) { setError(pt("protect.err.current")); return; }
     setError(null);
-    const id = await invoke<number>("protect_remove", { path: doc.path, password: current() });
-    trackJob(id, { title: pt("protect.job.remove", { name: baseName(doc.path) }) });
-    toast({ tone: "info", text: pt("protect.started") });
-    p.onClose?.();
+    const id = await runToolJob({
+      command: "protect_remove", args: { path: doc.path, password: current() },
+      title: pt("protect.job.remove", { name: baseName(doc.path) }), started: pt("protect.started"),
+    });
+    if (id !== null) p.onClose?.();
   };
 
   return (

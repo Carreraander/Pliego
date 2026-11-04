@@ -1,7 +1,7 @@
 import { createEffect, createRoot } from "solid-js";
 import { locale } from "../i18n";
 import { setPaletteOpener, setToolsOpener } from "../shell";
-import { registerBaseTools, registerProtectTools, registerToolIcons, tools, toolTitle } from "../tools";
+import { registerAppTools, registerBaseTools, registerToolIcons, tools, toolTitle } from "../tools";
 import { activateTool } from "./activate";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { installCommandProviders } from "./commands";
@@ -33,11 +33,10 @@ export function NavigationHost() {
 export function installNavigation(): () => void {
   registerToolIcons();
   registerBaseTools();
-  const offProtect = registerProtectTools();
+  registerAppTools();
   setPaletteOpener((q) => openCommandPalette(q ?? ""));
   setToolsOpener(toggleToolsPalette);
   const offs = [
-    offProtect,
     installCommandProviders(),
     installModes(),
     registerShortcut({ id: "help.shortcuts", section: "panels", keys: "F1", title: () => nt("nav.cmd.shortcuts"), run: openShortcutSheet }),

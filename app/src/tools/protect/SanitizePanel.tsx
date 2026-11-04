@@ -1,8 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { createSignal, For, Show } from "solid-js";
 import { createStore } from "solid-js/store";
-import { Checkbox, Notice, TaskPanel, toast } from "../../ui";
-import { trackJob } from "../../jobs";
+import { Checkbox, Notice, TaskPanel } from "../../ui";
+import { runToolJob } from "../run";
 import { activeDoc } from "../../state/documents";
 import { baseName, buildSanitizeRequest, SANITIZE_ALL, SANITIZE_OPTIONS, type SanitizeOptions } from "./request";
 import { pt } from "./strings";
@@ -17,10 +16,11 @@ export default function SanitizePanel(p: { onClose?: () => void }) {
     const built = buildSanitizeRequest(doc.path, "", { ...options });
     if (!built.ok) { setError(pt(built.error)); return; }
     setError(null);
-    const id = await invoke<number>("protect_sanitize", { request: built.request });
-    trackJob(id, { title: pt("sanitize.job", { name: baseName(doc.path) }), retry: () => void run() });
-    toast({ tone: "info", text: pt("sanitize.started") });
-    p.onClose?.();
+    const id = await runToolJob({
+      command: "protect_sanitize", args: { request: built.request },
+      title: pt("sanitize.job", { name: baseName(doc.path) }), started: pt("sanitize.started"),
+    });
+    if (id !== null) p.onClose?.();
   };
 
   return (

@@ -51,6 +51,9 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
   GitHub, el VPS ni el repo (solo las públicas). SSH de despliegue en «pc» y en el secreto `UPDATE_SSH_KEY`.
 - **Equipos de pruebas:** acr12 (cola principal) y «pc» (Windows 11, solo tareas ligeras: C: casi lleno).
   Computer use desde Remote Control se deniega solo (W03, 3 intentos): falta decidir con Ander cómo revisar en Reader/Edge.
+- **Hueco detectado (2026-11-04, tarde):** las funciones existen como crates y CLI, pero en la app solo funcionan Leer,
+  la búsqueda y el asistente; el resto sale como «próximamente» porque ningún flujo tenía asignado conectarlas. Se abre la
+  **ola 4 (W23-W29)**: [`docs/workstreams/ola4-conectar-herramientas.md`](../workstreams/ola4-conectar-herramientas.md).
 - **PRs abiertos:** ninguno de código.
 - **Issues abiertas:** ninguna.
 

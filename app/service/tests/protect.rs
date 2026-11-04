@@ -23,21 +23,6 @@ fn temp_copy(rel: &str) -> (tempfile::TempDir, PathBuf) {
 }
 
 #[test]
-fn copy_path_evita_colisiones() {
-    let dir = tempfile::tempdir().unwrap();
-    let input = dir.path().join("contrato.pdf");
-    assert_eq!(
-        copy_path(&input, "protegido"),
-        dir.path().join("contrato (protegido).pdf")
-    );
-    std::fs::write(dir.path().join("contrato (protegido).pdf"), b"x").unwrap();
-    assert_eq!(
-        copy_path(&input, "protegido"),
-        dir.path().join("contrato (protegido 2).pdf")
-    );
-}
-
-#[test]
 fn protect_cifra_una_copia_y_respeta_el_original() {
     let (_d, path) = temp_copy("basic/hola.pdf");
     let before = std::fs::read(&path).unwrap();

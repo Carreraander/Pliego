@@ -4,26 +4,15 @@
 
 use std::path::{Path, PathBuf};
 
+use pliego_appdata::copyjob::unique_sibling;
 use pliego_core::{Error, JobContext, Report, Result};
 use pliego_protect::{Cipher, Encryption, Permissions, SanitizeOptions};
 use pliego_redact::{Area, Match, Pattern, RedactJob, RedactOptions};
 use serde::{Deserialize, Serialize};
 
-/// Ruta de la copia: `<carpeta>/<nombre> (<sufijo>).pdf`, o con ` 2`, ` 3`… si ya existe.
+/// Ruta de la copia (`<nombre> (<sufijo>).pdf`, con contador si ya existe): el ayudante común de la ola 4.
 pub fn copy_path(input: &Path, suffix: &str) -> PathBuf {
-    let dir = input.parent().unwrap_or(Path::new("."));
-    let stem = input
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "documento".into());
-    let first = dir.join(format!("{stem} ({suffix}).pdf"));
-    if !first.exists() {
-        return first;
-    }
-    (2..)
-        .map(|n| dir.join(format!("{stem} ({suffix} {n}).pdf")))
-        .find(|p| !p.exists())
-        .expect("rango infinito")
+    unique_sibling(input, suffix, "pdf")
 }
 
 fn opt(pw: &Option<String>) -> Option<&str> {

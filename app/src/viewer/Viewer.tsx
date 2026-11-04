@@ -3,6 +3,7 @@ import { tileUrl } from "../api";
 import { currentPageIndex, setCurrentPageIndex, type OpenDoc } from "../state/documents";
 import { clearGoTo, goToRequest } from "../state/navigation";
 import { matchIndex, matchesOnPage } from "../state/search";
+import { RedactLayer } from "../tools/protect/RedactLayer";
 import { pageOverlays } from "./overlays";
 import {
   computeLayout, currentPage, lowResZoom, rotationTransform, TILE_SIZE, tilesFor, unrotateRect, visiblePages,
@@ -92,6 +93,7 @@ function PageView(props: {
             style={{ left: `${match.rect.left * props.zoom}px`, top: `${match.rect.top * props.zoom}px`,
               width: `${(match.rect.right - match.rect.left) * props.zoom}px`, height: `${(match.rect.bottom - match.rect.top) * props.zoom}px` }} />
         )}</For>
+        <RedactLayer docId={props.doc.id} page={props.index} zoom={props.zoom} size={raw()} />
         <For each={pageOverlays()}>{(Overlay) => <Overlay doc={props.doc} index={props.index} zoom={props.zoom} />}</For>
       </div>
     </div>

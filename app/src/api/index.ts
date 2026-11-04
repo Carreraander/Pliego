@@ -46,6 +46,8 @@ export const api = {
   startupFiles: () => invoke<string[]>("startup_files"),
   /** Selector nativo de PDF; devuelve las rutas elegidas (vacío si se cancela). */
   pickPdfFiles: (title?: string) => invoke<string[]>("pick_pdf_files", { title }),
+  /** Selector nativo de una carpeta; `null` si se cancela. */
+  pickFolder: (title?: string) => invoke<string | null>("pick_folder", { title }),
   /** Selector nativo de una imagen PNG o JPEG; `null` si se cancela. */
   pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title }),
 };

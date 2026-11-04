@@ -8,6 +8,7 @@ pub mod checks;
 pub mod convert;
 pub mod dialog;
 pub mod document;
+pub mod index;
 pub mod jobs;
 pub mod optimize;
 pub mod organize;
@@ -23,6 +24,7 @@ pub mod updates;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         dialog::pick_pdf_files,
+        dialog::pick_folder,
         dialog::pick_image_file,
         document::open_document,
         document::close_document,
@@ -43,6 +45,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         checks::check_accessibility,
         checks::validate_pdfa,
         checks::preflight_pdf,
+        index::index_folder,
+        index::index_search,
         convert::export_pdf,
         convert::office_export_pdf,
         optimize::compress_pdf,

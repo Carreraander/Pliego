@@ -8,6 +8,7 @@ pub mod api;
 pub mod checks;
 pub mod convert;
 pub mod optimize;
+pub mod search_index;
 pub mod stamp;
 pub mod uri;
 

@@ -32,3 +32,16 @@ pub async fn pick_image_file(app: tauri::AppHandle, title: Option<String>) -> Op
         .and_then(|p| p.into_path().ok())
         .map(|p| p.to_string_lossy().into_owned())
 }
+
+/// Selector de una carpeta (índice de búsqueda, lotes). `None` si se cancela.
+#[tauri::command]
+pub async fn pick_folder(app: tauri::AppHandle, title: Option<String>) -> Option<String> {
+    let mut dialog = app.dialog().file();
+    if let Some(t) = title {
+        dialog = dialog.set_title(t);
+    }
+    dialog
+        .blocking_pick_folder()
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
+}

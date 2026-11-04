@@ -6,6 +6,7 @@
 
 pub mod api;
 pub mod optimize;
+pub mod organize;
 pub mod uri;
 
 use std::collections::HashMap;

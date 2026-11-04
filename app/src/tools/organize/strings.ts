@@ -2,6 +2,15 @@ import { addToolStrings } from "../strings";
 
 addToolStrings({
   es: {
+    "organize.invalid": "Revisa los datos: alguno no es válido para este documento",
+    "organize.merge.suffix": "combinado", "organize.split.suffix": "partes", "organize.insert.suffix": "insertado", "organize.number.suffix": "numerado",
+    "organize.insert.title": "Insertar páginas", "organize.insert.run": "Insertar", "organize.insert.from": "Insertar", "organize.insert.blank": "Páginas en blanco", "organize.insert.file": "Páginas de otro archivo",
+    "organize.insert.count": "Cuántas páginas", "organize.insert.source": "Archivo", "organize.insert.choose": "Elegir archivo…", "organize.insert.pages": "Páginas del archivo", "organize.insert.pagesHint": "Por ejemplo: 1-3, 5. Vacío = todas",
+    "organize.insert.where": "Antes de la página", "organize.insert.whereHint": "Del 1 al {n} ({n} = al final)", "organize.insert.hint": "Se guarda una copia nueva; el original no cambia.",
+    "organize.insert.started": "Insertando páginas… sigue en el centro de tareas", "organize.insert.job": "Insertar páginas en {name}",
+    "organize.number.title": "Numerar páginas", "organize.number.run": "Numerar", "organize.number.style": "Estilo", "organize.number.prefix": "Prefijo", "organize.number.prefixHint": "Por ejemplo: A-",
+    "organize.number.from": "Empezar en la página", "organize.number.first": "Primer número", "organize.number.hint": "Cambia la numeración del PDF (la que ve el visor); se guarda una copia nueva.",
+    "organize.number.started": "Numerando… sigue en el centro de tareas", "organize.number.job": "Numerar {name}",
     "organize.add": "Añadir archivos…", "organize.up": "Subir", "organize.down": "Bajar", "organize.remove": "Quitar",
     "organize.merge.title": "Combinar archivos", "organize.merge.files": "Archivos, en este orden", "organize.merge.run": "Combinar",
     "organize.merge.bookmarks": "Un marcador por archivo", "organize.merge.min": "Añade al menos dos archivos",
@@ -15,6 +24,15 @@ addToolStrings({
     "organize.split.hint": "Los archivos se guardan en una carpeta nueva junto al original.",
   },
   en: {
+    "organize.invalid": "Check the values: one is not valid for this document",
+    "organize.merge.suffix": "merged", "organize.split.suffix": "parts", "organize.insert.suffix": "inserted", "organize.number.suffix": "numbered",
+    "organize.insert.title": "Insert pages", "organize.insert.run": "Insert", "organize.insert.from": "Insert", "organize.insert.blank": "Blank pages", "organize.insert.file": "Pages from another file",
+    "organize.insert.count": "How many pages", "organize.insert.source": "File", "organize.insert.choose": "Choose file…", "organize.insert.pages": "Pages from the file", "organize.insert.pagesHint": "For example: 1-3, 5. Empty = all",
+    "organize.insert.where": "Before page", "organize.insert.whereHint": "From 1 to {n} ({n} = at the end)", "organize.insert.hint": "A new copy is saved; the original does not change.",
+    "organize.insert.started": "Inserting pages… follow it in the task center", "organize.insert.job": "Insert pages into {name}",
+    "organize.number.title": "Number pages", "organize.number.run": "Number", "organize.number.style": "Style", "organize.number.prefix": "Prefix", "organize.number.prefixHint": "For example: A-",
+    "organize.number.from": "Start at page", "organize.number.first": "First number", "organize.number.hint": "Changes the PDF's page numbering (what the viewer shows); a new copy is saved.",
+    "organize.number.started": "Numbering… follow it in the task center", "organize.number.job": "Number {name}",
     "organize.add": "Add files…", "organize.up": "Move up", "organize.down": "Move down", "organize.remove": "Remove",
     "organize.merge.title": "Merge files", "organize.merge.files": "Files, in this order", "organize.merge.run": "Merge",
     "organize.merge.bookmarks": "One bookmark per file", "organize.merge.min": "Add at least two files",

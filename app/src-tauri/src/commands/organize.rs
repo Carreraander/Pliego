@@ -1,41 +1,85 @@
-//! Organizar y combinar (W23): Combinar archivos y Dividir. Son trabajos que **guardan una copia** junto al original
-//! (`pliego_appdata::copyjob`) y devuelven el `JobId`; el centro de tareas ofrece «Abrir resultado».
+//! Organizar y combinar (W23): la lógica está en `pliego_app_service::organize`; aquí solo se traducen argumentos.
+//! Cada comando es un trabajo que **guarda una copia** junto al original y devuelve el `JobId`.
 
 use std::path::PathBuf;
 
-use pliego_appdata::copyjob::{unique_in, unique_sibling};
+use pliego_app_service::organize::{self, InsertSource, MergeOptions, PageLabelSpec, SplitRule};
 use pliego_appdata::jobs::JobId;
-use pliego_core::Error;
-use pliego_organize::{MergeOptions, SplitRule};
 use tauri::State;
 
 use crate::commands::jobs::JobsState;
 
-/// Combina `paths` (en ese orden) en `<primero> (combinado).pdf`.
+/// Combina `paths` (en ese orden) en `<primero> (<suffix>).pdf`.
 #[tauri::command]
-pub fn merge_pdfs(jobs: State<'_, JobsState>, paths: Vec<String>, options: Option<MergeOptions>) -> JobId {
+pub fn merge_pdfs(
+    jobs: State<'_, JobsState>,
+    paths: Vec<String>,
+    options: Option<MergeOptions>,
+    suffix: Option<String>,
+) -> JobId {
     let inputs: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
-    jobs.0.spawn(move |ctx| {
-        let first = inputs
-            .first()
-            .ok_or_else(|| Error::InvalidInput("no hay archivos que combinar".into()))?;
-        let out = unique_sibling(first, "combinado", "pdf");
-        pliego_organize::merge(&inputs, &out, &options.unwrap_or_default(), ctx)
+    let suffix = suffix.unwrap_or_else(|| "combinado".into());
+    jobs.0
+        .spawn(move |ctx| organize::merge_copy(&inputs, &options.unwrap_or_default(), &suffix, ctx))
+}
+
+/// Divide `path` en la carpeta `<nombre> (<suffix>)` junto al original.
+#[tauri::command]
+pub fn split_pdf(
+    jobs: State<'_, JobsState>,
+    path: String,
+    rule: SplitRule,
+    password: Option<String>,
+    suffix: Option<String>,
+) -> JobId {
+    let suffix = suffix.unwrap_or_else(|| "partes".into());
+    jobs.0
+        .spawn(move |ctx| organize::split_copy(&PathBuf::from(path), password.as_deref(), &rule, &suffix, ctx))
+}
+
+/// Inserta páginas en blanco (`count`) o de otro PDF (`source_path` + `pages` desde 0) antes de la página `at`.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub fn insert_pages(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    at: u32,
+    blank: Option<u32>,
+    source_path: Option<String>,
+    source_password: Option<String>,
+    pages: Option<Vec<u32>>,
+    suffix: Option<String>,
+) -> JobId {
+    let suffix = suffix.unwrap_or_else(|| "insertado".into());
+    jobs.0.spawn(move |_ctx| {
+        let source = match (blank, source_path) {
+            (Some(count), _) => InsertSource::Blank { count },
+            (None, Some(p)) => InsertSource::File {
+                path: PathBuf::from(p),
+                password: source_password,
+                pages: pages.unwrap_or_default(),
+            },
+            (None, None) => {
+                return Err(pliego_core::Error::InvalidInput(
+                    "indica páginas en blanco o un archivo".into(),
+                ));
+            }
+        };
+        organize::insert_copy(&PathBuf::from(path), password.as_deref(), &source, at, &suffix)
     })
 }
 
-/// Divide `path` en la carpeta `<nombre> (partes)` junto al original.
+/// Pone la numeración de páginas (etiquetas del PDF) y guarda una copia.
 #[tauri::command]
-pub fn split_pdf(jobs: State<'_, JobsState>, path: String, rule: SplitRule, password: Option<String>) -> JobId {
-    let src = PathBuf::from(path);
-    jobs.0.spawn(move |ctx| {
-        let doc = pliego_organize::open(&src, password.as_deref())?;
-        let stem = src
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "documento".into());
-        let dir = src.parent().map(PathBuf::from).unwrap_or_default();
-        let out_dir = unique_in(&dir, &stem, "partes", "");
-        pliego_organize::split(&doc, &stem, &rule, &out_dir, ctx)
-    })
+pub fn number_pages(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    rules: Vec<PageLabelSpec>,
+    suffix: Option<String>,
+) -> JobId {
+    let suffix = suffix.unwrap_or_else(|| "numerado".into());
+    jobs.0
+        .spawn(move |_ctx| organize::number_copy(&PathBuf::from(path), password.as_deref(), &rules, &suffix))
 }

@@ -94,6 +94,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 - **Actualizaciones:** servidor estático (Caddy en un VPS que pondrá Ander), manifiesto firmado Ed25519
   `v1/<canal>/manifest.json`. La clave secreta de producción la genera Ander sin conexión: **nunca al repo ni al
   VPS**. Con las actualizaciones «Desactivadas» la app no hace ninguna petición.
+- **Memoria en reposo (W01, Ander, 2026-11-04):** 150 MB para app + worker; techo de 400 MB contando WebView2.
 - **Bates continua en lote:** en las acciones en lote la numeración Bates sigue entre archivos y está activada por
   defecto (#103), como se espera en un expediente.
 - **TLS:** https con rustls + proveedor ring (licencias compatibles con AGPL). Dependencias RustCrypto en la
@@ -112,9 +113,9 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
    mal o Reader avisa de reparaciones (a los hilos no se les dejó manejar Acrobat).
 3. **W20 (y W03):** aceptar en acr12 el diálogo de control de pantalla (computer-use) para `pliego-app.exe`,
    Narrador, Acrobat Reader y Edge, para que los hilos hagan las pruebas de teclado, Narrador y capturas.
-4. **Criterio de memoria de W01** (tarjeta sin respuesta): ¿cómo se mide el límite de 150 MB en reposo?
-   Recomendado: 150 MB para app + worker (hoy ~67 MB) y techo total de 400 MB con WebView2 (hoy ~370 MB).
+4. ~~Criterio de memoria de W01~~: **decidido por Ander (2026-11-04)**: 150 MB para app + worker y techo total de
+   400 MB contando WebView2.
 5. **DNIe/FNMT (W05):** acr12 no tiene lector de tarjetas conectado (#106); conectar uno o descartar la prueba.
-6. **Modelos GGUF de W18 en C:** (5,6 GB) se iban a mover a D:; confirmar que se puede.
+6. ~~Modelos GGUF de W18 en C:~~: **Ander autorizó moverlos a D: (2026-11-04)**; lo hace W18.
 7. **Excluir `D:\dev-cache` del antivirus** si el indexado de W15 lo confirma como causa (necesita administrador).
 8. En la cuenta nueva: los pasos manuales de [`prompt-nuevo-proyecto.md`](prompt-nuevo-proyecto.md).

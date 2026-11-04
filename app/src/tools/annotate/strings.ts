@@ -2,6 +2,13 @@ import { addToolStrings } from "../strings";
 
 addToolStrings({
   es: {
+    "tools.annotate.comment.title": "Comentar", "tools.annotate.comment.description": "Resalta, subraya y anota el documento",
+    "annotate.backupSuffix": "copia de seguridad", "annotate.undo": "Deshacer comentario",
+    "annotate.tool.label": "Herramienta de comentario", "annotate.tool.highlight": "Resaltar", "annotate.tool.underline": "Subrayar",
+    "annotate.tool.strike": "Tachar", "annotate.tool.note": "Nota", "annotate.tool.ink": "Dibujo a mano",
+    "annotate.color.label": "Color", "annotate.color.yellow": "Amarillo", "annotate.color.green": "Verde", "annotate.color.blue": "Azul",
+    "annotate.color.pink": "Rosa", "annotate.color.red": "Rojo",
+    "annotate.note.label": "Texto de la nota", "annotate.note.save": "Guardar", "annotate.note.cancel": "Cancelar",
     "tools.annotate.xfdf.title": "Importar o exportar comentarios",
     "tools.annotate.xfdf.description": "Intercambia comentarios en formato XFDF",
     "tools.annotate.summary.title": "Resumen de comentarios",
@@ -19,6 +26,13 @@ addToolStrings({
     "annotate.summary.empty": "(sin texto)",
   },
   en: {
+    "tools.annotate.comment.title": "Comment", "tools.annotate.comment.description": "Highlight, underline and annotate the document",
+    "annotate.backupSuffix": "backup", "annotate.undo": "Undo comment",
+    "annotate.tool.label": "Comment tool", "annotate.tool.highlight": "Highlight", "annotate.tool.underline": "Underline",
+    "annotate.tool.strike": "Strikethrough", "annotate.tool.note": "Note", "annotate.tool.ink": "Freehand drawing",
+    "annotate.color.label": "Color", "annotate.color.yellow": "Yellow", "annotate.color.green": "Green", "annotate.color.blue": "Blue",
+    "annotate.color.pink": "Pink", "annotate.color.red": "Red",
+    "annotate.note.label": "Note text", "annotate.note.save": "Save", "annotate.note.cancel": "Cancel",
     "tools.annotate.xfdf.title": "Import or export comments",
     "tools.annotate.xfdf.description": "Exchange comments as XFDF",
     "tools.annotate.summary.title": "Comments summary",

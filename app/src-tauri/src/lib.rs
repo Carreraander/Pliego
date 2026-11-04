@@ -65,6 +65,7 @@ pub fn run() {
             ));
             app.manage(commands::jobs::JobsState::new(app.handle().clone()));
             app.manage(commands::assistant::AssistantState::default());
+            app.manage(commands::annot::AnnotEditState::default());
             app.manage(AppState {
                 service: Arc::new(service),
                 startup_files: Mutex::new(commands::startup::pdf_args(std::env::args())),

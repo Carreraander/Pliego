@@ -99,8 +99,8 @@ fn thousand_pdfs_search_under_200ms() {
     }
     let idx = Index::open(&dir.path().join("indice")).unwrap();
     let t = std::time::Instant::now();
-    idx.add_folder(&docs, &JobContext::silent()).unwrap();
-    println!("indexado de 1000 PDFs: {:?}", t.elapsed());
+    let r = idx.add_folder(&docs, &JobContext::silent()).unwrap();
+    println!("indexado de 1000 PDFs: {:?} — {}", t.elapsed(), r.summary);
     let t = std::time::Instant::now();
     let hits = idx.search("testigos", 20).unwrap();
     let dt = t.elapsed();

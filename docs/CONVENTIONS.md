@@ -19,12 +19,15 @@
     y renómbrala en tu PR.
   - `crates/pliego-cli/Cargo.toml`: una dependencia a tu crate.
   - `Cargo.lock`: regenerar tras rebase, nunca resolver a mano.
-- `pliego-core` y `pliego-engine-mupdf` son de gestión/W02. Si necesitas algo nuevo ahí, pídelo (mensaje al hilo
-  de gestión) o abre un PR pequeño y separado solo con ese cambio.
-- Los módulos de funciones **no dependen entre sí**: solo de `pliego-core` y de `mupdf` directamente.
+- `pliego-core`, `pliego-pdf` y `pliego-engine` son de gestión/W30. Si necesitas algo nuevo ahí, pídelo (mensaje al
+  hilo de gestión) o abre un PR pequeño y separado que **solo añada** (nunca cambies lo que ya existe).
+- Los módulos de funciones **no dependen entre sí**: solo de `pliego-core` y de `pliego-pdf`.
+- **No importes `mupdf` en código nuevo** (desde la ola 5): usa `pliego_pdf` (`Document`, `PdfDocument`, `Object`…).
+  Los crates aún pendientes de migrar (tabla en `docs/handoff/flujos/w30.md`) siguen con `mupdf` hasta su PR de
+  migración; un crate migrado no vuelve a depender de `mupdf`.
 
 ## API de los módulos
-- Biblioteca primero: funciones puras sobre rutas o sobre `mupdf::pdf::PdfDocument`, sin estado global.
+- Biblioteca primero: funciones puras sobre rutas o sobre `pliego_pdf::PdfDocument`, sin estado global.
 - Operación larga = `fn op(..., ctx: &JobContext) -> pliego_core::Result<Report>`; llamar `ctx.step(..)` por página.
 - Errores: `pliego_core::Error`; mensajes para personas, en español, sin jerga interna.
 - Páginas desde 0 en la API, desde 1 en CLI e interfaz; rangos con `PageRange`.

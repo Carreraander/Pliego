@@ -4064,6 +4064,7 @@ dependencies = [
  "pliego-assistant",
  "pliego-core",
  "pliego-install",
+ "pliego-organize",
  "pliego-update",
  "serde",
  "serde_json",
@@ -4077,6 +4078,7 @@ dependencies = [
 name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
+ "pliego-appdata",
  "pliego-core",
  "pliego-optimize",
  "pliego-worker",

@@ -5,7 +5,6 @@
 //! (`app/src-tauri`) solo traduce comandos y el protocolo `pliego://tile/...` a llamadas de este servicio.
 
 pub mod api;
-pub mod copies;
 pub mod optimize;
 pub mod uri;
 

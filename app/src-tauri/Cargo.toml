@@ -30,6 +30,7 @@ tauri-build = { version = "2", features = [] }
 pliego-core.workspace = true
 pliego-app-service = { path = "../service" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }
+pliego-organize.workspace = true
 pliego-install = { path = "../../crates/pliego-install" }
 pliego-update = { path = "../../crates/pliego-update" }
 pliego-assistant = { path = "../../crates/pliego-assistant", features = ["download"] }

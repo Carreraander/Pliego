@@ -9,7 +9,7 @@ use pliego_core::{Error, JobContext, Report, Result};
 pub use pliego_optimize::SpaceUsage;
 use pliego_optimize::{OptimizeOptions, Preset};
 
-use crate::copies::copy_path;
+use pliego_appdata::copyjob::unique_sibling;
 
 /// Lo que pide el panel de Comprimir u Optimizar avanzado.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -36,7 +36,7 @@ pub fn compress_copy(input: &Path, req: &CompressRequest, ctx: &JobContext) -> R
     {
         return Err(Error::InvalidInput(format!("calidad JPEG fuera de rango: {q}")));
     }
-    let out = copy_path(input, &req.suffix, "pdf");
+    let out = unique_sibling(input, &req.suffix, "pdf");
     let opts = OptimizeOptions {
         preset,
         target_dpi: req.dpi,

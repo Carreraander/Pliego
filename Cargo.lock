@@ -4059,12 +4059,15 @@ dependencies = [
 name = "pliego-app"
 version = "0.1.0"
 dependencies = [
+ "pliego-a11y",
  "pliego-app-service",
  "pliego-appdata",
  "pliego-assistant",
  "pliego-core",
  "pliego-install",
  "pliego-organize",
+ "pliego-pdfa",
+ "pliego-print",
  "pliego-update",
  "serde",
  "serde_json",

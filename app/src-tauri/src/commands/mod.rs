@@ -4,6 +4,7 @@
 //! a la lista de `handler()`. Ver `docs/app-integration.md`.
 
 pub mod assistant;
+pub mod checks;
 pub mod dialog;
 pub mod document;
 pub mod jobs;
@@ -35,6 +36,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::reveal_path,
         recents::about_info,
         jobs::cancel_job,
+        checks::check_accessibility,
+        checks::validate_pdfa,
+        checks::preflight_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
         text::outline,

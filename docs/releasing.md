@@ -10,7 +10,7 @@ pliego-release keygen --out D:\claves-pliego
 ```
 Genera `pliego-update.key` (SECRETA) y `pliego-update.pub` (`ed25519:…`).
 - La clave secreta **nunca** va al repositorio ni al VPS. Guárdala en dos copias fuera de línea (gestor de contraseñas
-  y memoria USB cifrada). Su contenido, en el secreto `PLIEGO_UPDATE_SIGNING_KEY` del entorno protegido `release`.
+  y memoria USB cifrada). **No** va como secreto de GitHub ni a la CI: el manifiesto se firma a mano (ver §9).
 - Haz una **segunda clave de reserva** (`--name pliego-reserva`) y guárdala solo sin conexión: sirve para rotar.
 - Las claves públicas (activa y reserva) van en la variable `PLIEGO_UPDATE_PUBKEYS` (separadas por comas) al compilar,
   o en `BUILTIN_RELEASE_KEYS` de `crates/pliego-update/src/keys.rs`.
@@ -71,6 +71,8 @@ No se baja nunca a nadie de versión: se publica una versión nueva con número 
   se generó. Para cambiarla: generar otra, sustituir la línea en `/home/pliego/.ssh/authorized_keys` y el secreto.
 - Comprobado: 404 en `/v1/stable/manifest.json` (aún sin publicar), certificado de Let's Encrypt válido, 405 a todo lo
   que no sea GET/HEAD. `pdfpliego.com` envía HSTS con `includeSubDomains`: este subdominio debe seguir siempre en HTTPS.
+- Reparto de poderes: la CI compila y deja los artefactos; **la firma del manifiesto se hace a mano en acr12** con
+  `pliego-release` y la clave de `D:\dev-cache\release-keys\`; una vez firmado, la CI puede subir con `UPDATE_SSH_KEY`.
 - Pendiente: la clave de firma de producción (ver `docs/qa/claves-de-publicacion.md`) y el primer `publish`.
 - Conocido: las respuestas de error (404) salen sin HSTS ni `nosniff` y con `Server: Caddy`, porque Caddy no aplica
   el bloque `header` con borrado a los errores. No afecta a la seguridad (la integridad la dan las firmas).

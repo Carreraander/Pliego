@@ -4,12 +4,15 @@ Pliego usa dos claves distintas. Ninguna secreta va al repositorio, al VPS ni a 
 
 | Clave | Para qué | Dónde vive |
 | --- | --- | --- |
-| Firma Ed25519 (`pliego-update.key`) | Firmar los manifiestos de actualización | Equipo de confianza (acr12: `D:\dev-cache\release-keys\`), secreto `PLIEGO_UPDATE_SIGNING_KEY` del entorno `release` de GitHub y **copia sin conexión** |
+| Firma Ed25519 (`pliego-update.key`) | Firmar los manifiestos de actualización | Solo en el equipo de firma (acr12: `D:\dev-cache\release-keys\`) y en la **copia sin conexión**. **Nunca** como secreto de GitHub |
 | SSH de despliegue (`pliego-deploy`) | Subir archivos por rsync al VPS | Secreto `UPDATE_SSH_KEY` del entorno `release`; solo la pública está en el VPS |
 
 **Si se pierde la clave de firma y no hay copia, no se pueden publicar más actualizaciones**: las instalaciones solo
 aceptan manifiestos firmados por las claves públicas que traen compiladas. Por eso hay una clave de reserva (§7 de
 `docs/releasing.md`).
+
+Motivo: si la clave de firma estuviera en la CI, un flujo o una dependencia comprometidos podrían firmar una
+actualización maliciosa, y esa clave es la única barrera. Subir archivos (la clave SSH) no da poder para firmar.
 
 ## Copia de seguridad (Ander, una sola vez por clave)
 1. En el equipo donde se generó, abrir PowerShell y comprobar que existe `pliego-update.key` y `pliego-update.pub`.

@@ -201,3 +201,16 @@ fn adds_trailer_id_when_missing() {
     let id = doc.trailer().unwrap().get_dict("ID").unwrap().expect("ID");
     assert_eq!(id.len().unwrap(), 2);
 }
+
+#[test]
+fn page_additional_actions_entry_is_removed_for_pdfa2_and_3() {
+    // ISO 19005-2/-3 6.5.2 (veraPDF 1.30.3 sobre protect/sucio.pdf)
+    for level in [Level::A2b, Level::A2u, Level::A3b] {
+        let (out, _r, _d) = convert_to(&corpus("protect/sucio.pdf"), level);
+        let v = validate(&out, level).unwrap();
+        assert!(v.conforms(), "{level:?}: {:?}", v.issues);
+        let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+        let page = doc.find_page(0).unwrap();
+        assert!(page.get_dict("AA").unwrap().is_none(), "{level:?}");
+    }
+}

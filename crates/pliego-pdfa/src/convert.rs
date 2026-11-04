@@ -668,6 +668,10 @@ pub fn convert(input: &Path, output: &Path, level: Level, ctx: &JobContext) -> R
             }
         }
         notes.removed_actions += strip_additional_actions(&mut page)?;
+        // PDF/A-2 y -3 (6.5.2) no admiten ni la entrada /AA de página, aunque quede vacía.
+        if level.allows_transparency() && get(&page, "AA").is_some() {
+            page.dict_delete("AA").map_err(pdf_err)?;
+        }
         fix_annotations(&mut doc, p, &mut notes, level)?;
     }
 

@@ -28,6 +28,7 @@ pub enum Rule {
     FontNotEmbedded,
     FontWithoutUnicode,
     ForbiddenAction,
+    PageAdditionalActions,
     Transparency,
     EmbeddedFile,
     AttachmentWithoutRelationship,
@@ -527,6 +528,18 @@ pub fn validate_doc(doc: &PdfDocument, level: Level) -> Result<Validation> {
             }
         }
         check_additional_actions(&mut ctx, &page, Some(p));
+        // ISO 19005-2/-3 6.5.2: la página no puede llevar la entrada /AA, ni vacía.
+        if ctx.level.allows_transparency() && get(&page, "AA").is_some() {
+            ctx.add(
+                Rule::PageAdditionalActions,
+                Some(p),
+                format!(
+                    "La página {} tiene acciones adicionales (/AA), que {} no permite.",
+                    p + 1,
+                    ctx.level.name()
+                ),
+            );
+        }
         check_annotations(&mut ctx, &page, p);
     }
     if ctx.truncated {

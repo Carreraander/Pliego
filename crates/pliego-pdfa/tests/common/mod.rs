@@ -7,6 +7,7 @@ use pliego_pdfa::srgb_profile;
 pub struct Opts {
     pub xmp: Option<String>,
     pub no_xmp: bool,
+    pub no_id: bool,
     pub no_intent: bool,
     pub helvetica_not_embedded: bool,
     pub javascript: bool,
@@ -144,9 +145,14 @@ pub fn build(o: &Opts, part: u8, conf: &str) -> Vec<u8> {
         out.extend(format!("{off:010} 00000 n \n").bytes());
     }
     let _ = o.encrypted_marker;
+    let id = if o.no_id {
+        ""
+    } else {
+        " /ID [<0123456789ABCDEF0123456789ABCDEF> <0123456789ABCDEF0123456789ABCDEF>]"
+    };
     out.extend(
         format!(
-            "trailer\n<< /Size {} /Root {cat} 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+            "trailer\n<< /Size {} /Root {cat} 0 R{id} >>\nstartxref\n{xref}\n%%EOF\n",
             b.objs.len() + 1
         )
         .bytes(),

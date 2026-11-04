@@ -170,7 +170,8 @@ fn spawn(config: &WorkerConfig) -> io::Result<Proc> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        // CREATE_NO_WINDOW | CREATE_SUSPENDED: `Sandbox::attach` lo mete en el job y lo reanuda.
+        cmd.creation_flags(0x0800_0000 | crate::platform::windows::CREATE_SUSPENDED);
     }
     let mut child = cmd.spawn()?;
     // Si no se puede restringir el proceso no se usa: un worker sin límites no cumple el aislamiento.

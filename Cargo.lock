@@ -4086,6 +4086,8 @@ dependencies = [
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",
+ "pliego-protect",
+ "pliego-redact",
  "pliego-stamp",
  "pliego-worker",
  "png 0.17.16",

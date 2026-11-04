@@ -13,6 +13,8 @@ pliego-convert = { path = "../../crates/pliego-convert" }
 pliego-office-export = { path = "../../crates/pliego-office-export" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
+pliego-protect = { path = "../../crates/pliego-protect" }
+pliego-redact = { path = "../../crates/pliego-redact" }
 pliego-annot = { path = "../../crates/pliego-annot" }
 pliego-organize.workspace = true
 pliego-stamp.workspace = true

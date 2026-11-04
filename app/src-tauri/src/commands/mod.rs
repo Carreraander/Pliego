@@ -10,6 +10,7 @@ pub mod document;
 pub mod jobs;
 pub mod optimize;
 pub mod organize;
+pub mod protect;
 pub mod recents;
 pub mod search;
 pub mod settings;
@@ -45,6 +46,11 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         optimize::analyze_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
+        protect::protect_encrypt,
+        protect::protect_remove,
+        protect::protect_sanitize,
+        protect::redact_find,
+        protect::redact_apply,
         organize::insert_pages,
         organize::number_pages,
         stamp::stamp_pdf,

@@ -18,7 +18,7 @@ protege a los usuarios son las firmas Ed25519 de los manifiestos, no el VPS. Dis
 3. En el VPS, como root: `./setup-vps.sh actualizaciones.<dominio> "$(cat pliego-deploy.pub)"`.
 4. Comprueba `https://actualizaciones.<dominio>/v1/stable/manifest.json` (404 hasta publicar).
 5. En GitHub > Settings > Secrets del entorno `release`: `UPDATE_SSH_KEY` (la clave privada de despliegue),
-   `UPDATE_SSH_HOST` (el dominio) y `PLIEGO_UPDATE_SIGNING_KEY` (clave de firma, ver `docs/releasing.md`). Variable
+   y `UPDATE_SSH_HOST` (el dominio). La clave de firma NO va a GitHub: se firma a mano (ver `docs/releasing.md`). Variable
    `PLIEGO_UPDATE_URL=https://actualizaciones.<dominio>`. Mientras no exista `UPDATE_SSH_HOST`, el paso `rsync` se omite.
 6. Publica una versión y comprueba con `pliego-release check --url https://actualizaciones.<dominio> --pubkey …`.
 

@@ -96,3 +96,16 @@ pub async fn pick_any_files(app: tauri::AppHandle, title: Option<String>) -> Vec
         .map(|p| p.to_string_lossy().into_owned())
         .collect()
 }
+
+/// Selector de una acción guardada (`.toml` o `.json`). `None` si se cancela.
+#[tauri::command]
+pub async fn pick_action_file(app: tauri::AppHandle, title: Option<String>) -> Option<String> {
+    let mut dialog = app.dialog().file().add_filter("Acción", &["toml", "json"]);
+    if let Some(t) = title {
+        dialog = dialog.set_title(t);
+    }
+    dialog
+        .blocking_pick_file()
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
+}

@@ -13,7 +13,13 @@ export const portfolio: ToolManifest = {
   icon: "folders", keywords: ["cartera", "portfolio", "adjuntos", "incrustados"], pinnable: true, load: () => import("./PortfolioPanel"),
 };
 
+export const actions: ToolManifest = {
+  id: "batch.actions", group: "automate", kind: "wizard", title: "tools.batch.actions.title", description: "tools.batch.actions.description",
+  icon: "list-checks", keywords: ["lote", "batch", "automatizar", "acción"], pinnable: true, load: () => import("./ActionsPanel"),
+};
+
 export function registerBatchTools(): void {
+  registerTool(actions);
   registerTool(indexFolder);
   registerTool(portfolio);
 }

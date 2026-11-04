@@ -3,6 +3,7 @@
 //! Para añadir los tuyos: crea `commands/<area>.rs`, declara `pub mod <area>;` aquí y añade tus funciones
 //! a la lista de `handler()`. Ver `docs/app-integration.md`.
 
+pub mod actions;
 pub mod annot;
 pub mod assistant;
 pub mod checks;
@@ -32,6 +33,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         dialog::pick_pdf_files,
         dialog::pick_key_file,
         dialog::pick_folder,
+        dialog::pick_action_file,
         dialog::pick_any_files,
         dialog::pick_image_file,
         dialog::pick_source_files,
@@ -64,6 +66,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,
         annot::pick_xfdf_file,
+        actions::actions_load,
+        actions::actions_run,
         formdesign::form_fields,
         formdesign::form_add_field,
         formdesign::form_update_field,

@@ -49,6 +49,8 @@ export const api = {
   /** Selector nativo de archivos de cualquier tipo (cartera); vacío si se cancela. */
   pickAnyFiles: (title?: string) => invoke<string[]>("pick_any_files", { title }),
   /** Selector nativo de una carpeta; `null` si se cancela. */
+  /** Selector nativo de una acción guardada (.toml o .json); `null` si se cancela. */
+  pickActionFile: (title?: string) => invoke<string | null>("pick_action_file", { title }),
   pickFolder: (title?: string) => invoke<string | null>("pick_folder", { title }),
   /** Selector nativo de una imagen PNG o JPEG; `null` si se cancela. */
   pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title }),

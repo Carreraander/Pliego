@@ -31,6 +31,7 @@ pliego-sign = { path = "../../crates/pliego-sign" }
 pliego-signflow = { path = "../../crates/pliego-signflow" }
 pliego-protect = { path = "../../crates/pliego-protect" }
 pliego-redact = { path = "../../crates/pliego-redact" }
+pliego-measure = { path = "../../crates/pliego-measure" }
 pliego-organize.workspace = true
 pliego-stamp.workspace = true
 base64 = "0.22"

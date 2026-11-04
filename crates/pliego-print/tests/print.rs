@@ -273,3 +273,77 @@ fn pdfx_conversion_adds_output_intent_when_ghostscript_is_available() {
     let raw = std::fs::read(&out).unwrap();
     assert!(raw.windows(13).any(|w| w == b"PDF/X-1a:2001"));
 }
+
+/// Lee un PAM CMYK (`pamcmyk32` de Ghostscript): devuelve ancho, alto y los cuatro canales por separado.
+fn read_pam_cmyk(bytes: &[u8]) -> (usize, usize, Vec<Vec<u8>>) {
+    let end = bytes.windows(7).position(|w| w == b"ENDHDR\n").expect("cabecera PAM") + 7;
+    let head = std::str::from_utf8(&bytes[..end]).unwrap();
+    let field = |k: &str| -> usize {
+        head.lines()
+            .find_map(|l| l.strip_prefix(k).map(|v| v.trim().parse().unwrap()))
+            .unwrap()
+    };
+    let (w, h) = (field("WIDTH"), field("HEIGHT"));
+    assert_eq!(field("DEPTH"), 4);
+    let mut planes: Vec<Vec<u8>> = (0..4).map(|_| Vec::with_capacity(w * h)).collect();
+    let data = &bytes[end..];
+    assert!(data.len() >= w * h * 4, "PAM truncado");
+    for i in 0..w * h {
+        for (c, plane) in planes.iter_mut().enumerate() {
+            plane.push(data[i * 4 + c]);
+        }
+    }
+    (w, h, planes)
+}
+
+/// Compara las planchas con las de Ghostscript (herramienta de referencia) en los 5 PDF CMYK de prueba.
+/// Se omite si no hay Ghostscript instalado.
+#[test]
+fn separations_match_ghostscript_reference() {
+    let Some(gs) = pliego_print::find_ghostscript() else {
+        eprintln!("Ghostscript no disponible: comparación omitida");
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    for file in [
+        "cmyk-cian.pdf",
+        "cmyk-magenta.pdf",
+        "cmyk-amarillo.pdf",
+        "cmyk-negro.pdf",
+        "cmyk-mezcla.pdf",
+    ] {
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/corpus/print")
+            .join(file);
+        let out = dir.path().join(format!("{file}.pam"));
+        let status = std::process::Command::new(&gs)
+            .args(["-q", "-dBATCH", "-dNOPAUSE", "-sDEVICE=pamcmyk32", "-r72"])
+            .arg(format!("-sOutputFile={}", out.display()))
+            .arg(&src)
+            .status()
+            .unwrap();
+        assert!(status.success(), "{file}: Ghostscript falló");
+        let (w, h, reference) = read_pam_cmyk(&std::fs::read(&out).unwrap());
+
+        let s = separations(&doc(file), 0, 72.0).unwrap();
+        assert_eq!(
+            (s.plates[0].width as usize, s.plates[0].height as usize),
+            (w, h),
+            "{file}"
+        );
+        for (plate, refp) in s.plates.iter().zip(&reference) {
+            let total: u64 = plate
+                .samples
+                .iter()
+                .zip(refp)
+                .map(|(a, b)| (*a as i32 - *b as i32).unsigned_abs() as u64)
+                .sum();
+            let mean = total as f64 / (w * h) as f64;
+            assert!(
+                mean < 3.0,
+                "{file}: plancha {:?} difiere de Ghostscript (diferencia media {mean:.2}/255)",
+                plate.channel
+            );
+        }
+    }
+}

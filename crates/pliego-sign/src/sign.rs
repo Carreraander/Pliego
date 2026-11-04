@@ -8,7 +8,10 @@ use pliego_core::{Error, JobContext, Report, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::cms::{OID_TIMESTAMP_TOKEN, add_unsigned_attribute, build_cms, signature_value};
-use crate::dss::{HttpRevocation, RevocationData, RevocationSource, StaticRevocation, add_dss, collect_revocation};
+use crate::doctimestamp::add_document_timestamp;
+use crate::dss::{
+    HttpRevocation, RevocationData, RevocationSource, StaticRevocation, add_dss, add_dss_vri, collect_revocation,
+};
 use crate::pdfwrite::{text_string, write_dict, write_object};
 use crate::signer::{DigestAlg, Signer, subject_name};
 use crate::timestamp::{HttpTsa, TimestampAuthority, request_token, token_certificates};
@@ -25,7 +28,7 @@ pub enum PadesLevel {
     /// Con sello de tiempo y datos de validación a largo plazo (DSS con certificados y revocación).
     #[serde(rename = "b-lt")]
     BLt,
-    /// Con sello de tiempo del documento (aún no implementado).
+    /// Como B-LT, más un sello de tiempo del documento (`DocTimeStamp`) que protege el DSS.
     #[serde(rename = "b-lta")]
     BLta,
 }
@@ -85,7 +88,7 @@ impl Default for SignOptions {
     }
 }
 
-fn pdf_err(e: lopdf::Error) -> Error {
+pub(crate) fn pdf_err(e: lopdf::Error) -> Error {
     Error::Pdf(format!("PDF no válido para firmar: {e}"))
 }
 
@@ -94,7 +97,7 @@ fn pdf_date_human(unix: i64) -> String {
     dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
 }
 
-fn pdf_date(unix: i64) -> String {
+pub(crate) fn pdf_date(unix: i64) -> String {
     let dt = chrono::DateTime::from_timestamp(unix, 0).unwrap_or_default();
     format!("D:{}+00'00'", dt.format("%Y%m%d%H%M%S"))
 }
@@ -117,14 +120,14 @@ pub(crate) fn last_startxref(data: &[u8]) -> Result<(usize, bool)> {
 }
 
 /// Objetos nuevos o modificados de la actualización.
-struct Changes<'a> {
-    doc: &'a lopdf::Document,
-    objects: BTreeMap<ObjectId, Object>,
+pub(crate) struct Changes<'a> {
+    pub(crate) doc: &'a lopdf::Document,
+    pub(crate) objects: BTreeMap<ObjectId, Object>,
 }
 
 impl Changes<'_> {
     /// Copia de trabajo de un objeto: la ya modificada o un clon del original.
-    fn get(&mut self, id: ObjectId) -> Result<&mut Object> {
+    pub(crate) fn get(&mut self, id: ObjectId) -> Result<&mut Object> {
         if !self.objects.contains_key(&id) {
             let o = self.doc.get_object(id).map_err(pdf_err)?.clone();
             self.objects.insert(id, o);
@@ -133,7 +136,7 @@ impl Changes<'_> {
     }
 
     /// Añade `new_ref` al array `key` de `owner`, sea directo, indirecto o inexistente.
-    fn push_into_array(&mut self, owner: ObjectId, key: &[u8], new_ref: ObjectId) -> Result<()> {
+    pub(crate) fn push_into_array(&mut self, owner: ObjectId, key: &[u8], new_ref: ObjectId) -> Result<()> {
         let existing = match self.get(owner)? {
             Object::Dictionary(d) => d.get(key).ok().cloned(),
             _ => return Err(Error::Pdf("objeto contenedor no es un diccionario".into())),
@@ -154,7 +157,7 @@ impl Changes<'_> {
         Ok(())
     }
 
-    fn dict(&mut self, id: ObjectId) -> Result<&mut Dictionary> {
+    pub(crate) fn dict(&mut self, id: ObjectId) -> Result<&mut Dictionary> {
         match self.get(id)? {
             Object::Dictionary(d) => Ok(d),
             _ => Err(Error::Pdf("se esperaba un diccionario".into())),
@@ -288,6 +291,45 @@ fn find_signature_field(doc: &lopdf::Document, name: &str) -> Result<Option<(Obj
     Ok(None)
 }
 
+/// Añade el campo al AcroForm del catálogo (lo crea si no existe) y marca `SigFlags = 3`.
+pub(crate) fn register_field(ch: &mut Changes, root_id: ObjectId, field_id: ObjectId) -> Result<()> {
+    // AcroForm con el campo y SigFlags = 3 (firmas existentes + añadir a un documento firmado).
+    let acro = ch.get(root_id).and_then(|o| match o {
+        Object::Dictionary(d) => Ok(d.get(b"AcroForm").ok().cloned()),
+        _ => Err(Error::Pdf("catálogo no válido".into())),
+    })?;
+    match acro {
+        Some(Object::Reference(acro_id)) => {
+            ch.push_into_array(acro_id, b"Fields", field_id)?;
+            ch.dict(acro_id)?.set("SigFlags", 3);
+        }
+        Some(Object::Dictionary(_)) => {
+            // AcroForm directo dentro del catálogo: se reescribe el catálogo con el campo añadido.
+            let Some(Object::Dictionary(mut a)) = ch.dict(root_id)?.get(b"AcroForm").ok().cloned() else {
+                unreachable!("comprobado arriba");
+            };
+            match a.get(b"Fields").ok().cloned() {
+                Some(Object::Array(mut f)) => {
+                    f.push(Object::Reference(field_id));
+                    a.set("Fields", Object::Array(f));
+                }
+                Some(Object::Reference(fid)) => match ch.get(fid)? {
+                    Object::Array(f) => f.push(Object::Reference(field_id)),
+                    _ => return Err(Error::Pdf("Fields no es un array".into())),
+                },
+                _ => a.set("Fields", vec![Object::Reference(field_id)]),
+            }
+            a.set("SigFlags", 3);
+            ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
+        }
+        _ => {
+            let a = dictionary! { "Fields" => vec![Object::Reference(field_id)], "SigFlags" => 3 };
+            ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
+        }
+    }
+    Ok(())
+}
+
 /// Marca `SigFlags = 3` en el AcroForm existente.
 fn set_sig_flags(ch: &mut Changes, root_id: ObjectId) -> Result<()> {
     let acro = ch.dict(root_id)?.get(b"AcroForm").ok().cloned();
@@ -355,15 +397,12 @@ pub fn sign_bytes_with(
     tsa: Option<&dyn TimestampAuthority>,
     revocation: Option<&dyn RevocationSource>,
 ) -> Result<Vec<u8>> {
-    if opts.level == PadesLevel::BLta {
-        return Err(Error::Unsupported("el nivel B-LTA todavía no está disponible".into()));
-    }
     if opts.level >= PadesLevel::BT && tsa.is_none() {
         return Err(Error::InvalidInput(
             "este nivel necesita un servidor de sellado de tiempo".into(),
         ));
     }
-    if opts.level == PadesLevel::BLt && revocation.is_none() {
+    if opts.level >= PadesLevel::BLt && revocation.is_none() {
         return Err(Error::InvalidInput(
             "el nivel B-LT necesita un origen de datos de revocación".into(),
         ));
@@ -479,40 +518,7 @@ pub fn sign_bytes_with(
         ch.objects.insert(field_id, Object::Dictionary(field));
         ch.push_into_array(page_id, b"Annots", field_id)?;
 
-        // AcroForm con el campo y SigFlags = 3 (firmas existentes + añadir a un documento firmado).
-        let acro = ch.get(root_id).and_then(|o| match o {
-            Object::Dictionary(d) => Ok(d.get(b"AcroForm").ok().cloned()),
-            _ => Err(Error::Pdf("catálogo no válido".into())),
-        })?;
-        match acro {
-            Some(Object::Reference(acro_id)) => {
-                ch.push_into_array(acro_id, b"Fields", field_id)?;
-                ch.dict(acro_id)?.set("SigFlags", 3);
-            }
-            Some(Object::Dictionary(_)) => {
-                // AcroForm directo dentro del catálogo: se reescribe el catálogo con el campo añadido.
-                let Some(Object::Dictionary(mut a)) = ch.dict(root_id)?.get(b"AcroForm").ok().cloned() else {
-                    unreachable!("comprobado arriba");
-                };
-                match a.get(b"Fields").ok().cloned() {
-                    Some(Object::Array(mut f)) => {
-                        f.push(Object::Reference(field_id));
-                        a.set("Fields", Object::Array(f));
-                    }
-                    Some(Object::Reference(fid)) => match ch.get(fid)? {
-                        Object::Array(f) => f.push(Object::Reference(field_id)),
-                        _ => return Err(Error::Pdf("Fields no es un array".into())),
-                    },
-                    _ => a.set("Fields", vec![Object::Reference(field_id)]),
-                }
-                a.set("SigFlags", 3);
-                ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
-            }
-            _ => {
-                let a = dictionary! { "Fields" => vec![Object::Reference(field_id)], "SigFlags" => 3 };
-                ch.dict(root_id)?.set("AcroForm", Object::Dictionary(a));
-            }
-        }
+        register_field(&mut ch, root_id, field_id)?;
     }
 
     if opts.certify.is_some() {
@@ -619,7 +625,7 @@ pub fn sign_bytes_with(
     }
     let hex = hex::encode_upper(&cms);
     out[contents_open + 1..contents_open + 1 + hex.len()].copy_from_slice(hex.as_bytes());
-    if let (PadesLevel::BLt, Some(source)) = (opts.level, revocation) {
+    if let (true, Some(source)) = (opts.level >= PadesLevel::BLt, revocation) {
         let mut certs = chain.clone();
         certs.extend(token_certs);
         let data = collect_revocation(&certs, source)?;
@@ -628,7 +634,14 @@ pub fn sign_bytes_with(
                 "no se obtuvieron datos de revocación (CRL u OCSP) para los certificados de la firma".into(),
             ));
         }
-        return add_dss(&out, &certs, &data);
+        let with_dss = add_dss_vri(&out, &certs, &data, Some(&cms))?;
+        if let (PadesLevel::BLta, Some(tsa)) = (opts.level, tsa) {
+            let (stamped, tsa_certs) = add_document_timestamp(&with_dss, tsa, opts.digest, opts.contents_size, when)?;
+            // Validación del propio sello del documento, para que siga siendo comprobable más adelante.
+            let tsa_data = collect_revocation(&tsa_certs, source)?;
+            return add_dss(&stamped, &tsa_certs, &tsa_data);
+        }
+        return Ok(with_dss);
     }
     Ok(out)
 }

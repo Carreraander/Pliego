@@ -12,6 +12,7 @@ pub mod search;
 pub mod settings;
 pub mod startup;
 pub mod text;
+pub mod updates;
 
 /// Lista de comandos expuestos a la interfaz.
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
@@ -44,5 +45,12 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         assistant::assistant_ask,
         assistant::assistant_summarize,
         assistant::assistant_keydata,
+        updates::update_status,
+        updates::update_check_now,
+        updates::update_download,
+        updates::update_restart_now,
+        updates::update_set_settings,
+        updates::update_skip_version,
+        updates::update_dismiss_notices,
     ]
 }

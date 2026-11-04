@@ -3876,7 +3876,7 @@ dependencies = [
  "pkcs8 0.11.0",
  "rand 0.10.3",
  "rc2",
- "sha1",
+ "sha1 0.11.0",
  "sha2 0.11.1",
  "thiserror 2.0.21",
  "x509-parser",
@@ -4201,6 +4201,8 @@ dependencies = [
  "pliego-appdata",
  "pliego-assistant",
  "pliego-core",
+ "pliego-install",
+ "pliego-update",
  "serde",
  "serde_json",
  "tauri",
@@ -4582,6 +4584,7 @@ dependencies = [
  "rcgen",
  "rsa",
  "serde",
+ "sha1 0.10.7",
  "sha2 0.10.9",
  "signature",
  "spki 0.7.3",
@@ -4627,6 +4630,7 @@ dependencies = [
  "ed25519-dalek",
  "getrandom 0.3.4",
  "pliego-core",
+ "pliego-install",
  "pliego-update",
  "semver",
  "serde",
@@ -4637,6 +4641,7 @@ dependencies = [
  "time",
  "tiny_http",
  "ureq",
+ "windows",
 ]
 
 [[package]]
@@ -5664,6 +5669,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
 dependencies = [
  "stable_deref_trait",
+]
+
+[[package]]
+name = "sha1"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a978451301f4db1d02937a4ab3ccce137717b81826e79b7d49ffe3244a13c3b8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "digest 0.10.7",
 ]
 
 [[package]]

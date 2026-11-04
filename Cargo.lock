@@ -4553,8 +4553,10 @@ version = "0.1.0"
 dependencies = [
  "embed-resource",
  "pliego-install",
+ "pliego-update",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tao",
  "tempfile",
  "windows",

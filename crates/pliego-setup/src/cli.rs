@@ -40,6 +40,8 @@ pub enum Command {
     Update {
         root: Option<PathBuf>,
         paq: PathBuf,
+        /// Sobre firmado (Ed25519) del manifiesto que describe el `.paq`.
+        manifest: PathBuf,
     },
     Pack {
         base: PathBuf,
@@ -76,7 +78,8 @@ pub fn parse(args: &[OsString]) -> Result<Parsed, String> {
 
     let mut mode = "install";
     let (mut inst, mut purge, mut silent) = (InstallArgs::default(), false, false);
-    let (mut root, mut paq, mut base, mut out, mut log, mut pid) = (None, None, None, None, None, None);
+    let (mut root, mut manifest, mut paq, mut base, mut out, mut log, mut pid) =
+        (None, None, None, None, None, None, None);
     let mut version_arg = None;
     while i < args.len() {
         match args[i].as_str() {
@@ -118,6 +121,7 @@ pub fn parse(args: &[OsString]) -> Result<Parsed, String> {
                 )
             }
             "--root" => root = Some(PathBuf::from(next("--root", &mut i)?)),
+            "--manifest" => manifest = Some(PathBuf::from(next("--manifest", &mut i)?)),
             "--paq" => paq = Some(PathBuf::from(next("--paq", &mut i)?)),
             "--base" => base = Some(PathBuf::from(next("--base", &mut i)?)),
             "--out" => out = Some(PathBuf::from(next("--out", &mut i)?)),
@@ -138,6 +142,7 @@ pub fn parse(args: &[OsString]) -> Result<Parsed, String> {
         "update" => Command::Update {
             root,
             paq: need(paq, "--paq")?,
+            manifest: need(manifest, "--manifest")?,
         },
         "pack" => Command::Pack {
             base: need(base, "--base")?,
@@ -260,9 +265,10 @@ pub fn execute(cmd: Command, env: &Env, sys: &dyn System) -> u32 {
             let root = root.unwrap_or_else(|| env.exe_root());
             finish(engine::post_update(&root, sys))
         }
-        Command::Update { root, paq } => {
+        Command::Update { root, paq, manifest } => {
             let root = root.unwrap_or_else(|| env.exe_root());
-            finish(engine::update_from_paq(&root, &paq).map(|_| ()))
+            let trusted = pliego_update::release_keys();
+            finish(engine::update_from_paq(&root, &paq, &manifest, &trusted).map(|_| ()))
         }
         Command::Cleanup { root, pid } => {
             platform::wait_for_exit(pid);
@@ -427,10 +433,11 @@ mod tests {
             Command::PostUpdate { root: Some("R".into()) }
         );
         assert_eq!(
-            cmd(&["--update", "--paq", "a.paq"]),
+            cmd(&["--update", "--paq", "a.paq", "--manifest", "m.json"]),
             Command::Update {
                 root: None,
-                paq: "a.paq".into()
+                paq: "a.paq".into(),
+                manifest: "m.json".into()
             }
         );
         assert_eq!(
@@ -457,6 +464,10 @@ mod tests {
         assert!(p(&["--nope"]).is_err());
         assert!(p(&["--dir"]).is_err());
         assert!(p(&["--update"]).is_err());
+        assert!(
+            p(&["--update", "--paq", "a.paq"]).is_err(),
+            "sin --manifest no se actualiza"
+        );
         assert!(p(&["--pack", "--base", "b"]).is_err());
     }
 

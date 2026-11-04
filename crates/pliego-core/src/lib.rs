@@ -2,7 +2,7 @@
 //!
 //! Reglas (ver `docs/CONVENTIONS.md`):
 //! - Ningún módulo de funciones depende de otro módulo de funciones; solo de `pliego-core`
-//!   y, si lo necesita, de `mupdf` directamente.
+//!   y, si lo necesita, de `pliego-pdf` (única capa que habla con el motor PDF; nunca de `mupdf`).
 //! - Las operaciones largas reciben un [`JobContext`] para informar progreso y poder cancelarse.
 //! - Las páginas se numeran desde 0 en la API y desde 1 en la CLI y la interfaz.
 

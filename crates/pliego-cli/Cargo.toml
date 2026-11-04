@@ -16,7 +16,7 @@ llama = ["pliego-assistant/llama"]
 
 [dependencies]
 pliego-core.workspace = true
-pliego-engine-mupdf.workspace = true
+pliego-engine.workspace = true
 pliego-sign = { path = "../pliego-sign" }
 pliego-signflow = { path = "../pliego-signflow" }
 pliego-compare = { path = "../pliego-compare" }

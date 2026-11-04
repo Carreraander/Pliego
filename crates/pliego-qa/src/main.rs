@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use clap::Parser;
 use pliego_core::{EngineDocument, PdfEngine};
-use pliego_engine_mupdf::MupdfEngine;
+use pliego_engine::DefaultEngine;
 use pliego_worker::{WorkerConfig, WorkerEngine};
 
 /// Código de salida del hijo cuando el motor devuelve un error limpio.
@@ -77,7 +77,7 @@ fn worker(file: &Path, use_worker: bool) -> ExitCode {
             }
         }
     } else {
-        open_and_render(&MupdfEngine, file)
+        open_and_render(&DefaultEngine, file)
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

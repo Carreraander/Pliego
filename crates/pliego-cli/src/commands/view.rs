@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use clap::Args;
 use pliego_core::{EngineDocument, PageRange, PdfEngine};
-use pliego_engine_mupdf::{MupdfDocument, MupdfEngine, encode_png};
+use pliego_engine::{DefaultDocument, DefaultEngine, encode_png};
 
 #[derive(Args)]
 pub struct OpenArgs {
@@ -15,8 +15,8 @@ pub struct OpenArgs {
 }
 
 impl OpenArgs {
-    pub fn open(&self) -> anyhow::Result<MupdfDocument> {
-        MupdfEngine
+    pub fn open(&self) -> anyhow::Result<DefaultDocument> {
+        DefaultEngine
             .open(&self.input, self.password.as_deref())
             .with_context(|| format!("no se pudo abrir {}", self.input.display()))
     }

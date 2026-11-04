@@ -8,19 +8,19 @@ use std::io::{self, BufReader, BufWriter, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use pliego_core::{EngineDocument, Error, PdfEngine, Result};
-use pliego_engine_mupdf::{MupdfDocument, MupdfEngine};
+use pliego_engine::{DefaultDocument, DefaultEngine};
 use pliego_worker::protocol::{
     MAX_BINARY_FRAME, MAX_JSON_FRAME, Request, Response, WireError, read_frame, write_frame, write_json,
 };
 
 fn main() {
-    pliego_engine_mupdf::init_fonts();
+    pliego_engine::init_fonts();
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut input = BufReader::new(stdin.lock());
     let mut output = BufWriter::new(stdout.lock());
     let debug = std::env::var_os("PLIEGO_WORKER_DEBUG").is_some();
-    let mut doc: Option<MupdfDocument> = None;
+    let mut doc: Option<DefaultDocument> = None;
 
     loop {
         let frame = match read_frame(&mut input, MAX_JSON_FRAME) {
@@ -67,7 +67,7 @@ fn main() {
 }
 
 fn handle(
-    doc: &mut Option<MupdfDocument>,
+    doc: &mut Option<DefaultDocument>,
     req: Request,
     bytes: Option<Vec<u8>>,
 ) -> Result<(Response, Option<Vec<u8>>)> {
@@ -83,13 +83,13 @@ fn handle(
     match req {
         Request::OpenPath { path, password } => {
             *doc = None;
-            *doc = Some(MupdfEngine.open(path.as_ref(), password.as_deref())?);
+            *doc = Some(DefaultEngine.open(path.as_ref(), password.as_deref())?);
             Ok((Response::Ok, None))
         }
         Request::OpenBytes { password } => {
             *doc = None;
             let bytes = bytes.ok_or_else(|| Error::InvalidInput("falta el contenido del PDF".into()))?;
-            *doc = Some(MupdfEngine.open_bytes(&bytes, password.as_deref())?);
+            *doc = Some(DefaultEngine.open_bytes(&bytes, password.as_deref())?);
             Ok((Response::Ok, None))
         }
         Request::SetLayer { id, visible } => {

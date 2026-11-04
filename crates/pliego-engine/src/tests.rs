@@ -8,8 +8,8 @@ fn corpus(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn open() -> MupdfDocument {
-    MupdfEngine.open(&corpus("hola.pdf"), None).expect("abre hola.pdf")
+fn open() -> DefaultDocument {
+    DefaultEngine.open(&corpus("hola.pdf"), None).expect("abre hola.pdf")
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn png_roundtrip() {
 #[test]
 fn missing_file_is_io_error() {
     assert!(matches!(
-        MupdfEngine.open(&corpus("no-existe.pdf"), None),
+        DefaultEngine.open(&corpus("no-existe.pdf"), None),
         Err(Error::Io { .. })
     ));
 }
@@ -103,7 +103,7 @@ fn missing_file_is_io_error() {
 #[test]
 fn hostile_outline_does_not_crash() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/outline/hostil.pdf");
-    let d = MupdfEngine.open(&path, None).expect("abre hostil.pdf");
+    let d = DefaultEngine.open(&path, None).expect("abre hostil.pdf");
     let o = d.outline().unwrap();
     // Se corta en cuanto un nodo ya visitado reaparece (ciclos por /Next y por /First).
     assert_eq!(o.len(), 3, "{o:#?}");

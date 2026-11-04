@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use pliego_core::{EngineDocument, Error, PdfEngine, TileRequest};
-use pliego_engine_mupdf::MupdfEngine;
+use pliego_engine::DefaultEngine;
 use pliego_worker::{WorkerConfig, WorkerEngine};
 
 fn hola() -> PathBuf {
@@ -26,7 +26,7 @@ fn tile() -> TileRequest {
 #[test]
 fn matches_in_process_engine() {
     let w = engine().open(&hola(), None).unwrap();
-    let m = MupdfEngine.open(&hola(), None).unwrap();
+    let m = DefaultEngine.open(&hola(), None).unwrap();
     assert_eq!(w.info().unwrap(), m.info().unwrap());
     assert_eq!(w.page_size(0).unwrap(), m.page_size(0).unwrap());
     assert_eq!(w.page_text(0).unwrap(), m.page_text(0).unwrap());
@@ -181,7 +181,7 @@ fn reload_bytes_changes_content() {
     );
 }
 
-/// PDF hallado por el fuzzing: un marcador sin /Title tumbaba `Document::outlines` de mupdf-rs 0.8.0.
+/// PDF hallado por el fuzzing: un marcador sin /Title tumbaba `Document::outlines` de MuPDF.
 /// Ya no ocurre (recorrido propio de marcadores), y el documento sigue usable sin reinicios.
 #[test]
 fn outline_without_title_is_handled() {

@@ -4154,7 +4154,7 @@ dependencies = [
  "pliego-core",
  "pliego-document",
  "pliego-edit",
- "pliego-engine-mupdf",
+ "pliego-engine",
  "pliego-formdesign",
  "pliego-forms",
  "pliego-index",
@@ -4236,11 +4236,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "pliego-engine-mupdf"
+name = "pliego-engine"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "tempfile",
 ]
 
@@ -4272,7 +4272,7 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
- "pliego-engine-mupdf",
+ "pliego-engine",
  "serde",
  "tantivy",
  "tempfile",
@@ -4315,7 +4315,7 @@ version = "0.1.0"
 dependencies = [
  "mupdf",
  "pliego-core",
- "pliego-engine-mupdf",
+ "pliego-engine",
  "serde",
  "sha2 0.10.9",
  "tempfile",
@@ -4359,6 +4359,16 @@ dependencies = [
  "pliego-core",
  "serde",
  "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "pliego-pdf"
+version = "0.1.0"
+dependencies = [
+ "mupdf",
+ "pliego-core",
+ "serde",
  "tempfile",
 ]
 
@@ -4411,7 +4421,7 @@ dependencies = [
  "anyhow",
  "clap",
  "pliego-core",
- "pliego-engine-mupdf",
+ "pliego-engine",
  "pliego-worker",
 ]
 
@@ -4557,7 +4567,7 @@ name = "pliego-worker"
 version = "0.1.0"
 dependencies = [
  "pliego-core",
- "pliego-engine-mupdf",
+ "pliego-engine",
  "serde",
  "serde_json",
  "tempfile",

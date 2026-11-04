@@ -12,7 +12,8 @@ authors = ["Proyecto Pliego"]
 
 [workspace.dependencies]
 pliego-core = { path = "crates/pliego-core" }
-pliego-engine-mupdf = { path = "crates/pliego-engine-mupdf" }
+pliego-engine = { path = "crates/pliego-engine" }
+pliego-pdf = { path = "crates/pliego-pdf" }
 pliego-organize = { path = "crates/pliego-organize" }
 pliego-a11y = { path = "crates/pliego-a11y" }
 pliego-pdfa = { path = "crates/pliego-pdfa" }
@@ -21,7 +22,7 @@ pliego-stamp = { path = "crates/pliego-stamp" }
 # Sin la característica `tesseract` de MuPDF: incluye su propio Tesseract/Leptonica estático y choca por símbolos
 # con el Tesseract que enlaza `pliego-ocr` (provoca SIGSEGV al iniciar el OCR). El resto son las de por defecto,
 # salvo `system-fonts` (font-kit): en Windows enumera todas las fuentes en cada búsqueda y `to_text_page` cuesta
-# ~1,3 s por documento (medido en acr12). Las fuentes del sistema las aporta `pliego_engine_mupdf::init_fonts`.
+# ~1,3 s por documento (medido en acr12). Las fuentes del sistema las aporta `pliego_engine::init_fonts`.
 mupdf = { version = "0.8", default-features = false, features = [
   "js", "xps", "svg", "cbz", "img", "html", "epub", "brotli", "docx-output", "base14-fonts",
 ] }

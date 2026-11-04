@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use clap::Parser;
 use pliego_core::{EngineDocument, PdfEngine, TileRequest};
-use pliego_engine_mupdf::MupdfEngine;
+use pliego_engine::DefaultEngine;
 
 #[derive(Parser)]
 #[command(name = "bench", about = "Mide apertura, render de tesela y de página")]
@@ -37,7 +37,7 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let engine = MupdfEngine;
+    let engine = DefaultEngine;
 
     // Apertura (lee estructura y cuenta páginas); se descarta la primera como calentamiento.
     let mut opens = Vec::new();

@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 pliego-core.workspace = true
-pliego-engine-mupdf.workspace = true
+pliego-engine.workspace = true
 mupdf.workspace = true
 serde.workspace = true
 tantivy = { version = "0.27", default-features = false, features = ["mmap"] }

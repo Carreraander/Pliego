@@ -2,7 +2,7 @@ import { createEffect, createRoot } from "solid-js";
 import { locale } from "../i18n";
 import { setPaletteOpener, setToolsOpener } from "../shell";
 import { activeDoc } from "../state/documents";
-import { registerAppTools, registerBaseTools, registerToolIcons, setDocFacts, tools, toolTitle } from "../tools";
+import { installSignatures, registerAppTools, registerBaseTools, registerToolIcons, setDocFacts, tools, toolTitle } from "../tools";
 import { activateTool } from "./activate";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { installCommandProviders } from "./commands";
@@ -38,6 +38,7 @@ export function installNavigation(): () => void {
   setPaletteOpener((q) => openCommandPalette(q ?? ""));
   setToolsOpener(toggleToolsPalette);
   const offs = [
+    installSignatures(), // W28: panel «Firmas», hechos del documento y aviso «Firmado por…»
     installCommandProviders(),
     installModes(),
     registerShortcut({ id: "help.shortcuts", section: "panels", keys: "F1", title: () => nt("nav.cmd.shortcuts"), run: openShortcutSheet }),

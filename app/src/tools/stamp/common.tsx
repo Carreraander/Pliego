@@ -47,13 +47,13 @@ export function ImageField(p: { path: string | null; onPick: (path: string) => v
 }
 
 /** Lanza `stamp_pdf` sobre el documento activo con `runToolJob` (centro de tareas, «Reintentar» y toast). */
-export function useStampRun(jobKey: string, op: () => unknown, pages: () => string, onClose: () => void) {
+export function useStampRun(jobKey: string, op: () => unknown, pages: () => string, onClose: () => void, command = "stamp_pdf", argName = "op") {
   const run = async () => {
     const doc = activeDoc();
     if (!doc) return;
     const id = await runToolJob({
-      command: "stamp_pdf",
-      args: { path: doc.path, pages: pagesOrAll(pages()), op: op() },
+      command,
+      args: { path: doc.path, pages: pagesOrAll(pages()), [argName]: op() },
       title: st(jobKey, { name: fileName(doc.path) }),
       started: st("stamp.started"),
     });

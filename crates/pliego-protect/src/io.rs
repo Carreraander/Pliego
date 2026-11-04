@@ -27,7 +27,7 @@ pub(crate) fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocumen
 }
 
 /// Guarda en un temporal junto al destino y lo renombra. Nunca pisa la entrada.
-pub(crate) fn save_atomic(doc: &PdfDocument, input: &Path, output: &Path, options: PdfWriteOptions) -> Result<()> {
+pub(crate) fn save_atomic(doc: PdfDocument, input: &Path, output: &Path, options: PdfWriteOptions) -> Result<()> {
     let same = match (std::fs::canonicalize(input), std::fs::canonicalize(output)) {
         (Ok(a), Ok(b)) => a == b,
         _ => input == output,
@@ -51,6 +51,20 @@ pub(crate) fn save_atomic(doc: &PdfDocument, input: &Path, output: &Path, option
         .to_str()
         .ok_or_else(|| Error::InvalidInput("la ruta de salida debe ser UTF-8".into()))?;
     doc.save_with_options(tmp_str, options).map_err(pdf_err)?;
-    tmp.persist(output).map_err(|e| Error::io_at(output, e.error))?;
-    Ok(())
+    // Se suelta el documento antes de renombrar: en Windows MuPDF puede seguir teniendo abierto el temporal.
+    drop(doc);
+    // Windows: un antivirus o el indexador pueden retener el archivo recién escrito unos instantes (error 32).
+    let mut tmp = tmp;
+    let mut attempt = 0;
+    loop {
+        match tmp.persist(output) {
+            Ok(_) => return Ok(()),
+            Err(e) if attempt < 10 && e.error.raw_os_error() == Some(32) => {
+                attempt += 1;
+                tmp = e.file;
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(e) => return Err(Error::io_at(output, e.error)),
+        }
+    }
 }

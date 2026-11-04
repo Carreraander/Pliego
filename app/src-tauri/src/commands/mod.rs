@@ -11,9 +11,11 @@ pub mod document;
 pub mod jobs;
 pub mod optimize;
 pub mod organize;
+pub mod protect;
 pub mod recents;
 pub mod search;
 pub mod settings;
+pub mod sign;
 pub mod stamp;
 pub mod startup;
 pub mod text;
@@ -23,6 +25,7 @@ pub mod updates;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         dialog::pick_pdf_files,
+        dialog::pick_key_file,
         dialog::pick_image_file,
         document::open_document,
         document::close_document,
@@ -50,6 +53,18 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         optimize::analyze_pdf,
         organize::merge_pdfs,
         organize::split_pdf,
+        sign::sign_list_certificates,
+        sign::sign_pdf,
+        sign::sign_validate,
+        sign::signflow_prepare,
+        sign::signflow_next,
+        sign::signflow_sign,
+        sign::signflow_audit,
+        protect::protect_encrypt,
+        protect::protect_remove,
+        protect::protect_sanitize,
+        protect::redact_find,
+        protect::redact_apply,
         organize::insert_pages,
         organize::number_pages,
         stamp::stamp_pdf,

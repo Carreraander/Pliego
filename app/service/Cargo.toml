@@ -16,6 +16,10 @@ pliego-convert = { path = "../../crates/pliego-convert" }
 pliego-office-export = { path = "../../crates/pliego-office-export" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
+pliego-sign = { path = "../../crates/pliego-sign" }
+pliego-signflow = { path = "../../crates/pliego-signflow" }
+pliego-protect = { path = "../../crates/pliego-protect" }
+pliego-redact = { path = "../../crates/pliego-redact" }
 pliego-organize.workspace = true
 pliego-stamp.workspace = true
 png = "0.17"
@@ -23,6 +27,9 @@ serde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+tempfile.workspace = true
+rcgen = "0.14"
+p12-keystore = "0.4"
 
 [lints]
 workspace = true

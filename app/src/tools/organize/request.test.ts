@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insertArgs, numberArgs } from "./request";
+import { insertArgs, NUMBER_TEMPLATE, numberArgs } from "./request";
 
 const ins = { path: "a.pdf", total: 10, kind: "blank" as const, count: "2", source: null, pages: "", where: "11", suffix: "insertado" };
 
@@ -18,12 +18,16 @@ describe("insertArgs", () => {
 });
 
 describe("numberArgs", () => {
-  const num = { path: "a.pdf", total: 5, style: "lower_roman", prefix: "", first: "1", from: "2", suffix: "numerado" };
-  it("crea una regla desde la página elegida", () => {
-    expect(numberArgs(num)).toEqual({ path: "a.pdf", suffix: "numerado", rules: [{ start_page: 1, style: "lower_roman", prefix: "", first_number: 1 }] });
+  const num = { path: "a.pdf", total: 5, position: "footer_center", format: "{page} de {pages}", from: "2", size: "10", alsoLabels: false, suffix: "numerado" };
+  it("crea la petición con la primera página numerada desde 0", () => {
+    expect(numberArgs(num)).toEqual({ path: "a.pdf", suffix: "numerado", request: { position: "footer_center", format: "{page} de {pages}", from_page: 1, size: 10, also_labels: false } });
   });
-  it("rechaza páginas fuera del documento", () => {
+  it("rechaza páginas fuera del documento, tamaños absurdos y plantillas sin número", () => {
     expect(numberArgs({ ...num, from: "6" })).toBeNull();
-    expect(numberArgs({ ...num, first: "0" })).toBeNull();
+    expect(numberArgs({ ...num, size: "2" })).toBeNull();
+    expect(numberArgs({ ...num, format: "hola" })).toBeNull();
+  });
+  it("las plantillas de formato llevan {page}", () => {
+    for (const f of Object.values(NUMBER_TEMPLATE)) expect(f("Página", "de")).toContain("{page}");
   });
 });

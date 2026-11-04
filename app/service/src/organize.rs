@@ -6,7 +6,10 @@ use std::path::{Path, PathBuf};
 
 use pliego_appdata::copyjob::{unique_in, unique_sibling};
 use pliego_core::{Error, JobContext, Report, Result};
-pub use pliego_organize::{LabelStyle, MergeOptions, PageLabelSpec, SplitRule};
+use pliego_organize::{LabelStyle, PageLabelSpec};
+pub use pliego_organize::{MergeOptions, SplitRule};
+use pliego_stamp::{HeaderFooter, StampContext, TextStyle};
+use serde::{Deserialize, Serialize};
 
 /// Combina `inputs` en `<primero> (<etiqueta>).pdf`.
 pub fn merge_copy(inputs: &[PathBuf], options: &MergeOptions, suffix: &str, ctx: &JobContext) -> Result<Report> {
@@ -82,26 +85,99 @@ pub fn insert_copy(
     Ok(Report::with_output(out, format!("{added} páginas insertadas")))
 }
 
-/// Pone la numeración de páginas (etiquetas del PDF: 1, 2, 3 / i, ii, iii / A-1…) y guarda una copia.
-pub fn number_copy(input: &Path, password: Option<&str>, rules: &[PageLabelSpec], suffix: &str) -> Result<Report> {
-    if rules.is_empty() {
-        return Err(Error::InvalidInput("no hay reglas de numeración".into()));
+/// Dónde se imprime el número: línea (encabezado o pie) y hueco (izquierda, centro, derecha).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NumberPosition {
+    HeaderLeft,
+    HeaderCenter,
+    HeaderRight,
+    FooterLeft,
+    FooterCenter,
+    FooterRight,
+}
+
+/// Lo que pide el panel de Numerar páginas.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NumberRequest {
+    pub position: NumberPosition,
+    /// Plantilla con `{page}` y `{pages}` («{page}», «{page} de {pages}», «Página {page}»).
+    pub format: String,
+    /// Primera página numerada (desde 0); las anteriores quedan sin número.
+    #[serde(default)]
+    pub from_page: u32,
+    #[serde(default = "default_size")]
+    pub size: f32,
+    /// Además, fija las etiquetas de página del PDF (1, 2, 3…) desde `from_page`.
+    #[serde(default)]
+    pub also_labels: bool,
+}
+
+fn default_size() -> f32 {
+    10.0
+}
+
+fn slot(hf: &mut HeaderFooter, pos: NumberPosition) -> &mut String {
+    match pos {
+        NumberPosition::HeaderLeft => &mut hf.header.left,
+        NumberPosition::HeaderCenter => &mut hf.header.center,
+        NumberPosition::HeaderRight => &mut hf.header.right,
+        NumberPosition::FooterLeft => &mut hf.footer.left,
+        NumberPosition::FooterCenter => &mut hf.footer.center,
+        NumberPosition::FooterRight => &mut hf.footer.right,
+    }
+}
+
+/// Imprime el número de página con `pliego-stamp` (misma lógica que Encabezado y pie) y guarda una copia.
+pub fn number_copy(
+    input: &Path,
+    password: Option<&str>,
+    req: &NumberRequest,
+    suffix: &str,
+    ctx: &JobContext,
+) -> Result<Report> {
+    if !req.format.contains("{page}") {
+        return Err(Error::InvalidInput("el formato debe incluir {page}".into()));
+    }
+    if !(4.0..=72.0).contains(&req.size) {
+        return Err(Error::InvalidInput(
+            "el tamaño del número debe estar entre 4 y 72 pt".into(),
+        ));
     }
     let mut doc = pliego_organize::open(input, password)?;
     let n = pliego_organize::page_count(&doc)?;
-    if let Some(bad) = rules.iter().find(|r| r.start_page >= n) {
+    if req.from_page >= n {
         return Err(Error::InvalidInput(format!(
             "la página {} no existe (el documento tiene {n})",
-            bad.start_page + 1
+            req.from_page + 1
         )));
     }
-    pliego_organize::set_page_labels(&mut doc, rules)?;
+    let mut hf = HeaderFooter {
+        style: TextStyle {
+            size: req.size,
+            ..TextStyle::default()
+        },
+        ..HeaderFooter::default()
+    };
+    *slot(&mut hf, req.position) = req.format.clone();
+    let file = input
+        .file_name()
+        .map(|f| f.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let pages: Vec<u32> = (req.from_page..n).collect();
+    pliego_stamp::header_footer(&mut doc, &pages, &hf, &StampContext::today(file), ctx)?;
+    if req.also_labels {
+        let rule = PageLabelSpec {
+            start_page: req.from_page,
+            style: LabelStyle::Decimal,
+            prefix: String::new(),
+            first_number: 1,
+        };
+        pliego_organize::set_page_labels(&mut doc, &[rule])?;
+    }
     let out = unique_sibling(input, suffix, "pdf");
     pliego_organize::save(&doc, &out)?;
-    Ok(Report::with_output(
-        out,
-        format!("{} reglas de numeración", rules.len()),
-    ))
+    Ok(Report::with_output(out, format!("{} páginas numeradas", pages.len())))
 }
 
 #[cfg(test)]
@@ -164,23 +240,47 @@ mod tests {
         assert!(insert_copy(&input, None, &InsertSource::Blank { count: 0 }, 0, "x").is_err());
     }
 
+    fn number_req() -> NumberRequest {
+        NumberRequest {
+            position: NumberPosition::FooterCenter,
+            format: "Página {page} de {pages}".into(),
+            from_page: 0,
+            size: 10.0,
+            also_labels: true,
+        }
+    }
+
     #[test]
-    fn number_pages_writes_a_copy() {
+    fn number_pages_prints_on_a_copy() {
         let Some((dir, input)) = setup() else { return };
-        let rule = PageLabelSpec {
-            start_page: 0,
-            style: LabelStyle::LowerRoman,
-            prefix: String::new(),
-            first_number: 1,
-        };
-        let r = number_copy(&input, None, std::slice::from_ref(&rule), "numerado").unwrap();
+        let before = std::fs::read(&input).unwrap();
+        let r = number_copy(&input, None, &number_req(), "numerado", &JobContext::silent()).unwrap();
         assert_eq!(r.outputs, vec![dir.path().join("doc (numerado).pdf")]);
-        let bad = PageLabelSpec {
-            start_page: 999,
-            ..rule
+        assert_eq!(std::fs::read(&input).unwrap(), before);
+        let out = std::fs::read(&r.outputs[0]).unwrap();
+        assert_ne!(out, before);
+        assert_eq!(pages(&r.outputs[0]), pages(&input));
+    }
+
+    #[test]
+    fn number_pages_rejects_bad_requests() {
+        let Some((_dir, input)) = setup() else { return };
+        let ctx = JobContext::silent();
+        let bad_format = NumberRequest {
+            format: "sin variable".into(),
+            ..number_req()
         };
-        assert!(number_copy(&input, None, &[bad], "numerado").is_err());
-        assert!(number_copy(&input, None, &[], "numerado").is_err());
+        assert!(number_copy(&input, None, &bad_format, "n", &ctx).is_err());
+        let bad_page = NumberRequest {
+            from_page: 999,
+            ..number_req()
+        };
+        assert!(number_copy(&input, None, &bad_page, "n", &ctx).is_err());
+        let bad_size = NumberRequest {
+            size: 1.0,
+            ..number_req()
+        };
+        assert!(number_copy(&input, None, &bad_size, "n", &ctx).is_err());
     }
 
     #[test]

@@ -10,6 +10,7 @@ repository.workspace = true
 pliego-core.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-organize.workspace = true
+pliego-stamp.workspace = true
 pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
 png = "0.17"

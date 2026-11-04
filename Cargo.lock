@@ -4082,6 +4082,7 @@ dependencies = [
  "pliego-core",
  "pliego-optimize",
  "pliego-organize",
+ "pliego-stamp",
  "pliego-worker",
  "png 0.17.16",
  "serde",

@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use pliego_app_service::organize::{self, InsertSource, MergeOptions, PageLabelSpec, SplitRule};
+use pliego_app_service::organize::{self, InsertSource, MergeOptions, NumberRequest, SplitRule};
 use pliego_appdata::jobs::JobId;
 use tauri::State;
 
@@ -70,16 +70,16 @@ pub fn insert_pages(
     })
 }
 
-/// Pone la numeración de páginas (etiquetas del PDF) y guarda una copia.
+/// Imprime el número de página (como Encabezado y pie) y guarda una copia.
 #[tauri::command]
 pub fn number_pages(
     jobs: State<'_, JobsState>,
     path: String,
     password: Option<String>,
-    rules: Vec<PageLabelSpec>,
+    request: NumberRequest,
     suffix: Option<String>,
 ) -> JobId {
     let suffix = suffix.unwrap_or_else(|| "numerado".into());
     jobs.0
-        .spawn(move |_ctx| organize::number_copy(&PathBuf::from(path), password.as_deref(), &rules, &suffix))
+        .spawn(move |ctx| organize::number_copy(&PathBuf::from(path), password.as_deref(), &request, &suffix, ctx))
 }

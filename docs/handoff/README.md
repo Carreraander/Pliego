@@ -32,7 +32,7 @@ diseño general https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw, prototipo nav
 https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente está en `docs/design/`
 (`prototipo.html` se abre en local).
 
-## Estado global a 2026-11-04 11:30 UTC
+## Estado global a 2026-11-04 14:05 UTC
 
 - **Proyecto trasladado a la cuenta nueva** (2026-11-04). Hilo de gestión: «Gestionar el desarrollo de Pliego»; un
   hilo Sonnet por flujo. La cola de acr12 (una sesión de Remote Control a la vez) la lleva gestión.
@@ -42,8 +42,15 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
   servicio de actualizaciones), #118 (W05 OCSP, VRI, B-LTA), #119 (W19), #121 (W12 PDF/A: `/ID`, capas, adjuntos y
   `/AA` de página; sustituye a #96, cerrado), #120 (W21: `--update` elevado verifica la firma Ed25519 del manifiesto;
   marca `install-kind`), #122 (W22: interfaz de actualizaciones, reinicio por equipo con `--manifest`, VPS compartido
-  con `sites.d`), #123 (web `web/` de pdfpliego.com y `docs/design/landing-y-seo.md`; publicar en el VPS espera el
-  visto bueno de Ander).
+  con `sites.d`), #123 y #125 (web de pdfpliego.com con demo; **publicada** en el VPS), #124 (W15: MuPDF sin
+  `system-fonts`, `FontLoader` propio), #126 (W03 docs), #127 (W21 `tools/build-beta.ps1`), #128 y #129 (W22: servidor
+  de actualizaciones real en actualizaciones.pdfpliego.com, claves públicas de producción), #130 y #131 (W10: lab «pc»).
+- **Beta:** `Pliego-Setup-0.1.0-beta.exe` (16,6 MB) en acr12, `D:\dev\pliego-beta\`. Sin firma de código todavía (Ander
+  comprará el certificado). E2E de autoactualización en curso (W22).
+- **Claves:** firma Ed25519 de producción solo en acr12 (`D:\dev-cache\release-keys`) y en el USB de Ander; nunca en
+  GitHub, el VPS ni el repo (solo las públicas). SSH de despliegue en «pc» y en el secreto `UPDATE_SSH_KEY`.
+- **Equipos de pruebas:** acr12 (cola principal) y «pc» (Windows 11, solo tareas ligeras: C: casi lleno).
+  Computer use desde Remote Control se deniega solo: las comprobaciones en Reader/Edge las hace Ander a mano.
 - **PRs abiertos:** ninguno de código.
 - **Issues abiertas:** ninguna.
 

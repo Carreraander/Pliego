@@ -9,6 +9,8 @@ repository.workspace = true
 [dependencies]
 pliego-core.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
+pliego-convert = { path = "../../crates/pliego-convert" }
+pliego-office-export = { path = "../../crates/pliego-office-export" }
 pliego-appdata = { path = "../../crates/pliego-appdata" }
 pliego-worker = { path = "../../crates/pliego-worker" }
 png = "0.17"

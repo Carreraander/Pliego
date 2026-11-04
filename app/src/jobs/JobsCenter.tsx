@@ -31,7 +31,7 @@ function JobItem(props: { job: Job }) {
       <Show when={j().status === "done"}>
         <p class="pl-job__text">{j().report?.summary || jt("jobs.done")}</p>
         <div class="pl-job__actions">
-          <Show when={out()}><Button onClick={() => openResult?.(out()!)}>{jt("jobs.open")}</Button><Button variant="ghost" onClick={() => void reveal(out()!)}>{jt("jobs.reveal")}</Button></Show>
+          <Show when={out()}><Show when={/\.pdf$/i.test(out()!)}><Button onClick={() => openResult?.(out()!)}>{jt("jobs.open")}</Button></Show><Button variant="ghost" onClick={() => void reveal(out()!)}>{jt("jobs.reveal")}</Button></Show>
         </div>
       </Show>
       <Show when={j().status === "cancelled"}><p class="pl-job__text">{jt("jobs.cancelled")}</p></Show>

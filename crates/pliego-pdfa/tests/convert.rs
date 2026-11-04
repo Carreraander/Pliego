@@ -85,6 +85,13 @@ fn pdfa3_keeps_attachments_and_associates_them() {
     let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
     let af = doc.catalog().unwrap().get_dict("AF").unwrap().expect("AF");
     assert_eq!(af.len().unwrap(), 1);
+    // ISO 19005-3 6.8: el flujo incrustado declara su tipo MIME
+    let spec = af.get_array(0).unwrap().unwrap();
+    let ef = spec.get_dict("EF").unwrap().unwrap().get_dict("F").unwrap().unwrap();
+    assert_eq!(
+        ef.get_dict("Subtype").unwrap().unwrap().as_name().unwrap(),
+        b"text/plain"
+    );
     // y para 2b se quitan
     let (out2, r2, _d2) = convert_to(&input, Level::A2b);
     assert!(validate(&out2, Level::A2b).unwrap().conforms());
@@ -166,4 +173,44 @@ fn substituted_fonts_still_render_text() {
         (a as f64 - b as f64).abs() / (a as f64) < 0.25,
         "original {a}, convertido {b}"
     );
+}
+
+#[test]
+fn adds_trailer_id_when_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let input = write(
+        dir.path(),
+        "sin_id.pdf",
+        &build(
+            &Opts {
+                no_id: true,
+                ..Default::default()
+            },
+            2,
+            "B",
+        ),
+    );
+    assert!(
+        validate(&input, Level::A2b)
+            .unwrap()
+            .has(pliego_pdfa::Rule::NoTrailerId)
+    );
+    let (out, _r, _d) = convert_to(&input, Level::A2b);
+    assert!(validate(&out, Level::A2b).unwrap().conforms());
+    let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+    let id = doc.trailer().unwrap().get_dict("ID").unwrap().expect("ID");
+    assert_eq!(id.len().unwrap(), 2);
+}
+
+#[test]
+fn page_additional_actions_entry_is_removed_for_pdfa2_and_3() {
+    // ISO 19005-2/-3 6.5.2 (veraPDF 1.30.3 sobre protect/sucio.pdf)
+    for level in [Level::A2b, Level::A2u, Level::A3b] {
+        let (out, _r, _d) = convert_to(&corpus("protect/sucio.pdf"), level);
+        let v = validate(&out, level).unwrap();
+        assert!(v.conforms(), "{level:?}: {:?}", v.issues);
+        let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+        let page = doc.find_page(0).unwrap();
+        assert!(page.get_dict("AA").unwrap().is_none(), "{level:?}");
+    }
 }

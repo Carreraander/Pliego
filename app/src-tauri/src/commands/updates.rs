@@ -102,6 +102,13 @@ pub fn update_dismiss_notices(state: State<'_, UpdatesState>) -> Result<(), Stri
     Ok(())
 }
 
+/// Cierra solo el aviso de vuelta atrás (la tarjeta de novedades pendiente se conserva).
+#[tauri::command]
+pub fn update_dismiss_rollback(state: State<'_, UpdatesState>) -> Result<(), String> {
+    runner(&state)?.dismiss_rollback();
+    Ok(())
+}
+
 /// Aplica el modo, el canal y la conexión medida de Ajustes > Actualizaciones (`{mode, channel, metered}`).
 /// La directiva de la organización sigue mandando.
 #[tauri::command]

@@ -52,5 +52,6 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         updates::update_set_settings,
         updates::update_skip_version,
         updates::update_dismiss_notices,
+        updates::update_dismiss_rollback,
     ]
 }

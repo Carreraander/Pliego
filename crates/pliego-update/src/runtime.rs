@@ -27,6 +27,7 @@ enum Command {
     Download,
     Skip,
     DismissNotices,
+    DismissRollback,
     Settings {
         config: Box<UpdateConfig>,
         respect_metered: bool,
@@ -159,6 +160,11 @@ impl Runner {
         self.send(Command::DismissNotices);
     }
 
+    /// Cierra solo el aviso de vuelta atrás.
+    pub fn dismiss_rollback(&self) {
+        self.send(Command::DismissRollback);
+    }
+
     /// Modo, canal o directiva cambiados.
     pub fn apply_settings(&self, config: UpdateConfig, respect_metered: bool) {
         self.send(Command::Settings {
@@ -213,6 +219,9 @@ fn work<S: Stager>(
             }
             Some(Command::DismissNotices) => {
                 let _ = svc.dismiss_notices();
+            }
+            Some(Command::DismissRollback) => {
+                let _ = svc.dismiss_rollback();
             }
             Some(Command::Settings {
                 config,

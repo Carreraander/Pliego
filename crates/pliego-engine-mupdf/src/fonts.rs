@@ -4,7 +4,7 @@
 //! enumera todas las fuentes instaladas cada vez (~1,3 s por documento). Aquí se sustituye por un índice
 //! perezoso y único por proceso: se lee una vez la cabecera de cada archivo (solo las tablas `name`, `OS/2` y
 //! `head`), se guardan nombre PostScript, familia, estilo, ruta e índice de colección, y las fuentes que se piden
-//! se cargan desde una caché de bytes. Fuera de Windows no se registra nada.
+//! se cargan leyendo el archivo (con una caché pequeña de bytes). Fuera de Windows no se registra nada.
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -16,6 +16,9 @@ use mupdf::{CjkFontOrdering, Font, FontHints, FontLoader};
 
 /// Tamaño máximo que se acepta para una tabla `name` (las reales miden decenas de KB).
 const MAX_NAME_TABLE: usize = 1 << 20;
+/// Una fuente se cachea solo si pesa menos que esto, y la caché no pasa del total.
+const MAX_CACHED_FILE: usize = 2 << 20;
+const MAX_CACHE_TOTAL: usize = 16 << 20;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Entry {
@@ -208,18 +211,23 @@ impl SystemFonts {
         (!exact || score(best) == 2).then_some(best)
     }
 
+    /// Bytes del archivo. Solo se cachean los pequeños (< 2 MB) y hasta 16 MB en total: MuPDF copia los datos, así
+    /// que una caché de fuentes CJK de 20 MB las duplicaría en memoria para siempre; el sistema ya cachea el archivo.
+    fn read_bytes(&self, path: &Path) -> Option<Arc<Vec<u8>>> {
+        let mut cache = self.bytes.lock().ok()?;
+        if let Some(d) = cache.get(path) {
+            return Some(Arc::clone(d));
+        }
+        let data = Arc::new(std::fs::read(path).ok()?);
+        let cached: usize = cache.values().map(|d| d.len()).sum();
+        if data.len() < MAX_CACHED_FILE && cached + data.len() <= MAX_CACHE_TOTAL {
+            cache.insert(path.to_path_buf(), Arc::clone(&data));
+        }
+        Some(data)
+    }
+
     fn make(&self, e: &Entry) -> Option<Font> {
-        let data = {
-            let mut cache = self.bytes.lock().ok()?;
-            match cache.get(&e.path) {
-                Some(d) => Arc::clone(d),
-                None => {
-                    let d = Arc::new(std::fs::read(&e.path).ok()?);
-                    cache.insert(e.path.clone(), Arc::clone(&d));
-                    d
-                }
-            }
-        };
+        let data = self.read_bytes(&e.path)?;
         Font::from_bytes_with_index(&e.display, e.index as i32, &data).ok()
     }
 

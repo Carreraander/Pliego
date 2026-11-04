@@ -1,4 +1,5 @@
 use mupdf::{Document, TextPageFlags};
+use pliego_app_service::stamp::{StampOp, stamp_copy, stamp_file};
 use pliego_core::JobContext;
 use pliego_stamp::*;
 
@@ -155,4 +156,15 @@ fn every_json_shape_the_panels_send_deserializes() {
     for s in shapes {
         serde_json::from_str::<StampOp>(s).unwrap_or_else(|e| panic!("{s}: {e}"));
     }
+}
+
+#[test]
+fn copy_is_named_next_to_the_original_and_never_overwrites() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = source(dir.path(), 1);
+    let op = StampOp::Bates(BatesOptions::default());
+    let a = stamp_copy(&src, "all", None, &op, &JobContext::silent()).unwrap();
+    let b = stamp_copy(&src, "all", None, &op, &JobContext::silent()).unwrap();
+    assert_eq!(a.outputs, vec![dir.path().join("origen (Bates).pdf")]);
+    assert_eq!(b.outputs, vec![dir.path().join("origen (Bates 2).pdf")]);
 }

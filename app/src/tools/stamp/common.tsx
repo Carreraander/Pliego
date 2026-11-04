@@ -1,10 +1,8 @@
 import "./stamp.css";
-import { createSignal, Show } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { api, isApiError } from "../../api";
-import { trackJob } from "../../jobs";
+import { api } from "../../api";
 import { activeDoc } from "../../state/documents";
-import { Button, Field, Notice, TextInput, toast } from "../../ui";
+import { Button, Field, TextInput } from "../../ui";
+import { fileName, runToolJob } from "../run";
 import { st } from "./text";
 import { pagesOrAll, validPages } from "./util";
 
@@ -48,24 +46,18 @@ export function ImageField(p: { path: string | null; onPick: (path: string) => v
   );
 }
 
-/** Lanza `stamp_pdf` sobre el documento activo y sigue el trabajo en el centro de tareas. */
+/** Lanza `stamp_pdf` sobre el documento activo con `runToolJob` (centro de tareas, «Reintentar» y toast). */
 export function useStampRun(jobKey: string, op: () => unknown, pages: () => string, onClose: () => void) {
-  const [error, setError] = createSignal<string | null>(null);
   const run = async () => {
     const doc = activeDoc();
     if (!doc) return;
-    try {
-      const id = await invoke<number>("stamp_pdf", { path: doc.path, pages: pagesOrAll(pages()), op: op() });
-      trackJob(id, { title: st(jobKey, { name: doc.title }), retry: () => void run() });
-      toast({ tone: "info", text: st("stamp.started") });
-      onClose();
-    } catch (e) {
-      setError(isApiError(e) ? e.message : String(e));
-    }
+    const id = await runToolJob({
+      command: "stamp_pdf",
+      args: { path: doc.path, pages: pagesOrAll(pages()), op: op() },
+      title: st(jobKey, { name: fileName(doc.path) }),
+      started: st("stamp.started"),
+    });
+    if (id !== null) onClose();
   };
-  return { error, run };
-}
-
-export function ErrorNotice(p: { error: string | null }) {
-  return <Show when={p.error}><Notice tone="danger" inline>{p.error}</Notice></Show>;
+  return { run };
 }

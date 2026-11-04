@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import { Field, Select, Slider, TaskPanel } from "../../ui";
-import { ColorField, ErrorNotice, ImageField, PagesField, useStampRun } from "./common";
+import { ColorField, ImageField, PagesField, useStampRun } from "./common";
 import { st } from "./text";
 import { backgroundOp } from "./ops";
 import { validPages } from "./util";
@@ -14,13 +14,12 @@ export default function BackgroundPanel(p: { onClose: () => void }) {
 
   const valid = () => validPages(pages()) && (kind() === "color" || image() !== null);
   const op = () => backgroundOp({ kind: kind(), color: color(), image: image(), opacityPct: opacity() });
-  const { error, run } = useStampRun("stamp.bg.job", op, pages, () => p.onClose());
+  const { run } = useStampRun("stamp.bg.job", op, pages, () => p.onClose());
 
   return (
     <TaskPanel
       title={st("stamp.bg.title")} onClose={p.onClose} estimate={st("stamp.hint")}
       primary={{ label: st("stamp.bg.run"), icon: "image", disabled: !valid(), onClick: () => void run() }}
-      notice={<ErrorNotice error={error()} />}
     >
       <Field label={st("stamp.bg.kind")}>
         <Select value={kind()} onChange={(e) => setKind(e.currentTarget.value as "color" | "image")}

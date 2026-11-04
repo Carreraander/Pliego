@@ -5,12 +5,10 @@
 //! de modo que funciona igual con páginas giradas o con CropBox desplazado.
 
 mod draw;
-mod job;
 mod options;
 mod text;
 
 pub use draw::{background, bates, header_footer, watermark};
-pub use job::{StampOp, stamp_file};
 pub use options::{
     Background, BackgroundFill, BatesOptions, Corner, HeaderFooter, Slots, StampContext, TextStyle, Watermark,
     WatermarkContent,

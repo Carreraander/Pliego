@@ -1,12 +1,10 @@
-//! Sellos y marcas (W27): Marca de agua, Encabezado y pie, Fondo y Bates. Cada una es un trabajo que **guarda una
-//! copia** junto al original (`<nombre> (marca de agua).pdf`…) y devuelve el `JobId`. La lógica vive en
-//! `pliego_stamp::stamp_file`, que se prueba sin Tauri.
+//! Sellos y marcas (W27): la lógica está en `pliego_app_service::stamp`; aquí solo se traducen argumentos. Cada
+//! herramienta es un trabajo que guarda una copia junto al original y devuelve el `JobId`.
 
 use std::path::PathBuf;
 
-use pliego_appdata::copyjob::unique_sibling;
+use pliego_app_service::stamp::{StampOp, stamp_copy};
 use pliego_appdata::jobs::JobId;
-use pliego_stamp::{StampOp, stamp_file};
 use tauri::State;
 
 use crate::commands::jobs::JobsState;
@@ -20,9 +18,6 @@ pub fn stamp_pdf(
     op: StampOp,
     password: Option<String>,
 ) -> JobId {
-    let src = PathBuf::from(path);
-    jobs.0.spawn(move |ctx| {
-        let out = unique_sibling(&src, op.suffix(), "pdf");
-        stamp_file(&src, &out, password.as_deref(), &pages, &op, ctx)
-    })
+    jobs.0
+        .spawn(move |ctx| stamp_copy(&PathBuf::from(path), &pages, password.as_deref(), &op, ctx))
 }

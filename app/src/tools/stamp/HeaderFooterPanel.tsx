@@ -1,6 +1,6 @@
 import { createSignal, For } from "solid-js";
 import { Field, Select, TaskPanel, TextInput } from "../../ui";
-import { ColorField, ErrorNotice, FONTS, PagesField, useStampRun } from "./common";
+import { ColorField, FONTS, PagesField, useStampRun } from "./common";
 import { st } from "./text";
 import { headerFooterOp } from "./ops";
 import { intIn, validPages } from "./util";
@@ -20,7 +20,7 @@ export default function HeaderFooterPanel(p: { onClose: () => void }) {
   const op = () => headerFooterOp({
     header: [hl(), hc(), hr()], footer: [fl(), fc(), fr()], style: { font: font(), size: size(), color: color() }, margin: margin(),
   });
-  const { error, run } = useStampRun("stamp.hf.job", op, pages, () => p.onClose());
+  const { run } = useStampRun("stamp.hf.job", op, pages, () => p.onClose());
 
   const slots = (title: string, vals: [() => string, (v: string) => void][]) => (
     <fieldset class="pl-stamp-slots">
@@ -37,7 +37,6 @@ export default function HeaderFooterPanel(p: { onClose: () => void }) {
     <TaskPanel
       title={st("stamp.hf.title")} onClose={p.onClose} estimate={anyText() ? st("stamp.hint") : st("stamp.hf.empty")}
       primary={{ label: st("stamp.hf.run"), icon: "panel-top", disabled: !valid(), onClick: () => void run() }}
-      notice={<ErrorNotice error={error()} />}
     >
       {slots(st("stamp.hf.header"), [[hl, setHl], [hc, setHc], [hr, setHr]])}
       {slots(st("stamp.hf.footer"), [[fl, setFl], [fc, setFc], [fr, setFr]])}

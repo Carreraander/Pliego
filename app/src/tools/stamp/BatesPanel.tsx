@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import { Field, Select, TaskPanel, TextInput } from "../../ui";
-import { ColorField, ErrorNotice, FONTS, PagesField, useStampRun } from "./common";
+import { ColorField, FONTS, PagesField, useStampRun } from "./common";
 import { st } from "./text";
 import { batesOp } from "./ops";
 import { batesSample, intIn, validPages } from "./util";
@@ -22,7 +22,7 @@ export default function BatesPanel(p: { onClose: () => void }) {
   const op = () => batesOp({
     prefix: prefix(), suffix: suffix(), digits: digits(), start: start(), corner: corner(), style: { font: font(), size: size(), color: color() },
   });
-  const { error, run } = useStampRun("stamp.bates.job", op, pages, () => p.onClose());
+  const { run } = useStampRun("stamp.bates.job", op, pages, () => p.onClose());
   const bad = (v: string, a: number, b: number) => (intIn(v, a, b) === null ? st("stamp.invalid") : undefined);
 
   return (
@@ -30,7 +30,6 @@ export default function BatesPanel(p: { onClose: () => void }) {
       title={st("stamp.bates.title")} onClose={p.onClose}
       estimate={valid() ? st("stamp.bates.preview", { sample: batesSample(prefix(), suffix(), Number(digits()), Number(start())) }) : st("stamp.invalid")}
       primary={{ label: st("stamp.bates.run"), icon: "bates", disabled: !valid(), onClick: () => void run() }}
-      notice={<ErrorNotice error={error()} />}
     >
       <Field label={st("stamp.bates.prefix")}><TextInput value={prefix()} onInput={(e) => setPrefix(e.currentTarget.value)} /></Field>
       <Field label={st("stamp.bates.suffix")}><TextInput value={suffix()} onInput={(e) => setSuffix(e.currentTarget.value)} /></Field>

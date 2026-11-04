@@ -1,12 +1,13 @@
-//! Trabajo completo «abrir, sellar páginas, guardar copia»: lo comparten la app (Marca de agua, Encabezado y pie,
-//! Fondo y Bates) y las pruebas. Recibe rutas, no estado de la interfaz.
+//! Sellos y marcas desde la app (flujo W27): Marca de agua, Encabezado y pie, Fondo y Bates guardan una copia junto
+//! al original. La lógica vive aquí, sin Tauri, para probarla en Linux; `app/src-tauri/src/commands/stamp.rs` solo
+//! traduce.
 
 use std::path::Path;
 
+use pliego_appdata::copyjob::unique_sibling;
 use pliego_core::{JobContext, PageRange, Report, Result};
+use pliego_stamp::{Background, BatesOptions, HeaderFooter, StampContext, Watermark};
 use serde::{Deserialize, Serialize};
-
-use crate::{Background, BatesOptions, HeaderFooter, StampContext, Watermark};
 
 /// Una de las cuatro operaciones de sellado, tal como llega de la interfaz (`{"op": "watermark", …}`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -40,8 +41,14 @@ impl StampOp {
     }
 }
 
-/// Aplica `op` a las páginas `pages` (texto de rango: `"all"`, `"1-3,5"`, `"odd"`…) de `src` y guarda en `out`.
-/// El original no se toca. El informe lleva `out` como resultado.
+/// Aplica `op` a las páginas `pages` (texto de rango: `"all"`, `"1-3,5"`, `"odd"`…) de `src` y guarda
+/// `<nombre> (<sufijo>).pdf` junto a él. El original no se toca; el informe lleva la copia como resultado.
+pub fn stamp_copy(src: &Path, pages: &str, password: Option<&str>, op: &StampOp, ctx: &JobContext) -> Result<Report> {
+    let out = unique_sibling(src, op.suffix(), "pdf");
+    stamp_file(src, &out, password, pages, op, ctx)
+}
+
+/// Como [`stamp_copy`] pero con la ruta de salida explícita.
 pub fn stamp_file(
     src: &Path,
     out: &Path,
@@ -54,16 +61,16 @@ pub fn stamp_file(
     let mut doc = pliego_organize::open(src, password)?;
     let sel = range.resolve(pliego_organize::page_count(&doc)?)?;
     match op {
-        StampOp::Watermark(w) => crate::watermark(&mut doc, &sel, w, ctx)?,
+        StampOp::Watermark(w) => pliego_stamp::watermark(&mut doc, &sel, w, ctx)?,
         StampOp::HeaderFooter(h) => {
             let file = src
                 .file_name()
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default();
-            crate::header_footer(&mut doc, &sel, h, &StampContext::today(file), ctx)?
+            pliego_stamp::header_footer(&mut doc, &sel, h, &StampContext::today(file), ctx)?
         }
-        StampOp::Background(b) => crate::background(&mut doc, &sel, b, ctx)?,
-        StampOp::Bates(b) => crate::bates(&mut doc, &sel, b, ctx)?,
+        StampOp::Background(b) => pliego_stamp::background(&mut doc, &sel, b, ctx)?,
+        StampOp::Bates(b) => pliego_stamp::bates(&mut doc, &sel, b, ctx)?,
     }
     pliego_organize::save(&doc, out)?;
     Ok(Report::with_output(out.to_path_buf(), op.summary(sel.len())))

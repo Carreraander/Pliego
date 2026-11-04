@@ -1,0 +1,11 @@
+.pl-fdesign-layer { position: absolute; inset: 0; z-index: var(--pl-z-canvas-overlay); touch-action: none; user-select: none; }
+.pl-fdesign-layer:not([data-tool="select"]) { cursor: crosshair; }
+.pl-fdesign-box { all: unset; box-sizing: border-box; position: absolute; border: 1px dashed var(--pl-accent); background: var(--pl-selection); cursor: pointer; overflow: hidden; }
+.pl-fdesign-box:hover { border-style: solid; }
+.pl-fdesign-box:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 1px; }
+.pl-fdesign-box--selected { border-style: solid; border-width: 2px; }
+.pl-fdesign-box__name { position: absolute; left: 2px; top: 0; font-size: 10px; line-height: 1.2; color: var(--pl-text); white-space: nowrap; pointer-events: none; }
+.pl-fdesign-layer:not([data-tool="select"]) .pl-fdesign-box { pointer-events: none; }
+.pl-fdesign-preview { position: absolute; background: var(--pl-selection); outline: 1px solid var(--pl-accent); pointer-events: none; }
+.pl-fdesign-hint { color: var(--pl-text-2); font-size: 0.85em; margin: var(--pl-space-2) 0 0; }
+.pl-fdesign-tools { flex-wrap: wrap; }

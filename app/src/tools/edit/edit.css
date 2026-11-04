@@ -1,0 +1,12 @@
+.pl-edit-layer { position: absolute; inset: 0; z-index: var(--pl-z-canvas-overlay); touch-action: none; user-select: none; }
+.pl-edit-layer[data-tool="add"] { cursor: crosshair; }
+.pl-edit-block { all: unset; box-sizing: border-box; position: absolute; border: 1px dashed transparent; cursor: text; }
+.pl-edit-block:hover { border-color: var(--pl-accent); background: var(--pl-selection); }
+.pl-edit-block:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 1px; }
+.pl-edit-preview { position: absolute; background: var(--pl-selection); outline: 1px solid var(--pl-accent); pointer-events: none; }
+.pl-edit-form { position: absolute; display: flex; flex-direction: column; gap: var(--pl-space-2); padding: var(--pl-space-2); width: 320px; max-width: 90%; background: var(--pl-surface-raised); border: 1px solid var(--pl-border); border-radius: var(--pl-radius-md); box-shadow: var(--pl-shadow-2); user-select: text; cursor: auto; }
+.pl-edit-form textarea { font: inherit; resize: vertical; }
+.pl-edit-form__row { display: flex; gap: var(--pl-space-2); flex-wrap: wrap; align-items: flex-end; }
+.pl-edit-form__row > * { flex: 1 1 90px; }
+.pl-edit-form__actions { display: flex; justify-content: flex-end; gap: var(--pl-space-2); }
+.pl-edit-hint { color: var(--pl-text-2); font-size: 0.85em; margin-inline-start: var(--pl-space-2); }

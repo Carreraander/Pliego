@@ -5,7 +5,7 @@ Cómo se ha trabajado hasta el 2026-11-04 y cómo debe seguir el proyecto nuevo.
 ## Organización de hilos y modelos
 
 - **Coordinador** del proyecto: habla con Ander, abre hilos, pasa mensajes.
-- **Hilo de gestión** («Diseñar alternativa open source a Acrobat Pro»), con **Opus 5.5** (`claude-opus-5-5`):
+- **Hilo de gestión** («Gestionar el desarrollo de Pliego» en la cuenta nueva; antes «Diseñar alternativa open source a Acrobat Pro»), con **Opus 5.5** (`claude-opus-5-5`):
   revisa y fusiona PRs, mantiene interfaces compartidas (`pliego-core`, `pliego-engine-mupdf`, `tools/acr12-*`,
   CI), reparte turnos de acr12, decide prioridades y resuelve dudas de los flujos.
 - **Hilo de diseño de la app** («Diseñar app de escritorio de Pliego»), con **Opus 5.5**: dueño de `docs/design/`;

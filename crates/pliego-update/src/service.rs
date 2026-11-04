@@ -325,6 +325,12 @@ impl<S: Stager> UpdateService<S> {
         self.state.save(&self.state_path)
     }
 
+    /// El usuario cerró solo el aviso de vuelta atrás: la tarjeta de novedades pendiente se conserva.
+    pub fn dismiss_rollback(&mut self) -> Result<()> {
+        self.state.rollback_notice = None;
+        self.state.save(&self.state_path)
+    }
+
     /// Aplica ajustes nuevos (modo y canal desde Ajustes o cambios de directiva).
     pub fn set_config(&mut self, config: UpdateConfig) {
         let reset = config.channel != self.config.channel;

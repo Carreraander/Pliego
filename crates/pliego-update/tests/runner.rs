@@ -243,3 +243,35 @@ fn disabled_mode_makes_no_request_and_settings_can_reenable() {
     f.runner.check_now();
     wait_for(&f, "Ready", |s| matches!(s.status.phase, Phase::Ready { .. }));
 }
+
+#[test]
+fn closing_the_rollback_notice_keeps_the_pending_whats_new_card() {
+    let tmp = tempfile::tempdir().unwrap();
+    let state_path = tmp.path().join("update-state.json");
+    let mut state = pliego_update::UpdateState::new([3; 16]);
+    state.whats_new = Some(Version::new(0, 1, 0));
+    state.rollback_notice = Some(pliego_update::RollbackNotice {
+        failed: Version::new(0, 1, 2),
+        restored: Version::new(0, 1, 0),
+    });
+    state.save(&state_path).unwrap();
+    let config = UpdateConfig::new("http://127.0.0.1:1", "stable", Version::new(0, 1, 0), vec![]);
+    let service = UpdateService::open(
+        config,
+        InstallKind::PerUser,
+        state_path,
+        tmp.path().join("updates"),
+        LayoutStager::new(InstallKind::PerUser, tmp.path(), tmp.path()),
+        None,
+    )
+    .unwrap();
+    let runner = Runner::start(service, true, || false, |_| {});
+    assert!(runner.snapshot().status.rollback.is_some());
+    runner.dismiss_rollback();
+    let end = Instant::now() + Duration::from_secs(5);
+    while runner.snapshot().status.rollback.is_some() {
+        assert!(Instant::now() < end, "el aviso no se cerró");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(runner.snapshot().status.whats_new, Some(Version::new(0, 1, 0)));
+}

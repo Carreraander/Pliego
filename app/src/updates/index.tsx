@@ -151,7 +151,7 @@ export async function installUpdates(): Promise<() => void> {
     createEffect(on(() => updateSnapshot()?.rollback, (r) => {
       if (!r) return;
       toast({ tone: "warn", text: ut2("rollback", { failed: r[0], restored: r[1] }) });
-      void call("update_dismiss_notices");
+      void call("update_dismiss_rollback");
     }));
     return dispose;
   }));

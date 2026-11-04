@@ -14,4 +14,13 @@ describe("herramientas de Ver (W29)", () => {
     const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
     expect(toolState(t, none).enabled).toBe(false);
   });
+  it("Adjuntos sustituye a la fantasma (tarea del inspector) y pide un documento", () => {
+    registerBaseTools();
+    registerViewTools();
+    const t = getTool("viewer.attachments")!;
+    expect(t.ghost).toBeFalsy();
+    expect(t.kind).toBe("task");
+    const none = { document: false, forms: false, signatures: false, protected: false, pdfa: false };
+    expect(toolState(t, none).enabled).toBe(false);
+  });
 });

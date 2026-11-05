@@ -5,7 +5,7 @@ use clap::{Args, ValueEnum};
 use pliego_convert::{
     ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
     TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, office_to_pdf,
-    pdf_to_html, pdf_to_images, pdf_to_svg, pdf_to_text, structured_text_pages, text_to_pdf,
+    pdf_to_html, pdf_to_images, pdf_to_text, structured_text_pages, text_to_pdf,
 };
 use pliego_core::{JobContext, PageRange, Report};
 
@@ -49,7 +49,6 @@ pub enum ExportTarget {
     Tiff,
     Txt,
     Html,
-    Svg,
     /// Imágenes incrustadas, en su formato original.
     Images,
     /// Texto estructurado (bloques, líneas, fuentes) en JSON.
@@ -178,7 +177,6 @@ pub fn export(a: ExportArgs, json: bool) -> anyhow::Result<()> {
             &ctx,
         ),
         ExportTarget::Html => pdf_to_html(&a.open.input, a.open.password.as_deref(), &a.pages, &a.output, &ctx),
-        ExportTarget::Svg => pdf_to_svg(&a.open.input, a.open.password.as_deref(), &a.pages, &a.output, &ctx),
         ExportTarget::Images => extract_images(
             &a.open.input,
             a.open.password.as_deref(),

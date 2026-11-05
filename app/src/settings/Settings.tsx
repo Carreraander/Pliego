@@ -121,7 +121,7 @@ const sections = (): SettingsSection[] => [
   { id: "updates", title: () => st("section.updates"), icon: "refresh", order: 60, component: UpdatesSection, keywords: ["actualizar", "versión", "canal", "beta", "update"] },
   { id: "accessibility", title: () => st("section.accessibility"), icon: "accessibility", order: 80, rows: accessibilityRows },
   { id: "advanced", title: () => st("section.advanced"), icon: "keyboard", order: 90, component: AdvancedSection, keywords: ["atajos", "teclado", "restablecer", "shortcuts", "reset"] },
-  { id: "about", title: () => st("section.about"), icon: "info", order: 100, component: AboutSection, keywords: ["licencia", "agpl", "código fuente", "mupdf", "versión", "license"] },
+  { id: "about", title: () => st("section.about"), icon: "info", order: 100, component: AboutSection, keywords: ["licencia", "agpl", "código fuente", "pdfium", "versión", "license"] },
   ...extraSections(),
 ].sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
 

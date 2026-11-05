@@ -1,5 +1,4 @@
-//! Pruebas de las anotaciones nativas. MuPDF actúa de motor de referencia: dibuja lo que escribe `native` y
-//! lee los mismos valores que la capa sobre MuPDF.
+//! Pruebas de las anotaciones nativas. PDFium actúa de motor de referencia: dibuja lo que escribe `native`.
 
 use super::PdfDocument as Native;
 use super::tests::qpdf_check;
@@ -326,7 +325,7 @@ fn geometry_in_page_space_survives_a_rotated_page() {
 
 #[test]
 fn update_only_touches_annotations_that_changed() {
-    // Una anotación de otro programa (aquí, escrita por MuPDF) se conserva al abrir y guardar.
+    // Una anotación de otro programa (aquí, escrita por otra instancia) se conserva al abrir y guardar.
     let mut p = crate::PdfDocument::new();
     drop(p.new_page(Size::A4).unwrap());
     let p = crate::PdfDocument::from_bytes(&p.to_bytes(&WriteOptions::new()).unwrap()).unwrap();
@@ -430,9 +429,9 @@ fn free_text_wraps_inside_its_rectangle_and_aligns() {
     assert!(shot.non_white(150, 100, 200, 200) > shot.non_white(100, 100, 120, 200));
 }
 
-/// El mismo guion sobre la capa con MuPDF y sobre el modelo nativo: los getters coinciden.
+/// Guion de getters sobre el modelo nativo.
 #[test]
-fn getters_match_the_mupdf_layer() {
+fn getters_return_what_was_set() {
     macro_rules! script {
         ($page:expr) => {{
             let page = &mut $page;
@@ -496,10 +495,7 @@ fn getters_match_the_mupdf_layer() {
     let mut np = native.load_pdf_page(0).unwrap();
     let a = script!(np);
 
-    let mut m = crate::PdfDocument::new();
-    let mut mp = m.new_page(Size::A4).unwrap();
-    let b = script!(mp);
-    drop(mp);
-    drop(m);
-    assert_eq!(a, b);
+    assert_eq!(a.last().map(String::as_str), Some("5"), "{a:#?}");
+    assert!(a[0].starts_with("Highlight"), "{a:#?}");
+    assert!(a.iter().any(|l| l.contains("\"hola\"")), "{a:#?}");
 }

@@ -3,7 +3,7 @@ use pliego_pdf::{InsertPdfOptions, InsertPosition, PageSelection, PdfDocument};
 use pliego_pdf::{Rect, Size};
 use serde::{Deserialize, Serialize};
 
-use crate::annots::{FormState, carry_annotations};
+use crate::annots::{FormState, carry_annotations, trim_fields};
 use crate::outline::{read_outline, retarget, write_outline};
 
 pub fn page_count(doc: &PdfDocument) -> Result<u32> {
@@ -55,6 +55,7 @@ pub(crate) fn extract_inner(doc: &PdfDocument, pages: &[u32], annotations: bool)
         doc.write_to(&mut bytes)?;
         let mut scratch = PdfDocument::from_bytes(&bytes)?;
         let pairs: Vec<(u32, u32)> = pages.iter().enumerate().map(|(i, &p)| (p, i as u32)).collect();
+        trim_fields(&out, 0)?;
         carry_annotations(&mut out, &mut scratch, &pairs, &mut FormState::default())?;
     }
     Ok(out)

@@ -1,10 +1,10 @@
-//! Lee del `Cargo.lock` del workspace las versiones de los componentes que enseña «Acerca de» (MuPDF, Tauri…), para que
+//! Lee del `Cargo.lock` del workspace las versiones de los componentes que enseña «Acerca de» (PDFium, Tauri…), para que
 //! la pantalla diga siempre la versión realmente enlazada.
 
 use std::{env, fs, path::PathBuf};
 
 const COMPONENTS: &[(&str, &str)] = &[
-    ("mupdf-sys", "MUPDF"),
+    ("pdfium-render", "PDFIUM"),
     ("tauri", "TAURI"),
     ("lopdf", "LOPDF"),
     ("rustls", "RUSTLS"),

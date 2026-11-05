@@ -5,7 +5,7 @@ import { fileName, runToolJob } from "../run";
 import { exportArgs, normalizePages, optionalNumber, usesDpi, type ExportFormat } from "./request";
 import { ct } from "./strings";
 
-/** Exportar a imágenes (PNG, JPEG, TIFF, SVG, las incrustadas) o a texto/HTML. Guarda junto al original. */
+/** Exportar a imágenes (PNG, JPEG, TIFF, las incrustadas) o a texto/HTML. Guarda junto al original. */
 export default function ExportPanel(p: { onClose: () => void }) {
   const [format, setFormat] = createSignal<ExportFormat>("png");
   const [pages, setPages] = createSignal("");
@@ -29,7 +29,7 @@ export default function ExportPanel(p: { onClose: () => void }) {
     });
     if (id !== null) p.onClose();
   };
-  const formats: ExportFormat[] = ["png", "jpg", "tiff", "svg", "images", "txt", "html"];
+  const formats: ExportFormat[] = ["png", "jpg", "tiff", "images", "txt", "html"];
   return (
     <TaskPanel title={ct("convert.export.title")} onClose={p.onClose} primary={{ label: ct("convert.export.run"), onClick: run, disabled: !doc() }}
       notice={<Show when={!doc() || error()}><Notice tone={error() ? "danger" : "warn"} inline>{error() ?? ct("convert.noDoc")}</Notice></Show>}>

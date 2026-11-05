@@ -1,6 +1,6 @@
 //! Servicio de documentos de la app de Pliego, independiente de Tauri.
 //!
-//! Los PDF se abren en el proceso aislado `pliego-worker` (si MuPDF cae con un archivo dañado, la app sigue viva y
+//! Los PDF se abren en el proceso aislado `pliego-worker` (si el motor cae con un archivo dañado, la app sigue viva y
 //! el worker se relanza). La caché de teselas es la de `pliego_worker::TileCache`. La capa Tauri
 //! (`app/src-tauri`) solo traduce comandos y el protocolo `pliego://tile/...` a llamadas de este servicio.
 
@@ -33,7 +33,7 @@ pub(crate) mod test_support {
 
     static SERIAL: Mutex<()> = Mutex::new(());
 
-    /// Las pruebas que arrancan el worker (con tiempo límite por petición) o que trabajan con MuPDF a fondo
+    /// Las pruebas que arrancan el worker (con tiempo límite por petición) o que trabajan con el motor a fondo
     /// (comprimir, convertir…) se ejecutan de una en una: en paralelo, la carga de CPU de las pesadas hacía
     /// que el worker tardara más que su límite en la CI de Windows («el motor tardó demasiado en responder»).
     pub fn serial() -> MutexGuard<'static, ()> {

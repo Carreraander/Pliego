@@ -109,7 +109,6 @@ enum Command {
 }
 
 fn main() -> anyhow::Result<()> {
-    pliego_engine::init_fonts();
     let cli = Cli::parse();
     match cli.command {
         Command::Info(a) => commands::view::info(a, cli.json),

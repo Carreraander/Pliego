@@ -45,6 +45,7 @@ mod raster;
 mod redact;
 mod save;
 mod tree;
+mod view;
 mod widget;
 
 #[cfg(test)]
@@ -63,7 +64,7 @@ mod widget_tests;
 pub use annot::PdfAnnotation;
 pub use document::PdfDocument;
 pub use font::Font;
-pub use formjs::JsMessage;
+pub use formjs::{JsDocEvent, JsMessage};
 pub use graft::GraftMap;
 pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageOptions, PageImageInfo};
 pub use object::Object;
@@ -103,6 +104,13 @@ pub(crate) struct State {
     pub(crate) annot_dirty: BTreeSet<ObjectId>,
     /// Motor de JavaScript de formularios (W42).
     pub(crate) js: formjs::JsState,
+    /// Cuenta los cambios hechos desde que se abrió el documento (0 = tal como estaba en el archivo). A diferencia de
+    /// `unsaved`, no se pone a cero al guardar: sirve para saber si la copia que lee PDFium sigue al día.
+    pub(crate) generation: u64,
+    /// Contraseña con la que se desbloqueó el documento (PDFium la necesita para abrir el original cifrado).
+    pub(crate) password: Option<String>,
+    /// Copia del documento en PDFium (render, texto y búsqueda).
+    pub(crate) view: crate::pdfium::DocLink,
 }
 
 /// Datos del archivo de origen.
@@ -134,7 +142,13 @@ impl State {
         self.js.generation += 1;
         self.dirty.insert(id);
         self.deleted.remove(&id);
+        self.mark_changed();
+    }
+
+    /// Anota que el documento cambió (hay cambios sin guardar y la copia de PDFium ya no vale).
+    pub(crate) fn mark_changed(&mut self) {
         self.unsaved = true;
+        self.generation += 1;
     }
 
     pub(crate) fn invalidate_pages(&mut self) {

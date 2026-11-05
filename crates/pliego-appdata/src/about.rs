@@ -27,9 +27,9 @@ pub fn about(version: &'static str) -> AboutInfo {
         source_url: SOURCE_URL,
         components: vec![
             Component {
-                name: "MuPDF",
-                version: env!("PLIEGO_DEP_MUPDF"),
-                license: "AGPL-3.0 (Artifex)",
+                name: "PDFium (pdfium-render)",
+                version: env!("PLIEGO_DEP_PDFIUM"),
+                license: "BSD-3-Clause / Apache-2.0",
             },
             Component {
                 name: "Tauri",
@@ -57,11 +57,12 @@ mod tests {
     #[test]
     fn versions_come_from_the_lockfile() {
         let info = about("9.9.9");
-        let mupdf = info.components.iter().find(|c| c.name == "MuPDF").unwrap();
+        assert!(info.components.iter().all(|c| !c.name.contains("MuPDF")));
+        let pdfium = info.components.iter().find(|c| c.name.starts_with("PDFium")).unwrap();
         assert!(
-            mupdf.version.chars().next().unwrap().is_ascii_digit(),
+            pdfium.version.chars().next().unwrap().is_ascii_digit(),
             "versión: {}",
-            mupdf.version
+            pdfium.version
         );
         assert_eq!(info.license, "AGPL-3.0-or-later");
         assert!(info.source_url.starts_with("https://"));

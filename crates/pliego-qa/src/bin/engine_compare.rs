@@ -1,8 +1,8 @@
 //! Arnés de comparación de motores (W34).
 //!
 //! ```text
-//! engine-compare tests/corpus --reference mupdf --candidate mupdf            # línea base: MuPDF contra MuPDF
-//! engine-compare tests/corpus tests/corpus/external --candidate pdfium       # cuando exista el motor nuevo
+//! engine-compare tests/corpus                                                 # línea base: PDFium contra PDFium
+//! engine-compare tests/corpus tests/corpus/external --candidate pdfium       # corpus externo
 //! engine-compare tests/corpus --validate-dir salida/                         # además, qpdf --check / veraPDF de salidas
 //! engine-compare tests/corpus --mutate 5 --seed 1                            # humo de robustez con PDF corrompidos
 //! ```
@@ -26,9 +26,9 @@ struct Args {
     /// Directorios (recursivo) o archivos PDF.
     #[arg(default_value = "tests/corpus")]
     inputs: Vec<PathBuf>,
-    #[arg(long, default_value = "mupdf")]
+    #[arg(long, default_value = "pdfium")]
     reference: String,
-    #[arg(long, default_value = "mupdf")]
+    #[arg(long, default_value = "pdfium")]
     candidate: String,
     #[arg(long, default_value_t = 60)]
     timeout: u64,

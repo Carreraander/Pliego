@@ -136,7 +136,8 @@
 
   // --- event -------------------------------------------------------------------------------------------------------
   var EVNAMES = { K: "Keystroke", F: "Format", V: "Validate", C: "Calculate", E: "MouseEnter", X: "MouseExit",
-    D: "MouseDown", U: "MouseUp", A: "MouseUp", Fo: "Focus", Bl: "Blur" };
+    D: "MouseDown", U: "MouseUp", A: "MouseUp", Fo: "Focus", Bl: "Blur", Open: "Open", WillClose: "WillClose",
+    WillSave: "WillSave", DidSave: "DidSave", WillPrint: "WillPrint", DidPrint: "DidPrint", PageOpen: "Open", PageClose: "Close" };
   def(G, "__run", function (code, name, trigger, value, willCommit, change, selStart, selEnd, fieldFull) {
     var target = name == null ? null : getField(name);
     var ev = {

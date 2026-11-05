@@ -1,6 +1,6 @@
 //! Ejecuta el corpus externo: abre y renderiza cada PDF en un proceso hijo con tiempo límite.
 //!
-//! Un proceso por archivo aísla caídas y bloqueos de MuPDF. Resultado de cada archivo:
+//! Un proceso por archivo aísla caídas y bloqueos del motor. Resultado de cada archivo:
 //! - `ok`: se abrió y se renderizó la primera página.
 //! - `rechazado`: el motor devolvió un error limpio (aceptado: archivo roto, cifrado, etc.).
 //! - `caída`: el proceso hijo murió por una señal o código anormal (NO aceptado).

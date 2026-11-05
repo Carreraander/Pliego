@@ -4,7 +4,7 @@ use pliego_core::{Error, JobContext, Report, Result};
 use pliego_pdf::{InsertPdfOptions, PdfDocument};
 use serde::{Deserialize, Serialize};
 
-use crate::annots::{FormState, carry_annotations};
+use crate::annots::{FormState, carry_annotations, fields_len, trim_fields};
 use crate::io::{open, save};
 use crate::outline::{OutlineNode, read_outline, retarget, write_outline};
 
@@ -56,7 +56,9 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
         if src_pages == 0 {
             continue;
         }
+        let fields_before = fields_len(&dest)?;
         dest.insert_pdf(&src, InsertPdfOptions::default())?;
+        trim_fields(&dest, fields_before)?;
         let pairs: Vec<(u32, u32)> = (0..src_pages).map(|i| (i, offset + i)).collect();
         carry_annotations(&mut dest, &mut src, &pairs, &mut form)?;
         if options.keep_bookmarks || options.bookmark_per_file {

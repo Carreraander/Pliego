@@ -1,4 +1,4 @@
-//! Aislamiento del motor MuPDF en un proceso hijo (AGPL-3.0-or-later).
+//! Aislamiento del motor (lopdf + PDFium) en un proceso hijo (AGPL-3.0-or-later).
 //!
 //! - [`protocol`]: mensajes entre la app y el proceso `pliego-worker`.
 //! - [`WorkerEngine`]: implementa `PdfEngine`/`EngineDocument` hablando con el worker, intercambiable

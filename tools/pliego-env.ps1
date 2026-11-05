@@ -8,7 +8,7 @@
   Detecta el disco de trabajo: D:\dev-cache si existe D: (acr12) y si no C:\dev-cache (pc, un solo disco).
   Se puede forzar con $env:PLIEGO_CACHE (carpeta de cachés) y $env:PLIEGO_LLVM (carpeta bin de LLVM).
   - LIBCLANG_PATH y PATH -> LLVM 19 (D:\LLVM19, C:\dev-tools\LLVM19) o, si no hay, el LLVM de Program Files.
-    bindgen (mupdf-sys) necesita clang.exe en el PATH; sin él falta max_align_t.
+    bindgen (tesseract-sys) necesita clang.exe en el PATH; sin él falta max_align_t.
   - CARGO_TARGET_DIR -> <cache>\target\<nombre del clon>, uno por clon para que los flujos no se bloqueen.
   - TEMP/TMP, caché de npm, navegadores de Playwright y caché binaria de vcpkg en <cache>.
   - Tesseract/Leptonica de vcpkg (VCPKG_ROOT, ~\vcpkg, <disco>\dev-tools\vcpkg o C:\vcpkg).
@@ -54,7 +54,7 @@
     if (Test-Path "$disco\dev-tools\veraPDF\verapdf.bat") { $env:PLIEGO_VERAPDF = "$disco\dev-tools\veraPDF\verapdf.bat" }
 
     # --- Visual Studio sin C++ instalado más nuevo que el que tiene C++ (pc: VS 18 Insiders + Build Tools 2022) ---
-    # mupdf-sys (vía cc) usa siempre el MSBuild del VS más nuevo, y clang (bindgen) también lo prefiere: si ese VS no
+    # Las dependencias en C (vía cc) usan siempre el MSBuild del VS más nuevo, y clang (bindgen) también lo prefiere: si ese VS no
     # tiene el componente C++, falla («Microsoft.Cpp.Default.props was not found», «'setjmp.h' file not found»).
     # Arreglo solo para esta terminal y nuestros target: entorno vcvars64 del VS con C++ (INCLUDE/LIB para clang,
     # VisualStudioVersion para elegir el PlatformToolset) y un Directory.Build.rsp en <cache>\target que MSBuild lee

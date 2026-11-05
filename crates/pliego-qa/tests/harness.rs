@@ -1,4 +1,4 @@
-//! Arnés de comparación y oráculo de redacción: línea base (MuPDF contra MuPDF) y control negativo del oráculo.
+//! Arnés de comparación y oráculo de redacción: línea base (PDFium contra PDFium) y control negativo del oráculo.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -6,7 +6,7 @@ use std::process::Command;
 use pliego_core::JobContext;
 use pliego_qa::engines;
 use pliego_qa::oracle::{OracleConfig, check_redacted};
-use pliego_redact::{Pattern, RedactEngine, RedactJob, apply, apply_with_engine};
+use pliego_redact::{Pattern, RedactJob, apply};
 
 fn corpus(rel: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -15,7 +15,7 @@ fn corpus(rel: &str) -> PathBuf {
 }
 
 #[test]
-fn baseline_mupdf_contra_mupdf_es_identico() {
+fn baseline_pdfium_contra_pdfium_es_identico() {
     let out = tempfile::tempdir().unwrap();
     let json = out.path().join("r.json");
     let res = Command::new(env!("CARGO_BIN_EXE_engine-compare"))
@@ -64,7 +64,7 @@ fn humo_de_robustez_no_cae() {
 
 #[test]
 fn oraculo_detecta_el_original_y_acepta_lo_redactado() {
-    let engine = engines::by_name("mupdf").unwrap();
+    let engine = engines::by_name("pdfium").unwrap();
     let cfg = OracleConfig {
         needles: vec!["12345678Z".into(), "IBAN ES91 2100 0418".into()],
         regions: vec![],
@@ -92,11 +92,11 @@ fn oraculo_detecta_el_original_y_acepta_lo_redactado() {
     assert!(left.is_empty(), "{left:?}");
 }
 
-/// El oráculo es la verificación obligatoria del motor propio de redacción (W38): mismos datos, los dos motores, y
-/// los dos extractores de texto (MuPDF y PDFium si hay DLL) más los bytes del archivo.
+/// El oráculo es la verificación obligatoria del motor de redacción (W38): muchos tipos de dato, el extractor de texto
+/// de PDFium, los literales de los flujos y los bytes del archivo.
 #[test]
-fn oraculo_acepta_lo_redactado_con_el_motor_propio() {
-    let engine = engines::by_name("mupdf").unwrap();
+fn oraculo_acepta_lo_redactado_con_varios_tipos_de_dato() {
+    let engine = engines::by_name("pdfium").unwrap();
     let datos = [
         "12345678Z",
         "X1234567L",
@@ -124,15 +124,7 @@ fn oraculo_acepta_lo_redactado_con_el_motor_propio() {
         ],
         ..Default::default()
     };
-    apply_with_engine(
-        &corpus("redact/datos.pdf"),
-        &out,
-        None,
-        &job,
-        &JobContext::silent(),
-        RedactEngine::Native,
-    )
-    .unwrap();
+    apply(&corpus("redact/datos.pdf"), &out, None, &job, &JobContext::silent()).unwrap();
     let left = check_redacted(engine.as_ref(), &out, &cfg).unwrap();
     assert!(left.is_empty(), "{left:?}");
     // Y el original, que sigue teniéndolo todo, no pasa (control negativo).

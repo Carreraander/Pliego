@@ -46,6 +46,11 @@ pub(super) fn typeset(md: &str, spec: &PageSpec) -> Result<Typeset> {
         md,
         Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS,
     );
+    typeset_events(parser, spec)
+}
+
+/// Coloca una secuencia de eventos (del analizador de Markdown o del traductor de HTML).
+pub(super) fn typeset_events<'a>(events: impl IntoIterator<Item = Event<'a>>, spec: &PageSpec) -> Result<Typeset> {
     let mut m = Md {
         ts: Typesetter::new(*spec),
         base: spec.font_size,
@@ -63,7 +68,7 @@ pub(super) fn typeset(md: &str, spec: &PageSpec) -> Result<Typeset> {
         table: None,
         in_head: false,
     };
-    for ev in parser {
+    for ev in events {
         m.event(ev);
     }
     m.flush(0.0);

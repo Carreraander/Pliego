@@ -46,7 +46,74 @@ fn html_and_svg_export() {
     assert!(s.starts_with("<!DOCTYPE html>"));
     assert!(s.contains("Hola") && s.contains("Segunda"));
     let r = pdf_to_svg(&corpus(), None, &"1".parse().unwrap(), dir.path(), &ctx).unwrap();
-    assert!(std::fs::read_to_string(&r.outputs[0]).unwrap().contains("<svg"));
+    let svg = std::fs::read_to_string(&r.outputs[0]).unwrap();
+    assert!(
+        svg.contains("<svg") && svg.contains("data:image/png;base64,iVBORw0KGgo"),
+        "{}",
+        &svg[..svg.len().min(300)]
+    );
+    // Capa de texto invisible y seleccionable.
+    assert!(
+        svg.contains("fill-opacity=\"0\"") && svg.contains(">Hola"),
+        "falta la capa de texto"
+    );
+    // El XML está bien formado: toda etiqueta de apertura de `text` se cierra y no hay `&` sueltos.
+    assert_eq!(svg.matches("<text ").count(), svg.matches("</text>").count());
+    assert!(
+        !svg.replace("&amp;", "")
+            .replace("&lt;", "")
+            .replace("&gt;", "")
+            .replace("&quot;", "")
+            .contains('&')
+    );
+}
+
+#[test]
+fn svg_embeds_a_decodable_png() {
+    // El PNG incrustado (base64) debe poder decodificarse.
+    let dir = tempfile::tempdir().unwrap();
+    let r = pdf_to_svg(
+        &corpus(),
+        None,
+        &"1".parse().unwrap(),
+        dir.path(),
+        &JobContext::silent(),
+    )
+    .unwrap();
+    let svg = std::fs::read_to_string(&r.outputs[0]).unwrap();
+    let start = svg.find("base64,").unwrap() + 7;
+    let end = start + svg[start..].find('"').unwrap();
+    let b64 = &svg[start..end];
+    assert_eq!(b64.len() % 4, 0);
+    let png = decode_b64(b64);
+    let img = image::load_from_memory_with_format(&png, image::ImageFormat::Png).unwrap();
+    assert!(img.width() > 100 && img.height() > 100);
+}
+
+fn decode_b64(s: &str) -> Vec<u8> {
+    let val = |c: u8| match c {
+        b'A'..=b'Z' => c - b'A',
+        b'a'..=b'z' => c - b'a' + 26,
+        b'0'..=b'9' => c - b'0' + 52,
+        b'+' => 62,
+        b'/' => 63,
+        _ => 0,
+    };
+    let mut out = Vec::new();
+    for ch in s.as_bytes().chunks(4) {
+        let n = (u32::from(val(ch[0])) << 18)
+            | (u32::from(val(ch[1])) << 12)
+            | (u32::from(val(ch[2])) << 6)
+            | u32::from(val(ch[3]));
+        out.push((n >> 16) as u8);
+        if ch[2] != b'=' {
+            out.push((n >> 8) as u8);
+        }
+        if ch[3] != b'=' {
+            out.push(n as u8);
+        }
+    }
+    out
 }
 
 #[test]

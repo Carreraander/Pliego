@@ -86,7 +86,7 @@ fn pixmap_rgb(pix: &Pixmap) -> Result<Vec<u8>> {
     Ok(data)
 }
 
-fn encode(pix: &Pixmap, o: &PdfToImagesOptions) -> Result<Vec<u8>> {
+pub(crate) fn encode(pix: &Pixmap, o: &PdfToImagesOptions) -> Result<Vec<u8>> {
     let (w, h) = (pix.width(), pix.height());
     let rgb = pixmap_rgb(pix)?;
     let mut out = Vec::new();

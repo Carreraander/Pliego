@@ -32,6 +32,13 @@ Línea base (MuPDF contra MuPDF, 85 PDF de `tests/corpus`): 0 píxeles distintos
 `tiling-hang.pdf` se cuelga a propósito (conocido). Se ejecuta en cada PR dentro de `cargo test -p pliego-qa` y, con el
 corpus externo y el humo de robustez, en la CI nocturna.
 
+### Instalar qpdf y veraPDF en acr12
+
+`tools/qa/instalar-validadores.ps1` los instala sin permisos de administrador en `D:\dev-cache\validadores` (qpdf desde
+sus versiones de GitHub; veraPDF con el instalador desatendido, que necesita Java 11+ en el PATH). Después,
+`. .\tools\qa\instalar-validadores.ps1 -SoloEntorno` añade `bin\` al PATH de la terminal. El script no se ha podido
+probar fuera de acr12: la primera ejecución debe confirmar la URL de veraPDF y anotar los SHA-256 que imprime.
+
 ## `redaction-oracle`
 
 ```

@@ -1,5 +1,5 @@
-use mupdf::pdf::PdfDocument;
-use pliego_core::{Error, Result};
+use pliego_core::Result;
+use pliego_pdf::PdfDocument;
 
 use crate::ops::list;
 
@@ -11,6 +11,6 @@ pub fn flatten(doc: &mut PdfDocument) -> Result<usize> {
     if before == 0 {
         return Ok(0);
     }
-    doc.bake(true, false).map_err(|e| Error::Pdf(e.to_string()))?;
+    doc.bake(true, false)?;
     Ok(before)
 }

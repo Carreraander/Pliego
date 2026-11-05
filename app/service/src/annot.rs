@@ -59,44 +59,6 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
     persist_with_retry(tmp, out)
 }
 
-/// Puente temporal: las herramientas que aún no se han migrado a `pliego-pdf` (anotaciones) reciben un
-/// `mupdf::pdf::PdfDocument`. Cuando cada una se migre, su flujo cambia sus llamadas a `open`/`save`/`edit_pdf` y
-/// borra este módulo y el método `Editor::edit_mupdf`.
-pub mod legacy {
-    use super::{Error, Path, Result, persist_with_retry, temp_beside};
-    use mupdf::pdf::{PdfDocument, PdfWriteOptions};
-
-    fn pe(e: mupdf::Error) -> Error {
-        Error::Pdf(e.to_string())
-    }
-
-    pub(super) fn from_bytes(bytes: &[u8]) -> Result<PdfDocument> {
-        PdfDocument::from_bytes(bytes).map_err(pe)
-    }
-
-    /// Como [`super::open`], con el tipo de documento de MuPDF.
-    pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
-        let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-        let mut doc = mupdf::Document::from_bytes(&bytes, "application/pdf").map_err(pe)?;
-        if doc.needs_password().map_err(pe)? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
-            return Err(Error::Password);
-        }
-        PdfDocument::try_from(doc).map_err(|_| Error::InvalidInput(format!("{} no es un PDF", path.display())))
-    }
-
-    /// Como [`super::save`], con el tipo de documento de MuPDF.
-    pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
-        let tmp = temp_beside(out)?;
-        let path = tmp
-            .to_str()
-            .ok_or_else(|| Error::InvalidInput("ruta no válida".into()))?;
-        let mut opts = PdfWriteOptions::default();
-        opts.set_garbage_level(3).set_compress(true);
-        doc.save_with_options(path, opts).map_err(pe)?;
-        persist_with_retry(tmp, out)
-    }
-}
-
 fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
     // En Windows un antivirus o el indexador pueden tener el archivo recién escrito unos milisegundos.
     let mut tmp = tmp;
@@ -120,12 +82,12 @@ pub fn form_fields(src: &Path, password: Option<&str>) -> Result<Vec<FieldInfo>>
 
 /// Resumen de los comentarios de `src`.
 pub fn summary_of(src: &Path, password: Option<&str>) -> Result<CommentSummary> {
-    summary(&mut legacy::open(src, password)?)
+    summary(&mut open(src, password)?)
 }
 
 /// Exporta los comentarios de `src` a `<nombre> (<suffix>).xfdf` junto a él.
 pub fn export_xfdf_copy(src: &Path, password: Option<&str>, suffix: &str) -> Result<Report> {
-    let mut doc = legacy::open(src, password)?;
+    let mut doc = open(src, password)?;
     let total = summary(&mut doc)?.total;
     let out = unique_sibling(src, suffix, "xfdf");
     std::fs::write(&out, export_xfdf(&mut doc)?).map_err(|e| Error::io_at(&out, e))?;
@@ -135,10 +97,10 @@ pub fn export_xfdf_copy(src: &Path, password: Option<&str>, suffix: &str) -> Res
 /// Importa el XFDF `xfdf` en una copia `<nombre> (<suffix>).pdf` de `src`; el original no cambia.
 pub fn import_xfdf_copy(src: &Path, password: Option<&str>, xfdf: &Path, suffix: &str) -> Result<Report> {
     let text = std::fs::read_to_string(xfdf).map_err(|e| Error::io_at(xfdf, e))?;
-    let mut doc = legacy::open(src, password)?;
+    let mut doc = open(src, password)?;
     let added = import_xfdf(&mut doc, &text)?;
     let out = unique_sibling(src, suffix, "pdf");
-    legacy::save(&doc, &out)?;
+    save(&doc, &out)?;
     Ok(Report::with_output(out, format!("{added} comentario(s) importados")))
 }
 
@@ -159,12 +121,12 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 impl Editor {
     /// Añade una anotación al archivo y devuelve el contenido nuevo (para recargar el visor).
     pub fn add(&self, path: &Path, spec: &AnnotSpec, backup_suffix: &str) -> Result<Vec<u8>> {
-        self.edit_mupdf(path, backup_suffix, |doc| pliego_annot::add(doc, spec).map(drop))
+        self.edit_pdf(path, backup_suffix, |doc| pliego_annot::add(doc, spec).map(drop))
     }
 
     /// Borra una anotación del archivo.
     pub fn delete(&self, path: &Path, id: AnnotId, backup_suffix: &str) -> Result<Vec<u8>> {
-        self.edit_mupdf(path, backup_suffix, |doc| pliego_annot::delete(doc, id))
+        self.edit_pdf(path, backup_suffix, |doc| pliego_annot::delete(doc, id))
     }
 
     /// Rellena campos de formulario en el archivo (Rellenar y firmar). Comparte la pila de deshacer con los comentarios.
@@ -206,16 +168,6 @@ impl Editor {
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
         self.edit_with(path, backup_suffix, PdfDocument::from_bytes, op, save)
-    }
-
-    /// Como [`Editor::edit_pdf`] para las herramientas que aún usan el documento de MuPDF (ver [`legacy`]).
-    pub fn edit_mupdf(
-        &self,
-        path: &Path,
-        backup_suffix: &str,
-        op: impl FnOnce(&mut mupdf::pdf::PdfDocument) -> Result<()>,
-    ) -> Result<Vec<u8>> {
-        self.edit_with(path, backup_suffix, legacy::from_bytes, op, legacy::save)
     }
 
     /// Igual que [`Editor::edit_pdf`] pero sobre un `pliego_document::Document` (lo que piden `pliego-edit`).
@@ -281,9 +233,8 @@ fn write_bytes(out: &Path, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mupdf::Size;
-    use mupdf::pdf::PdfDocument;
     use pliego_annot::{AnnotSpec, Geometry, add};
+    use pliego_pdf::Size;
 
     fn pdf_with_notes(path: &Path, n: usize) {
         let mut doc = PdfDocument::new();
@@ -294,7 +245,7 @@ mod tests {
             s.contents = Some(format!("nota {i}"));
             add(&mut doc, &s).unwrap();
         }
-        legacy::save(&doc, path).unwrap();
+        save(&doc, path).unwrap();
     }
 
     #[test]
@@ -320,7 +271,7 @@ mod tests {
         let mut blank = PdfDocument::new();
         blank.new_page(Size::A4).unwrap();
         let clean = dir.path().join("b.pdf");
-        legacy::save(&blank, &clean).unwrap();
+        save(&blank, &clean).unwrap();
         let before = std::fs::read(&clean).unwrap();
         let r = import_xfdf_copy(&clean, None, &xfdf, "con comentarios").unwrap();
         assert_eq!(r.outputs[0], dir.path().join("b (con comentarios).pdf"));

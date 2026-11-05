@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
-use mupdf::pdf::PdfDocument;
 use pliego_core::Result;
+use pliego_pdf::PdfDocument;
 use serde::{Deserialize, Serialize};
 
 use crate::ops::list;

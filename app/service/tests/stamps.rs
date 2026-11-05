@@ -1,12 +1,12 @@
-use mupdf::pdf::PdfDocument;
 use pliego_annot::{StampPreset, StampSource};
 use pliego_app_service::stamps::{Place, StampRequest, stamp_annot_copy};
 use pliego_core::JobContext;
+use pliego_pdf::PdfDocument;
 
 fn two_pages(dir: &std::path::Path) -> std::path::PathBuf {
     let mut doc = PdfDocument::new();
-    doc.new_page(mupdf::Size::A4).unwrap();
-    doc.new_page(mupdf::Size::A4).unwrap();
+    doc.new_page(pliego_pdf::Size::A4).unwrap();
+    doc.new_page(pliego_pdf::Size::A4).unwrap();
     let p = dir.join("doc.pdf");
     doc.save(p.to_str().unwrap()).unwrap();
     p

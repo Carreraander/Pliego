@@ -1,13 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use mupdf::pdf::PdfDocument;
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::PdfDocument;
 use serde::{Deserialize, Serialize};
 
 use crate::io::save;
 use crate::outline::read_outline;
 use crate::pages::{extract, extract_inner};
-use crate::pdf_err;
 
 /// Cómo dividir un documento.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,7 +30,7 @@ struct Part {
 
 /// Divide `doc` y escribe `<nombre>-001.pdf`, `<nombre>-002.pdf`… en `out_dir`.
 pub fn split(doc: &PdfDocument, stem: &str, rule: &SplitRule, out_dir: &Path, ctx: &JobContext) -> Result<Report> {
-    let n = doc.page_count().map_err(pdf_err)?.max(0) as u32;
+    let n = doc.page_count()?.max(0) as u32;
     if n == 0 {
         return Err(Error::InvalidInput("el documento no tiene páginas".into()));
     }
@@ -150,7 +149,7 @@ fn plan(doc: &PdfDocument, n: u32, rule: &SplitRule, warnings: &mut Vec<String>)
                 let fits = |len: u32| -> Result<bool> {
                     let pages: Vec<u32> = (start..start + len).collect();
                     let mut buf = Vec::new();
-                    extract_inner(doc, &pages, false)?.write_to(&mut buf).map_err(pdf_err)?;
+                    extract_inner(doc, &pages, false)?.write_to(&mut buf)?;
                     Ok(buf.len() as u64 <= *bytes)
                 };
                 let room = n - start;

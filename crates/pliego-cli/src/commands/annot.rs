@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand};
-use mupdf::pdf::PdfDocument;
 use pliego_annot::{AnnotId, AnnotKind, AnnotSpec};
+use pliego_pdf::PdfDocument;
 
 #[derive(Subcommand)]
 pub enum AnnotCommand {

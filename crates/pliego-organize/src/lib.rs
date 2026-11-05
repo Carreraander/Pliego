@@ -23,8 +23,4 @@ pub use pages::{
 };
 pub use split::{SplitRule, split};
 
-pub use mupdf::pdf::PdfDocument;
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> pliego_core::Error {
-    pliego_core::Error::Pdf(e.to_string())
-}
+pub use pliego_pdf::PdfDocument;

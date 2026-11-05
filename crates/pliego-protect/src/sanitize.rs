@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use mupdf::pdf::{PdfDocument, PdfObject, PdfWriteOptions};
 use pliego_core::{JobContext, Report, Result};
+use pliego_pdf::{Object, PdfDocument, WriteOptions};
 use serde::{Deserialize, Serialize};
 
-use crate::io::{open_pdf, pdf_err, save_atomic};
+use crate::io::{open_pdf, save_atomic};
 
 /// Qué quitar. Por defecto, todo. Los objetos que queden sin referencia se descartan siempre al guardar:
 /// si no, lo "eliminado" seguiría dentro del archivo.
@@ -73,35 +73,35 @@ impl Tally {
     }
 }
 
-fn name_of(obj: &PdfObject, key: &str) -> Option<String> {
+fn name_of(obj: &Object, key: &str) -> Option<String> {
     let v = obj.get_dict(key).ok()??;
     String::from_utf8(v.as_name().ok()?).ok()
 }
 
 /// Quita la clave si existe; devuelve si había algo que quitar.
-fn remove_key(obj: &mut PdfObject, key: &str) -> Result<bool> {
-    let had = obj.get_dict(key).map_err(pdf_err)?.is_some();
+fn remove_key(obj: &mut Object, key: &str) -> Result<bool> {
+    let had = obj.get_dict(key)?.is_some();
     if had {
-        obj.dict_delete(key).map_err(pdf_err)?;
+        obj.dict_delete(key)?;
     }
     Ok(had)
 }
 
 /// Cuenta las claves de un diccionario (para describir el tamaño de Info).
-fn dict_len(obj: &PdfObject) -> usize {
+fn dict_len(obj: &Object) -> usize {
     obj.dict_len().unwrap_or(1)
 }
 
-fn is_form_field_button(field: &PdfObject) -> bool {
+fn is_form_field_button(field: &Object) -> bool {
     name_of_inherited(field, "FT").as_deref() == Some("Btn")
 }
 
-fn name_of_inherited(obj: &PdfObject, key: &str) -> Option<String> {
+fn name_of_inherited(obj: &Object, key: &str) -> Option<String> {
     let v = obj.get_dict_inheritable(key).ok()??;
     String::from_utf8(v.as_name().ok()?).ok()
 }
 
-fn is_pushbutton(field: &PdfObject) -> bool {
+fn is_pushbutton(field: &Object) -> bool {
     let ff = field
         .get_dict_inheritable("Ff")
         .ok()
@@ -112,7 +112,7 @@ fn is_pushbutton(field: &PdfObject) -> bool {
 }
 
 /// Vacía los valores de un campo y, recursivamente, de sus hijos. Devuelve cuántos campos tenían valor.
-fn clear_field(field: &mut PdfObject, depth: u32) -> Result<usize> {
+fn clear_field(field: &mut Object, depth: u32) -> Result<usize> {
     if depth > 32 {
         return Ok(0);
     }
@@ -125,20 +125,14 @@ fn clear_field(field: &mut PdfObject, depth: u32) -> Result<usize> {
         Some("Tx") | Some("Ch") => {
             remove_key(field, "AP")?;
         }
-        Some("Btn")
-            if is_form_field_button(field)
-                && !is_pushbutton(field)
-                && field.get_dict("AS").map_err(pdf_err)?.is_some() =>
-        {
-            field
-                .dict_put("AS", PdfObject::new_name("Off").map_err(pdf_err)?)
-                .map_err(pdf_err)?;
+        Some("Btn") if is_form_field_button(field) && !is_pushbutton(field) && field.get_dict("AS")?.is_some() => {
+            field.dict_put("AS", Object::new_name("Off")?)?;
         }
         _ => {}
     }
-    if let Some(kids) = field.get_dict("Kids").map_err(pdf_err)? {
-        for i in 0..kids.len().map_err(pdf_err)? {
-            if let Some(mut kid) = kids.get_array(i as i32).map_err(pdf_err)? {
+    if let Some(kids) = field.get_dict("Kids")? {
+        for i in 0..kids.len()? {
+            if let Some(mut kid) = kids.get_array(i as i32)? {
                 n += clear_field(&mut kid, depth + 1)?;
             }
         }
@@ -147,26 +141,26 @@ fn clear_field(field: &mut PdfObject, depth: u32) -> Result<usize> {
 }
 
 /// ¿Es una acción de JavaScript?
-fn is_js_action(action: &PdfObject) -> bool {
+fn is_js_action(action: &Object) -> bool {
     name_of(action, "S").as_deref() == Some("JavaScript")
 }
 
 /// Números de objeto de las capas (OCG) desactivadas en la configuración por defecto.
-fn hidden_ocgs(catalog: &PdfObject) -> Result<Vec<i32>> {
-    let Some(props) = catalog.get_dict("OCProperties").map_err(pdf_err)? else {
+fn hidden_ocgs(catalog: &Object) -> Result<Vec<i32>> {
+    let Some(props) = catalog.get_dict("OCProperties")? else {
         return Ok(Vec::new());
     };
-    let Some(default) = props.get_dict("D").map_err(pdf_err)? else {
+    let Some(default) = props.get_dict("D")? else {
         return Ok(Vec::new());
     };
     let refs = |key: &str| -> Result<Vec<i32>> {
         let mut out = Vec::new();
-        if let Some(arr) = default.get_dict(key).map_err(pdf_err)? {
-            for i in 0..arr.len().map_err(pdf_err)? {
-                if let Some(o) = arr.get_array(i as i32).map_err(pdf_err)?
-                    && o.is_indirect().map_err(pdf_err)?
+        if let Some(arr) = default.get_dict(key)? {
+            for i in 0..arr.len()? {
+                if let Some(o) = arr.get_array(i as i32)?
+                    && o.is_indirect()?
                 {
-                    out.push(o.as_indirect().map_err(pdf_err)?);
+                    out.push(o.as_indirect()?);
                 }
             }
         }
@@ -175,7 +169,7 @@ fn hidden_ocgs(catalog: &PdfObject) -> Result<Vec<i32>> {
     if name_of(&default, "BaseState").as_deref() == Some("OFF") {
         // Todas apagadas salvo las de /ON.
         let on = refs("ON")?;
-        let mut all = refs_of_array(props.get_dict("OCGs").map_err(pdf_err)?)?;
+        let mut all = refs_of_array(props.get_dict("OCGs")?)?;
         all.retain(|n| !on.contains(n));
         Ok(all)
     } else {
@@ -183,14 +177,14 @@ fn hidden_ocgs(catalog: &PdfObject) -> Result<Vec<i32>> {
     }
 }
 
-fn refs_of_array(arr: Option<PdfObject>) -> Result<Vec<i32>> {
+fn refs_of_array(arr: Option<Object>) -> Result<Vec<i32>> {
     let mut out = Vec::new();
     if let Some(arr) = arr {
-        for i in 0..arr.len().map_err(pdf_err)? {
-            if let Some(o) = arr.get_array(i as i32).map_err(pdf_err)?
-                && o.is_indirect().map_err(pdf_err)?
+        for i in 0..arr.len()? {
+            if let Some(o) = arr.get_array(i as i32)?
+                && o.is_indirect()?
             {
-                out.push(o.as_indirect().map_err(pdf_err)?);
+                out.push(o.as_indirect()?);
             }
         }
     }
@@ -199,19 +193,19 @@ fn refs_of_array(arr: Option<PdfObject>) -> Result<Vec<i32>> {
 
 /// ¿El objeto pertenece solo a capas ocultas? (`/OC` apunta a una capa apagada, o a un grupo de
 /// pertenencia cuyas capas están todas apagadas).
-fn in_hidden_layer(obj: &PdfObject, hidden: &[i32]) -> Result<bool> {
-    let Some(oc) = obj.get_dict("OC").map_err(pdf_err)? else {
+fn in_hidden_layer(obj: &Object, hidden: &[i32]) -> Result<bool> {
+    let Some(oc) = obj.get_dict("OC")? else {
         return Ok(false);
     };
-    if oc.is_indirect().map_err(pdf_err)? && hidden.contains(&oc.as_indirect().map_err(pdf_err)?) {
+    if oc.is_indirect()? && hidden.contains(&oc.as_indirect()?) {
         return Ok(true);
     }
     // Grupo de pertenencia (OCMD): /OCGs es una capa o una lista de capas.
-    if let Some(g) = oc.get_dict("OCGs").map_err(pdf_err)? {
-        let ids = if g.is_array().map_err(pdf_err)? {
+    if let Some(g) = oc.get_dict("OCGs")? {
+        let ids = if g.is_array()? {
             refs_of_array(Some(g))?
-        } else if g.is_indirect().map_err(pdf_err)? {
-            vec![g.as_indirect().map_err(pdf_err)?]
+        } else if g.is_indirect()? {
+            vec![g.as_indirect()?]
         } else {
             Vec::new()
         };
@@ -229,13 +223,13 @@ pub fn sanitize_document(
     ctx: &JobContext<'_>,
 ) -> Result<Vec<RemovedItem>> {
     let mut tally = Tally::default();
-    let mut catalog = doc.catalog().map_err(pdf_err)?;
-    let mut trailer = doc.trailer().map_err(pdf_err)?;
+    let mut catalog = doc.catalog()?;
+    let mut trailer = doc.trailer()?;
 
     if opts.metadata {
-        if let Some(info) = trailer.get_dict("Info").map_err(pdf_err)? {
+        if let Some(info) = trailer.get_dict("Info")? {
             tally.add("Información del documento (título, autor...)", dict_len(&info));
-            trailer.dict_delete("Info").map_err(pdf_err)?;
+            trailer.dict_delete("Info")?;
         }
         if remove_key(&mut catalog, "Metadata")? {
             tally.add("Metadatos XMP", 1);
@@ -248,7 +242,7 @@ pub fn sanitize_document(
         tally.add("Acción al abrir", 1);
     }
     if opts.javascript {
-        if let Some(mut names) = catalog.get_dict("Names").map_err(pdf_err)?
+        if let Some(mut names) = catalog.get_dict("Names")?
             && remove_key(&mut names, "JavaScript")?
         {
             tally.add("JavaScript de documento", 1);
@@ -258,7 +252,7 @@ pub fn sanitize_document(
         }
     }
     if opts.embedded_files {
-        if let Some(mut names) = catalog.get_dict("Names").map_err(pdf_err)?
+        if let Some(mut names) = catalog.get_dict("Names")?
             && remove_key(&mut names, "EmbeddedFiles")?
         {
             tally.add("Archivos incrustados", 1);
@@ -268,19 +262,18 @@ pub fn sanitize_document(
         }
     }
     if opts.form_data
-        && let Some(mut form) = catalog.get_dict("AcroForm").map_err(pdf_err)?
+        && let Some(mut form) = catalog.get_dict("AcroForm")?
     {
         let mut n = 0;
-        if let Some(fields) = form.get_dict("Fields").map_err(pdf_err)? {
-            for i in 0..fields.len().map_err(pdf_err)? {
-                if let Some(mut f) = fields.get_array(i as i32).map_err(pdf_err)? {
+        if let Some(fields) = form.get_dict("Fields")? {
+            for i in 0..fields.len()? {
+                if let Some(mut f) = fields.get_array(i as i32)? {
                     n += clear_field(&mut f, 0)?;
                 }
             }
         }
         if n > 0 {
-            form.dict_put("NeedAppearances", PdfObject::new_bool(true))
-                .map_err(pdf_err)?;
+            form.dict_put("NeedAppearances", Object::new_bool(true))?;
         }
         tally.add("Valores de formulario", n);
     }
@@ -290,10 +283,10 @@ pub fn sanitize_document(
     } else {
         Vec::new()
     };
-    let pages = doc.page_count().map_err(pdf_err)?.max(0);
+    let pages = doc.page_count()?.max(0);
     for p in 0..pages {
         ctx.step(p as u64, pages as u64, "Saneando páginas")?;
-        let mut page = doc.find_page(p).map_err(pdf_err)?;
+        let mut page = doc.find_page(p)?;
         if opts.thumbnails && remove_key(&mut page, "Thumb")? {
             tally.add("Miniaturas", 1);
         }
@@ -318,42 +311,40 @@ pub fn sanitize_document(
 }
 
 /// Quita de los recursos de la página las imágenes y formularios que están en capas ocultas.
-fn remove_hidden_xobjects(page: &PdfObject, hidden: &[i32], tally: &mut Tally) -> Result<()> {
-    let Some(res) = page.get_dict_inheritable("Resources").map_err(pdf_err)? else {
+fn remove_hidden_xobjects(page: &Object, hidden: &[i32], tally: &mut Tally) -> Result<()> {
+    let Some(res) = page.get_dict_inheritable("Resources")? else {
         return Ok(());
     };
-    let Some(mut xobjs) = res.get_dict("XObject").map_err(pdf_err)? else {
+    let Some(mut xobjs) = res.get_dict("XObject")? else {
         return Ok(());
     };
     let mut doomed = Vec::new();
-    for entry in xobjs.dict_iter().map_err(pdf_err)? {
-        let (key, val) = entry.map_err(pdf_err)?;
+    for (key, val) in xobjs.dict_iter()? {
         if in_hidden_layer(&val, hidden)? {
-            doomed.push(key.as_name().map_err(pdf_err)?);
+            doomed.push(key);
         }
     }
     for name in doomed {
-        let name = String::from_utf8_lossy(&name).into_owned();
-        xobjs.dict_delete(name.as_str()).map_err(pdf_err)?;
+        xobjs.dict_delete(name.as_str())?;
         tally.add("Imágenes y formularios de capas ocultas", 1);
     }
     Ok(())
 }
 
-fn sanitize_annots(page: &mut PdfObject, opts: &SanitizeOptions, hidden: &[i32], tally: &mut Tally) -> Result<()> {
-    let Some(annots) = page.get_dict("Annots").map_err(pdf_err)? else {
+fn sanitize_annots(page: &mut Object, opts: &SanitizeOptions, hidden: &[i32], tally: &mut Tally) -> Result<()> {
+    let Some(annots) = page.get_dict("Annots")? else {
         return Ok(());
     };
     let mut annots = annots;
-    let len = annots.len().map_err(pdf_err)?;
+    let len = annots.len()?;
     // De atrás hacia delante para que los índices sigan siendo válidos al borrar.
     for i in (0..len).rev() {
-        let Some(mut annot) = annots.get_array(i as i32).map_err(pdf_err)? else {
+        let Some(mut annot) = annots.get_array(i as i32)? else {
             continue;
         };
         let subtype = name_of(&annot, "Subtype").unwrap_or_default();
         if !hidden.is_empty() && in_hidden_layer(&annot, hidden)? {
-            annots.array_delete(i as i32).map_err(pdf_err)?;
+            annots.array_delete(i as i32)?;
             tally.add("Anotaciones de capas ocultas", 1);
             continue;
         }
@@ -364,7 +355,7 @@ fn sanitize_annots(page: &mut PdfObject, opts: &SanitizeOptions, hidden: &[i32],
             _ => opts.comments,
         };
         if remove {
-            annots.array_delete(i as i32).map_err(pdf_err)?;
+            annots.array_delete(i as i32)?;
             if subtype == "FileAttachment" {
                 tally.add("Adjuntos", 1);
             } else {
@@ -376,10 +367,10 @@ fn sanitize_annots(page: &mut PdfObject, opts: &SanitizeOptions, hidden: &[i32],
             if remove_key(&mut annot, "AA")? {
                 tally.add("Acciones automáticas de campos y enlaces", 1);
             }
-            if let Some(action) = annot.get_dict("A").map_err(pdf_err)?
+            if let Some(action) = annot.get_dict("A")?
                 && is_js_action(&action)
             {
-                annot.dict_delete("A").map_err(pdf_err)?;
+                annot.dict_delete("A")?;
                 tally.add("Enlaces con JavaScript", 1);
             }
         }
@@ -397,7 +388,7 @@ pub fn sanitize(
 ) -> Result<Report> {
     let mut doc = open_pdf(input, password)?;
     let removed = sanitize_document(&mut doc, opts, ctx)?;
-    let mut write = PdfWriteOptions::default();
+    let mut write = WriteOptions::default();
     // Nivel 3: quita objetos sin referencia, renumera y deduplica.
     write.set_garbage(true).set_garbage_level(3);
     save_atomic(doc, input, output, write)?;
@@ -487,7 +478,7 @@ mod tests {
         let doc = open_pdf(&out, None).unwrap();
         let page = doc.load_page(0).unwrap();
         let text = page
-            .to_text_page(mupdf::TextPageFlags::empty())
+            .to_text_page(pliego_pdf::TextFlags::empty())
             .unwrap()
             .to_text()
             .unwrap();

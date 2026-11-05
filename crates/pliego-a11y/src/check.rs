@@ -1,9 +1,9 @@
 //! Comprobador de accesibilidad (reglas habituales de PDF/UA y de lectores de pantalla).
 
-use mupdf::pdf::{PdfDocument, PdfObject, Permission};
 use pliego_core::Result;
+use pliego_pdf::{Object, PdfDocument, Permission};
 
-use crate::io::{name_of, pdf_err, string_of};
+use crate::io::{name_of, string_of};
 use crate::report::{A11yIssue, A11yReport, IssueCode, Severity};
 use crate::structure::{Tree, read_tree};
 
@@ -49,7 +49,7 @@ fn document_title(doc: &PdfDocument) -> Option<String> {
     string_of(&info, "Title").filter(|t| !t.trim().is_empty())
 }
 
-fn has_xmp_title(catalog: &PdfObject) -> bool {
+fn has_xmp_title(catalog: &Object) -> bool {
     catalog
         .get_dict("Metadata")
         .ok()
@@ -59,15 +59,14 @@ fn has_xmp_title(catalog: &PdfObject) -> bool {
 }
 
 fn check_document(doc: &PdfDocument, report: &mut A11yReport, out: &mut Collector) -> Result<()> {
-    let catalog = doc.catalog().map_err(pdf_err)?;
+    let catalog = doc.catalog()?;
 
     let marked = catalog
-        .get_dict("MarkInfo")
-        .map_err(pdf_err)?
+        .get_dict("MarkInfo")?
         .and_then(|m| m.get_dict("Marked").ok().flatten())
         .and_then(|v| v.as_bool().ok())
         .unwrap_or(false);
-    let has_tree = catalog.get_dict("StructTreeRoot").map_err(pdf_err)?.is_some();
+    let has_tree = catalog.get_dict("StructTreeRoot")?.is_some();
     report.tagged = marked && has_tree;
     if !has_tree {
         out.add(
@@ -123,8 +122,7 @@ fn check_document(doc: &PdfDocument, report: &mut A11yReport, out: &mut Collecto
         );
     }
     let display_title = catalog
-        .get_dict("ViewerPreferences")
-        .map_err(pdf_err)?
+        .get_dict("ViewerPreferences")?
         .and_then(|v| v.get_dict("DisplayDocTitle").ok().flatten())
         .and_then(|v| v.as_bool().ok())
         .unwrap_or(false);
@@ -156,7 +154,7 @@ fn check_document(doc: &PdfDocument, report: &mut A11yReport, out: &mut Collecto
 fn check_pages(doc: &PdfDocument, report: &mut A11yReport, out: &mut Collector) -> Result<()> {
     let pages = report.pages;
     for p in 0..pages {
-        let page = doc.find_page(p as i32).map_err(pdf_err)?;
+        let page = doc.find_page(p as i32)?;
         if let Ok(bytes) = crate::autotag::read_contents(&page)
             && let Some(low) = crate::contrast::scan(&bytes)
         {
@@ -176,15 +174,15 @@ fn check_pages(doc: &PdfDocument, report: &mut A11yReport, out: &mut Collector) 
                 "Oscurece el texto o aclara el fondo hasta alcanzar la razón de contraste mínima.",
             );
         }
-        let Some(annots) = page.get_dict("Annots").map_err(pdf_err)? else {
+        let Some(annots) = page.get_dict("Annots")? else {
             continue;
         };
         if !annots.is_array().unwrap_or(false) {
             continue;
         }
         let mut any = false;
-        for i in 0..annots.len().map_err(pdf_err)?.min(10_000) {
-            let Some(a) = annots.get_array(i as i32).map_err(pdf_err)? else {
+        for i in 0..annots.len()?.min(10_000) {
+            let Some(a) = annots.get_array(i as i32)? else {
                 continue;
             };
             let subtype = name_of(&a, "Subtype");
@@ -334,7 +332,7 @@ fn has_descendant(tree: &Tree, idx: usize, role: &str) -> bool {
 /// Comprueba la accesibilidad de un documento abierto y devuelve el informe con correcciones sugeridas.
 pub fn check(doc: &PdfDocument) -> Result<A11yReport> {
     let mut report = A11yReport {
-        pages: doc.page_count().map_err(pdf_err)?.max(0) as usize,
+        pages: doc.page_count()?.max(0) as usize,
         ..Default::default()
     };
     let mut out = Collector(Vec::new());

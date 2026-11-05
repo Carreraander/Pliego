@@ -1,8 +1,6 @@
-use mupdf::pdf::{PageLabelRule, PageLabelStyle, PdfDocument};
 use pliego_core::Result;
+use pliego_pdf::{PageLabelRule, PageLabelStyle, PdfDocument};
 use serde::{Deserialize, Serialize};
-
-use crate::pdf_err;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -45,7 +43,7 @@ pub fn set_page_labels(doc: &mut PdfDocument, rules: &[PageLabelSpec]) -> Result
         let mut rule = PageLabelRule::new(r.start_page as usize, style);
         rule.prefix = r.prefix.clone();
         rule.start = r.first_number;
-        doc.set_page_label_rule(rule).map_err(pdf_err)?;
+        doc.set_page_label_rule(rule)?;
     }
     Ok(())
 }

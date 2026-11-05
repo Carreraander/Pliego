@@ -1,13 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use mupdf::pdf::{InsertPdfOptions, PdfDocument};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{InsertPdfOptions, PdfDocument};
 use serde::{Deserialize, Serialize};
 
 use crate::annots::{FormState, carry_annotations};
 use crate::io::{open, save};
 use crate::outline::{OutlineNode, read_outline, retarget, write_outline};
-use crate::pdf_err;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MergeOptions {
@@ -52,12 +51,12 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
             .unwrap_or_default();
         ctx.step(i as u64, total, &format!("Añadiendo {name}"))?;
         let mut src = open(path, options.password.as_deref())?;
-        let src_pages = src.page_count().map_err(pdf_err)?.max(0) as u32;
-        let offset = dest.page_count().map_err(pdf_err)?.max(0) as u32;
+        let src_pages = src.page_count()?.max(0) as u32;
+        let offset = dest.page_count()?.max(0) as u32;
         if src_pages == 0 {
             continue;
         }
-        dest.insert_pdf(&src, InsertPdfOptions::default()).map_err(pdf_err)?;
+        dest.insert_pdf(&src, InsertPdfOptions::default())?;
         let pairs: Vec<(u32, u32)> = (0..src_pages).map(|i| (i, offset + i)).collect();
         carry_annotations(&mut dest, &mut src, &pairs, &mut form)?;
         if options.keep_bookmarks || options.bookmark_per_file {
@@ -84,7 +83,7 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
     write_outline(&mut dest, &outline)?;
     ctx.step(total, total, "Guardando")?;
     save(&dest, out)?;
-    let pages = dest.page_count().map_err(pdf_err)?;
+    let pages = dest.page_count()?;
     let mut report = Report::with_output(out, format!("{} archivos combinados, {pages} páginas", inputs.len()));
     if form.renamed() > 0 {
         report.warnings.push(format!(

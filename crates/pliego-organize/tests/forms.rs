@@ -74,7 +74,7 @@ fn internal_links_point_to_their_own_pages() {
         let links: Vec<_> = doc.load_page(page).unwrap().links().unwrap().collect();
         assert_eq!(links.len(), 2, "página {page}");
         let internal = links.iter().find(|l| l.dest.is_some()).expect("enlace interno");
-        assert_eq!(internal.dest.unwrap().loc.page_number, target);
+        assert_eq!(internal.dest.unwrap().page, target);
         assert!(links.iter().any(|l| l.uri == "https://example.org/"));
     }
     // No se arrastran páginas de origen: el número de páginas es el esperado.
@@ -97,16 +97,7 @@ fn extract_and_split_keep_annotations() {
     // Con las dos páginas el enlace interno sigue apuntando a la 2; solo con la 1 queda sin destino interno.
     let both = extract(&links, &[0, 1]).unwrap();
     let l: Vec<_> = both.load_page(0).unwrap().links().unwrap().collect();
-    assert_eq!(
-        l.iter()
-            .find(|l| l.dest.is_some())
-            .unwrap()
-            .dest
-            .unwrap()
-            .loc
-            .page_number,
-        1
-    );
+    assert_eq!(l.iter().find(|l| l.dest.is_some()).unwrap().dest.unwrap().page, 1);
     let only_first = extract(&links, &[0]).unwrap();
     assert_eq!(page_count(&only_first).unwrap(), 1);
     let l: Vec<_> = only_first.load_page(0).unwrap().links().unwrap().collect();

@@ -113,7 +113,7 @@ fn fix_never_overwrites_input() {
 
 #[test]
 fn rejects_bad_input() {
-    let mut doc = mupdf::pdf::PdfDocument::open(corpus("bueno.pdf").to_str().unwrap()).unwrap();
+    let mut doc = pliego_pdf::PdfDocument::open(corpus("bueno.pdf").to_str().unwrap()).unwrap();
     assert!(set_language(&mut doc, "español").is_err());
     assert!(set_alt_text(&mut doc, 0, "x").is_err());
     assert!(set_alt_text(&mut doc, 9999, "x").is_err());

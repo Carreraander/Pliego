@@ -13,7 +13,3 @@ pub use options::{
     Background, BackgroundFill, BatesOptions, Corner, HeaderFooter, Slots, StampContext, TextStyle, Watermark,
     WatermarkContent,
 };
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> pliego_core::Error {
-    pliego_core::Error::Pdf(e.to_string())
-}

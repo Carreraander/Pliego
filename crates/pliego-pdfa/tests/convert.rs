@@ -28,10 +28,10 @@ fn plain_document_becomes_pdfa_at_every_level() {
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
         assert!(report.summary.contains("fuente(s) incrustada(s)"), "{}", report.summary);
         // el texto sigue ahí
-        let doc = mupdf::Document::open(out.to_str().unwrap()).unwrap();
+        let doc = pliego_pdf::Document::open(out.to_str().unwrap()).unwrap();
         let page = doc.load_page(0).unwrap();
         let text = page
-            .to_text_page(mupdf::TextPageFlags::empty())
+            .to_text_page(pliego_pdf::TextFlags::empty())
             .unwrap()
             .to_text()
             .unwrap();
@@ -82,7 +82,7 @@ fn pdfa3_keeps_attachments_and_associates_them() {
     );
     let (out, _r, _d) = convert_to(&input, Level::A3b);
     assert!(validate(&out, Level::A3b).unwrap().conforms());
-    let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
     let af = doc.catalog().unwrap().get_dict("AF").unwrap().expect("AF");
     assert_eq!(af.len().unwrap(), 1);
     // ISO 19005-3 6.8: el flujo incrustado declara su tipo MIME
@@ -103,7 +103,7 @@ fn metadata_keeps_info_and_matches_xmp() {
     let dir = tempfile::tempdir().unwrap();
     let (out, _r, _d) = convert_to(&corpus("basic/hola.pdf"), Level::A2b);
     let _ = dir;
-    let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
     let cat = doc.catalog().unwrap();
     let meta = cat.get_dict("Metadata").unwrap().unwrap();
     // PDF/A-1 y 2 exigen que el flujo XMP no tenga filtros
@@ -155,12 +155,12 @@ fn never_overwrites_input_and_respects_cancel() {
 
 #[test]
 fn substituted_fonts_still_render_text() {
-    use mupdf::{Colorspace, Matrix};
+    use pliego_pdf::{Colorspace, Matrix};
     let render = |p: &std::path::Path| -> usize {
-        let doc = mupdf::Document::open(p.to_str().unwrap()).unwrap();
+        let doc = pliego_pdf::Document::open(p.to_str().unwrap()).unwrap();
         let page = doc.load_page(0).unwrap();
         let pix = page
-            .to_pixmap(&Matrix::IDENTITY, &Colorspace::device_gray(), false, false)
+            .to_pixmap(&Matrix::IDENTITY, Colorspace::Gray, false, false)
             .unwrap();
         pix.samples().iter().filter(|&&b| b < 128).count()
     };
@@ -197,7 +197,7 @@ fn adds_trailer_id_when_missing() {
     );
     let (out, _r, _d) = convert_to(&input, Level::A2b);
     assert!(validate(&out, Level::A2b).unwrap().conforms());
-    let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
     let id = doc.trailer().unwrap().get_dict("ID").unwrap().expect("ID");
     assert_eq!(id.len().unwrap(), 2);
 }
@@ -209,7 +209,7 @@ fn page_additional_actions_entry_is_removed_for_pdfa2_and_3() {
         let (out, _r, _d) = convert_to(&corpus("protect/sucio.pdf"), level);
         let v = validate(&out, level).unwrap();
         assert!(v.conforms(), "{level:?}: {:?}", v.issues);
-        let doc = mupdf::pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+        let doc = pliego_pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
         let page = doc.find_page(0).unwrap();
         assert!(page.get_dict("AA").unwrap().is_none(), "{level:?}");
     }

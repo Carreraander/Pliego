@@ -1,7 +1,5 @@
-use mupdf::Font;
 use pliego_core::{Error, Result};
-
-use crate::pdf_err;
+use pliego_pdf::Font;
 
 /// Convierte a Latin-1 (lo que no cabe pasa a `?`).
 pub fn latin1(s: &str) -> Vec<u8> {
@@ -36,8 +34,8 @@ impl Measurer {
     pub fn width(&self, text: &str, size: f32) -> Result<f32> {
         let mut total = 0.0;
         for b in latin1(text) {
-            let g = self.0.encode_character(i32::from(b)).map_err(pdf_err)?;
-            total += self.0.advance_glyph(g).map_err(pdf_err)?;
+            let g = self.0.encode_character(i32::from(b))?;
+            total += self.0.advance_glyph(g)?;
         }
         Ok(total * size)
     }

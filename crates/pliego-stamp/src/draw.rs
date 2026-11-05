@@ -1,12 +1,11 @@
-use mupdf::pdf::{InsertImageOptions, PageImageSource, PdfDocument, PdfPage};
-use mupdf::{Image, Rect};
 use pliego_core::{Error, JobContext, Result};
+use pliego_pdf::{Image, Rect};
+use pliego_pdf::{ImageSource, InsertImageOptions, PdfDocument, PdfPage};
 
 use crate::options::{
     Background, BackgroundFill, BatesOptions, Corner, HeaderFooter, StampContext, TextStyle, Watermark,
     WatermarkContent,
 };
-use crate::pdf_err;
 use crate::text::{Measurer, num, pdf_string};
 
 /// Tamaño visual de la página y matriz `cm` que pasa de coordenadas visuales (origen abajo a la izquierda,
@@ -22,13 +21,13 @@ struct Frame {
 fn user_box(page: &PdfPage) -> Result<Rect> {
     let obj = page.object();
     for key in ["CropBox", "MediaBox"] {
-        let Some(arr) = obj.get_dict_inheritable(key).map_err(pdf_err)? else {
+        let Some(arr) = obj.get_dict_inheritable(key)? else {
             continue;
         };
         let mut v = [0.0f32; 4];
-        let mut ok = arr.len().map_err(pdf_err)? >= 4;
+        let mut ok = arr.len()? >= 4;
         for (i, slot) in v.iter_mut().enumerate() {
-            match arr.get_array(i as i32).map_err(pdf_err)?.map(|n| n.as_float()) {
+            match arr.get_array(i as i32)?.map(|n| n.as_float()) {
                 Some(Ok(f)) => *slot = f,
                 _ => ok = false,
             }
@@ -48,7 +47,7 @@ fn user_box(page: &PdfPage) -> Result<Rect> {
 fn frame(page: &PdfPage) -> Result<Frame> {
     let b = user_box(page)?;
     let (w, h) = (b.x1 - b.x0, b.y1 - b.y0);
-    let rot = page.rotation().map_err(pdf_err)?.rem_euclid(360);
+    let rot = page.rotation()?.rem_euclid(360);
     let (vw, vh, m) = match rot {
         90 => (h, w, [0.0, 1.0, -1.0, 0.0, w, 0.0]),
         180 => (w, h, [-1.0, 0.0, 0.0, -1.0, w, h]),
@@ -68,7 +67,7 @@ fn frame(page: &PdfPage) -> Result<Frame> {
 }
 
 fn check(doc: &PdfDocument, pages: &[u32]) -> Result<()> {
-    let n = doc.page_count().map_err(pdf_err)?.max(0) as u32;
+    let n = doc.page_count()?.max(0) as u32;
     match pages.iter().find(|&&p| p >= n) {
         Some(p) => Err(Error::InvalidInput(format!(
             "la página {} no existe (el documento tiene {n})",
@@ -91,10 +90,10 @@ fn stamp_pages(
     let total = pages.len() as u64;
     for (i, &p) in pages.iter().enumerate() {
         ctx.step(i as u64, total, what)?;
-        let mut page = doc.load_pdf_page(p as i32).map_err(pdf_err)?;
+        let mut page = doc.load_pdf_page(p as i32)?;
         if overlay {
             // Equilibra el estado gráfico del contenido original para que el sello no lo herede.
-            page.wrap_contents(doc).map_err(pdf_err)?;
+            page.wrap_contents(doc)?;
         }
         let fr = frame(&page)?;
         let body = build(doc, &mut page, &fr, i, p)?;
@@ -105,7 +104,7 @@ fn stamp_pages(
         stream.extend(fr.cm.bytes());
         stream.extend(body);
         stream.extend(b"Q\n");
-        page.insert_contents(doc, &stream, overlay).map_err(pdf_err)?;
+        page.insert_contents(doc, &stream, overlay)?;
     }
     ctx.step(total, total, "Listo")
 }
@@ -128,25 +127,25 @@ fn font_resource(
     let key: String = style.font.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
     let name = format!("PlgF{key}");
     let font = match *cache {
-        Some(xref) => doc.new_indirect(xref, 0).map_err(pdf_err)?,
+        Some(xref) => doc.new_indirect(xref, 0)?,
         None => {
             let src = format!(
                 "<< /Type /Font /Subtype /Type1 /BaseFont /{} /Encoding /WinAnsiEncoding >>",
                 style.font.replace(' ', "")
             );
-            let obj = doc.new_object_from_str(&src).map_err(pdf_err)?;
-            let obj = doc.add_object(&obj).map_err(pdf_err)?;
-            *cache = Some(obj.as_indirect().map_err(pdf_err)?);
+            let obj = doc.new_object_from_str(&src)?;
+            let obj = doc.add_object(&obj)?;
+            *cache = Some(obj.as_indirect()?);
             obj
         }
     };
-    let mut resources = page.resources().map_err(pdf_err)?;
-    let mut fonts = match resources.get_dict("Font").map_err(pdf_err)? {
-        Some(f) if f.is_dict().map_err(pdf_err)? => f.copy_dict().map_err(pdf_err)?,
-        _ => doc.new_dict().map_err(pdf_err)?,
+    let mut resources = page.resources()?;
+    let mut fonts = match resources.get_dict("Font")? {
+        Some(f) if f.is_dict()? => f.copy_dict()?,
+        _ => doc.new_dict()?,
     };
-    fonts.dict_put(name.as_str(), font).map_err(pdf_err)?;
-    resources.dict_put("Font", fonts).map_err(pdf_err)?;
+    fonts.dict_put(name.as_str(), font)?;
+    resources.dict_put("Font", fonts)?;
     Ok(format!("/{name}"))
 }
 
@@ -180,7 +179,7 @@ pub fn header_footer(
     sctx: &StampContext,
     ctx: &JobContext,
 ) -> Result<()> {
-    let total = doc.page_count().map_err(pdf_err)?.max(0) as u32;
+    let total = doc.page_count()?.max(0) as u32;
     let meter = Measurer::new(&opts.style.font)?;
     let size = opts.style.size;
     let mut cache = None;
@@ -237,9 +236,7 @@ fn opacity_gs(doc: &mut PdfDocument, page: &mut PdfPage, opacity: f32) -> Result
     if !(0.0..=1.0).contains(&opacity) {
         return Err(Error::InvalidInput("la opacidad debe estar entre 0 y 1".into()));
     }
-    let gs = page
-        .register_ext_gstate(doc, Some(opacity), Some(opacity))
-        .map_err(pdf_err)?;
+    let gs = page.register_ext_gstate(doc, Some(opacity), Some(opacity))?;
     Ok(gs.map(|g| format!("{g} gs\n")).unwrap_or_default())
 }
 
@@ -287,7 +284,7 @@ pub fn watermark(doc: &mut PdfDocument, pages: &[u32], wm: &Watermark, ctx: &Job
             let total = pages.len() as u64;
             for (i, &p) in pages.iter().enumerate() {
                 ctx.step(i as u64, total, "Marca de agua")?;
-                let mut page = doc.load_pdf_page(p as i32).map_err(pdf_err)?;
+                let mut page = doc.load_pdf_page(p as i32)?;
                 let b = user_box(&page)?;
                 let (w, h) = (b.x1 - b.x0, b.y1 - b.y0);
                 let iw = w.min(h) * scale.max(0.01) * if w < h { 1.0 } else { h / w };
@@ -302,13 +299,12 @@ pub fn watermark(doc: &mut PdfDocument, pages: &[u32], wm: &Watermark, ctx: &Job
                 page.insert_image(
                     doc,
                     rect,
-                    PageImageSource::Bytes {
+                    ImageSource::Bytes {
                         data: &data,
                         format_hint: None,
                     },
                     opts,
-                )
-                .map_err(pdf_err)?;
+                )?;
             }
             ctx.step(total, total, "Listo")
         }
@@ -328,7 +324,7 @@ pub fn background(doc: &mut PdfDocument, pages: &[u32], bg: &Background, ctx: &J
             let total = pages.len() as u64;
             for (i, &p) in pages.iter().enumerate() {
                 ctx.step(i as u64, total, "Fondo")?;
-                let mut page = doc.load_pdf_page(p as i32).map_err(pdf_err)?;
+                let mut page = doc.load_pdf_page(p as i32)?;
                 let rect = user_box(&page)?;
                 let opts = InsertImageOptions {
                     overlay: false,
@@ -338,13 +334,12 @@ pub fn background(doc: &mut PdfDocument, pages: &[u32], bg: &Background, ctx: &J
                 page.insert_image(
                     doc,
                     rect,
-                    PageImageSource::Bytes {
+                    ImageSource::Bytes {
                         data: &data,
                         format_hint: None,
                     },
                     opts,
-                )
-                .map_err(pdf_err)?;
+                )?;
             }
             ctx.step(total, total, "Listo")
         }

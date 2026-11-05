@@ -68,6 +68,7 @@ fn oraculo_detecta_el_original_y_acepta_lo_redactado() {
     let cfg = OracleConfig {
         needles: vec!["12345678Z".into(), "IBAN ES91 2100 0418".into()],
         regions: vec![],
+        password: None,
     };
 
     // Control negativo: el original conserva los datos y el oráculo tiene que verlos por varias vías.
@@ -107,4 +108,23 @@ fn oraculo_por_linea_de_ordenes() {
         .output()
         .unwrap();
     assert!(ok.status.success());
+}
+
+#[test]
+fn humo_de_robustez_respeta_la_lista_de_conocidos() {
+    // `tiling-hang.pdf` se cuelga sin corromper: sus variantes no deben hacer fallar el arnés.
+    let out = tempfile::tempdir().unwrap();
+    let res = Command::new(env!("CARGO_BIN_EXE_engine-compare"))
+        .arg(corpus("worker"))
+        .args(["--mutate", "1", "--timeout", "3", "--known"])
+        .arg(corpus("engine-diff-known.txt"))
+        .arg("--json")
+        .arg(out.path().join("r.json"))
+        .arg("--md")
+        .arg(out.path().join("r.md"))
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&res.stdout);
+    assert!(res.status.success(), "{text}");
+    assert!(text.contains("0 caídas/bloqueos"), "{text}");
 }

@@ -16,7 +16,7 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use clap::Parser;
-use pliego_qa::compare::{FileReport, Status, Thresholds, compare_file};
+use pliego_qa::compare::{FileReport, Status, Thresholds, compare_file, parse_passwords};
 use pliego_qa::engines;
 use pliego_qa::validate::{self, Validation};
 
@@ -45,6 +45,10 @@ struct Args {
     /// PDF con diferencias o caídas aceptadas (nombre de archivo por línea, `#` comenta).
     #[arg(long, default_value = "tests/corpus/engine-diff-known.txt")]
     known: PathBuf,
+    /// Contraseñas de los PDF cifrados: una línea `nombre.pdf=contraseña` (`#` comenta). Se usan para abrirlos con los
+    /// motores y para `qpdf --check`; veraPDF no los procesa.
+    #[arg(long, default_value = "tests/corpus/engine-passwords.txt")]
+    passwords: PathBuf,
     /// Informe JSON.
     #[arg(long, default_value = "target/engine-compare/report.json")]
     json: PathBuf,
@@ -91,7 +95,7 @@ fn main() -> ExitCode {
 fn one(args: &Args, file: &Path, th: &Thresholds) -> anyhow::Result<ExitCode> {
     let cand = engines::by_name(&args.candidate)?;
     if args.smoke {
-        if let Ok(doc) = cand.open(file)
+        if let Ok(doc) = cand.open(file, None)
             && doc.page_count().unwrap_or(0) > 0
         {
             let _ = doc.render_page(0, 0.5);
@@ -100,7 +104,13 @@ fn one(args: &Args, file: &Path, th: &Thresholds) -> anyhow::Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
     let reference = engines::by_name(&args.reference)?;
-    let rep = compare_file(reference.as_ref(), cand.as_ref(), file, th);
+    let passwords = read_passwords(&args.passwords);
+    let password = file
+        .file_name()
+        .and_then(|n| n.to_str())
+        .and_then(|n| passwords.get(n))
+        .map(String::as_str);
+    let rep = compare_file(reference.as_ref(), cand.as_ref(), file, password, th);
     println!("{}", serde_json::to_string(&rep)?);
     Ok(ExitCode::SUCCESS)
 }
@@ -131,6 +141,7 @@ fn spawn(exe: &Path, args: &Args, file: &Path, smoke: bool) -> std::io::Result<C
     cmd.args(["--max-diff", &args.max_diff.to_string()]);
     cmd.args(["--min-text-similarity", &args.min_text_similarity.to_string()]);
     cmd.args(["--max-pages", &args.max_pages.to_string()]);
+    cmd.arg("--passwords").arg(&args.passwords);
     if smoke {
         cmd.arg("--smoke");
     }
@@ -179,6 +190,10 @@ fn crash_report(file: &Path, why: String) -> FileReport {
     }
 }
 
+fn read_passwords(path: &Path) -> std::collections::HashMap<String, String> {
+    parse_passwords(&std::fs::read_to_string(path).unwrap_or_default())
+}
+
 fn read_known(path: &Path) -> Vec<String> {
     std::fs::read_to_string(path)
         .unwrap_or_default()
@@ -218,6 +233,7 @@ fn run_all(args: &Args, th: &Thresholds) -> anyhow::Result<ExitCode> {
 
     // 2. Humo de robustez.
     let mut mutate_bad = Vec::new();
+    let mut mutate_known = 0usize;
     let mut mutated = 0u32;
     if let Some(n) = args.mutate {
         let dir = tempfile::tempdir()?;
@@ -228,18 +244,17 @@ fn run_all(args: &Args, th: &Thresholds) -> anyhow::Result<ExitCode> {
                 let out = dir.path().join(format!("m{idx}-{k}.pdf"));
                 std::fs::write(&out, mutate(&data, &mut rng))?;
                 mutated += 1;
-                match spawn(&exe, args, &out, true)? {
-                    Child::Done(_) => {}
-                    Child::Crash(s) => mutate_bad.push(format!(
-                        "{} (variante {k}, semilla {}): caída ({s})",
-                        f.display(),
-                        args.seed
-                    )),
-                    Child::Hang => mutate_bad.push(format!(
-                        "{} (variante {k}, semilla {}): bloqueo",
-                        f.display(),
-                        args.seed
-                    )),
+                let what = match spawn(&exe, args, &out, true)? {
+                    Child::Done(_) => continue,
+                    Child::Crash(s) => format!("caída ({s})"),
+                    Child::Hang => "bloqueo".to_owned(),
+                };
+                // Los PDF de la lista de conocidos ya fallan sin corromper: sus variantes no son un fallo nuevo.
+                let name = f.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+                if is_known(name) {
+                    mutate_known += 1;
+                } else {
+                    mutate_bad.push(format!("{} (variante {k}, semilla {}): {what}", f.display(), args.seed));
                 }
             }
         }
@@ -252,12 +267,21 @@ fn run_all(args: &Args, th: &Thresholds) -> anyhow::Result<ExitCode> {
     for d in &args.validate_dir {
         collect(d, &mut out_files)?;
     }
+    let passwords = read_passwords(&args.passwords);
     for f in &out_files {
-        for (tool, v) in [("qpdf", validate::qpdf_check(f)), ("veraPDF", validate::verapdf(f))] {
+        let password = f
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|n| passwords.get(n))
+            .map(String::as_str);
+        for (tool, v) in [
+            ("qpdf", validate::qpdf_check(f, password)),
+            ("veraPDF", validate::verapdf(f)),
+        ] {
             match v {
                 Validation::Fail(m) => invalid.push(format!("{tool}: {} — {m}", f.display())),
                 Validation::Missing => missing = true,
-                Validation::Ok | Validation::Warn(_) => {}
+                Validation::Ok | Validation::Warn(_) | Validation::Skipped(_) => {}
             }
         }
     }
@@ -292,7 +316,7 @@ fn run_all(args: &Args, th: &Thresholds) -> anyhow::Result<ExitCode> {
     }
     if args.mutate.is_some() {
         md.push_str(&format!(
-            "\nHumo de robustez: {mutated} variantes, {} caídas/bloqueos\n",
+            "\nHumo de robustez: {mutated} variantes, {} caídas/bloqueos ({mutate_known} más en PDF conocidos)\n",
             mutate_bad.len()
         ));
         for m in &mutate_bad {

@@ -12,6 +12,8 @@ pub enum Validation {
     Warn(String),
     Fail(String),
     Missing,
+    /// No aplica a este archivo (p. ej. veraPDF sobre un PDF que no declara PDF/A); no cuenta como fallo.
+    Skipped(String),
 }
 
 fn run(tool: &str, args: &[&str], file: &Path, warn_code: Option<i32>) -> Validation {
@@ -42,12 +44,41 @@ fn run(tool: &str, args: &[&str], file: &Path, warn_code: Option<i32>) -> Valida
     }
 }
 
-/// `qpdf --check`: estructura del archivo (xref, flujos, cifrado).
-pub fn qpdf_check(file: &Path) -> Validation {
-    run("qpdf", &["--check"], file, Some(3))
+/// `qpdf --check`: estructura del archivo (xref, flujos, cifrado). Con `password`, abre los PDF cifrados.
+pub fn qpdf_check(file: &Path, password: Option<&str>) -> Validation {
+    match password {
+        Some(p) => run("qpdf", &[&format!("--password={p}"), "--check"], file, Some(3)),
+        None => run("qpdf", &["--check"], file, Some(3)),
+    }
 }
 
-/// veraPDF con el perfil que declare el propio archivo (`--flavour 0`).
+/// ¿Declara el archivo que es PDF/A (`pdfaid:part` en sus metadatos XMP)? Los metadatos de un PDF cifrado pueden no
+/// verse; veraPDF tampoco los procesa, así que ese caso se trata como «no PDF/A».
+pub fn declares_pdfa(file: &Path) -> bool {
+    std::fs::read(file).is_ok_and(|d| d.windows(11).any(|w| w == b"pdfaid:part"))
+}
+
+/// veraPDF con el perfil que declare el propio archivo (`--flavour 0`). Solo se ejecuta sobre PDF que declaran PDF/A:
+/// con cualquier otro, veraPDF valida contra PDF/A-1b y lo falla siempre, que no dice nada de la salida.
 pub fn verapdf(file: &Path) -> Validation {
+    if !declares_pdfa(file) {
+        return Validation::Skipped("no declara PDF/A".into());
+    }
     run("verapdf", &["--flavour", "0", "--format", "text"], file, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verapdf_skips_files_that_do_not_declare_pdfa() {
+        let dir = tempfile::tempdir().unwrap();
+        let plain = dir.path().join("a.pdf");
+        std::fs::write(&plain, b"%PDF-1.7\n1 0 obj<<>>endobj\n").unwrap();
+        assert!(matches!(verapdf(&plain), Validation::Skipped(_)));
+        let pdfa = dir.path().join("b.pdf");
+        std::fs::write(&pdfa, b"%PDF-1.7\n<pdfaid:part>2</pdfaid:part>").unwrap();
+        assert!(declares_pdfa(&pdfa));
+    }
 }

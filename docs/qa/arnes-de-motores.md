@@ -18,10 +18,13 @@ Por cada PDF (un proceso hijo con tiempo límite; una caída del motor no tira e
 - render a **72 y 150 ppp** con los dos motores: píxeles distintos (tolerancia por canal `--pixel-tolerance` 16;
   fallo si más de `--max-diff` 0,5 % de la página);
 - texto extraído: similitud de palabras (fallo por debajo de 0,98);
-- `--validate-dir <dir>`: `qpdf --check` y veraPDF sobre las **salidas** de las herramientas (se omiten si no están
-  instalados);
+- `--validate-dir <dir>` (repetible: una vez por directorio): `qpdf --check` sobre las **salidas** de las herramientas y
+  veraPDF solo sobre las que declaran PDF/A (`pdfaid:part`; con otras, veraPDF valida contra 1b y falla siempre). Se omiten
+  si no están instalados. Los PDF cifrados se abren con la contraseña de `tests/corpus/engine-passwords.txt`
+  (`nombre.pdf=contraseña`, por nombre de archivo; `--passwords` cambia el archivo); veraPDF no procesa cifrados;
 - `--mutate N --seed S`: N copias corrompidas por PDF (bytes cambiados, truncado, trozos duplicados); el candidato no
-  debe caer ni colgarse. Determinista según la semilla.
+  debe caer ni colgarse. Determinista según la semilla. Las variantes de los PDF de `engine-diff-known.txt` que fallan
+  se cuentan aparte ("más en PDF conocidos") y no hacen fallar el arnés.
 
 Informes en `target/engine-compare/report.{json,md}`. Sale con error si algo falla y **no** está en
 `tests/corpus/engine-diff-known.txt` (el equivalente a `known-issues.txt` para este arnés: un PDF por línea con el

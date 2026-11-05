@@ -124,7 +124,13 @@ fn size(doc: &dyn EngineDocument, page: u32) -> Option<(f32, f32)> {
 }
 
 /// Compara `path` con los dos motores. Nunca entra en pánico por un error de motor: lo anota en `reasons`.
-pub fn compare_file(a: &dyn DynEngine, b: &dyn DynEngine, path: &Path, th: &Thresholds) -> FileReport {
+pub fn compare_file(
+    a: &dyn DynEngine,
+    b: &dyn DynEngine,
+    path: &Path,
+    password: Option<&str>,
+    th: &Thresholds,
+) -> FileReport {
     let file = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -137,7 +143,7 @@ pub fn compare_file(a: &dyn DynEngine, b: &dyn DynEngine, path: &Path, th: &Thre
         pages_b: None,
         pages: Vec::new(),
     };
-    let (da, db) = (a.open(path), b.open(path));
+    let (da, db) = (a.open(path, password), b.open(path, password));
     let (da, db) = match (da, db) {
         (Ok(x), Ok(y)) => (x, y),
         (Err(_), Err(_)) => {
@@ -223,6 +229,16 @@ pub fn compare_file(a: &dyn DynEngine, b: &dyn DynEngine, path: &Path, th: &Thre
     rep
 }
 
+/// Contraseñas de los PDF cifrados del corpus: una línea `nombre.pdf=contraseña` por archivo (`#` comenta).
+pub fn parse_passwords(text: &str) -> HashMap<String, String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter_map(|l| l.split_once('='))
+        .map(|(n, p)| (n.trim().to_owned(), p.to_owned()))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,6 +262,14 @@ mod tests {
     fn tolerance_absorbs_antialiasing() {
         assert_eq!(diff_images(&img(4, 4, 200), &img(4, 4, 210), 16).diff_fraction, 0.0);
         assert_eq!(diff_images(&img(4, 4, 200), &img(4, 4, 250), 16).diff_fraction, 1.0);
+    }
+
+    #[test]
+    fn passwords_file_is_parsed() {
+        let m = parse_passwords("# cifrados\nhola-aes256.pdf=secreto=1\n\n  a.pdf = x\nsin-igual\n");
+        assert_eq!(m["hola-aes256.pdf"], "secreto=1");
+        assert_eq!(m["a.pdf"], " x");
+        assert_eq!(m.len(), 2);
     }
 
     #[test]

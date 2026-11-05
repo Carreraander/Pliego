@@ -27,6 +27,9 @@ struct Args {
     regions: Vec<Region>,
     #[arg(long, default_value = "mupdf")]
     engine: String,
+    /// Contraseña del PDF (solo para el motor; ver `OracleConfig::password`).
+    #[arg(long)]
+    password: Option<String>,
 }
 
 fn parse_region(s: &str) -> Result<Region, String> {
@@ -54,6 +57,7 @@ fn main() -> ExitCode {
             &OracleConfig {
                 needles: a.needles.clone(),
                 regions: a.regions.clone(),
+                password: a.password.clone(),
             },
         )?)
     };

@@ -9,7 +9,7 @@ use pliego_engine::DefaultEngine;
 /// Motor con documentos de tipo borrado, para poder elegirlo en tiempo de ejecución.
 pub trait DynEngine {
     fn name(&self) -> &str;
-    fn open(&self, path: &Path) -> Result<Box<dyn EngineDocument>>;
+    fn open(&self, path: &Path, password: Option<&str>) -> Result<Box<dyn EngineDocument>>;
 }
 
 struct Mupdf;
@@ -18,8 +18,8 @@ impl DynEngine for Mupdf {
     fn name(&self) -> &str {
         "mupdf"
     }
-    fn open(&self, path: &Path) -> Result<Box<dyn EngineDocument>> {
-        Ok(Box::new(DefaultEngine.open(path, None)?))
+    fn open(&self, path: &Path, password: Option<&str>) -> Result<Box<dyn EngineDocument>> {
+        Ok(Box::new(DefaultEngine.open(path, password)?))
     }
 }
 

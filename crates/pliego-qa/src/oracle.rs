@@ -32,6 +32,9 @@ pub struct OracleConfig {
     pub needles: Vec<String>,
     /// Zonas que deben quedar de un solo color tras redactar.
     pub regions: Vec<Region>,
+    /// Contraseña para abrir el PDF con el motor. Las vías que leen bytes (flujos, literales) no descifran: con un
+    /// PDF cifrado solo valen las del motor y `pdftotext` no lo abre; pásale el archivo ya descifrado para el resto.
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -208,7 +211,7 @@ pub fn check_redacted(engine: &dyn DynEngine, path: &Path, cfg: &OracleConfig) -
             detail,
         })
     };
-    let doc = engine.open(path)?;
+    let doc = engine.open(path, cfg.password.as_deref())?;
     let pages = doc.page_count()?;
     for needle in &cfg.needles {
         let nn = norm(needle);

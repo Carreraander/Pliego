@@ -1216,8 +1216,8 @@ fn redact_marks(st: &State, page_id: ObjectId) -> Vec<R> {
         };
         let quads = read(b"QuadPoints");
         if quads.len() >= 8 {
-            for q in quads.chunks_exact(8) {
-                let pts: Vec<(f64, f64)> = q.chunks_exact(2).map(|p| (p[0], p[1])).collect();
+            for q in quads.chunks(8).filter(|q| q.len() == 8) {
+                let pts: Vec<(f64, f64)> = q.chunks(2).map(|p| (p[0], p[1])).collect();
                 out.push(R::of_points(&pts));
             }
             continue;

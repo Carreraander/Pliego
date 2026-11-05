@@ -484,7 +484,9 @@ impl PdfAnnotation {
     fn user_quads(&self) -> Result<Vec<Q>> {
         let flat = self.read(|st, d| dfloats(st, d, "QuadPoints"))?.unwrap_or_default();
         Ok(flat
-            .chunks_exact(8)
+            .as_chunks::<8>()
+            .0
+            .iter()
             .map(|c| {
                 [
                     Point::new(c[0], c[1]),

@@ -38,7 +38,7 @@ pub fn download_file(url: &str, dest: &Path, sha256: &str, size: u64, ctx: &JobC
     }
 
     if have < size {
-        let mut req = ureq::get(url);
+        let mut req = pliego_net::get(url);
         if have > 0 {
             req = req.header("Range", format!("bytes={have}-"));
         }

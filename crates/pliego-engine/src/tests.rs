@@ -119,3 +119,23 @@ fn hostile_outline_does_not_crash() {
     assert_eq!(o[2].children[0].page, Some(1));
     assert!(o[2].children[0].children.is_empty());
 }
+
+#[test]
+fn open_does_not_keep_the_file_open() {
+    // Abierto desde memoria: el archivo puede sustituirse (en Windows, renombrar encima fallaba con «Access is
+    // denied» mientras el worker lo tenía abierto) y el documento ya abierto sigue entero.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("a.pdf");
+    std::fs::copy(corpus("hola.pdf"), &path).unwrap();
+    let d = DefaultEngine.open(&path, None).unwrap();
+    std::fs::write(&path, b"basura").unwrap();
+    assert!(d.page_text(0).unwrap().contains("Hola Pliego"));
+    assert_eq!(d.info().unwrap().page_count, 2);
+}
+
+#[test]
+fn open_missing_file_reports_the_path() {
+    let e = DefaultEngine.open(Path::new("/no/existe.pdf"), None).err().unwrap();
+    assert!(matches!(e, Error::Io { .. }), "{e}");
+    assert!(e.to_string().contains("existe.pdf"), "{e}");
+}

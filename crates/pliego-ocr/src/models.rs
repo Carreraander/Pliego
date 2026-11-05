@@ -146,7 +146,7 @@ pub fn fetch_verified(url: &str, dest: &Path, size: u64, sha256: &str, ctx: &Job
     let dir = dest.parent().unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(dir).map_err(|e| Error::io_at(dir, e))?;
     let part = dest.with_extension("part");
-    let resp = ureq::get(url)
+    let resp = pliego_net::get(url)
         .call()
         .map_err(|e| Error::Other(format!("no se pudo descargar el modelo: {e}")))?;
     let mut body = resp.into_body().into_reader();

@@ -17,6 +17,12 @@ describe("ajustes", () => {
     expect(s.shortcuts).toEqual({ "x.y": "Ctrl+Q" });
     expect((s as unknown as Record<string, unknown>).futuro).toEqual({ a: 1 });
   });
+  it("el idioma por defecto es español y un «auto» antiguo pasa a español", () => {
+    expect(DEFAULT_SETTINGS.general.language).toBe("es");
+    expect(migrate({ version: 1, general: { language: "auto" } }).general.language).toBe("es");
+    expect(migrate({ version: 2, general: { language: "auto" } }).general.language).toBe("auto");
+    expect(migrate({ version: 1, general: { language: "en" } }).general.language).toBe("en");
+  });
   it("persiste los cambios al instante y se recuperan al cargar", async () => {
     await loadSettings();
     updateSettings("modes", { pinned: ["optimize.compress"] });

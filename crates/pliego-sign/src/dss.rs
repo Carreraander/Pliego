@@ -45,7 +45,7 @@ impl RevocationSource for HttpRevocation {
     fn revocation_for(&self, cert: &Certificate, issuer: Option<&Certificate>) -> Result<RevocationData> {
         let mut data = RevocationData::default();
         for url in crl_urls(cert) {
-            let fetched = ureq::get(&url)
+            let fetched = pliego_net::get(&url)
                 .call()
                 .ok()
                 .and_then(|mut r| r.body_mut().with_config().limit(32 << 20).read_to_vec().ok());
@@ -57,7 +57,7 @@ impl RevocationSource for HttpRevocation {
             && let Ok(request) = build_ocsp_request(cert, issuer)
         {
             for url in ocsp_urls(cert) {
-                let fetched = ureq::post(&url)
+                let fetched = pliego_net::post(&url)
                     .header("Content-Type", "application/ocsp-request")
                     .send(&request[..])
                     .ok()

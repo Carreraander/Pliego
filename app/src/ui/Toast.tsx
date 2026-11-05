@@ -1,25 +1,13 @@
-import { createSignal, For, onCleanup, Show } from "solid-js";
+import { For, onCleanup, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Icon } from "./Icon";
 import { IconButton } from "./Button";
 import { ut } from "./strings";
 import type { NoticeTone } from "./Display";
+import { activeToasts, dismiss, type ToastItem } from "./toastStore";
 import "./Overlay.css";
 
-export interface ToastOptions { tone?: NoticeTone; text: string; action?: { label: string; onAction: () => void }; /** ms; 0 = hasta que se cierre. Por defecto 5000 (errores: no se cierran solos). */ timeout?: number }
-interface ToastItem extends ToastOptions { id: number }
-
-const [toasts, setToasts] = createSignal<ToastItem[]>([]);
-let next = 1;
-
-/** Muestra un aviso breve no bloqueante. Devuelve una función para cerrarlo. */
-export function toast(options: ToastOptions): () => void {
-  const id = next++;
-  setToasts((l) => [...l, { ...options, id }].slice(-4));
-  return () => dismiss(id);
-}
-export function dismiss(id: number): void { setToasts((l) => l.filter((t) => t.id !== id)); }
-export function clearToasts(): void { setToasts([]); }
+export { toast, dismiss, clearToasts, type ToastOptions } from "./toastStore";
 
 const icons: Record<NoticeTone, string> = { info: "info", ok: "check-circle", warn: "alert-triangle", danger: "x-circle" };
 
@@ -44,7 +32,7 @@ function ToastView(props: { item: ToastItem }) {
 export function ToastRegion() {
   return (
     <Portal>
-      <div class="pl-toasts"><For each={toasts()}>{(item) => <ToastView item={item} />}</For></div>
+      <div class="pl-toasts"><For each={activeToasts()}>{(item) => <ToastView item={item} />}</For></div>
     </Portal>
   );
 }

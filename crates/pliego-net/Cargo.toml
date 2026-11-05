@@ -1,0 +1,16 @@
+[package]
+name = "pliego-net"
+description = "Cliente HTTP(S) común de Pliego: TLS con el almacén de certificados del sistema"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "gzip"] }
+
+[target.'cfg(windows)'.dependencies]
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "gzip", "win-system-proxy"] }
+
+[lints]
+workspace = true

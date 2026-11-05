@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createEffect, createRoot } from "solid-js";
-import { setLocale } from "../i18n";
+import { detectLocale, setLocale } from "../i18n";
 import { applyDensity, applyTheme } from "../shell";
 import { isTauri } from "../shell/platform";
 import { loadSettings, setSettingsBackend, settings, type SettingsBackend } from "./store";
@@ -18,7 +18,7 @@ export function applySettings(): () => void {
       const g = settings().general;
       applyTheme(g.theme === "auto" ? "system" : g.theme);
       applyDensity(g.density);
-      if (g.language !== "auto") setLocale(g.language);
+      setLocale(g.language === "auto" ? detectLocale(navigator.language) : g.language);
     });
     createEffect(() => {
       const el = document.documentElement;

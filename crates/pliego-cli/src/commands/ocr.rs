@@ -8,7 +8,7 @@ use pliego_ocr::{OcrMode, OcrOptions};
 #[derive(Args)]
 pub struct OcrArgs {
     /// PDF escaneado de entrada.
-    #[arg(required_unless_present_any = ["list_languages", "download"])]
+    #[arg(required_unless_present_any = ["list_languages", "list_downloadable", "download"])]
     pub input: Option<PathBuf>,
     /// PDF de salida con texto buscable (por defecto `<entrada>-ocr.pdf`).
     #[arg(short, long)]
@@ -49,6 +49,9 @@ pub struct OcrArgs {
     /// Lista los idiomas instalados y termina.
     #[arg(long)]
     pub list_languages: bool,
+    /// Lista los idiomas que se pueden descargar y termina.
+    #[arg(long)]
+    pub list_downloadable: bool,
     /// Descarga (con verificación de huella) los modelos de idioma indicados, p. ej. `--download fra`, y termina.
     #[arg(long, value_name = "IDIOMA")]
     pub download: Vec<String>,
@@ -71,6 +74,15 @@ pub fn run(a: OcrArgs, json: bool) -> anyhow::Result<()> {
             println!("{}", serde_json::to_string_pretty(&langs)?);
         } else if langs.is_empty() {
             println!("No hay idiomas instalados. Carpeta de modelos: {}", dirs_hint());
+        } else {
+            println!("{}", langs.join("\n"));
+        }
+        return Ok(());
+    }
+    if a.list_downloadable {
+        let langs = pliego_ocr::downloadable_languages();
+        if json {
+            println!("{}", serde_json::to_string_pretty(&langs)?);
         } else {
             println!("{}", langs.join("\n"));
         }

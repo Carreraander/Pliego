@@ -4498,6 +4498,7 @@ dependencies = [
  "pliego-actions",
  "pliego-annot",
  "pliego-appdata",
+ "pliego-compare",
  "pliego-convert",
  "pliego-core",
  "pliego-document",
@@ -4543,12 +4544,12 @@ version = "0.1.0"
 dependencies = [
  "llama-cpp-2",
  "pliego-core",
+ "pliego-net",
  "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
- "ureq",
 ]
 
 [[package]]
@@ -4731,17 +4732,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliego-net"
+version = "0.1.0"
+dependencies = [
+ "ureq",
+]
+
+[[package]]
 name = "pliego-ocr"
 version = "0.1.0"
 dependencies = [
  "pliego-core",
  "pliego-engine",
+ "pliego-net",
  "pliego-pdf",
  "serde",
  "sha2 0.10.9",
  "tempfile",
  "tesseract-sys",
- "ureq",
 ]
 
 [[package]]
@@ -4920,6 +4928,7 @@ dependencies = [
  "p384",
  "pkcs8 0.10.2",
  "pliego-core",
+ "pliego-net",
  "rand_core 0.6.4",
  "rcgen",
  "rsa",
@@ -4929,7 +4938,6 @@ dependencies = [
  "signature",
  "spki 0.7.3",
  "tempfile",
- "ureq",
  "windows-sys 0.61.2",
  "x509-cert 0.2.5",
 ]
@@ -5639,38 +5647,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls"
-version = "0.23.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
-dependencies = [
- "log",
- "once_cell",
- "ring",
- "rustls-pki-types",
- "rustls-webpki",
- "subtle",
- "zeroize",
-]
-
-[[package]]
 name = "rustls-pki-types"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f4925028c7eb5d1fcdaf196971378ed9d2c1c4efc7dc5d011256f76c99c0a96"
 dependencies = [
  "zeroize",
-]
-
-[[package]]
-name = "rustls-webpki"
-version = "0.103.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
-dependencies = [
- "ring",
- "rustls-pki-types",
- "untrusted",
 ]
 
 [[package]]
@@ -7498,11 +7480,9 @@ dependencies = [
  "log",
  "native-tls",
  "percent-encoding",
- "rustls",
  "rustls-pki-types",
  "ureq-proto",
  "utf8-zero",
- "webpki-roots",
  "winreg",
 ]
 
@@ -7835,15 +7815,6 @@ dependencies = [
  "pkg-config",
  "soup3-sys",
  "system-deps",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "1.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
-dependencies = [
- "rustls-pki-types",
 ]
 
 [[package]]

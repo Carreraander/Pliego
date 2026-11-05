@@ -86,3 +86,14 @@ fn download_of_unverified_language_is_refused() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+#[test]
+fn list_downloadable_json() {
+    let out = pliego()
+        .args(["--json", "ocr", "--list-downloadable"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: Vec<String> = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v.iter().any(|l| l == "spa"), "{v:?}");
+}

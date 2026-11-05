@@ -13,7 +13,7 @@ pliego-pdf.workspace = true
 serde.workspace = true
 tempfile.workspace = true
 sha2 = "0.10"
-ureq = { version = "3", default-features = false, features = ["rustls"] }
+pliego-net = { path = "../pliego-net" }
 
 [dev-dependencies]
 pliego-engine.workspace = true

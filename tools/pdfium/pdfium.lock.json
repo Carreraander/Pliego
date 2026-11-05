@@ -1,7 +1,9 @@
 {
   "fuente": "https://github.com/bblanchon/pdfium-binaries/releases",
-  "version": null,
+  "version": "chromium/8138",
   "asset": "pdfium-win-x64.tgz",
-  "sha256": null,
-  "nota": "Rellenar tras el primer fetch en acr12 (fetch-pdfium.ps1 -Primera) y fusionar. Con version/sha256 a null el script se niega a continuar sin -Primera."
+  "sha256": "8d48973e3eb472dda0f5f2435e595ac043f9f2219dd71883392f549445afa8a5",
+  "dll_sha256": "71a3e63e6ab8f5746a0fc9de9bc3d0c0dc07eb60990dfd37d9db7fc891821943",
+  "dll_version": "159.0.8138.0",
+  "nota": "Fijado en acr12 el 2026-11-05: el SHA-256 del .tgz coincide con el digest que publica la API de GitHub para el asset. Para cambiar de versión: fetch-pdfium.ps1 -Primera -Version chromium/<n>, revisar y actualizar version, sha256, dll_sha256 y dll_version en un PR."
 }

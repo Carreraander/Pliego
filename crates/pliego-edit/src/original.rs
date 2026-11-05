@@ -156,7 +156,7 @@ fn build(font: &Object, resource: String) -> Result<Option<Original>> {
             let embedded = font.get_dict("FontDescriptor")?.is_some_and(|d| {
                 ["FontFile", "FontFile2", "FontFile3"]
                     .iter()
-                    .any(|k| d.get_dict(*k).ok().flatten().is_some())
+                    .any(|k| d.get_dict(k).ok().flatten().is_some())
             });
             let codes = match to_unicode {
                 Some(c) => c,

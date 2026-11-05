@@ -34,10 +34,10 @@ pub fn on_state(widget: &Object) -> Option<String> {
         return None;
     }
     for i in 0..n.dict_len().ok()? {
-        if let Ok(Some(name)) = n.get_dict_key(i as i32) {
-            if name != "Off" {
-                return Some(name);
-            }
+        if let Ok(Some(name)) = n.get_dict_key(i as i32)
+            && name != "Off"
+        {
+            return Some(name);
         }
     }
     None

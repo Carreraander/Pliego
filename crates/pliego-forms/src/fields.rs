@@ -74,10 +74,10 @@ fn on_states(w: &PdfWidget) -> Vec<String> {
         && n.is_dict().unwrap_or(false)
     {
         for i in 0..n.dict_len().unwrap_or(0) {
-            if let Ok(Some(name)) = n.get_dict_key(i as i32) {
-                if name != "Off" {
-                    out.push(name);
-                }
+            if let Ok(Some(name)) = n.get_dict_key(i as i32)
+                && name != "Off"
+            {
+                out.push(name);
             }
         }
     }

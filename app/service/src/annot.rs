@@ -205,7 +205,7 @@ impl Editor {
         backup_suffix: &str,
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
-        self.edit_with(path, backup_suffix, |bytes| PdfDocument::from_bytes(bytes), op, save)
+        self.edit_with(path, backup_suffix, PdfDocument::from_bytes, op, save)
     }
 
     /// Como [`Editor::edit_pdf`] para las herramientas que aún usan el documento de MuPDF (ver [`legacy`]).

@@ -22,7 +22,9 @@ pub use dss::{
 };
 #[cfg(windows)]
 pub use platform::windows::{WindowsCertificate, WindowsStoreSigner, list_windows_certificates};
-pub use sign::{PadesLevel, SignOptions, VisibleSignature, sign, sign_bytes, sign_bytes_with, sign_bytes_with_tsa};
+pub use sign::{
+    PadesLevel, SignLang, SignOptions, VisibleSignature, sign, sign_bytes, sign_bytes_with, sign_bytes_with_tsa,
+};
 pub use signer::{DigestAlg, Pkcs12Signer, SignatureScheme, Signer, load_certificate, subject_name};
 pub use timestamp::{HttpTsa, LocalTsa, TimestampAuthority, TimestampInfo};
 pub use validate::{ChainStatus, SignatureReport, ValidationOptions, validate, validate_bytes, validate_with};

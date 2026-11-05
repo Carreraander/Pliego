@@ -1,6 +1,7 @@
 import "./sign.css";
 import { createResource, createSignal, For, Match, Show, Switch } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { locale } from "../../i18n";
 import { activeDoc } from "../../state/documents";
 import { Button, Field, IconButton, Notice, Radio, RadioGroup, TaskPanel, TextInput } from "../../ui";
 import { errorText, fileName, runToolJob } from "../run";
@@ -43,11 +44,11 @@ export default function WorkflowPanel(p: { onClose: () => void }) {
     const id = await runToolJob({ command, args, title, started });
     if (id !== null) p.onClose();
   };
-  const prepare = () => launch("signflow_prepare", { path: path(), signers: specs() }, st("flow.prepare.job", { name: fileName(path()) }), st("flow.prepare.started"));
+  const prepare = () => launch("signflow_prepare", { path: path(), signers: specs(), lang: locale(), suffix: st("flow.prepare.suffix") }, st("flow.prepare.job", { name: fileName(path()) }), st("flow.prepare.started"));
   const signTurn = () => {
     const src = keySource(key());
     if (!src) { setError(st("sign.missing.key")); return; }
-    return launch("signflow_sign", { path: path(), key: src, options: {} }, st("flow.sign.job", { name: pending()?.spec.name ?? "" }), st("flow.sign.started"));
+    return launch("signflow_sign", { path: path(), key: src, options: { lang: locale() }, suffix: st("sign.suffix") }, st("flow.sign.job", { name: pending()?.spec.name ?? "" }), st("flow.sign.started"));
   };
 
   const pending = () => { const t = turn(); return t && t.ok ? t.v : null; };

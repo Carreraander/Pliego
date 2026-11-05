@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use pliego_core::{Error, JobContext, Report, Result};
-use pliego_sign::{Pkcs12Signer, SignOptions, SignatureReport, Signer};
+use pliego_sign::{Pkcs12Signer, SignLang, SignOptions, SignatureReport, Signer};
 use pliego_signflow::{AuditEntry, PendingSigner, SignerSpec, Signers};
 use serde::{Deserialize, Serialize};
 
@@ -98,11 +98,17 @@ pub fn validate(path: &Path) -> Result<Vec<SignatureReport>> {
 }
 
 /// Prepara `src` para que lo firmen `signers` en orden y lo escribe en `out`.
-pub fn flow_prepare(src: &Path, out: &Path, signers: Vec<SignerSpec>, ctx: &JobContext) -> Result<Report> {
+pub fn flow_prepare(
+    src: &Path,
+    out: &Path,
+    signers: Vec<SignerSpec>,
+    lang: SignLang,
+    ctx: &JobContext,
+) -> Result<Report> {
     not_same(src, out)?;
     ctx.step(0, 2, "Preparando el paquete")?;
     let n = signers.len();
-    let pkg = pliego_signflow::prepare(&read(src)?, &Signers::new(signers))?;
+    let pkg = pliego_signflow::prepare_in(&read(src)?, &Signers::new(signers), lang)?;
     write_new(out, &pkg.pdf)?;
     ctx.step(2, 2, "Listo")?;
     Ok(Report::with_output(
@@ -230,7 +236,7 @@ mod tests {
         let prepared = dir.path().join("c (para firmar).pdf");
         let ctx = JobContext::silent();
         let signers = vec![SignerSpec::new("Ana"), SignerSpec::new("Beto")];
-        flow_prepare(&src, &prepared, signers, &ctx).unwrap();
+        flow_prepare(&src, &prepared, signers, SignLang::Es, &ctx).unwrap();
         assert_eq!(flow_next(&prepared).unwrap().unwrap().spec.name, "Ana");
 
         let one = dir.path().join("c1.pdf");

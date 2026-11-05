@@ -151,6 +151,20 @@ pub(crate) fn winansi(s: &str) -> Vec<u8> {
         .collect()
 }
 
+/// Carácter Unicode de un byte WinAnsi (inversa de [`winansi`]); `None` si el byte no está definido.
+pub(crate) fn winansi_char(b: u8) -> Option<char> {
+    const HIGH: [u32; 32] = [
+        0x20ac, 0, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017d,
+        0, 0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0,
+        0x017e, 0x0178,
+    ];
+    match b {
+        0x20..=0x7e | 0xa0..=0xff => Some(char::from(b)),
+        0x80..=0x9f => char::from_u32(HIGH[usize::from(b - 0x80)]).filter(|c| *c != '\0'),
+        _ => None,
+    }
+}
+
 /// Contenido de una cadena literal PDF (sin los paréntesis): escapa `\`, `(`, `)` y los bytes no ASCII.
 pub(crate) fn escape(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len());
@@ -205,6 +219,14 @@ mod tests {
     fn winansi_maps_accents_and_specials() {
         assert_eq!(winansi("añ€"), vec![b'a', 0xf1, 0x80]);
         assert_eq!(winansi("日"), vec![b'?']);
+        assert_eq!(winansi_char(0x80), Some('€'));
+        assert_eq!(winansi_char(0x81), None);
+        assert_eq!(winansi_char(0xf1), Some('ñ'));
+        for b in 0x20..=0xffu8 {
+            if let Some(c) = winansi_char(b) {
+                assert_eq!(winansi(&c.to_string()), vec![b]);
+            }
+        }
         assert_eq!(escape(b"a(b)\\\xf1"), "a\\(b\\)\\\\\\361");
     }
 }

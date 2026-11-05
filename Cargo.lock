@@ -4427,7 +4427,9 @@ dependencies = [
 name = "pliego-pdf"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "getrandom 0.4.3",
+ "image",
  "lopdf",
  "md-5",
  "mupdf",
@@ -4435,6 +4437,7 @@ dependencies = [
  "pliego-core",
  "serde",
  "tempfile",
+ "ttf-parser",
 ]
 
 [[package]]

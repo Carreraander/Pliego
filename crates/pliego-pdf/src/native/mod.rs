@@ -30,8 +30,10 @@ mod annot;
 mod appearance;
 mod document;
 mod flatten;
+mod font;
 mod formap;
 mod graft;
+mod image;
 mod metrics;
 mod object;
 mod outline;
@@ -46,13 +48,17 @@ mod annot_tests;
 #[cfg(test)]
 mod form_fixture;
 #[cfg(test)]
+mod media_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod widget_tests;
 
 pub use annot::PdfAnnotation;
 pub use document::PdfDocument;
+pub use font::Font;
 pub use graft::GraftMap;
+pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageOptions, PageImageInfo};
 pub use object::Object;
 pub use page::PdfPage;
 pub use widget::PdfWidget;

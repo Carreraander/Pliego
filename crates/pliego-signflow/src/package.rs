@@ -2,6 +2,7 @@
 
 use lopdf::{Dictionary, IncrementalDocument, Object, Stream, dictionary};
 use pliego_core::{Error, Result};
+use pliego_sign::SignLang;
 use sha2::{Digest, Sha256};
 
 use crate::manifest::{ATTACHMENT_NAME, Manifest, Signers};
@@ -24,10 +25,15 @@ pub(crate) fn sha256_hex(data: &[u8]) -> String {
 
 /// Prepara `doc` para que lo firmen `signers` en orden. El PDF original no puede tener ya firmas.
 pub fn prepare(doc: &[u8], signers: &Signers) -> Result<Package> {
-    prepare_at(doc, signers, chrono::Utc::now().timestamp())
+    prepare_in(doc, signers, SignLang::default())
 }
 
-pub(crate) fn prepare_at(doc: &[u8], signers: &Signers, now: i64) -> Result<Package> {
+/// Como [`prepare`], con la hoja de firmas escrita en `lang` (el idioma de la interfaz).
+pub fn prepare_in(doc: &[u8], signers: &Signers, lang: SignLang) -> Result<Package> {
+    prepare_at(doc, signers, chrono::Utc::now().timestamp(), lang)
+}
+
+pub(crate) fn prepare_at(doc: &[u8], signers: &Signers, now: i64, lang: SignLang) -> Result<Package> {
     signers.validate()?;
     check_xref_offset(doc)?;
     let prev = lopdf::Document::load_mem(doc).map_err(pdf_err)?;
@@ -83,7 +89,7 @@ pub(crate) fn prepare_at(doc: &[u8], signers: &Signers, now: i64) -> Result<Pack
     let spec_id = inc.new_document.add_object(Object::Dictionary(filespec));
 
     register_attachment(&mut inc, root_id, spec_id)?;
-    add_summary_page(&mut inc, root_id, &manifest)?;
+    add_summary_page(&mut inc, root_id, &manifest, lang)?;
     let mut out = Vec::new();
     inc.save_to(&mut out)
         .map_err(|e| Error::Pdf(format!("no se pudo escribir el PDF: {e}")))?;
@@ -216,7 +222,12 @@ fn pdf_text(s: &str) -> Vec<u8> {
 }
 
 /// Añade al final una «hoja de firmas» con los firmantes, su orden y la huella del original.
-fn add_summary_page(inc: &mut IncrementalDocument, root_id: lopdf::ObjectId, m: &Manifest) -> Result<()> {
+fn add_summary_page(
+    inc: &mut IncrementalDocument,
+    root_id: lopdf::ObjectId,
+    m: &Manifest,
+    lang: SignLang,
+) -> Result<()> {
     let prev = inc.get_prev_documents().clone();
     let pages_id = prev
         .get_dictionary(root_id)
@@ -225,15 +236,26 @@ fn add_summary_page(inc: &mut IncrementalDocument, root_id: lopdf::ObjectId, m: 
         .map_err(pdf_err)?;
     inc.opt_clone_object_to_new_document(pages_id).map_err(pdf_err)?;
 
-    let mut lines: Vec<(f32, String)> = vec![
-        (18.0, "Hoja de firmas".into()),
-        (10.0, "Flujo de firmas local de Pliego".into()),
-        (
-            10.0,
-            format!("Huella SHA-256 del documento original: {}", m.original_sha256),
+    let (title, subtitle, hash, signers_title) = match lang {
+        SignLang::Es => (
+            "Hoja de firmas",
+            "Flujo de firmas local de Pliego",
+            "Huella SHA-256 del documento original",
+            "Firmantes, por orden de firma:",
         ),
+        SignLang::En => (
+            "Signature sheet",
+            "Pliego local signature workflow",
+            "SHA-256 fingerprint of the original document",
+            "Signers, in signing order:",
+        ),
+    };
+    let mut lines: Vec<(f32, String)> = vec![
+        (18.0, title.into()),
+        (10.0, subtitle.into()),
+        (10.0, format!("{hash}: {}", m.original_sha256)),
         (10.0, String::new()),
-        (12.0, "Firmantes, por orden de firma:".into()),
+        (12.0, signers_title.into()),
     ];
     for (i, s) in m.signers.0.iter().enumerate() {
         let mail = s.email.as_deref().map(|e| format!(" <{e}>")).unwrap_or_default();
@@ -307,5 +329,32 @@ fn check_xref_offset(data: &[u8]) -> Result<()> {
         Ok(())
     } else {
         Err(bad())
+    }
+}
+
+#[cfg(test)]
+mod lang_tests {
+    use super::*;
+    use crate::manifest::{SignerSpec, Signers};
+
+    fn plain_pdf() -> Vec<u8> {
+        std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/corpus/basic/hola.pdf"
+        ))
+        .unwrap()
+    }
+
+    fn has(pdf: &[u8], needle: &str) -> bool {
+        pdf.windows(needle.len()).any(|w| w == needle.as_bytes())
+    }
+
+    #[test]
+    fn the_signature_sheet_follows_the_language() {
+        let signers = Signers::new(vec![SignerSpec::new("Ana")]);
+        let es = prepare(&plain_pdf(), &signers).unwrap().pdf;
+        assert!(has(&es, "Hoja de firmas") && !has(&es, "Signature sheet"));
+        let en = prepare_in(&plain_pdf(), &signers, SignLang::En).unwrap().pdf;
+        assert!(has(&en, "Signature sheet") && !has(&en, "Hoja de firmas"));
     }
 }

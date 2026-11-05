@@ -1,5 +1,6 @@
 import "./sign.css";
 import { createSignal, Show } from "solid-js";
+import { locale } from "../../i18n";
 import { currentPageIndex, activeDoc } from "../../state/documents";
 import { Checkbox, Field, Notice, Select, TaskPanel, TextInput } from "../../ui";
 import { fileName, runToolJob } from "../run";
@@ -23,7 +24,7 @@ export default function SignDigitalPanel(p: { onClose: () => void }) {
     if (problem()) return;
     const f = form();
     const id = await runToolJob({
-      command: "sign_pdf", args: { path: doc.path, key: keySource(f.key), options: signOptions(f, doc.sizes[f.page - 1]) },
+      command: "sign_pdf", args: { path: doc.path, key: keySource(f.key), options: signOptions(f, doc.sizes[f.page - 1], locale()), suffix: st("sign.suffix") },
       title: st("sign.job", { name: fileName(doc.path) }), started: st("sign.started"),
     });
     if (id !== null) p.onClose();

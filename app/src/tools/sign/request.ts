@@ -58,8 +58,9 @@ export function missing(f: SignForm): "key" | "tsa" | "page" | null {
 const text = (s: string): string | null => (s.trim() ? s.trim() : null);
 
 /** `SignOptions` de `pliego-sign` (los campos omitidos toman su valor por defecto). */
-export function signOptions(f: SignForm, pageSize?: { width: number; height: number }): Record<string, unknown> {
-  const o: Record<string, unknown> = { level: f.level };
+export function signOptions(f: SignForm, pageSize?: { width: number; height: number }, lang: "es" | "en" = "es"): Record<string, unknown> {
+  // `lang` es el idioma del texto que la firma deja en el PDF (apariencia visible y nombre del campo): el de la app.
+  const o: Record<string, unknown> = { level: f.level, lang };
   if (needsTimestamp(f.level)) o.timestamp_url = f.tsa.trim();
   if (f.visible && pageSize) {
     o.visible = { page: f.page - 1, rect: visibleRect(pageSize, f.corner) };

@@ -28,9 +28,13 @@ describe("firma digital: argumentos", () => {
     expect(missing(form({ visible: true, page: 0 }))).toBe("page");
   });
   it("genera SignOptions solo con lo indicado (páginas desde 0)", () => {
-    expect(signOptions(form())).toEqual({ level: "b-b" });
+    expect(signOptions(form())).toEqual({ level: "b-b", lang: "es" });
     const o = signOptions(form({ level: "b-t", tsa: " http://t/ ", visible: true, page: 3, certify: 2, reason: " Aprobado ", location: "" }), { width: 595, height: 842 });
-    expect(o).toEqual({ level: "b-t", timestamp_url: "http://t/", visible: { page: 2, rect: [359, 36, 200, 60] }, page: 2, certify: 2, reason: "Aprobado" });
+    expect(o).toEqual({ level: "b-t", lang: "es", timestamp_url: "http://t/", visible: { page: 2, rect: [359, 36, 200, 60] }, page: 2, certify: 2, reason: "Aprobado" });
+  });
+  it("la apariencia de la firma usa el idioma de la app", () => {
+    expect(signOptions(form(), undefined, "en").lang).toBe("en");
+    expect(signOptions(form(), undefined, "es").lang).toBe("es");
   });
   it("el flujo ignora filas sin nombre y recorta espacios", () => {
     expect(signerSpecs([

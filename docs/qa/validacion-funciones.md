@@ -54,7 +54,7 @@ e2e_documento_abierto`.
 | --- | --- | --- | --- |
 | `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor; Playwright `rellenar-scripts.spec.ts` (backend simulado): campo con formato enseña `1.234,50 €` sin enfocar y el valor al editar, el filtro de tecleo rechaza letras y acepta cifras, `forms_fill` al confirmar y el botón con acción llama a `forms_run_action` y enseña el aviso del script | W; V |
 | `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | **Windows (pc, 2026-11-05):** firma con certificado en una **tarjeta inteligente virtual TPM** (proveedor «Microsoft Smart Card Key Storage Provider», el mismo camino que el DNIe): `pliego sign --store` firma en 4–7 s, `verify --strict` válida, un bit alterado la rompe, cancelar el PIN da `Cancelled`. El PIN lo pide una ventana de Windows (`Credential Dialog Xaml Host`) que se puede automatizar con UI Automation (`PasswordField_0` + `OkButton`). Con PIN erróneo Windows reabre el cuadro y la firma espera (no da error): cuidar que la interfaz no se quede bloqueada. DNIe real: pendiente de lector; V |
-| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo | W |
+| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo; vitest `problems.test.ts` y Playwright con la app en inglés: los avisos salen en el idioma de la app | W |
 | `sign.workflow` Flujo de firmas | 🟡 | A: `signflow_runs_in_order_and_keeps_an_audit_log`; E2E2: preparar, dos firmas en orden, auditoría de 3 entradas, cada paso se abre y se pinta | W, V |
 
 ### Organizar
@@ -142,6 +142,16 @@ Bug encontrado por esa prueba y arreglado: Comprimir un PDF cifrado con la contr
 No cubierto todavía con contraseña: OCR (la CLI `pliego ocr` no tiene opción de contraseña), Comparar con el segundo
 archivo cifrado, Combinar con entradas cifradas y las ediciones que escriben encima del propio PDF (comentar, rellenar,
 editar texto, diseñar campos, medir).
+
+## Idioma de las firmas (2026-11-05)
+
+Con la app en inglés, la apariencia visible de la firma («Firmado digitalmente por…», «Fecha», «Motivo», «Lugar»), el
+nombre del campo («FirmaN»), la hoja y el motivo del flujo de firmas y los avisos de «Validar firmas» seguían en
+español (los textos salían del motor). Ahora `SignOptions.lang` (`es`/`en`, por defecto `es`) decide el texto que la
+firma deja en el PDF y la interfaz manda el idioma de la app; el motor da una clave estable por aviso
+(`problem_keys`) y la interfaz los traduce. Los sufijos de las copias («firmado», «para firmar») también salen de la
+interfaz. Sin cubrir: los mensajes de progreso y resumen de los trabajos que da el servicio (centro de tareas), que
+son de todas las herramientas y siguen en español, y el error libre al leer una firma corrupta (`other`).
 
 ## Cómo repetirlo
 

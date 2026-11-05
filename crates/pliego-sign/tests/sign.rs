@@ -68,6 +68,41 @@ fn tampering_breaks_signature() {
     assert!(!r.integrity);
     assert!(!r.is_valid());
     assert!(r.problems.iter().any(|p| p.contains("modificado")), "{:?}", r.problems);
+    assert_eq!(r.problems.len(), r.problem_keys.len(), "cada problema tiene su clave");
+    assert!(r.problem_keys.iter().all(|k| !k.is_empty()));
+}
+
+#[test]
+fn the_signature_text_follows_the_chosen_language() {
+    use pliego_sign::SignLang;
+    let pki = make_pki(false);
+    let signer = Pkcs12Signer::from_bytes(&pki.p12, PASSWORD).unwrap();
+    let mut texts = Vec::new();
+    for lang in [SignLang::Es, SignLang::En] {
+        let opts = SignOptions {
+            lang,
+            ..Default::default()
+        };
+        let signed = sign_bytes(&corpus_pdf(), &signer, &opts).unwrap();
+        let has = |needle: &[u8]| signed.windows(needle.len()).any(|w| w == needle);
+        texts.push((has(b"Firma"), has(b"Signature")));
+    }
+    // El nombre del campo sin indicar sale en el idioma pedido.
+    assert_eq!(texts[0], (true, false), "español: campo «FirmaN»");
+    assert_eq!(texts[1], (false, true), "inglés: campo «SignatureN»");
+    // Y las líneas de la apariencia visible.
+    let es = SignLang::Es.appearance_lines("Ana", 0, Some("Aprobado"), Some("Sevilla"));
+    assert_eq!(es[0], "Firmado digitalmente por Ana");
+    assert!(es[1].starts_with("Fecha: "));
+    assert_eq!(&es[2..], ["Motivo: Aprobado", "Lugar: Sevilla"]);
+    let en = SignLang::En.appearance_lines("Ana", 0, Some("Approved"), Some("Seville"));
+    assert_eq!(en[0], "Digitally signed by Ana");
+    assert!(en[1].starts_with("Date: "));
+    assert_eq!(&en[2..], ["Reason: Approved", "Location: Seville"]);
+    assert!(
+        serde_json::from_str::<SignOptions>(r#"{"lang":"en"}"#).is_ok_and(|o| o.lang == SignLang::En),
+        "la interfaz manda lang en minúsculas"
+    );
 }
 
 #[test]

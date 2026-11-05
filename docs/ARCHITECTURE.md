@@ -83,5 +83,14 @@ cambio es sustituir esa exportación por `pub use native::*` cuando W37 aporte l
 Un `Object` nativo es una **ruta** (documento + objeto raíz + pasos), no un puntero: lo que `dict_put` inserta se
 copia. Detalle, límites y pruebas en `docs/handoff/flujos/w36.md`.
 
+### Cifrado (W40)
+El cifrado de lectura (RC4-40, RC4-128, AES-128, AES-256 R5/R6; contraseñas de usuario y de propietario; permisos) y
+de escritura (los mismos, con AES-256 R6 por defecto) vive en `pliego_pdf::native` y está probado con PDF de qpdf
+(`crates/pliego-pdf/tests/fixtures/crypto/`). Mientras el modelo de objetos de la raíz siga siendo MuPDF, la capa solo
+delega la **escritura**: con `PLIEGO_CRYPTO=native` (o `set_crypto_backend(CryptoBackend::Native)`) MuPDF serializa el
+documento sin cifrar y lo cifra el modelo propio. **Leer** un PDF cifrado sigue haciéndolo MuPDF hasta que el modelo
+pase a `native` (W41): descifrar a una copia perdería el `/Encrypt`, los permisos y el `Keep` del original. Por defecto
+`PLIEGO_CRYPTO` es `mupdf`. Detalle en `docs/handoff/flujos/w40.md`.
+
 ## Rendimiento objetivo (medido en acr12)
 Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB, instalador < 40 MB.

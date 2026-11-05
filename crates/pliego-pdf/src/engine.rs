@@ -21,7 +21,7 @@
 //! de comparación vea el fallo.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use pliego_core::{Error, Result};
 
@@ -54,6 +54,75 @@ impl RenderBackend {
 
 static DEFAULT_IS_PDFIUM: AtomicBool = AtomicBool::new(false);
 static FALLBACK: AtomicBool = AtomicBool::new(false);
+
+/// Quién cifra los documentos al guardarlos (ola 5, W40, bloque 7).
+///
+/// - [`CryptoBackend::Mupdf`] (por defecto): el guardado de MuPDF aplica el cifrado, como hasta ahora.
+/// - [`CryptoBackend::Native`]: MuPDF serializa el documento **sin cifrar** y lo cifra el modelo propio
+///   ([`crate::native`], lopdf): RC4-40, RC4-128, AES-128 y AES-256 (R6). Solo cambia quién escribe el cifrado:
+///   leer un PDF cifrado sigue haciéndolo MuPDF hasta que el modelo de objetos pase a `native` (W41), porque
+///   descifrar a una copia perdería el `/Encrypt` y los permisos del original.
+///
+/// Se puede fijar con [`set_crypto_backend`] o con la variable de entorno `PLIEGO_CRYPTO` (`mupdf` o `native`),
+/// que se lee la primera vez que se consulta.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum CryptoBackend {
+    #[default]
+    Mupdf,
+    Native,
+}
+
+impl CryptoBackend {
+    /// Nombre estable (`"mupdf"`, `"native"`), el mismo que usa `PLIEGO_CRYPTO`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Mupdf => "mupdf",
+            Self::Native => "native",
+        }
+    }
+
+    /// Interpreta un nombre (sin distinguir mayúsculas). `None` si no es uno de los motores.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "mupdf" => Some(Self::Mupdf),
+            "native" | "lopdf" | "nativo" => Some(Self::Native),
+            _ => None,
+        }
+    }
+}
+
+const CRYPTO_UNSET: u8 = 0;
+const CRYPTO_MUPDF: u8 = 1;
+const CRYPTO_NATIVE: u8 = 2;
+static CRYPTO: AtomicU8 = AtomicU8::new(CRYPTO_UNSET);
+
+/// Quién cifra al guardar (véase [`CryptoBackend`]).
+pub fn crypto_backend() -> CryptoBackend {
+    match CRYPTO.load(Ordering::Relaxed) {
+        CRYPTO_NATIVE => CryptoBackend::Native,
+        CRYPTO_MUPDF => CryptoBackend::Mupdf,
+        _ => {
+            let chosen = match std::env::var("PLIEGO_CRYPTO") {
+                Ok(v) if !v.trim().is_empty() => CryptoBackend::parse(&v).unwrap_or_else(|| {
+                    eprintln!("pliego: PLIEGO_CRYPTO=«{v}» no válido; usa mupdf o native. Se usa mupdf");
+                    CryptoBackend::Mupdf
+                }),
+                _ => CryptoBackend::Mupdf,
+            };
+            set_crypto_backend(chosen);
+            chosen
+        }
+    }
+}
+
+/// Fija quién cifra al guardar. Afecta a los guardados que se hagan a partir de ahora.
+pub fn set_crypto_backend(backend: CryptoBackend) {
+    let v = match backend {
+        CryptoBackend::Mupdf => CRYPTO_MUPDF,
+        CryptoBackend::Native => CRYPTO_NATIVE,
+    };
+    CRYPTO.store(v, Ordering::Relaxed);
+}
 
 /// Motor que usarán los documentos que se abran a partir de ahora.
 pub fn default_render_backend() -> RenderBackend {
@@ -192,5 +261,9 @@ mod tests {
         assert_eq!(RenderBackend::parse(" mupdf "), Some(RenderBackend::Mupdf));
         assert_eq!(RenderBackend::parse("otro"), None);
         assert_eq!(RenderBackend::Pdfium.name(), "pdfium");
+        assert_eq!(CryptoBackend::parse(" Native "), Some(CryptoBackend::Native));
+        assert_eq!(CryptoBackend::parse("mupdf"), Some(CryptoBackend::Mupdf));
+        assert_eq!(CryptoBackend::parse("x"), None);
+        assert_eq!(CryptoBackend::Native.name(), "native");
     }
 }

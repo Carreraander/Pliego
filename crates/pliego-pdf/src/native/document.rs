@@ -869,8 +869,9 @@ fn read_file(path: &Path) -> Result<Vec<u8>> {
 }
 
 /// lopdf solo entiende un `/Encrypt` **indirecto**; MuPDF (y otros) escriben el diccionario directo en el
-/// `trailer`. En ese caso (tabla de referencias clásica) se añade al final una actualización incremental que
-/// lo convierte en objeto indirecto; el resto del archivo no cambia. Si algo no cuadra devuelve los bytes tal cual.
+/// `trailer` (o, con flujo de referencias, en el diccionario de ese flujo). En ese caso se añade al final una
+/// actualización incremental con tabla clásica que lo convierte en objeto indirecto; el resto del archivo no cambia.
+/// Si algo no cuadra devuelve los bytes tal cual.
 fn indirect_encrypt(bytes: Vec<u8>) -> Vec<u8> {
     if !bytes.windows(8).any(|w| w == b"/Encrypt") {
         return bytes;
@@ -881,19 +882,25 @@ fn indirect_encrypt(bytes: Vec<u8>) -> Vec<u8> {
     let Ok(L::Dictionary(enc)) = doc.trailer.get(b"Encrypt").cloned() else {
         return bytes;
     };
-    if !matches!(
-        doc.reference_table.cross_reference_type,
-        lopdf::xref::XrefType::CrossReferenceTable
-    ) {
-        return bytes;
-    }
     let size = doc.trailer.get(b"Size").ok().and_then(|o| o.as_i64().ok()).unwrap_or(0);
     let n = u32::try_from(size).unwrap_or(0).max(doc.max_id + 1);
     let mut trailer = doc.trailer.clone();
     trailer.set("Encrypt", L::Reference((n, 0)));
     trailer.set("Size", i64::from(n) + 1);
     trailer.set("Prev", doc.xref_start as i64);
-    trailer.remove(b"XRefStm");
+    // Con un flujo de referencias el diccionario del `trailer` trae las claves propias del flujo: no van en un
+    // `trailer` clásico. La sección nueva apunta con /Prev a la anterior, sea tabla o flujo (§7.5.8.4).
+    for key in [
+        &b"XRefStm"[..],
+        b"Type",
+        b"W",
+        b"Index",
+        b"Filter",
+        b"DecodeParms",
+        b"Length",
+    ] {
+        trailer.remove(key);
+    }
     let mut out = bytes;
     if !out.ends_with(b"\n") {
         out.push(b'\n');

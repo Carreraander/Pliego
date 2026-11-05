@@ -472,13 +472,24 @@ fn ensure_id(doc: &mut lopdf::Document) -> Result<()> {
     Ok(())
 }
 
+/// Recorta `s` a `max` bytes sin partir un carácter.
+fn truncate_utf8(s: &str, max: usize) -> &str {
+    let mut end = s.len().min(max);
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
 fn encrypt(doc: &mut lopdf::Document, options: &WriteOptions, original: Option<EncryptionState>) -> Result<()> {
     let permissions = Permissions::from_bits_truncate(u64::from(options.permissions().bits()));
-    let user = options.user_password.as_str();
+    // La norma (ISO 32000-2, algoritmos 8 y 9) usa como máximo 127 bytes UTF-8 de la contraseña, y quien abre el
+    // archivo los recorta igual; lopdf al escribir no lo hace, y una contraseña más larga no volvería a abrir.
+    let user = truncate_utf8(options.user_password.as_str(), 127);
     let owner = if options.owner_password.is_empty() {
         user
     } else {
-        options.owner_password.as_str()
+        truncate_utf8(options.owner_password.as_str(), 127)
     };
     let state = match options.encryption {
         Encryption::None => return Ok(()),

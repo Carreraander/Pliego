@@ -3,36 +3,21 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use mupdf::Document;
 use pliego_core::{Error, Result};
+use pliego_pdf::Document;
 
-/// MuPDF recibe las rutas como `&str` UTF-8 (en Windows `Path` no implementa `AsRef<FilePath>`).
+/// Ruta como `&str` UTF-8 (para las rutas que se pasan al motor como texto).
 pub(crate) fn path_utf8(path: &Path) -> Result<&str> {
     path.to_str()
         .ok_or_else(|| Error::InvalidInput(format!("ruta con caracteres no válidos: {}", path.display())))
 }
 
-pub(crate) fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
-
-/// Abre un PDF (o cualquier formato que MuPDF reconozca) y lo desbloquea si hace falta.
+/// Abre un PDF (o cualquier formato que el motor reconozca) y lo desbloquea si hace falta.
 pub(crate) fn open_document(path: &Path, password: Option<&str>) -> Result<Document> {
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
-    let path_str = path_utf8(path)?;
-    let mut doc = Document::open(path_str).map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? {
-        let ok = match password {
-            Some(p) => doc.authenticate(p).map_err(pdf_err)?,
-            None => false,
-        };
-        if !ok {
-            return Err(Error::Password);
-        }
-    }
-    Ok(doc)
+    Document::open_with_password(path, password)
 }
 
 /// Escribe `bytes` en `dest` sin dejar archivos a medias: temporal en la misma carpeta y renombrado.

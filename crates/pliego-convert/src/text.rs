@@ -6,13 +6,13 @@
 
 use std::path::Path;
 
-use mupdf::{Document, DocumentWriter, Matrix, Rect};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{Document, Matrix, PdfWriter, Rect};
 use pulldown_cmark::{Options, Parser, html};
 use serde::{Deserialize, Serialize};
 
 use crate::images::PageSizeSpec;
-use crate::util::{ensure_not_same, path_utf8, pdf_err, write_atomic};
+use crate::util::{ensure_not_same, write_atomic};
 
 /// Quién renderiza el HTML.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -81,29 +81,28 @@ pub fn html_string_to_pdf(html: &str, output: &Path, options: &TextToPdfOptions,
         ));
     }
     ctx.step(0, 2, "maquetando")?;
-    let mut doc = Document::from_bytes(html.as_bytes(), "text/html").map_err(pdf_err)?;
-    doc.layout(w - 2.0 * m, h - 2.0 * m, options.font_size_pt)
-        .map_err(pdf_err)?;
-    let pages = doc.page_count().map_err(pdf_err)?;
+    let mut doc = Document::from_bytes(html.as_bytes(), "text/html")?;
+    doc.layout(w - 2.0 * m, h - 2.0 * m, options.font_size_pt)?;
+    let pages = doc.page_count()?;
 
-    // Se escribe con el `DocumentWriter` de MuPDF (página completa y contenido desplazado por el margen).
+    // Se escribe con `PdfWriter` (página completa y contenido desplazado por el margen).
     // `Document::convert_to_pdf` se descartó: libera memoria dos veces en documentos de varias páginas.
     let tmp = tempfile::tempdir().map_err(Error::from)?;
     let tmp_pdf = tmp.path().join("salida.pdf");
     {
-        let mut writer = DocumentWriter::new(path_utf8(&tmp_pdf)?, "pdf", "").map_err(pdf_err)?;
+        let mut writer = PdfWriter::new(&tmp_pdf, "")?;
         for i in 0..pages {
-            let page = doc.load_page(i).map_err(pdf_err)?;
-            let dev = writer
-                .begin_page(Rect {
+            let page = doc.load_page(i)?;
+            writer.write_page(
+                Rect {
                     x0: 0.0,
                     y0: 0.0,
                     x1: w,
                     y1: h,
-                })
-                .map_err(pdf_err)?;
-            page.run(&dev, &Matrix::new_translate(m, m)).map_err(pdf_err)?;
-            writer.end_page(dev).map_err(pdf_err)?;
+                },
+                &page,
+                &Matrix::new_translate(m, m),
+            )?;
         }
         // Al salir de este bloque se cierra el escritor y el PDF queda completo.
     }

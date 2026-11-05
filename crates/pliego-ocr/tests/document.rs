@@ -42,10 +42,10 @@ fn clean_scan_becomes_searchable() {
     assert!(c < 0.03, "CER {c:.3}\n{text}");
 
     // La búsqueda encuentra palabras y devuelve cajas dentro de la página.
-    let doc = mupdf::Document::open(output.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::Document::open(&output).unwrap();
     let page = doc.load_page(0).unwrap();
     let hits = page
-        .to_text_page(mupdf::TextPageFlags::empty())
+        .to_text_page(pliego_pdf::TextFlags::empty())
         .unwrap()
         .search("Pliego")
         .unwrap();
@@ -110,7 +110,7 @@ fn rotated_page_is_fixed_with_osd() {
         ocr_document(&input, &output, &o, &JobContext::silent()).unwrap();
         let c = cer(&truth(), &extract_text(&output));
         assert!(c < 0.05, "giro {quarter}: CER {c:.3}");
-        let doc = mupdf::pdf::PdfDocument::open(output.to_str().unwrap()).unwrap();
+        let doc = pliego_pdf::PdfDocument::open(&output).unwrap();
         let rot = doc
             .load_pdf_page(0)
             .unwrap()

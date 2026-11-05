@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 pliego-core.workspace = true
-mupdf.workspace = true
+pliego-pdf.workspace = true
 regex = "1"
 serde.workspace = true
 tempfile.workspace = true

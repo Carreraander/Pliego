@@ -113,7 +113,7 @@ fn thousand_pdfs_search_under_200ms() {
 #[test]
 #[ignore = "diagnóstico: se ejecuta a mano (acr12)"]
 fn profile_single_pdf() {
-    use mupdf::{Document, TextPageFlags};
+    use pliego_pdf::{Document, TextFlags};
     for name in ["compare/base.pdf", "basic/hola.pdf"] {
         let bytes = std::fs::read(corpus(name)).unwrap();
         for round in 0..5 {
@@ -124,7 +124,7 @@ fn profile_single_pdf() {
             let page = doc.load_page(0).unwrap();
             let t_load = t.elapsed();
             let t = std::time::Instant::now();
-            let tp = page.to_text_page(TextPageFlags::empty()).unwrap();
+            let tp = page.to_text_page(TextFlags::empty()).unwrap();
             let t_tp = t.elapsed();
             let t = std::time::Instant::now();
             let _ = tp.to_text().unwrap();

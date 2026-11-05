@@ -17,6 +17,7 @@ llama = ["pliego-assistant/llama"]
 [dependencies]
 pliego-core.workspace = true
 pliego-engine.workspace = true
+pliego-pdf.workspace = true
 pliego-sign = { path = "../pliego-sign" }
 pliego-signflow = { path = "../pliego-signflow" }
 pliego-compare = { path = "../pliego-compare" }
@@ -64,9 +65,9 @@ pliego-portfolio = { path = "../pliego-portfolio" }
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 
 [dev-dependencies]
-tempfile.workspace = true
 rcgen = "0.14"
 p12-keystore = "0.4"
 

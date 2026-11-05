@@ -1,10 +1,6 @@
-use mupdf::pdf::PdfDocument;
-use mupdf::pixmap::ImageFormat;
-use mupdf::{Colorspace, Matrix, Pixmap};
 use pliego_core::{Error, Result};
+use pliego_pdf::{Colorspace, ImageFormat, Matrix, PdfDocument, Pixmap};
 use serde::{Deserialize, Serialize};
-
-use crate::pdf_err;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -48,9 +44,8 @@ impl Plate {
 
     /// PNG en escala de grises como una película de imprenta: negro donde hay tinta, blanco donde no.
     pub fn to_png(&self) -> Result<Vec<u8>> {
-        let mut pix = Pixmap::new_with_w_h(&Colorspace::device_gray(), self.width as i32, self.height as i32, false)
-            .map_err(pdf_err)?;
-        let stride = pix.stride() as usize;
+        let mut pix = Pixmap::new_with_w_h(Colorspace::Gray, self.width as i32, self.height as i32, false)?;
+        let stride = pix.stride();
         let w = self.width as usize;
         let out = pix.samples_mut();
         for (y, row) in self.samples.chunks(w).enumerate() {
@@ -59,7 +54,7 @@ impl Plate {
             }
         }
         let mut png = Vec::new();
-        pix.write_to(&mut png, ImageFormat::PNG).map_err(pdf_err)?;
+        pix.write_to(&mut png, ImageFormat::Png)?;
         Ok(png)
     }
 }
@@ -80,28 +75,21 @@ pub fn separations(doc: &PdfDocument, page: usize, dpi: f32) -> Result<Separatio
     if !(dpi.is_finite() && dpi > 0.0) {
         return Err(Error::InvalidInput("la resolución debe ser un número positivo".into()));
     }
-    let count = doc.page_count().map_err(pdf_err)?.max(0) as usize;
+    let count = doc.page_count()?.max(0) as usize;
     if page >= count {
         return Err(Error::InvalidInput(format!(
             "la página {} no existe (el documento tiene {count})",
             page + 1
         )));
     }
-    let p = doc.load_page(page as i32).map_err(pdf_err)?;
+    let p = doc.load_page(page as i32)?;
     let scale = dpi / 72.0;
-    let pix = p
-        .to_pixmap(
-            &Matrix::new_scale(scale, scale),
-            &Colorspace::device_cmyk(),
-            false,
-            true,
-        )
-        .map_err(pdf_err)?;
+    let pix = p.to_pixmap(&Matrix::new_scale(scale, scale), Colorspace::Cmyk, false, true)?;
     let (w, h, n) = (pix.width() as usize, pix.height() as usize, pix.n() as usize);
     if n != 4 {
         return Err(Error::Pdf("el motor no devolvió una imagen CMYK".into()));
     }
-    let stride = pix.stride() as usize;
+    let stride = pix.stride();
     let data = pix.samples();
     let mut planes = vec![vec![0u8; w * h]; 4];
     let mut max_total = 0u32;

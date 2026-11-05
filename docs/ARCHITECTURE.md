@@ -77,11 +77,22 @@ modelo de objetos, el guardado, los enlaces, el SVG y los formatos que no son PD
 ### `pliego_pdf::native` (W36): modelo de documento propio con lopdf
 Reimplementa `Object`, `PdfDocument`, `PdfPage` y `GraftMap` con los mismos nombres y firmas que los de la raíz
 de la capa (objetos, páginas, etiquetas, marcadores, adjuntos, capas, metadatos, cifrado, guardado completo e
-incremental). No tiene render, texto ni búsqueda (PDFium, W37), anotaciones/widgets/fuentes/imágenes (W39),
-redacción (W38) ni conversión (W40). Mientras convive con MuPDF, la raíz sigue exportando el motor MuPDF; el
+incremental). No tiene render, texto ni búsqueda (PDFium, W37), anotaciones/widgets/fuentes/imágenes (W39)
+ni conversión (W40); la redacción (W38) vive en `native::redact`. Mientras convive con MuPDF, la raíz sigue exportando el motor MuPDF; el
 cambio es sustituir esa exportación por `pub use native::*` cuando W37 aporte lo que falta, y W41 quita MuPDF.
 Un `Object` nativo es una **ruta** (documento + objeto raíz + pasos), no un puntero: lo que `dict_put` inserta se
 copia. Detalle, límites y pruebas en `docs/handoff/flujos/w36.md`.
+
+### Redacción con el motor propio (W38): `pliego_pdf::native::PdfDocument::{apply_redactions, redact_areas}`
+Reescribe los flujos de contenido de la página para que el texto, las imágenes y los vectores bajo las zonas **dejen de
+existir** en el archivo (no solo de verse): sigue el estado gráfico y de texto, mide cada glifo con los anchos de la
+fuente y lo quita de la cadena con ajustes de `TJ` para no mover el resto; copia y reescribe los formularios XObject
+afectados; borra píxeles en una copia de la imagen (Flate/sin filtro/JPEG) o quita la imagen; quita vectores cubiertos;
+elimina anotaciones bajo la zona, `/Thumb`, `/PieceInfo` y el `/ActualText` de lo marcado; y poda del documento lo que ya
+no cuelga del trailer (y desactiva el guardado incremental). Regla de seguridad: lo que no se puede medir (fuentes sin
+anchos, CMap predefinidos) se trata entero como sospechoso; nunca se adivina un ancho. En `pliego-redact` se elige con
+`RedactEngine` / `PLIEGO_REDACT_ENGINE=native` (por defecto MuPDF hasta la revisión de Ander). Detalle y límites en
+`docs/handoff/flujos/w38.md`.
 
 ## Rendimiento objetivo (medido en acr12)
 Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB, instalador < 40 MB.

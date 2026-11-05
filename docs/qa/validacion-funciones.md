@@ -52,8 +52,8 @@ e2e_documento_abierto`.
 ### Rellenar y firmar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor | W; V |
-| `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | W: certificado del almacén de Windows (CNG), DNIe sin lector; V |
+| `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor; Playwright `rellenar-scripts.spec.ts` (backend simulado): campo con formato enseña `1.234,50 €` sin enfocar y el valor al editar, el filtro de tecleo rechaza letras y acepta cifras, `forms_fill` al confirmar y el botón con acción llama a `forms_run_action` y enseña el aviso del script | W; V |
+| `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | **Windows (pc, 2026-11-05):** firma con certificado en una **tarjeta inteligente virtual TPM** (proveedor «Microsoft Smart Card Key Storage Provider», el mismo camino que el DNIe): `pliego sign --store` firma en 4–7 s, `verify --strict` válida, un bit alterado la rompe, cancelar el PIN da `Cancelled`. El PIN lo pide una ventana de Windows (`Credential Dialog Xaml Host`) que se puede automatizar con UI Automation (`PasswordField_0` + `OkButton`). Con PIN erróneo Windows reabre el cuadro y la firma espera (no da error): cuidar que la interfaz no se quede bloqueada. DNIe real: pendiente de lector; V |
 | `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo | W |
 | `sign.workflow` Flujo de firmas | 🟡 | A: `signflow_runs_in_order_and_keeps_an_audit_log`; E2E2: preparar, dos firmas en orden, auditoría de 3 entradas, cada paso se abre y se pinta | W, V |
 

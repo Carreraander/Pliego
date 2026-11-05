@@ -4,8 +4,13 @@ Segundo equipo Windows de pruebas del proyecto (el principal es acr12, ver [`acr
 
 - `DESKTOP-TBC7MHI`, usuario `pc`, **Windows 11 Home** 10.0.26200 (con Mica), 32 GB de RAM, 8 hilos.
 - **Un solo disco**: C: de 256 GB, con **muy poco sitio libre** (10,7 GB el 2026-11-04 antes de preparar nada). No hay D:.
-- El usuario `pc` **no es administrador sin UAC**: lo que instala en todo el equipo (MSI, winget de máquina) muestra un
-  diálogo de UAC que solo puede aceptar Ander en la pantalla.
+- Las sesiones de Remote Control en `pc` van **elevadas** (nivel obligatorio alto, sin UAC; comprobado el 2026-11-05): se puede
+  instalar en todo el equipo y crear tarjetas inteligentes virtuales. Aun así, nada fuera de Pliego.
+- Hay **TPM 2.0** (Nuvoton) y `tpmvscmgr.exe`: permite probar el proveedor de tarjeta inteligente de Windows (como el DNIe)
+  sin lector. Hay un lector Broadcom integrado, sin tarjeta.
+- Escritorio interactivo disponible: `CopyFromScreen` y UI Automation funcionan, pero **desde un `.ps1` en disco**: el antivirus
+  (AMSI) bloquea el código de captura lanzado en línea. No hay `quser` (Windows 11 Home). Las capturas pueden enseñar el
+  escritorio real de Ander: borrarlas al acabar.
 - En el equipo hay otros proyectos (p. ej. `TraceholdGit`, `Tracehold`, `vm-main`...): **no son de Pliego, no se tocan**.
 
 ## Rutas de Pliego en pc

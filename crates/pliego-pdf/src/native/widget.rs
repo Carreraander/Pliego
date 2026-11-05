@@ -10,9 +10,9 @@
 //!
 //! # Lo que no hay
 //!
-//! Sin JavaScript: los scripts de formato, validación y cálculo (`/AA`, `/CO`) **no se ejecutan** y
-//! `ignore_trigger_events` se ignora. `PdfDocument::is_js_supported` devuelve `false` y `calculate_form` no hace
-//! nada. Rotación de campo (`/MK /R`) sí; campos «rich text» y XFA, no.
+//! JavaScript: con `PdfDocument::enable_js` los scripts de tecleo, validación, cálculo y formato (`/AA`, `/CO`) los ejecuta
+//! el motor de [`super::formjs`] (crate `pliego-formjs`); sin `enable_js`, o con `ignore_trigger_events`, no se ejecutan.
+//! Rotación de campo (`/MK /R`) sí; campos «rich text» y XFA, no.
 
 use lopdf::{Dictionary, Object as L, ObjectId, StringFormat};
 use pliego_core::Result;
@@ -21,6 +21,7 @@ use super::annot::{PdfAnnotation, parse_da, write_form};
 use super::appearance::Ap;
 use super::document::{PdfDocument, decode_text, text_string};
 use super::formap::{self, Border, FieldDraw, Kind};
+use super::formjs;
 use super::metrics::base_font_for;
 use super::object::Object;
 use super::page::PdfPage;
@@ -35,12 +36,12 @@ pub struct PdfWidget {
 
 // --- Lectura del árbol de campos ---------------------------------------------------------------------------------
 
-fn dict_at(st: &State, id: ObjectId) -> Option<&Dictionary> {
+pub(super) fn dict_at(st: &State, id: ObjectId) -> Option<&Dictionary> {
     st.dict_of(st.get(id)?)
 }
 
 /// El nodo y sus ascendientes (padre, abuelo…), con límite contra ciclos.
-fn chain(st: &State, id: ObjectId) -> Vec<ObjectId> {
+pub(super) fn chain(st: &State, id: ObjectId) -> Vec<ObjectId> {
     let mut out = vec![st.resolve_id(id)];
     for _ in 0..32 {
         let Some(d) = dict_at(st, *out.last().unwrap_or(&id)) else {
@@ -61,29 +62,29 @@ fn chain(st: &State, id: ObjectId) -> Vec<ObjectId> {
 }
 
 /// Valor de `key` en el nodo o el primer ascendiente que lo tenga (ya resuelto).
-fn inherited(st: &State, id: ObjectId, key: &str) -> Option<L> {
+pub(super) fn inherited(st: &State, id: ObjectId, key: &str) -> Option<L> {
     chain(st, id).into_iter().find_map(|n| {
         let v = dict_at(st, n)?.get(key.as_bytes()).ok()?;
         st.deref(v).cloned()
     })
 }
 
-fn text_of(o: &L) -> Option<String> {
+pub(super) fn text_of(o: &L) -> Option<String> {
     decode_text(o)
 }
 
-fn name_bytes(o: &L) -> Option<&[u8]> {
+pub(super) fn name_bytes(o: &L) -> Option<&[u8]> {
     o.as_name().ok()
 }
 
-fn floats(st: &State, o: &L) -> Vec<f32> {
+pub(super) fn floats(st: &State, o: &L) -> Vec<f32> {
     o.as_array()
         .map(|a| a.iter().filter_map(|x| st.deref(x)?.as_float().ok()).collect())
         .unwrap_or_default()
 }
 
 /// El nodo que es «el campo»: el primero (subiendo desde el widget) con `/T`.
-fn field_node(st: &State, id: ObjectId) -> ObjectId {
+pub(super) fn field_node(st: &State, id: ObjectId) -> ObjectId {
     chain(st, id)
         .into_iter()
         .find(|n| dict_at(st, *n).is_some_and(|d| d.has(b"T")))
@@ -91,7 +92,7 @@ fn field_node(st: &State, id: ObjectId) -> ObjectId {
 }
 
 /// Widgets (hojas) de un campo.
-fn leaves(st: &State, field: ObjectId) -> Vec<ObjectId> {
+pub(super) fn leaves(st: &State, field: ObjectId) -> Vec<ObjectId> {
     fn walk(st: &State, id: ObjectId, out: &mut Vec<ObjectId>, depth: usize) {
         let Some(d) = dict_at(st, id) else { return };
         let kids: Vec<ObjectId> = match d.get(b"Kids").ok().and_then(|k| st.deref(k)) {
@@ -126,7 +127,7 @@ fn leaves(st: &State, field: ObjectId) -> Vec<ObjectId> {
     out
 }
 
-fn qualified_name(st: &State, id: ObjectId) -> Option<String> {
+pub(super) fn qualified_name(st: &State, id: ObjectId) -> Option<String> {
     let mut parts: Vec<String> = chain(st, id)
         .into_iter()
         .filter_map(|n| {
@@ -144,7 +145,7 @@ fn qualified_name(st: &State, id: ObjectId) -> Option<String> {
     Some(parts.join("."))
 }
 
-fn put(st: &mut State, id: ObjectId, key: &str, v: Option<L>) {
+pub(super) fn put(st: &mut State, id: ObjectId, key: &str, v: Option<L>) {
     let id = st.resolve_id(id);
     if let Some(obj) = st.doc.objects.get_mut(&id) {
         let d = match obj {
@@ -163,7 +164,7 @@ fn put(st: &mut State, id: ObjectId, key: &str, v: Option<L>) {
 }
 
 /// Estados de `/AP /N` (claves del diccionario) de un widget, sin `Off`.
-fn on_states(st: &State, id: ObjectId) -> Vec<String> {
+pub(super) fn on_states(st: &State, id: ObjectId) -> Vec<String> {
     let Some(d) = dict_at(st, id) else { return Vec::new() };
     let Some(L::Dictionary(ap)) = d.get(b"AP").ok().and_then(|a| st.deref(a)) else {
         return Vec::new();
@@ -178,7 +179,7 @@ fn on_states(st: &State, id: ObjectId) -> Vec<String> {
     }
 }
 
-fn has_state_dict(st: &State, id: ObjectId) -> bool {
+pub(super) fn has_state_dict(st: &State, id: ObjectId) -> bool {
     dict_at(st, id)
         .and_then(|d| d.get(b"AP").ok())
         .and_then(|a| st.deref(a))
@@ -193,7 +194,7 @@ fn has_state_dict(st: &State, id: ObjectId) -> bool {
         .is_some_and(|n| matches!(n, L::Dictionary(_)))
 }
 
-fn acroform_dict(st: &State) -> Option<Dictionary> {
+pub(super) fn acroform_dict(st: &State) -> Option<Dictionary> {
     let root = super::tree::catalog_id(st)?;
     let cat = dict_at(st, root)?;
     match cat.get(b"AcroForm").ok().and_then(|a| st.deref(a))? {
@@ -343,66 +344,50 @@ impl PdfWidget {
         self.name()
     }
 
-    /// Fija el valor y regenera las apariencias del campo. `ignore_trigger_events` no tiene efecto (no hay JS).
+    /// Fija el valor y regenera las apariencias del campo. Con JavaScript habilitado (`PdfDocument::enable_js`) y
+    /// `ignore_trigger_events == false` pasa antes por el tecleo (`/AA /K`) y la validación (`/AA /V`), recalcula los
+    /// campos con cálculo (`/AA /C`, en el orden de `/CO`) y da formato (`/AA /F`); un script puede rechazar el valor.
     /// Devuelve `false` si el campo no admite ese valor (botón de acción, firma, estado que la casilla o el radio no
-    /// tienen).
-    pub fn set_value(&mut self, _doc: &mut PdfDocument, value: &str, _ignore_trigger_events: bool) -> Result<bool> {
+    /// tienen) o si un script lo rechaza.
+    pub fn set_value(&mut self, _doc: &mut PdfDocument, value: &str, ignore_trigger_events: bool) -> Result<bool> {
         let shared = self.shared()?;
         let id = self.id()?;
+        if !ignore_trigger_events
+            && shared.borrow().js.enabled
+            && let Some(accepted) = formjs::commit(&shared, id, value)?
+        {
+            return Ok(accepted);
+        }
         let ty = self.r#type()?;
         let (field, widgets) = {
             let st = shared.borrow();
             let f = field_node(&st, id);
             (f, leaves(&st, f))
         };
-        match ty {
-            WidgetType::Text | WidgetType::Combobox | WidgetType::Listbox => {
-                {
-                    let mut st = shared.borrow_mut();
-                    put(&mut st, field, "V", Some(text_string(value)));
-                    if ty == WidgetType::Listbox {
-                        put(&mut st, field, "I", None);
-                    }
-                }
-                for w in widgets {
+        let ok = store_value(&shared, field, &widgets, ty, value, &[])?;
+        if ok {
+            shared.borrow_mut().js.display.remove(&field);
+            for w in widgets {
+                if matches!(ty, WidgetType::Text | WidgetType::Combobox | WidgetType::Listbox) {
                     rebuild_ap(&shared, w)?;
                 }
-                Ok(true)
             }
-            WidgetType::Checkbox | WidgetType::RadioButton => {
-                let off = value == "Off" || value.is_empty();
-                {
-                    let st = shared.borrow();
-                    if !off
-                        && widgets
-                            .iter()
-                            .all(|w| has_state_dict(&st, *w) && !on_states(&st, *w).iter().any(|s| s == value))
-                    {
-                        return Ok(false);
-                    }
-                }
-                let mut st = shared.borrow_mut();
-                let v = if off { "Off" } else { value };
-                put(&mut st, field, "V", Some(L::Name(v.as_bytes().to_vec())));
-                for w in widgets {
-                    let has = !off && on_states(&st, w).iter().any(|s| s == value);
-                    let state = if has { value } else { "Off" };
-                    put(&mut st, w, "AS", Some(L::Name(state.as_bytes().to_vec())));
-                }
-                Ok(true)
-            }
-            _ => Ok(false),
         }
+        Ok(ok)
     }
 
     /// Devuelve el campo a su valor por defecto (`/DV`, o vacío si no tiene).
     pub fn reset(&mut self, _doc: &mut PdfDocument) -> Result<()> {
         let shared = self.shared()?;
         let id = self.id()?;
+        if shared.borrow().js.enabled && formjs::reset(&shared, id)? {
+            return Ok(());
+        }
         let ty = self.r#type()?;
         let (field, widgets, dv) = {
-            let st = shared.borrow();
+            let mut st = shared.borrow_mut();
             let f = field_node(&st, id);
+            st.js.display.remove(&f);
             (f, leaves(&st, f), inherited(&st, f, "DV"))
         };
         match ty {
@@ -434,6 +419,56 @@ impl PdfWidget {
             _ => {}
         }
         Ok(())
+    }
+}
+
+/// Escribe el valor de un campo (`/V`, y `/AS` de sus widgets si es casilla o radio) sin regenerar apariencias de texto.
+/// `multi`: selección múltiple de una lista. `false` si el campo no admite ese valor.
+pub(super) fn store_value(
+    shared: &Shared,
+    field: ObjectId,
+    widgets: &[ObjectId],
+    ty: WidgetType,
+    value: &str,
+    multi: &[String],
+) -> Result<bool> {
+    match ty {
+        WidgetType::Text | WidgetType::Combobox | WidgetType::Listbox => {
+            let mut st = shared.borrow_mut();
+            let v = if multi.len() > 1 {
+                L::Array(multi.iter().map(|m| text_string(m)).collect())
+            } else {
+                text_string(value)
+            };
+            put(&mut st, field, "V", Some(v));
+            if ty == WidgetType::Listbox {
+                put(&mut st, field, "I", None);
+            }
+            Ok(true)
+        }
+        WidgetType::Checkbox | WidgetType::RadioButton => {
+            let off = value == "Off" || value.is_empty();
+            {
+                let st = shared.borrow();
+                if !off
+                    && widgets
+                        .iter()
+                        .all(|w| has_state_dict(&st, *w) && !on_states(&st, *w).iter().any(|s| s == value))
+                {
+                    return Ok(false);
+                }
+            }
+            let mut st = shared.borrow_mut();
+            let v = if off { "Off" } else { value };
+            put(&mut st, field, "V", Some(L::Name(v.as_bytes().to_vec())));
+            for w in widgets {
+                let has = !off && on_states(&st, *w).iter().any(|s| s == value);
+                let state = if has { value } else { "Off" };
+                put(&mut st, *w, "AS", Some(L::Name(state.as_bytes().to_vec())));
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
     }
 }
 
@@ -592,6 +627,11 @@ fn collect_field_ap(st: &State, id: ObjectId) -> Option<Collected> {
         None => Vec::new(),
     };
     let first = selected.first().cloned().unwrap_or_default();
+    // Texto formateado por un script de formato (`/AA /F`): lo que se ve, distinto del valor guardado.
+    let first = match (kind, st.js.display.get(&field_node(st, id))) {
+        (Kind::Text, Some(shown)) => shown.clone(),
+        _ => first,
+    };
     let text = match kind {
         Kind::Push => mk
             .as_ref()
@@ -660,7 +700,7 @@ fn current_n(st: &State, id: ObjectId) -> Option<ObjectId> {
     }
 }
 
-fn rebuild_ap(shared: &Shared, id: ObjectId) -> Result<bool> {
+pub(super) fn rebuild_ap(shared: &Shared, id: ObjectId) -> Result<bool> {
     let (built, existing) = {
         let st = shared.borrow();
         (collect_field_ap(&st, id), current_n(&st, id))

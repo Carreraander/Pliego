@@ -33,6 +33,7 @@ mod document;
 mod flatten;
 mod font;
 mod formap;
+mod formjs;
 mod graft;
 mod image;
 mod metrics;
@@ -51,6 +52,8 @@ mod annot_tests;
 #[cfg(test)]
 mod form_fixture;
 #[cfg(test)]
+mod formjs_tests;
+#[cfg(test)]
 mod media_tests;
 #[cfg(test)]
 mod tests;
@@ -60,6 +63,7 @@ mod widget_tests;
 pub use annot::PdfAnnotation;
 pub use document::PdfDocument;
 pub use font::Font;
+pub use formjs::JsMessage;
 pub use graft::GraftMap;
 pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageOptions, PageImageInfo};
 pub use object::Object;
@@ -97,6 +101,8 @@ pub(crate) struct State {
     pub(crate) pages_cache: Option<Vec<ObjectId>>,
     /// Anotaciones cuya apariencia hay que regenerar en el próximo `update()` (W39).
     pub(crate) annot_dirty: BTreeSet<ObjectId>,
+    /// Motor de JavaScript de formularios (W42).
+    pub(crate) js: formjs::JsState,
 }
 
 /// Datos del archivo de origen.
@@ -125,6 +131,7 @@ pub(crate) fn pdf_err(msg: impl Into<String>) -> Error {
 
 impl State {
     pub(crate) fn touch(&mut self, id: ObjectId) {
+        self.js.generation += 1;
         self.dirty.insert(id);
         self.deleted.remove(&id);
         self.unsaved = true;

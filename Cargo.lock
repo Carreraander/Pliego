@@ -4526,8 +4526,8 @@ dependencies = [
 name = "pliego-stamp"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
 ]

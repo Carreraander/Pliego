@@ -1,6 +1,6 @@
-use mupdf::pdf::PdfDocument;
-use mupdf::{Document, TextPageFlags};
 use pliego_core::JobContext;
+use pliego_pdf::PdfDocument;
+use pliego_pdf::{Document, TextFlags};
 use pliego_stamp::*;
 
 /// PDF mínimo de `pages` páginas A4 con el texto "P<N>".
@@ -53,19 +53,19 @@ fn reopen(d: &PdfDocument) -> Document {
 fn text(d: &Document, i: i32) -> String {
     d.load_page(i)
         .unwrap()
-        .to_text_page(TextPageFlags::empty())
+        .to_text_page(TextFlags::empty())
         .unwrap()
         .to_text()
         .unwrap()
 }
 
 /// Rectángulo visual (y hacia abajo) de la primera aparición del texto.
-fn find(d: &Document, i: i32, needle: &str) -> mupdf::Rect {
+fn find(d: &Document, i: i32, needle: &str) -> pliego_pdf::Rect {
     let hits = d.load_page(i).unwrap().search(needle, 1).unwrap();
     let q = hits.first().unwrap_or_else(|| panic!("no se encontró {needle:?}"));
     let xs = [q.ul.x, q.ur.x, q.ll.x, q.lr.x];
     let ys = [q.ul.y, q.ur.y, q.ll.y, q.lr.y];
-    mupdf::Rect::new(
+    pliego_pdf::Rect::new(
         xs.iter().cloned().fold(f32::MAX, f32::min),
         ys.iter().cloned().fold(f32::MAX, f32::min),
         xs.iter().cloned().fold(f32::MIN, f32::max),
@@ -190,7 +190,7 @@ fn watermark_text_front_and_behind() {
         assert!(text(&r, 0).contains("P1"));
         // La opacidad queda registrada como estado gráfico.
         let mut raw = Vec::new();
-        d.write_to_with_options(&mut raw, mupdf::pdf::PdfWriteOptions::default())
+        d.write_to_with_options(&mut raw, &pliego_pdf::WriteOptions::default())
             .unwrap();
         assert!(String::from_utf8_lossy(&raw).contains("/ca .25"));
     }
@@ -214,8 +214,8 @@ fn background_color_renders() {
         .load_page(0)
         .unwrap()
         .to_pixmap(
-            &mupdf::Matrix::new_scale(0.5, 0.5),
-            &mupdf::Colorspace::device_rgb(),
+            &pliego_pdf::Matrix::new_scale(0.5, 0.5),
+            pliego_pdf::Colorspace::Rgb,
             false,
             false,
         )

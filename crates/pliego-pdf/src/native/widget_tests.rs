@@ -228,6 +228,15 @@ fn filled_fields_are_drawn() {
             assert!(w.set_value(&mut doc, value, true).unwrap());
         }
     }
+    // El botón de acción no tiene apariencia en el archivo: se genera aquí con el motor nativo (si no, sería MuPDF
+    // quien lo dibujara al abrir y el resultado dependería de la plataforma y de sus fuentes del sistema).
+    let page = doc.load_pdf_page(0).unwrap();
+    for mut w in page
+        .widgets()
+        .filter(|w| w.name().unwrap().as_deref() == Some("enviar"))
+    {
+        assert!(w.update().unwrap());
+    }
     let bytes = bytes_of(&doc);
     if let Ok(dir) = std::env::var("PLIEGO_DUMP_DIR") {
         std::fs::create_dir_all(&dir).unwrap();
@@ -262,12 +271,12 @@ fn filled_fields_are_drawn() {
         < 170
         && g > 170
         && b > 200));
-    // Botón de acción con su rótulo y fondo gris.
-    assert!(color_in(&after, Rect::new(52.0, 402.0, 148.0, 428.0), |r, g, b| r
+    // Botón de acción con su rótulo y fondo gris (0,8 → ~204; MuPDF lo reparte con ±1 entre canales).
+    assert!(color_in(&after, Rect::new(52.0, 402.0, 148.0, 428.0), |r, g, b| (r
         > 190
-        && r < 215
-        && g == r
-        && b == r));
+        && r < 215)
+        && r.abs_diff(g) <= 2
+        && r.abs_diff(b) <= 2));
     assert!(ink(&after, Rect::new(52.0, 402.0, 148.0, 428.0)) > 1000);
 }
 

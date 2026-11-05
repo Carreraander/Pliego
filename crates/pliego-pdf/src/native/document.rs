@@ -43,7 +43,7 @@ impl PdfDocument {
         }
     }
 
-    fn guard(&self) -> Result<()> {
+    pub(crate) fn guard(&self) -> Result<()> {
         if self.st.borrow().locked {
             Err(Error::Password)
         } else {
@@ -65,6 +65,7 @@ impl PdfDocument {
             unsaved: false,
             locked: false,
             pages_cache: None,
+            annot_dirty: BTreeSet::new(),
         };
         let mut pages = Dictionary::new();
         pages.set("Type", L::Name(b"Pages".to_vec()));
@@ -954,6 +955,7 @@ fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool) -> State {
         unsaved: false,
         locked,
         pages_cache: None,
+        annot_dirty: BTreeSet::new(),
     }
 }
 

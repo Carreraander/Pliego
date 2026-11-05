@@ -35,7 +35,7 @@ e2e_documento_abierto`.
 ### Ver
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto; Playwright `medir-presentacion.spec.ts` (F11 oculta el armazón, la página cabe entera, flechas/Inicio/Fin, Esc vuelve). **Bug hallado y arreglado (2026-11-05):** al ocultar el armazón la cuadrícula del shell dejaba el visor a 0 px de alto → F11 mostraba una pantalla en blanco | W: pantalla completa real en Tauri (resize); V |
+| `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto; Playwright `medir-presentacion.spec.ts` (F11 oculta el armazón, la página cabe entera, flechas/Inicio/Fin, Esc vuelve). **Bug hallado y arreglado (2026-11-05):** al ocultar el armazón la cuadrícula del shell dejaba el visor a 0 px de alto → F11 mostraba una pantalla en blanco | **Windows (pc, app real, 2026-11-05):** F11 a pantalla completa 1920×1080 sin barras, la página cabe, flechas/Inicio/Fin/Esc OK; vista pequeña pendiente de arreglar: con escala 125 % asomaban ~5 px de la página siguiente y se veía la barra de desplazamiento (margen y barra ajustados en el PR siguiente) | V |
 | `viewer.layers` Capas | 🟢 | E2E2 (`e2e_herramientas.rs`): PDF con una capa, ocultar y mostrar cambia la tesela y no toca el archivo; capa inexistente da error | V (un PDF de verdad con capas) |
 | `viewer.attachments` Adjuntos | 🟡 | A: `attachments.test.ts`; E2E: cartera (crear, listar, extraer) | V |
 | `viewer.properties` Propiedades | 🟡 | A: `properties.test.ts`, `document_info` | V |
@@ -118,7 +118,7 @@ e2e_documento_abierto`.
 | `print.preflight` Comprobación previa | 🟢 | A + E2E: perfil `basic` | — |
 | `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs`; E2E2: acción «borrar página 1» sobre un PDF abierto, salidas con una página menos | W |
 | `batch.index` Índice de búsqueda | 🟢 | A + E2E: indexa una carpeta y encuentra «Pliego» | índice de 1.000 PDF en W |
-| `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer; Playwright `medir-presentacion.spec.ts`: calibrar (200 px = 10 m), distancia (400 px → 20 m), área (100 m²) y `1:100`, con la geometría real del zoom y capturas | W: en la app instalada; V |
+| `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer; Playwright `medir-presentacion.spec.ts`: calibrar (200 px = 10 m), distancia (400 px → 20 m), área (100 m²) y `1:100`, con la geometría real del zoom y capturas | **Windows (pc, app real):** calibrar con 2 clics y 10 m → `1 pt = 0,09375 m`, distancia de 400 px = 20,00 m, área 200×200 px = 100,00 m² (perímetro 40,00 m); «Guardar medida» deja `line` y `polygon` en el PDF (`pliego annot list`) y la copia «(antes de medir)» idéntica | V |
 | `batch.portfolio` Carteras | 🟢 | A + E2E: crear, listar y extraer | — |
 
 ### Asistente y actualizaciones

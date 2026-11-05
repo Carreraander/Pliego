@@ -435,3 +435,48 @@ fn convertir_comprobar_y_buscar_desde_un_pdf_abierto() {
 
     assert_eq!(std::fs::read(&path).unwrap(), original, "nada de esto toca el original");
 }
+
+/// OCR con la CLI real (`pliego`), como la lanza la app. Necesita `pliego` compilado y el modelo `eng`; si falta algo,
+/// se salta (en acr12 se ejecuta con `PLIEGO_CLI` apuntando a la CLI de la compilación).
+#[test]
+fn ocr_con_la_cli_real_desde_un_pdf_abierto() {
+    let _s = serial();
+    use pliego_app_service::ocr;
+    let Ok(cli) = ocr::find_cli().or_else(|_| {
+        let dir = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let exe = dir.join(format!("pliego{}", std::env::consts::EXE_SUFFIX));
+        exe.is_file().then_some(exe).ok_or(())
+    }) else {
+        eprintln!("sin CLI `pliego`: prueba de OCR omitida");
+        return;
+    };
+    let langs = ocr::languages(&cli).unwrap();
+    if !langs.installed.iter().any(|l| l == "eng") {
+        eprintln!("sin el modelo eng: prueba de OCR omitida");
+        return;
+    }
+    assert!(langs.downloadable.iter().any(|l| l == "spa"));
+    let (_dir, path, svc, _id) = open("basic/hola-ocr.pdf");
+    let original = std::fs::read(&path).unwrap();
+    let req = ocr::OcrRequest {
+        path: path.clone(),
+        langs: "eng".into(),
+        force: true,
+        ..Default::default()
+    };
+    let report = ocr::ocr_copy(&cli, &req, &JobContext::silent()).unwrap();
+    let out = &report.outputs[0];
+    assert!(out.file_name().unwrap().to_string_lossy().contains("(OCR)"));
+    assert_eq!(std::fs::read(&path).unwrap(), original, "el original no cambia");
+    let rid = svc.open_document(out, None).unwrap();
+    assert!(
+        !svc.page_text(rid, 0).unwrap().trim().is_empty(),
+        "el PDF resultante tiene texto"
+    );
+}

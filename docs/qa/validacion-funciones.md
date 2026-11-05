@@ -11,7 +11,7 @@ herramienta (los `id` de `app/src/tools/base.ts`), **qué está comprobado, cóm
 | El mensaje salía con `Some(...)` y barras duplicadas, y se repetía | `Error::Io` formateaba `Option<PathBuf>` con `{:?}`; los avisos de error no se cierran solos y se apilaban | Mensaje legible con pista de «acceso denegado»; el mismo aviso ya no se apila |
 | Asistente: «no se pudo descargar el modelo: io: invalid peer certificate: UnknownIssuer» | `ureq` con rustls y las raíces de Mozilla: no ve la CA de empresa/inspección TLS ni el almacén de Windows | Crate `pliego-net`: TLS del sistema (SChannel) y proxy de Windows para OCR, asistente y firma (#198) |
 | Toda la interfaz en inglés (Read, Comment…) | El valor por defecto era «Automático» (el idioma de Windows, inglés en acr12) | Español por defecto (ajustes v2); «Automático» sigue disponible (#198) |
-| «Reconocer texto (OCR)», «Enderezar y limpiar», «Idiomas de OCR» y «Comparar» siguen como «próximamente» | W24 dejó OCR y Comparar sin subir (el hilo se paró) | Ver «Pendiente» más abajo |
+| «Reconocer texto (OCR)», «Enderezar y limpiar», «Idiomas de OCR» y «Comparar» siguen como «próximamente» | W24 dejó OCR y Comparar sin subir (el hilo se paró) | Conectados en el PR de OCR y Comparar (ver la matriz) |
 
 Por qué no lo cazó nadie antes: las pruebas del servicio abrían el documento **y** guardaban en otro archivo, nunca
 guardaban encima del documento abierto en el worker; en Linux además se puede renombrar encima de un archivo abierto,
@@ -81,9 +81,9 @@ e2e_documento_abierto`.
 ### OCR
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `ocr.recognize` Reconocer texto | 🔴 | CLI `pliego ocr` funciona (crate con pruebas); descarga de modelos con TLS del sistema | Conectar a la app (proceso hijo, ver `docs/handoff/flujos/w24.md`) |
-| `ocr.clean` Enderezar y limpiar | 🔴 | Opciones `--deskew --binarize --denoise` de la CLI | Igual |
-| `ocr.languages` Idiomas | 🔴 | `--list-languages`, `--download` | Igual |
+| `ocr.recognize` Reconocer texto | 🟡 | Conectado (PR de OCR y Comparar): proceso hijo `pliego ocr` con progreso y cancelación; A: `ocr.rs` (CLI simulada: progreso, error, cancelar, idiomas); E2E con la CLI real y modelo `eng` (copia con texto) | **W**: acr12 (DLL de Tesseract junto a la app instalada); V |
+| `ocr.clean` Enderezar y limpiar | 🟡 | Mismo trabajo con `--deskew --rotate --binarize --denoise`; las páginas conservan su aspecto (las opciones solo mejoran el reconocimiento) | W; V |
+| `ocr.languages` Idiomas | 🟡 | `ocr_languages` (instalados y descargables) y descarga como trabajo con huella verificada; TLS del sistema | **W**: descarga de `spa` en acr12 |
 
 ### Proteger
 | Herramienta | Estado | Evidencia | Falta |
@@ -103,7 +103,7 @@ e2e_documento_abierto`.
 ### Comparar y optimizar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `compare.compare` Comparar | 🔴 | CLI `pliego compare` | Conectar a la app (pantalla) |
+| `compare.compare` Comparar | 🟡 | Conectado como panel de tarea (no pantalla): compara el documento abierto con otro y guarda `<nombre> (comparación).pdf`; A: `compare.rs` (informe, idénticos, peticiones inválidas) | V; pantalla lado a lado (diseño original) pendiente |
 | `optimize.compress` Comprimir | 🟢 | A + E2E: copia con el mismo número de páginas | Documentos con contraseña (el panel no la guarda) |
 | `optimize.advanced` Optimizar avanzado | 🟡 | A: `analyze` | — |
 
@@ -131,11 +131,11 @@ e2e_documento_abierto`.
 ```
 cargo test -p pliego-app-service --test e2e_documento_abierto   # Linux y Windows (acr12: por turno)
 cargo test -p pliego-engine -p pliego-core -p pliego-net
+cargo test -p pliego-app-service --lib -- ocr:: compare::   # OCR con CLI simulada y Comparar
 cd app && npm test
 ```
 
 ## Pendiente (siguientes PRs)
 
-1. Conectar OCR (reconocer, limpiar, idiomas) y Comparar: lo que quedó sin subir de W24.
-2. Repetir en acr12 las pruebas marcadas **W** y pasar a Ander las **V** (`gestion/revision-manual-ander.md`).
-3. Documentos con contraseña en los paneles que lanzan trabajos (el panel no la guarda).
+1. Repetir en acr12 las pruebas marcadas **W** y pasar a Ander las **V** (`gestion/revision-manual-ander.md`).
+2. Documentos con contraseña en los paneles que lanzan trabajos (el panel no la guarda).

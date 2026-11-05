@@ -4163,6 +4163,7 @@ dependencies = [
  "pliego-actions",
  "pliego-annot",
  "pliego-appdata",
+ "pliego-compare",
  "pliego-convert",
  "pliego-core",
  "pliego-document",

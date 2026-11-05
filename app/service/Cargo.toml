@@ -32,14 +32,15 @@ pliego-signflow = { path = "../../crates/pliego-signflow" }
 pliego-protect = { path = "../../crates/pliego-protect" }
 pliego-redact = { path = "../../crates/pliego-redact" }
 pliego-measure = { path = "../../crates/pliego-measure" }
+pliego-compare = { path = "../../crates/pliego-compare" }
 pliego-organize.workspace = true
 pliego-stamp.workspace = true
 base64 = "0.22"
 png = "0.17"
 serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 tempfile.workspace = true
 rcgen = "0.14"
 p12-keystore = "0.4"

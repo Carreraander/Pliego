@@ -14,7 +14,7 @@ pub mod textlayer;
 
 pub use document::{OcrMode, OcrOptions, ocr_document};
 pub use image::{GrayImage, PixelRect, Word};
-pub use models::download_language;
+pub use models::{download_language, downloadable_languages};
 pub use tessdata::available_languages;
 pub use tesseract::TesseractEngine;
 

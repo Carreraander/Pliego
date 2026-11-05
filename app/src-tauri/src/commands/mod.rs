@@ -7,6 +7,7 @@ pub mod actions;
 pub mod annot;
 pub mod assistant;
 pub mod checks;
+pub mod compare;
 pub mod convert;
 pub mod dialog;
 pub mod document;
@@ -15,6 +16,7 @@ pub mod formdetect;
 pub mod index;
 pub mod jobs;
 pub mod measure;
+pub mod ocr;
 pub mod optimize;
 pub mod organize;
 pub mod outputpreview;
@@ -58,6 +60,10 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::about_info,
         jobs::cancel_job,
         convert::create_pdf,
+        compare::compare_pdfs,
+        ocr::ocr_pdf,
+        ocr::ocr_languages,
+        ocr::ocr_download_language,
         checks::check_accessibility,
         measure::measure_page_scale,
         measure::measure_calibrate,

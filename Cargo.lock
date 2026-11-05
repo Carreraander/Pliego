@@ -4165,6 +4165,7 @@ dependencies = [
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",
+ "pliego-pdf",
  "pliego-pdfa",
  "pliego-portfolio",
  "pliego-print",

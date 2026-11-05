@@ -1,14 +1,13 @@
 //! Texto plano, Markdown y HTML a PDF.
 //!
-//! Texto plano y Markdown los maqueta Pliego (`typeset`, sin MuPDF). El HTML sigue con el motor HTML de MuPDF
-//! (multiplataforma y sin navegador, pero con CSS limitado —sin flex ni grid— y sin JavaScript) hasta que MuPDF salga
-//! del binario (W41). Para páginas web reales hay que usar la impresión a PDF de WebView2
-//! ([`HtmlBackend::WebView2`]), que corre en la app de escritorio y no desde esta biblioteca.
+//! Texto plano, Markdown y HTML los maqueta Pliego (`typeset`, sin MuPDF). El HTML es **básico**: títulos, párrafos,
+//! listas, tablas, enlaces, énfasis y código, sin CSS ni JavaScript. Para páginas web reales hay que usar la
+//! impresión a PDF de WebView2 ([`HtmlBackend::WebView2`]), que corre en la app de escritorio y no desde esta
+//! biblioteca.
 
 use std::path::Path;
 
 use pliego_core::{Error, JobContext, Report, Result};
-use pliego_pdf::{Document, Matrix, PdfWriter, Rect};
 
 use crate::typeset::{self, PageSpec};
 use serde::{Deserialize, Serialize};
@@ -20,9 +19,11 @@ use crate::util::{ensure_not_same, write_atomic};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HtmlBackend {
-    /// Motor HTML de MuPDF: en cualquier sistema, sin JS, CSS básico. Es el único que implementa esta biblioteca.
+    /// Maquetador propio de Pliego: en cualquier sistema, HTML básico, sin CSS ni JavaScript. Es el único que
+    /// implementa esta biblioteca. `mupdf` se acepta al leer ajustes antiguos.
     #[default]
-    Mupdf,
+    #[serde(alias = "mupdf")]
+    Native,
     /// Impresión a PDF de WebView2 (solo Windows, la ejecuta la app). Aquí devuelve `Unsupported`.
     WebView2,
 }
@@ -45,7 +46,7 @@ impl Default for TextToPdfOptions {
             page_size: PageSizeSpec::A4,
             margin_pt: 54.0,
             font_size_pt: 11.0,
-            backend: HtmlBackend::Mupdf,
+            backend: HtmlBackend::Native,
         }
     }
 }
@@ -98,41 +99,11 @@ fn finish_typeset(t: typeset::Typeset, output: &Path, ctx: &JobContext) -> Resul
     Ok(report)
 }
 
-/// Convierte una cadena HTML en un PDF con el motor HTML de MuPDF.
+/// Convierte una cadena HTML en un PDF con el maquetador propio (HTML básico: sin CSS ni JavaScript).
 pub fn html_string_to_pdf(html: &str, output: &Path, options: &TextToPdfOptions, ctx: &JobContext) -> Result<Report> {
     let spec = page_spec(options)?;
-    let (w, h, m) = (spec.width, spec.height, spec.margin);
     ctx.step(0, 2, "maquetando")?;
-    let mut doc = Document::from_bytes(html.as_bytes(), "text/html")?;
-    doc.layout(w - 2.0 * m, h - 2.0 * m, options.font_size_pt)?;
-    let pages = doc.page_count()?;
-
-    // Se escribe con `PdfWriter` (página completa y contenido desplazado por el margen).
-    // `Document::convert_to_pdf` se descartó: libera memoria dos veces en documentos de varias páginas.
-    let tmp = tempfile::tempdir().map_err(Error::from)?;
-    let tmp_pdf = tmp.path().join("salida.pdf");
-    {
-        let mut writer = PdfWriter::new(&tmp_pdf, "")?;
-        for i in 0..pages {
-            let page = doc.load_page(i)?;
-            writer.write_page(
-                Rect {
-                    x0: 0.0,
-                    y0: 0.0,
-                    x1: w,
-                    y1: h,
-                },
-                &page,
-                &Matrix::new_translate(m, m),
-            )?;
-        }
-        // Al salir de este bloque se cierra el escritor y el PDF queda completo.
-    }
-    ctx.step(1, 2, "guardando")?;
-    let bytes = std::fs::read(&tmp_pdf).map_err(|e| Error::io_at(&tmp_pdf, e))?;
-    write_atomic(output, &bytes)?;
-    ctx.step(2, 2, "listo")?;
-    Ok(Report::with_output(output, format!("{pages} página(s) creadas")))
+    finish_typeset(typeset::html(html, &spec)?, output, ctx)
 }
 
 /// Texto plano UTF-8 a PDF (fuente monoespaciada, ajuste de línea). Lo maqueta Pliego, sin MuPDF.
@@ -153,7 +124,7 @@ pub fn markdown_to_pdf(input: &Path, output: &Path, options: &TextToPdfOptions, 
     finish_typeset(typeset::markdown(&md, &spec)?, output, ctx)
 }
 
-/// Archivo HTML (UTF-8) a PDF. Con [`HtmlBackend::Mupdf`] no se ejecuta JavaScript ni se admite CSS moderno.
+/// Archivo HTML (UTF-8) a PDF. Con [`HtmlBackend::Native`] no se ejecuta JavaScript ni se admite CSS.
 pub fn html_to_pdf(input: &Path, output: &Path, options: &TextToPdfOptions, ctx: &JobContext) -> Result<Report> {
     ensure_not_same(input, output)?;
     let html = read_utf8(input)?;

@@ -264,3 +264,140 @@ fn plain_text_keeps_spaces_blank_lines_and_wraps() {
         .unwrap();
     assert!(indented.starts_with("    sangrada"), "{indented:?}");
 }
+
+// --- HTML básico (W41a) --------------------------------------------------------------------------------------
+
+fn html_to_pdf_file(dir: &Path, html: &str) -> (PathBuf, Report) {
+    html_to_pdf_with(dir, html, &TextToPdfOptions::default())
+}
+
+fn html_to_pdf_with(dir: &Path, html: &str, o: &TextToPdfOptions) -> (PathBuf, Report) {
+    let src = dir.join("a.html");
+    std::fs::write(&src, html).unwrap();
+    let pdf = dir.join("h.pdf");
+    let r = pliego_convert::html_to_pdf(&src, &pdf, o, &JobContext::silent()).unwrap();
+    qpdf_check(&pdf);
+    (pdf, r)
+}
+
+#[test]
+fn html_covers_every_construct_in_reading_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let html = "<!DOCTYPE html><html><head><title>NO SALE</title><style>p{color:red}</style><script>var x='NI ESTO';</script></head>\
+<body><h1>Título uno</h1><h2>Subtítulo</h2>\
+<p>Párrafo con <b>negrita</b>, <i>cursiva</i>, <s>tachado</s> y <code>código</code> &amp; &eacute;ñe &#8364; &#x41;.</p>\
+<ul><li>uno</li><li>dos<ul><li>dos.uno</li></ul></li></ul>\
+<ol><li>primero</li><li>segundo</li></ol>\
+<blockquote>cita</blockquote><pre>fn main() {\n    1 &lt; 2\n}</pre><hr>\
+<table><tr><th>A</th><th>B</th></tr><tr><td>celda1</td><td>celda2</td></tr></table>\
+<p>Fin <a href=\"https://example.com/x\">enlace</a>.</p></body></html>";
+    let (pdf, r) = html_to_pdf_file(dir.path(), html);
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+    let t = text_of(&pdf);
+    for needle in [
+        "Título uno",
+        "Subtítulo",
+        "negrita",
+        "cursiva",
+        "tachado",
+        "código",
+        "& éñe € A.",
+        "dos.uno",
+        "primero",
+        "segundo",
+        "cita",
+        "fn main() {",
+        "1 < 2",
+        "celda1",
+        "celda2",
+        "Fin",
+        "enlace",
+    ] {
+        assert!(t.contains(needle), "falta {needle:?} en:\n{t}");
+    }
+    for ignored in ["NO SALE", "NI ESTO", "color:red"] {
+        assert!(!t.contains(ignored), "no debería salir {ignored:?}:\n{t}");
+    }
+    let pos = |s: &str| t.find(s).unwrap();
+    assert!(
+        pos("Título uno") < pos("Subtítulo") && pos("Subtítulo") < pos("negrita") && pos("negrita") < pos("celda1")
+    );
+    assert!(pos("celda1") < pos("Fin"));
+    // El enlace queda como anotación con su dirección.
+    let bytes = std::fs::read(&pdf).unwrap();
+    assert!(
+        bytes
+            .windows(b"https://example.com/x".len())
+            .any(|w| w == b"https://example.com/x"),
+        "falta la anotación del enlace"
+    );
+}
+
+#[test]
+fn html_collapses_whitespace_and_keeps_pre() {
+    let dir = tempfile::tempdir().unwrap();
+    let (pdf, _) = html_to_pdf_file(
+        dir.path(),
+        "<p>uno\n\n   dos \t tres</p><pre>\n  a   b\n\n  c</pre><p>x<br>y<br/>z</p>",
+    );
+    let t = text_of(&pdf);
+    assert!(t.contains("uno dos tres"), "{t}");
+    assert!(t.contains("a   b"), "{t}");
+    assert!(t.contains("x") && t.contains("y") && t.contains("z"));
+}
+
+#[test]
+fn html_malformed_input_never_panics_and_gives_a_valid_pdf() {
+    let dir = tempfile::tempdir().unwrap();
+    let deep = format!("{}texto profundo{}", "<div>".repeat(2000), "</div>".repeat(2000));
+    let many_cells = format!("<table><tr>{}</tr></table>", "<td>c</td>".repeat(500));
+    for html in [
+        "",
+        "   ",
+        "solo texto sin etiquetas",
+        "<p>sin cerrar <b>negrita <i>cursiva",
+        "</p></div></b>cierres huérfanos",
+        "<p>a < b y c > d &noexiste; &#99999999; &#xZZ; &amp",
+        "<a href=",
+        "<!-- comentario sin cerrar",
+        "<script>nunca se cierra",
+        "<table><td>sin tr</td></table><tr><td>fuera</td></tr>",
+        "<ul><li>a<li>b<li>c</ul>",
+        "<img src=x alt='una imagen'><input value=no>",
+        "<p>\0\u{1}\u{7f}texto</p>",
+        &deep,
+        &many_cells,
+    ] {
+        let (pdf, _) = html_to_pdf_file(dir.path(), html);
+        assert!(Document::open(&pdf).unwrap().page_count().unwrap() >= 1, "{html:.60?}");
+    }
+    let t = text_of(&html_to_pdf_file(dir.path(), "<ul><li>a<li>b<li>c</ul>").0);
+    assert!(t.contains('a') && t.contains('b') && t.contains('c'), "{t}");
+    let t = text_of(&html_to_pdf_file(dir.path(), &deep).0);
+    assert!(t.contains("texto profundo"), "{t}");
+    let t = text_of(&html_to_pdf_file(dir.path(), "<img src=x alt='una imagen'>").0);
+    assert!(t.contains("una imagen"), "{t}");
+}
+
+#[test]
+fn html_respects_margins_and_paginates() {
+    let dir = tempfile::tempdir().unwrap();
+    let long_word = "x".repeat(300);
+    let body: String = (0..300)
+        .map(|i| format!("<p>Párrafo número {i} {long_word}</p>"))
+        .collect();
+    let (pdf, _) = html_to_pdf_file(dir.path(), &format!("<body>{body}</body>"));
+    let pages = structured_text_pages(&pdf, None, &PageRange::all()).unwrap();
+    assert!(pages.len() > 5);
+    for (n, p) in pages.iter().enumerate() {
+        for b in &p.blocks {
+            if let Block::Text { bbox, .. } = b {
+                assert!(
+                    bbox.x0 >= 53.0 && bbox.x1 <= p.width - 53.0,
+                    "página {}: {bbox:?}",
+                    n + 1
+                );
+            }
+        }
+    }
+}

@@ -112,7 +112,7 @@ if (-not $FakeApp) {
   $pdfiumDll = Join-Path $pdfiumDir 'pdfium.dll'
   $cached = (Test-Path $pdfiumDll) -and ((Get-FileHash $pdfiumDll -Algorithm SHA256).Hash.ToLower() -eq $pdfiumLock.dll_sha256.ToLower())
   if (-not $cached) { & (Join-Path $repo 'tools\pdfium\fetch-pdfium.ps1') -OutDir $pdfiumDir | Out-Host }
-  if (-not (Test-Path $pdfiumDll)) { throw "Falta pdfium.dll en $pdfiumDir: el worker no podría dibujar con PDFium." }
+  if (-not (Test-Path $pdfiumDll)) { throw "Falta pdfium.dll en ${pdfiumDir}: el worker no podría dibujar con PDFium." }
   Copy-Item $pdfiumDll (Join-Path $stage 'pdfium.dll')
   $pdfiumLic = Join-Path $stage 'licenses\pdfium'
   New-Item -ItemType Directory -Force -Path $pdfiumLic | Out-Null

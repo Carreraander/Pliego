@@ -71,41 +71,51 @@ fn form_xobject(doc: &mut PdfDocument, w: f32, h: f32, content: &str) -> Result<
     doc.add_stream(content.as_bytes(), Some(&dict), false)
 }
 
-/// Aspecto de casilla (cruz) o radio (punto) y de reposo.
+/// Círculo de radio `r` centrado en (`cx`, `cy`) como cuatro curvas de Bézier cerradas.
+fn circle_path(cx: f32, cy: f32, r: f32) -> String {
+    let k = 0.5523 * r;
+    format!(
+        "{} {} m {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c h",
+        cx + r,
+        cy,
+        cx + r,
+        cy + k,
+        cx + k,
+        cy + r,
+        cx,
+        cy + r,
+        cx - k,
+        cy + r,
+        cx - r,
+        cy + k,
+        cx - r,
+        cy,
+        cx - r,
+        cy - k,
+        cx - k,
+        cy - r,
+        cx,
+        cy - r,
+        cx + k,
+        cy - r,
+        cx + r,
+        cy - k,
+        cx + r,
+        cy,
+    )
+}
+
+/// Aspecto de casilla (marco cuadrado y cruz) o radio (marco redondo y punto) y de reposo.
 fn button_ap(doc: &mut PdfDocument, kind: FieldType, on: &str, w: f32, h: f32) -> Result<Object> {
-    let frame = format!("0 G 1 w 0.5 0.5 {} {} re S", w - 1.0, h - 1.0);
-    let mark = if kind == FieldType::RadioButton {
-        let (cx, cy, r) = (w / 2.0, h / 2.0, (w.min(h) / 2.0 - 3.0).max(1.0));
-        let k = 0.5523 * r;
-        format!(
-            "0 g {} {} m {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c f",
-            cx + r,
-            cy,
-            cx + r,
-            cy + k,
-            cx + k,
-            cy + r,
-            cx,
-            cy + r,
-            cx - k,
-            cy + r,
-            cx - r,
-            cy + k,
-            cx - r,
-            cy,
-            cx - r,
-            cy - k,
-            cx - k,
-            cy - r,
-            cx,
-            cy - r,
-            cx + k,
-            cy - r,
-            cx + r,
-            cy - k,
-            cx + r,
-            cy,
-        )
+    let radio = kind == FieldType::RadioButton;
+    let (cx, cy) = (w / 2.0, h / 2.0);
+    let frame = if radio {
+        format!("0 G 1 w {} S", circle_path(cx, cy, (w.min(h) / 2.0 - 0.5).max(1.0)))
+    } else {
+        format!("0 G 1 w 0.5 0.5 {} {} re S", w - 1.0, h - 1.0)
+    };
+    let mark = if radio {
+        format!("0 g {} f", circle_path(cx, cy, (w.min(h) / 2.0 - 3.0).max(1.0)))
     } else {
         format!(
             "0 G 1.5 w 3 3 m {} {} l S 3 {} m {} 3 l S",

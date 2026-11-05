@@ -1,4 +1,4 @@
-//! Motor de render de Pliego sobre `pliego-pdf` (AGPL-3.0-or-later).
+//! Motor de render de Pliego sobre `pliego-pdf` (BUSL-1.1).
 //!
 //! `DefaultDocument` no es `Send`: abrir y usar cada documento en un único hilo.
 

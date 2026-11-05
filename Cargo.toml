@@ -6,7 +6,9 @@ members = ["crates/*", "app/service", "app/src-tauri"]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-license = "AGPL-3.0-or-later"
+license = "BUSL-1.1"
+# Ningún crate de Pliego se publica en crates.io; además, cargo-deny ignora la licencia de los crates privados (deny.toml).
+publish = false
 repository = "https://github.com/Carreraander/Pliego"
 authors = ["Proyecto Pliego"]
 

@@ -4,6 +4,7 @@ description = "Pasos de las acciones en lote: el registro con todos los módulos
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [features]

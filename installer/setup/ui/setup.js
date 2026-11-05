@@ -7,7 +7,7 @@ const STR = {
     welcome_h: "Instalar Pliego", welcome_p: "Lee, firma y organiza tus PDF. Libre, ligero y sin nube.",
     tip_where: (d) => `Para ti, en ${d}`, tip_where_machine: (d) => `Para todos los usuarios, en ${d}`,
     tip_assoc: "Abre PDF con Pliego y añade el menú contextual", tip_updates: "Busca actualizaciones firmadas automáticamente",
-    legal: "Software libre bajo AGPL-3.0", license: "Ver licencia", license_h: "Licencia de Pliego (AGPL-3.0-or-later)",
+    legal: "Código visible · licencia BUSL-1.1", license: "Ver licencia", license_h: "Licencia de Pliego (BUSL-1.1)",
     opt_h: "Opciones de instalación", scope_user: "Solo para mí", scope_user_d: "Sin permisos de administrador",
     scope_machine: "Para todos", scope_machine_d: "Pide permiso de administrador", scope_label: "¿Para quién se instala?", change: "Cambiar…",
     o_assoc: "Abrir los PDF con Pliego", o_ctx: "Opciones de Pliego en el menú contextual del Explorador", o_desktop: "Acceso directo en el escritorio",
@@ -35,7 +35,7 @@ const STR = {
     welcome_h: "Install Pliego", welcome_p: "Read, sign and organize your PDFs. Free, light and cloud-free.",
     tip_where: (d) => `For you, in ${d}`, tip_where_machine: (d) => `For all users, in ${d}`,
     tip_assoc: "Opens PDFs with Pliego and adds the context menu", tip_updates: "Checks for signed updates automatically",
-    legal: "Free software under AGPL-3.0", license: "View license", license_h: "Pliego license (AGPL-3.0-or-later)",
+    legal: "Source-available · BUSL-1.1 license", license: "View license", license_h: "Pliego license (BUSL-1.1)",
     opt_h: "Install options", scope_user: "Just for me", scope_user_d: "No administrator rights needed",
     scope_machine: "For all users", scope_machine_d: "Asks for administrator permission", scope_label: "Who is it for?", change: "Change…",
     o_assoc: "Open PDFs with Pliego", o_ctx: "Pliego options in the Explorer context menu", o_desktop: "Desktop shortcut",
@@ -239,7 +239,7 @@ function showLicense() {
   $("#ov-close").focus();
   const fill = (t) => ($("#ov-body").textContent = t);
   if (licText) return fill(licText);
-  fetch("license.txt").then((r) => r.text()).then((t) => fill((licText = t))).catch(() => fill("https://www.gnu.org/licenses/agpl-3.0.html"));
+  fetch("license.txt").then((r) => r.text()).then((t) => fill((licText = t))).catch(() => fill("https://github.com/Carreraander/Pliego/blob/main/LICENSE"));
 }
 function hideLicense() { $("#overlay").hidden = true; const b = $("#lic"); if (b) b.focus(); }
 

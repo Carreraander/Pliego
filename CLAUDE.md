@@ -1,6 +1,6 @@
 # Pliego: guía para agentes
 
-Pliego es una alternativa libre (AGPL-3.0-or-later) a Acrobat Pro para Windows: núcleo Rust sobre MuPDF,
+Pliego es una alternativa gratuita y con el código a la vista (BUSL-1.1) a Acrobat Pro para Windows: núcleo Rust sobre lopdf + PDFium,
 interfaz Tauri 2 + WebView2 + SolidJS y CLI `pliego`. Idioma del proyecto: español (código e identificadores en inglés).
 
 Antes de tocar nada, lee:

@@ -4,6 +4,7 @@ description = "Capa propia de acceso a PDF: tipos y operaciones de Pliego sobre 
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [dependencies]

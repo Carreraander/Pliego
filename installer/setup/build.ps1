@@ -147,6 +147,12 @@ Copy-Item (Join-Path $target 'pliego-setup.exe')         (Join-Path $stage 'plie
 Copy-Item (Join-Path $target 'pliego-launcher.exe')      (Join-Path $stage 'launcher\Pliego.exe')
 Copy-Item (Join-Path $target 'pliego-launcher-cli.exe')  (Join-Path $stage 'launcher\pliego-cli.exe')  # NTFS no distingue Pliego.exe/pliego.exe
 Copy-Item (Join-Path $repo 'LICENSE') (Join-Path $stage 'LICENSE') -ErrorAction SilentlyContinue
+# Avisos de terceros y texto de la licencia de cambio (AGPL-3.0-or-later), junto a los de las DLL.
+$legal = Join-Path $stage 'licenses'
+New-Item -ItemType Directory -Force -Path $legal | Out-Null
+Copy-Item (Join-Path $repo 'THIRD-PARTY.md') (Join-Path $legal 'THIRD-PARTY.md') -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repo 'docs\legal\dependencias-rust.md') (Join-Path $legal 'dependencias-rust.md') -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repo 'LICENSES\AGPL-3.0-or-later.txt') (Join-Path $legal 'AGPL-3.0-or-later.txt') -ErrorAction SilentlyContinue
 
 # 3. Firma (opcional): todo lo ejecutable antes de empaquetar
 Get-ChildItem $stage -Recurse -Include *.exe, *.dll | ForEach-Object { Sign-File $_.FullName }

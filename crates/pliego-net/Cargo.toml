@@ -4,6 +4,7 @@ description = "Cliente HTTP(S) común de Pliego: TLS con el almacén de certific
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [dependencies]

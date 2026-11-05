@@ -1,21 +1,30 @@
-# Licencias permitidas: todas compatibles con AGPL-3.0-or-later.
-# Añadir una licencia nueva requiere aprobación del hilo de gestión.
+# Licencias de las dependencias. Pliego es BUSL-1.1 (ver LICENSE): ninguna dependencia puede ser copyleft fuerte
+# (GPL, LGPL, AGPL), porque limitaría cómo se puede licenciar y vender Pliego. Todas las de abajo son permisivas
+# o, como mucho, copyleft por archivo (MPL-2.0). Añadir una licencia nueva requiere aprobación del hilo de gestión
+# y, si no es permisiva, la revisión del abogado (docs/legal/resumen-para-abogado.md).
 [licenses]
 allow = [
   "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause",
-  "ISC", "Zlib", "MPL-2.0", "Unicode-3.0", "Unicode-DFS-2016", "CC0-1.0", "BSL-1.0",
-  "AGPL-3.0", "AGPL-3.0-only", "AGPL-3.0-or-later", "FTL", "0BSD",
-  # IJG (Independent JPEG Group): permisiva y compatible con GPL/AGPL según la FSF. La usa jpeg-encoder
-  # (pliego-optimize); MuPDF ya incluye libjpeg bajo la misma licencia. Ver THIRD-PARTY.md.
+  "ISC", "Zlib", "MPL-2.0", "Unicode-3.0", "CC0-1.0", "BSL-1.0",
+  "0BSD", "Unlicense",
+  # IJG (Independent JPEG Group): permisiva; la usa jpeg-encoder (pliego-optimize). Ver THIRD-PARTY.md.
   "IJG",
-  # CDLA-Permissive-2.0: la usa webpki-roots (raíces de confianza Mozilla) que necesita rustls para https en
-  # pliego-sign (TSA/CRL). Es permisiva (datos) y la aprobó el hilo de gestión el 2026-11-03.
-  "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
 
+# Los crates de Pliego (`publish = false`) llevan BUSL-1.1, que no está en `allow` a propósito: así una dependencia
+# externa con BUSL-1.1 (o con cualquier otra licencia source-available) fallaría. Un crate nuevo del workspace debe
+# heredar `publish.workspace = true` (junto a `license.workspace = true`) o cargo-deny lo rechazará.
+[licenses.private]
+ignore = true
+
 [bans]
 multiple-versions = "warn"
+# MuPDF (AGPL) salió del proyecto en #200. Que no vuelva a entrar, ni directa ni transitivamente.
+deny = [
+  { crate = "mupdf" },
+  { crate = "mupdf-sys" },
+]
 
 [advisories]
 yanked = "warn"

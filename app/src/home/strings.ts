@@ -13,7 +13,7 @@ export const ht = scoped<string>({
     "recent.pinned": "Fijado", "recent.today": "hoy, {time}", "recent.yesterday": "ayer", "recent.open": "Abrir {name}", "recent.actions": "Más acciones de {name}",
     "news.title": "Novedades de Pliego {version}", "news.close": "Cerrar novedades",
     "recover.text": "Pliego se cerró sin guardar {n} documentos.", "recover.one": "Pliego se cerró sin guardar 1 documento.", "recover.restore": "Recuperar", "recover.discard": "Descartar",
-    "home.footer": "Pliego {version} · Software libre · AGPL-3.0",
+    "home.footer": "Pliego {version} · Código visible · BUSL-1.1",
   },
   en: {
     "home.morning": "Good morning", "home.afternoon": "Good afternoon", "home.evening": "Good evening", "home.title": "Home",
@@ -27,6 +27,6 @@ export const ht = scoped<string>({
     "recent.pinned": "Pinned", "recent.today": "today, {time}", "recent.yesterday": "yesterday", "recent.open": "Open {name}", "recent.actions": "More actions for {name}",
     "news.title": "What’s new in Pliego {version}", "news.close": "Close news",
     "recover.text": "Pliego closed without saving {n} documents.", "recover.one": "Pliego closed without saving 1 document.", "recover.restore": "Recover", "recover.discard": "Discard",
-    "home.footer": "Pliego {version} · Free software · AGPL-3.0",
+    "home.footer": "Pliego {version} · Source-available · BUSL-1.1",
   },
 });

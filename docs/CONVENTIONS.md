@@ -1,9 +1,15 @@
 # Convenciones de Pliego
 
 ## Licencia
-- Todo el código es **AGPL-3.0-or-later**. Cada crate hereda `license.workspace = true`.
-- Solo se admiten dependencias con licencias de `deny.toml`. Una licencia nueva (p. ej. GPL-3.0, LGPL) necesita
-  aprobación del hilo de gestión en el PR.
+- Todo el código es **BUSL-1.1** (ver `LICENSE`). Cada crate hereda `license.workspace = true` y
+  `publish.workspace = true` (sin lo segundo `cargo deny` rechaza la licencia del crate).
+- Solo se admiten dependencias con licencias de `deny.toml`. Una licencia nueva necesita aprobación del hilo de
+  gestión en el PR; **GPL, LGPL y AGPL no se admiten** (limitarían cómo se puede licenciar y vender Pliego) y
+  `mupdf`/`mupdf-sys` están prohibidos.
+- Una dependencia nueva que exija aviso expreso va a `THIRD-PARTY.md`. Regenera `docs/legal/dependencias-rust.md`
+  con el comando que trae.
+- Las contribuciones de personas ajenas al proyecto solo se fusionan con el acuerdo de `CLA.md` aceptado (ver
+  `CONTRIBUTING.md`).
 - No copiar código de proyectos con licencia incompatible ni de Adobe. Inspirarse en el comportamiento, no en el código.
 - Identidad propia: nada de nombres, iconos, textos o disposición que imiten a Acrobat.
 
@@ -22,9 +28,9 @@
 - `pliego-core`, `pliego-pdf` y `pliego-engine` son de gestión/W30. Si necesitas algo nuevo ahí, pídelo (mensaje al
   hilo de gestión) o abre un PR pequeño y separado que **solo añada** (nunca cambies lo que ya existe).
 - Los módulos de funciones **no dependen entre sí**: solo de `pliego-core` y de `pliego-pdf`.
-- **No importes `mupdf` en código nuevo** (desde la ola 5): usa `pliego_pdf` (`Document`, `PdfDocument`, `Object`…).
-  Los crates aún pendientes de migrar (tabla en `docs/handoff/flujos/w30.md`) siguen con `mupdf` hasta su PR de
-  migración; un crate migrado no vuelve a depender de `mupdf`.
+- **`mupdf` ya no existe en el proyecto** (se quitó en #200) y `deny.toml` lo prohíbe: usa `pliego_pdf` (`Document`,
+  `PdfDocument`, `Object`…). No copies ni portes código de MuPDF ni del crate `mupdf` (AGPL): escribe desde la
+  especificación PDF.
 
 ## API de los módulos
 - Biblioteca primero: funciones puras sobre rutas o sobre `pliego_pdf::PdfDocument`, sin estado global.

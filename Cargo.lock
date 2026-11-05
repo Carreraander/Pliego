@@ -4049,8 +4049,8 @@ dependencies = [
 name = "pliego-annot"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
 ]

@@ -1,13 +1,9 @@
-use mupdf::color::AnnotationColor;
-use mupdf::pdf::{LineEndingStyle, PdfAnnotation, PdfAnnotationType, PdfDocument, PdfObject, PdfPage};
-use mupdf::{Point, Quad, Rect};
 use pliego_core::{Error, Result};
+use pliego_pdf::AnnotationColor;
+use pliego_pdf::{LineEndingStyle, Object, PdfAnnotation, PdfAnnotationType, PdfDocument, PdfPage};
+use pliego_pdf::{Point, Quad, Rect};
 
 use crate::types::*;
-
-fn pe(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 fn pt(p: PointPts) -> Point {
     Point::new(p[0], p[1])
@@ -137,7 +133,7 @@ fn new_nm() -> String {
     )
 }
 
-fn dict_string(obj: &PdfObject, key: &str) -> Option<String> {
+fn dict_string(obj: &Object, key: &str) -> Option<String> {
     let v = obj.get_dict(key).ok()??;
     if v.is_string().ok()? {
         v.as_string().ok()
@@ -148,12 +144,12 @@ fn dict_string(obj: &PdfObject, key: &str) -> Option<String> {
     }
 }
 
-fn put_string(obj: &mut PdfObject, key: &str, value: &str) -> Result<()> {
-    obj.dict_put(key, PdfObject::new_string(value).map_err(pe)?).map_err(pe)
+fn put_string(obj: &mut Object, key: &str, value: &str) -> Result<()> {
+    obj.dict_put(key, Object::new_string(value)?)
 }
 
-fn put_name(obj: &mut PdfObject, key: &str, value: &str) -> Result<()> {
-    obj.dict_put(key, PdfObject::new_name(value).map_err(pe)?).map_err(pe)
+fn put_name(obj: &mut Object, key: &str, value: &str) -> Result<()> {
+    obj.dict_put(key, Object::new_name(value)?)
 }
 
 fn r4(r: Rect) -> RectPts {
@@ -161,19 +157,19 @@ fn r4(r: Rect) -> RectPts {
 }
 
 fn page_of(doc: &PdfDocument, page: usize) -> Result<PdfPage> {
-    let n = doc.page_count().map_err(pe)? as usize;
+    let n = doc.page_count()? as usize;
     if page >= n {
         return Err(Error::InvalidInput(format!(
             "la página {} no existe (el documento tiene {n})",
             page + 1
         )));
     }
-    doc.load_pdf_page(page as i32).map_err(pe)
+    doc.load_pdf_page(page as i32)
 }
 
 fn find(page: &PdfPage, xref: i32) -> Result<PdfAnnotation> {
     for a in page.annotations() {
-        if a.xref().map_err(pe)? == xref {
+        if a.xref()? == xref {
             return Ok(a);
         }
     }
@@ -183,7 +179,7 @@ fn find(page: &PdfPage, xref: i32) -> Result<PdfAnnotation> {
 }
 
 fn info_of(page_no: usize, a: &PdfAnnotation) -> Result<Option<AnnotInfo>> {
-    let t = a.r#type().map_err(pe)?;
+    let t = a.r#type()?;
     if matches!(t, PdfAnnotationType::Popup | PdfAnnotationType::Widget) {
         return Ok(None);
     }
@@ -193,19 +189,19 @@ fn info_of(page_no: usize, a: &PdfAnnotation) -> Result<Option<AnnotInfo>> {
     let mut info = AnnotInfo {
         id: AnnotId {
             page: page_no,
-            xref: a.xref().map_err(pe)?,
+            xref: a.xref()?,
         },
         kind,
-        rect: r4(a.rect().map_err(pe)?),
+        rect: r4(a.rect()?),
         style: Style {
-            color: from_color(a.color().map_err(pe)?),
+            color: from_color(a.color()?),
             interior_color: from_color(a.interior_color().ok().flatten()),
-            opacity: Some(a.opacity().map_err(pe)?),
+            opacity: Some(a.opacity()?),
             border_width: a.border_width().ok(),
         },
-        author: a.author().map_err(pe)?.map(str::to_owned),
+        author: a.author()?,
         subject: dict_string(&obj, "Subj"),
-        contents: a.contents().map_err(pe)?.map(str::to_owned),
+        contents: a.contents()?,
         nm: dict_string(&obj, "NM"),
         created: dict_string(&obj, "CreationDate"),
         modified: dict_string(&obj, "M"),
@@ -228,21 +224,20 @@ fn info_of(page_no: usize, a: &PdfAnnotation) -> Result<Option<AnnotInfo>> {
     }
     match kind {
         AnnotKind::Highlight | AnnotKind::Underline | AnnotKind::StrikeOut | AnnotKind::Squiggly => {
-            info.quads = a.quad_points().map_err(pe)?.iter().map(quad_pts).collect();
+            info.quads = a.quad_points()?.iter().map(quad_pts).collect();
         }
         AnnotKind::Polygon | AnnotKind::PolyLine => {
-            info.points = a.vertices().map_err(pe)?.iter().map(|p| [p.x, p.y]).collect();
+            info.points = a.vertices()?.iter().map(|p| [p.x, p.y]).collect();
         }
         AnnotKind::Ink => {
             info.strokes = a
-                .ink_list()
-                .map_err(pe)?
+                .ink_list()?
                 .iter()
                 .map(|s| s.iter().map(|p| [p.x, p.y]).collect())
                 .collect();
         }
         AnnotKind::Line => {
-            let (s, e) = a.line().map_err(pe)?;
+            let (s, e) = a.line()?;
             info.line = Some(([s.x, s.y], [e.x, e.y]));
         }
         _ => {}
@@ -253,7 +248,7 @@ fn info_of(page_no: usize, a: &PdfAnnotation) -> Result<Option<AnnotInfo>> {
 /// Lista las anotaciones de una página (`Some(n)`) o de todo el documento (`None`).
 /// Excluye los campos de formulario y las ventanas emergentes.
 pub fn list(doc: &mut PdfDocument, page: Option<usize>) -> Result<Vec<AnnotInfo>> {
-    let n = doc.page_count().map_err(pe)? as usize;
+    let n = doc.page_count()? as usize;
     let range = match page {
         Some(p) => p..p + 1,
         None => 0..n,
@@ -274,28 +269,28 @@ pub fn list(doc: &mut PdfDocument, page: Option<usize>) -> Result<Vec<AnnotInfo>
 fn apply_style(a: &mut PdfAnnotation, s: &Style) -> Result<()> {
     // En FreeText el color va solo en la cadena de apariencia por defecto (texto); /C sería el fondo.
     if let Some(c) = s.color.filter(|_| a.r#type().ok() != Some(PdfAnnotationType::FreeText)) {
-        a.set_color(rgb(c)).map_err(pe)?;
+        a.set_color(rgb(c))?;
     }
     if let Some(c) = s.interior_color {
         // Solo figuras cerradas y líneas admiten color interior (IC).
         if matches!(
-            a.r#type().map_err(pe)?,
+            a.r#type()?,
             PdfAnnotationType::Line
                 | PdfAnnotationType::Square
                 | PdfAnnotationType::Circle
                 | PdfAnnotationType::Polygon
                 | PdfAnnotationType::PolyLine
         ) {
-            a.set_interior_color(rgb(c)).map_err(pe)?;
+            a.set_interior_color(rgb(c))?;
         }
     }
     if let Some(o) = s.opacity {
-        a.set_opacity(o.clamp(0.0, 1.0)).map_err(pe)?;
+        a.set_opacity(o.clamp(0.0, 1.0))?;
     }
     if let Some(w) = s.border_width {
         // Solo algunos tipos admiten borde (BS); en el resto se ignora.
         if matches!(
-            a.r#type().map_err(pe)?,
+            a.r#type()?,
             PdfAnnotationType::FreeText
                 | PdfAnnotationType::Line
                 | PdfAnnotationType::Square
@@ -304,7 +299,7 @@ fn apply_style(a: &mut PdfAnnotation, s: &Style) -> Result<()> {
                 | PdfAnnotationType::PolyLine
                 | PdfAnnotationType::Ink
         ) {
-            a.set_border_width(w.max(0.0)).map_err(pe)?;
+            a.set_border_width(w.max(0.0))?;
         }
     }
     Ok(())
@@ -321,7 +316,7 @@ fn apply_meta(
         put_string(&mut a.object(), "T", x)?;
     }
     if let Some(x) = contents {
-        a.set_contents(x).map_err(pe)?;
+        a.set_contents(x)?;
     }
     if let Some(x) = subject {
         put_string(&mut a.object(), "Subj", x)?;
@@ -336,64 +331,56 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
     let mut a = match &spec.geometry {
         Geometry::Note { at } => {
             let r = Rect::new(at[0], at[1], at[0] + 20.0, at[1] + 20.0);
-            let mut a = page
-                .add_text_annotation(r, spec.contents.as_deref().unwrap_or(""))
-                .map_err(pe)?;
-            a.set_icon_name("Comment").map_err(pe)?;
+            let mut a = page.add_text_annotation(r, spec.contents.as_deref().unwrap_or(""))?;
+            a.set_icon_name("Comment")?;
             a
         }
         Geometry::FreeText { rect: r, font_size } => {
-            let mut a = page
-                .add_free_text_annotation(rect(*r), spec.contents.as_deref().unwrap_or(""))
-                .map_err(pe)?;
-            a.set_default_appearance("Helv", *font_size, spec.style.color.map(rgb))
-                .map_err(pe)?;
+            let mut a = page.add_free_text_annotation(rect(*r), spec.contents.as_deref().unwrap_or(""))?;
+            a.set_default_appearance("Helv", *font_size, spec.style.color.map(rgb))?;
             a
         }
-        Geometry::Highlight { quads } => page
-            .add_highlight_annotation(quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())
-            .map_err(pe)?,
-        Geometry::Underline { quads } => page
-            .add_underline_annotation(quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())
-            .map_err(pe)?,
-        Geometry::StrikeOut { quads } => page
-            .add_strikeout_annotation(quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())
-            .map_err(pe)?,
-        Geometry::Squiggly { quads } => page
-            .add_squiggly_annotation(quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())
-            .map_err(pe)?,
+        Geometry::Highlight { quads } => {
+            page.add_highlight_annotation(&quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())?
+        }
+        Geometry::Underline { quads } => {
+            page.add_underline_annotation(&quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())?
+        }
+        Geometry::StrikeOut { quads } => {
+            page.add_strikeout_annotation(&quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())?
+        }
+        Geometry::Squiggly { quads } => {
+            page.add_squiggly_annotation(&quads.iter().map(|q| quad(*q)).collect::<Vec<_>>())?
+        }
         Geometry::Line {
             start,
             end,
             start_style,
             end_style,
         } => {
-            let mut a = page.add_line_annotation(pt(*start), pt(*end)).map_err(pe)?;
-            a.set_line_ending_styles(line_end(*start_style), line_end(*end_style))
-                .map_err(pe)?;
+            let mut a = page.add_line_annotation(pt(*start), pt(*end))?;
+            a.set_line_ending_styles(line_end(*start_style), line_end(*end_style))?;
             a
         }
-        Geometry::Square { rect: r } => page.add_square_annotation(rect(*r)).map_err(pe)?,
-        Geometry::Circle { rect: r } => page.add_circle_annotation(rect(*r)).map_err(pe)?,
-        Geometry::Polygon { points } => page
-            .add_polygon_annotation(points.iter().map(|p| pt(*p)).collect::<Vec<_>>())
-            .map_err(pe)?,
-        Geometry::PolyLine { points } => page
-            .add_polyline_annotation(points.iter().map(|p| pt(*p)).collect::<Vec<_>>())
-            .map_err(pe)?,
+        Geometry::Square { rect: r } => page.add_square_annotation(rect(*r))?,
+        Geometry::Circle { rect: r } => page.add_circle_annotation(rect(*r))?,
+        Geometry::Polygon { points } => {
+            page.add_polygon_annotation(&points.iter().map(|p| pt(*p)).collect::<Vec<_>>())?
+        }
+        Geometry::PolyLine { points } => {
+            page.add_polyline_annotation(&points.iter().map(|p| pt(*p)).collect::<Vec<_>>())?
+        }
         Geometry::Stamp { .. } | Geometry::Link { .. } | Geometry::Attachment { .. } => {
             let (a, custom_ap) = crate::stamp::create(doc, &mut page, &spec.geometry)?;
             custom_appearance = custom_ap;
             a
         }
-        Geometry::Ink { strokes } => page
-            .add_ink_annotation(
-                strokes
-                    .iter()
-                    .map(|s| s.iter().map(|p| pt(*p)).collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-            )
-            .map_err(pe)?,
+        Geometry::Ink { strokes } => page.add_ink_annotation(
+            &strokes
+                .iter()
+                .map(|s| s.iter().map(|p| pt(*p)).collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+        )?,
     };
     apply_style(&mut a, &spec.style)?;
     apply_meta(&mut a, &spec.author, &spec.subject, &spec.contents)?;
@@ -403,8 +390,8 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
     put_string(&mut obj, "CreationDate", spec.date.as_deref().unwrap_or(&now))?;
     put_string(&mut obj, "M", &now)?;
     if let Some(parent) = spec.reply_to {
-        let ind = doc.new_indirect(parent.xref, 0).map_err(pe)?;
-        obj.dict_put("IRT", ind).map_err(pe)?;
+        let ind = doc.new_indirect(parent.xref, 0)?;
+        obj.dict_put("IRT", ind)?;
         put_name(&mut obj, "RT", "R")?;
         if let Some(s) = spec.state {
             put_string(&mut obj, "StateModel", "Review")?;
@@ -412,11 +399,11 @@ pub fn add(doc: &mut PdfDocument, spec: &AnnotSpec) -> Result<AnnotId> {
         }
     }
     if !custom_appearance {
-        a.update().map_err(pe)?;
+        a.update()?;
     }
     let id = AnnotId {
         page: spec.page,
-        xref: a.xref().map_err(pe)?,
+        xref: a.xref()?,
     };
     Ok(id)
 }
@@ -429,45 +416,42 @@ pub fn update(doc: &mut PdfDocument, id: AnnotId, patch: &AnnotPatch) -> Result<
     apply_meta(&mut a, &patch.author, &patch.subject, &patch.contents)?;
     if let Some([dx, dy]) = patch.move_by {
         let shift = |p: Point| Point::new(p.x + dx, p.y + dy);
-        let t = a.r#type().map_err(pe)?;
+        let t = a.r#type()?;
         match t {
             PdfAnnotationType::Line => {
-                let (s, e) = a.line().map_err(pe)?;
-                a.set_line(shift(s), shift(e)).map_err(pe)?;
+                let (s, e) = a.line()?;
+                a.set_line(shift(s), shift(e))?;
             }
             PdfAnnotationType::Polygon | PdfAnnotationType::PolyLine => {
-                let v: Vec<Point> = a.vertices().map_err(pe)?.into_iter().map(shift).collect();
-                a.set_vertices(v).map_err(pe)?;
+                let v: Vec<Point> = a.vertices()?.into_iter().map(shift).collect();
+                a.set_vertices(v)?;
             }
             PdfAnnotationType::Ink => {
                 let strokes: Vec<Vec<Point>> = a
-                    .ink_list()
-                    .map_err(pe)?
+                    .ink_list()?
                     .into_iter()
                     .map(|s| s.into_iter().map(shift).collect())
                     .collect();
-                a.set_ink_list(strokes.iter().map(|s| s.iter().copied())).map_err(pe)?;
+                a.set_ink_list(strokes.iter().map(|s| s.iter().copied()))?;
             }
             PdfAnnotationType::Highlight
             | PdfAnnotationType::Underline
             | PdfAnnotationType::StrikeOut
             | PdfAnnotationType::Squiggly => {
                 let q: Vec<Quad> = a
-                    .quad_points()
-                    .map_err(pe)?
+                    .quad_points()?
                     .iter()
                     .map(|q| Quad::new(shift(q.ul), shift(q.ur), shift(q.ll), shift(q.lr)))
                     .collect();
-                a.set_quad_points(q).map_err(pe)?;
+                a.set_quad_points(&q)?;
             }
             _ => {}
         }
-        let r = a.rect().map_err(pe)?;
-        a.set_rect(Rect::new(r.x0 + dx, r.y0 + dy, r.x1 + dx, r.y1 + dy))
-            .map_err(pe)?;
+        let r = a.rect()?;
+        a.set_rect(Rect::new(r.x0 + dx, r.y0 + dy, r.x1 + dx, r.y1 + dy))?;
     }
     put_string(&mut a.object(), "M", &pdf_now())?;
-    a.update().map_err(pe)?;
+    a.update()?;
     Ok(())
 }
 
@@ -479,7 +463,7 @@ pub fn delete(doc: &mut PdfDocument, id: AnnotId) -> Result<()> {
     loop {
         let mut grew = false;
         for a in page.annotations() {
-            let x = a.xref().map_err(pe)?;
+            let x = a.xref()?;
             if doomed.contains(&x) {
                 continue;
             }
@@ -502,7 +486,7 @@ pub fn delete(doc: &mut PdfDocument, id: AnnotId) -> Result<()> {
     find(&page, id.xref)?;
     for x in doomed {
         let a = find(&page, x)?;
-        page.delete_annotation(a).map_err(pe)?;
+        page.delete_annotation(a)?;
     }
     Ok(())
 }

@@ -3,22 +3,18 @@
 
 use std::fmt::Write;
 
-use mupdf::pdf::PdfDocument;
 use pliego_core::{Error, Result};
+use pliego_pdf::PdfDocument;
 
 use crate::ops::{add, list};
 use crate::types::*;
 use crate::xml::{self, escape};
 
-fn pe(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
-
 fn page_heights(doc: &PdfDocument) -> Result<Vec<f32>> {
-    let n = doc.page_count().map_err(pe)?;
+    let n = doc.page_count()?;
     (0..n)
         .map(|p| {
-            let b = doc.load_pdf_page(p).map_err(pe)?.bounds().map_err(pe)?;
+            let b = doc.load_pdf_page(p)?.bounds()?;
             Ok(b.y1 - b.y0)
         })
         .collect()

@@ -319,7 +319,23 @@ fn written_files_pass_qpdf_and_mupdf_for_every_algorithm() {
         for pw in ["clave ñ", "dueña"] {
             if let Some((code, log)) = qpdf(&out, &["--check", &format!("--password={pw}")], "w") {
                 assert_eq!(code, 0, "{enc:?} con {pw:?}\n{log}");
+                assert!(!log.contains("WARNING"), "{enc:?} con {pw:?}: qpdf avisa\n{log}");
             }
+        }
+        // El diccionario de cifrado lleva las claves opcionales que esperan los lectores estrictos (qpdf 12 avisa si faltan).
+        let text = String::from_utf8_lossy(&out);
+        let (key_bits, cf_bytes) = match enc {
+            Encryption::Rc4_40 => ("/Length 40", None),
+            Encryption::Rc4_128 => ("/Length 128", None),
+            Encryption::Aes128 => ("/Length 128", Some("/Length 16")),
+            _ => ("/Length 256", Some("/Length 32")),
+        };
+        assert!(text.contains(key_bits), "{enc:?}: falta {key_bits}");
+        if let Some(cf) = cf_bytes {
+            assert!(
+                text.contains(cf) && text.contains("/AuthEvent/DocOpen"),
+                "{enc:?}: falta el filtro completo"
+            );
         }
         if let Some((_, log)) = qpdf(&out, &["--show-encryption", "--password=clave ñ"], "e") {
             let want = match enc {

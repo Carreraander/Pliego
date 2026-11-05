@@ -546,5 +546,40 @@ fn encrypt(doc: &mut lopdf::Document, options: &WriteOptions, original: Option<E
             .map_err(err)?
         }
     };
-    doc.encrypt(&state).map_err(err)
+    doc.encrypt(&state).map_err(err)?;
+    complete_encrypt_dict(doc, options.encryption);
+    Ok(())
+}
+
+/// lopdf omite claves que la norma marca como opcionales pero que lectores estrictos (qpdf 12 avisa) esperan, y que
+/// Acrobat y qpdf escriben siempre: `/Length` de la clave en bits (arriba) y, en cada filtro de cifrado, su `/Length`
+/// en bytes y `/AuthEvent /DocOpen`.
+fn complete_encrypt_dict(doc: &mut lopdf::Document, enc: Encryption) {
+    let bits: i64 = match enc {
+        Encryption::Rc4_40 => 40,
+        Encryption::Rc4_128 | Encryption::Aes128 => 128,
+        Encryption::Aes256 => 256,
+        Encryption::Keep | Encryption::None => return,
+    };
+    let Ok(L::Reference(id)) = doc.trailer.get(b"Encrypt").cloned() else {
+        return;
+    };
+    let Some(L::Dictionary(dict)) = doc.objects.get_mut(&id) else {
+        return;
+    };
+    if !dict.has(b"Length") {
+        dict.set("Length", bits);
+    }
+    if let Ok(L::Dictionary(cf)) = dict.get_mut(b"CF") {
+        for (_, filter) in cf.iter_mut() {
+            if let L::Dictionary(f) = filter {
+                if !f.has(b"AuthEvent") {
+                    f.set("AuthEvent", L::Name(b"DocOpen".to_vec()));
+                }
+                if !f.has(b"Length") {
+                    f.set("Length", bits / 8);
+                }
+            }
+        }
+    }
 }

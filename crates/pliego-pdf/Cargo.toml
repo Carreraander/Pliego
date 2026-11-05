@@ -12,6 +12,11 @@ mupdf.workspace = true
 # Motor propio del modelo de objetos y del guardado (ola 5, W36). Solo `pliego-pdf` lo usa para esto.
 lopdf = { version = "0.46", default-features = false }
 md-5 = "0.11"
+# Fuentes e imágenes del motor propio (ola 5, W39). `ttf-parser` mide y da contornos; `flate2` comprime los flujos;
+# `image` solo decodifica PNG y JPEG (sin el resto de formatos).
+ttf-parser = { version = "0.25", default-features = false, features = ["std"] }
+flate2 = "1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 getrandom = "0.4"
 # Redacción de píxeles en imágenes DCT (JPEG): decodifica, borra y vuelve a codificar (W38). Ya están en el árbol.
 zune-jpeg = "0.5"

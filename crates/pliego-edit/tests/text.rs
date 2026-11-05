@@ -1,6 +1,6 @@
-use mupdf::{Colorspace, Matrix};
 use pliego_document::{Document, SaveOptions};
 use pliego_edit::*;
+use pliego_pdf::{Colorspace, Matrix};
 
 const CORPUS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/corpus/edit/parrafos.pdf");
 
@@ -12,7 +12,7 @@ fn open() -> Document {
 fn render(doc: &Document) -> (usize, usize, Vec<u8>) {
     let page = doc.pdf().load_page(0).unwrap();
     let pm = page
-        .to_pixmap(&Matrix::new_scale(1.0, 1.0), &Colorspace::device_rgb(), false, true)
+        .to_pixmap(&Matrix::new_scale(1.0, 1.0), Colorspace::Rgb, false, true)
         .unwrap();
     (pm.width() as usize, pm.height() as usize, pm.samples().to_vec())
 }

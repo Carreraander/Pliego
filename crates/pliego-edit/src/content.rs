@@ -3,7 +3,7 @@
 //! No interpreta todo el lenguaje: solo lo necesario para seguir la matriz de transformación (`q`, `Q`, `cm`)
 //! y localizar los operadores `Do`. Las imágenes dentro de XObjects de formulario no se tienen en cuenta.
 
-use mupdf::Matrix;
+use pliego_pdf::Matrix;
 
 #[derive(Debug, Clone)]
 pub enum Operand {

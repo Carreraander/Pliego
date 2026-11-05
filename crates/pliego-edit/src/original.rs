@@ -7,11 +7,10 @@
 
 use std::collections::HashMap;
 
-use mupdf::pdf::{PdfObject, PdfPage};
 use pliego_core::Result;
+use pliego_pdf::{Object, PdfPage};
 
 use crate::fonts::winansi;
-use crate::pe;
 
 /// Fuente original lista para componer con ella.
 pub(crate) struct Original {
@@ -58,7 +57,7 @@ impl Original {
     }
 }
 
-fn base_name(obj: &PdfObject) -> Option<String> {
+fn base_name(obj: &Object) -> Option<String> {
     let n = String::from_utf8(obj.get_dict("BaseFont").ok()??.as_name().ok()?).ok()?;
     Some(strip_subset(&n).to_owned())
 }
@@ -71,40 +70,39 @@ fn strip_subset(name: &str) -> &str {
     }
 }
 
-fn num(o: &PdfObject) -> Option<f32> {
+fn num(o: &Object) -> Option<f32> {
     if o.is_number().ok()? { o.as_float().ok() } else { None }
 }
 
 /// Busca entre las fuentes de la página la que se llama `font_name` y la prepara.
 pub(crate) fn find(page: &PdfPage, font_name: &str) -> Result<Option<Original>> {
     let wanted = strip_subset(font_name);
-    let res = page.resources().map_err(pe)?;
-    let Some(fonts) = res.get_dict("Font").map_err(pe)? else {
+    let res = page.resources()?;
+    let Some(fonts) = res.get_dict("Font")? else {
         return Ok(None);
     };
-    if !fonts.is_dict().map_err(pe)? {
+    if !fonts.is_dict()? {
         return Ok(None);
     }
-    for i in 0..fonts.dict_len().map_err(pe)? as i32 {
-        let (Some(k), Some(v)) = (fonts.get_dict_key(i).map_err(pe)?, fonts.get_dict_val(i).map_err(pe)?) else {
+    for i in 0..fonts.dict_len()? as i32 {
+        let (Some(k), Some(v)) = (fonts.get_dict_key(i)?, fonts.get_dict_val(i)?) else {
             continue;
         };
         if base_name(&v).as_deref() != Some(wanted) {
             continue;
         }
-        let Ok(key) = k.as_name() else { continue };
-        let Ok(key) = String::from_utf8(key) else { continue };
+        let key = k;
         if !key.chars().all(|c| c.is_ascii_alphanumeric() || "_.-".contains(c)) {
             continue;
         }
-        if let Some(o) = build(&v, format!("/{key}")).map_err(pe)? {
+        if let Some(o) = build(&v, format!("/{key}"))? {
             return Ok(Some(o));
         }
     }
     Ok(None)
 }
 
-fn build(font: &PdfObject, resource: String) -> std::result::Result<Option<Original>, mupdf::Error> {
+fn build(font: &Object, resource: String) -> Result<Option<Original>> {
     let subtype = font
         .get_dict("Subtype")?
         .and_then(|s| s.as_name().ok())
@@ -191,7 +189,7 @@ fn build(font: &PdfObject, resource: String) -> std::result::Result<Option<Origi
     }
 }
 
-fn parse_w(w: &PdfObject, out: &mut HashMap<u16, f32>) -> std::result::Result<(), mupdf::Error> {
+fn parse_w(w: &Object, out: &mut HashMap<u16, f32>) -> Result<()> {
     let n = w.len()? as i32;
     let mut i = 0;
     while i < n {

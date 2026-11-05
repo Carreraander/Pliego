@@ -4,15 +4,15 @@
 //! su orden de aparición (`id`), que solo vale mientras no cambie el contenido de la página. Los
 //! recortes (`W n`) y lo que está dentro de XObjects de formulario no se tienen en cuenta.
 
-use mupdf::Buffer;
 use pliego_core::{Error, Report, Result};
 use pliego_document::Document;
+use pliego_pdf::Matrix;
 use serde::{Deserialize, Serialize};
 
 use crate::content::{PathObject, parse, paths};
 use crate::images::{Transform, local_transform, matrix_str, mul, page_bytes, valid_transform};
+use crate::load_page;
 use crate::types::RectPts;
-use crate::{load_page, pe};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VectorObject {
@@ -22,7 +22,7 @@ pub struct VectorObject {
     pub bbox: RectPts,
 }
 
-fn bbox(o: &PathObject, p: &mupdf::Matrix) -> RectPts {
+fn bbox(o: &PathObject, p: &Matrix) -> RectPts {
     let m = mul(&o.ctm, p);
     let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
     for &(x, y) in &o.points {
@@ -38,7 +38,7 @@ fn bbox(o: &PathObject, p: &mupdf::Matrix) -> RectPts {
 /// Objetos vectoriales de la página (desde 0), en orden de dibujo.
 pub fn vectors(doc: &Document, page: usize) -> Result<Vec<VectorObject>> {
     let pg = load_page(doc.pdf(), page)?;
-    let p = pg.object().page_ctm().map_err(pe)?;
+    let p = pg.object().page_ctm()?;
     let list = paths(&parse(&page_bytes(&pg)?));
     Ok(list
         .iter()
@@ -55,12 +55,12 @@ fn edit(
     doc: &mut Document,
     page: usize,
     id: usize,
-    f: impl FnOnce(&PathObject, &mupdf::Matrix, &str) -> Result<String>,
+    f: impl FnOnce(&PathObject, &Matrix, &str) -> Result<String>,
 ) -> Result<()> {
     doc.with_pdf_mut(|pdf| {
         let pg = load_page(pdf, page)?;
         let bytes = page_bytes(&pg)?;
-        let p = pg.object().page_ctm().map_err(pe)?;
+        let p = pg.object().page_ctm()?;
         let o = paths(&parse(&bytes))
             .into_iter()
             .nth(id)
@@ -71,9 +71,8 @@ fn edit(
         out.extend_from_slice(&bytes[..o.range.0]);
         out.extend_from_slice(replacement.as_bytes());
         out.extend_from_slice(&bytes[o.range.1..]);
-        let buf = Buffer::try_from(out.as_slice()).map_err(pe)?;
-        let stream = pdf.add_stream(&buf, None, false).map_err(pe)?;
-        pg.object().dict_put("Contents", stream).map_err(pe)
+        let stream = pdf.add_stream(&out, None, false)?;
+        pg.object().dict_put("Contents", stream)
     })
 }
 

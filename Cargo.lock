@@ -4218,8 +4218,8 @@ dependencies = [
 name = "pliego-document"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "tempfile",
 ]
@@ -4228,9 +4228,9 @@ dependencies = [
 name = "pliego-edit"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
  "pliego-document",
+ "pliego-pdf",
  "rustybuzz",
  "serde",
  "subsetter",

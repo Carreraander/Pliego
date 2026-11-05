@@ -3,15 +3,14 @@
 //! Las imágenes de una página se identifican por su orden de aparición (`id`) entre los operadores `Do` del
 //! flujo de contenido. El `id` solo vale mientras no cambie el contenido de la página.
 
-use mupdf::pdf::{InsertImageOptions, PageImageSource, PdfDocument, PdfPage};
-use mupdf::{Buffer, Image, Matrix, Rect};
 use pliego_core::{Error, Report, Result};
 use pliego_document::Document;
+use pliego_pdf::{Image, ImageSource, InsertImageOptions, Matrix, Object, PdfDocument, PdfPage, Rect};
 use serde::{Deserialize, Serialize};
 
 use crate::content::{Placement, parse, placements};
+use crate::load_page;
 use crate::types::RectPts;
-use crate::{load_page, pe};
 
 /// Imagen colocada en una página.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -68,8 +67,8 @@ pub(crate) fn matrix_str(m: &Matrix) -> String {
 }
 
 pub(crate) fn mul(a: &Matrix, b: &Matrix) -> Matrix {
-    let mut m = a.clone();
-    m.concat(b.clone());
+    let mut m = *a;
+    m.concat(*b);
     m
 }
 
@@ -113,7 +112,7 @@ pub(crate) fn bbox_of(m: &Matrix) -> RectPts {
 }
 
 /// Recursos `XObject` visibles desde la página (con herencia).
-fn xobject(page: &PdfPage) -> Option<mupdf::pdf::PdfObject> {
+fn xobject(page: &PdfPage) -> Option<Object> {
     let res = page.object().get_dict_inheritable("Resources").ok()??;
     let x = res.get_dict("XObject").ok()??;
     x.is_dict().ok()?.then_some(x)
@@ -121,19 +120,19 @@ fn xobject(page: &PdfPage) -> Option<mupdf::pdf::PdfObject> {
 
 /// Contenido de la página (todos los flujos, decodificados y unidos).
 pub(crate) fn page_bytes(page: &PdfPage) -> Result<Vec<u8>> {
-    let Some(c) = page.contents().map_err(pe)? else {
+    let Some(c) = page.contents()? else {
         return Ok(Vec::new());
     };
     let mut out = Vec::new();
-    if c.is_array().map_err(pe)? {
-        for i in 0..c.len().map_err(pe)? {
-            if let Some(s) = c.get_array(i as i32).map_err(pe)? {
-                out.extend(s.read_stream().map_err(pe)?);
+    if c.is_array()? {
+        for i in 0..c.len()? {
+            if let Some(s) = c.get_array(i as i32)? {
+                out.extend(s.read_stream()?);
                 out.push(b'\n');
             }
         }
-    } else if c.is_stream().map_err(pe)? {
-        out = c.read_stream().map_err(pe)?;
+    } else if c.is_stream()? {
+        out = c.read_stream()?;
     }
     Ok(out)
 }
@@ -158,7 +157,7 @@ fn load(pdf: &PdfDocument, page: usize) -> Result<Loaded> {
             .is_some_and(|n| n == b"Image")
     };
     let list = placements(&parse(&bytes), is_image);
-    let p = pg.object().page_ctm().map_err(pe)?;
+    let p = pg.object().page_ctm()?;
     Ok(Loaded {
         page: pg,
         bytes,
@@ -199,13 +198,13 @@ pub fn insert_image(doc: &mut Document, page: usize, rect: RectPts, data: &[u8])
     let mut report = Report::default();
     doc.with_pdf_mut(|pdf| {
         let mut pg = load_page(pdf, page)?;
-        let p = pg.object().page_ctm().map_err(pe)?;
+        let p = pg.object().page_ctm()?;
         let ip = inv(&p)?;
         // Esquinas del recuadro al espacio de usuario; se normaliza para que la imagen salga derecha.
         let (ax, ay) = ip.transform_xy(rect[0], rect[1]);
         let (bx, by) = ip.transform_xy(rect[2], rect[3]);
         let r = Rect::new(ax.min(bx), ay.min(by), ax.max(bx), ay.max(by));
-        if pg.rotation().map_err(pe)? != 0 {
+        if pg.rotation()? != 0 {
             report.warnings.push(
                 "la página está girada: la imagen se coloca según el espacio del PDF y puede verse girada".into(),
             );
@@ -213,13 +212,12 @@ pub fn insert_image(doc: &mut Document, page: usize, rect: RectPts, data: &[u8])
         pg.insert_image(
             pdf,
             r,
-            PageImageSource::Bytes {
+            ImageSource::Bytes {
                 data,
                 format_hint: None,
             },
             InsertImageOptions::default(),
-        )
-        .map_err(pe)?;
+        )?;
         Ok(())
     })?;
     report.summary = format!("Imagen insertada en la página {}", page + 1);
@@ -245,9 +243,8 @@ fn edit_placement(
         out.extend_from_slice(&l.bytes[..pl.range.0]);
         out.extend_from_slice(replacement.as_bytes());
         out.extend_from_slice(&l.bytes[pl.range.1..]);
-        let buf = Buffer::try_from(out.as_slice()).map_err(pe)?;
-        let stream = pdf.add_stream(&buf, None, false).map_err(pe)?;
-        l.page.object().dict_put("Contents", stream).map_err(pe)
+        let stream = pdf.add_stream(&out, None, false)?;
+        l.page.object().dict_put("Contents", stream)
     })
 }
 
@@ -323,25 +320,25 @@ pub fn replace_image(doc: &mut Document, page: usize, id: usize, data: &[u8]) ->
                 .warnings
                 .push("la imagen nueva tiene otra proporción y se deformará al ajustarse al hueco".into());
         }
-        let obj = pdf.add_image(&img).map_err(pe)?;
-        let mut res = pg.resources().map_err(pe)?;
-        let mut xo = match res.get_dict("XObject").map_err(pe)? {
-            Some(x) if x.is_dict().map_err(pe)? => x,
+        let obj = pdf.add_image(&img)?;
+        let mut res = pg.resources()?;
+        let mut xo = match res.get_dict("XObject")? {
+            Some(x) if x.is_dict()? => x,
             _ => {
-                let d = pdf.new_dict().map_err(pe)?;
-                res.dict_put("XObject", d.clone()).map_err(pe)?;
+                let d = pdf.new_dict()?;
+                res.dict_put("XObject", d.clone())?;
                 d
             }
         };
         let mut n = 0;
         let name = loop {
             let cand = format!("PlImg{n}");
-            if xo.get_dict(cand.as_str()).map_err(pe)?.is_none() {
+            if xo.get_dict(cand.as_str())?.is_none() {
                 break cand;
             }
             n += 1;
         };
-        xo.dict_put(name.as_str(), obj).map_err(pe)?;
+        xo.dict_put(name.as_str(), obj)?;
         Ok(format!("/{name} Do"))
     })?;
     report.summary = format!("Imagen {id} reemplazada en la página {}", page + 1);

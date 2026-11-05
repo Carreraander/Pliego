@@ -77,6 +77,9 @@ pub struct FillArgs {
     /// Aplanar el formulario después de rellenarlo.
     #[arg(long)]
     pub flatten: bool,
+    /// Ejecutar el JavaScript del formulario (validación, cálculo entre campos y formato), como un lector.
+    #[arg(long)]
+    pub scripts: bool,
 }
 
 #[derive(Args)]
@@ -184,7 +187,10 @@ fn report_fill(res: &pliego_forms::FillResult, dest: &Path, json: bool) -> anyho
             eprintln!("Aviso: el campo «{n}» no existe.");
         }
         for n in &res.rejected {
-            eprintln!("Aviso: el campo «{n}» no admitió el valor (solo lectura u opción no válida).");
+            eprintln!("Aviso: el campo «{n}» no admitió el valor (solo lectura, opción o validación).");
+        }
+        for m in &res.messages {
+            eprintln!("Script: {m}");
         }
     }
     Ok(())
@@ -233,7 +239,11 @@ fn fill(a: FillArgs, json: bool) -> anyhow::Result<()> {
     if values.is_empty() {
         bail!("indica valores con --set CAMPO=VALOR o --data datos.json");
     }
-    let res = pliego_forms::fill(&mut doc, &values)?;
+    let res = if a.scripts {
+        pliego_forms::fill_with_scripts(&mut doc, &values)?
+    } else {
+        pliego_forms::fill(&mut doc, &values)?
+    };
     if a.flatten {
         pliego_forms::flatten(&mut doc)?;
     }

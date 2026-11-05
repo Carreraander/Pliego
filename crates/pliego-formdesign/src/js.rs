@@ -1,7 +1,7 @@
 //! Formato, validación y cálculo con acciones JavaScript de AcroForm.
 //!
 //! Se usan las funciones estándar (`AFNumber_Format`, `AFRange_Validate`, `AFSimple_Calculate`...) que entienden los
-//! lectores habituales y MuPDF (mujs, sin acceso a archivos ni red). Los textos de usuario se insertan como literales
+//! lectores habituales y el motor propio `pliego-formjs` (sin acceso a archivos ni red). Los textos de usuario se insertan como literales
 //! JSON, que son literales JavaScript válidos, para que ningún nombre de campo o rótulo pueda inyectar código.
 
 use pliego_core::{Error, Result};

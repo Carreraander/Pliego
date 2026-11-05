@@ -132,10 +132,16 @@ impl Editor {
     /// Rellena campos de formulario en el archivo (Rellenar y firmar). Comparte la pila de deshacer con los comentarios.
     pub fn fill(&self, path: &Path, values: &FieldValues, backup_suffix: &str) -> Result<Vec<u8>> {
         self.edit_pdf(path, backup_suffix, |doc| {
-            let r = pliego_forms::fill(doc, values)?;
+            // Con el JavaScript del formulario: validación, cálculo entre campos y formato, como un lector.
+            let r = pliego_forms::fill_with_scripts(doc, values)?;
             if r.filled.is_empty() {
+                let avisos = if r.messages.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {}", r.messages.join(" · "))
+                };
                 return Err(Error::InvalidInput(format!(
-                    "ningún campo aceptó el valor ({} rechazados, {} no encontrados)",
+                    "ningún campo aceptó el valor ({} rechazados, {} no encontrados){avisos}",
                     r.rejected.len(),
                     r.not_found.len()
                 )));

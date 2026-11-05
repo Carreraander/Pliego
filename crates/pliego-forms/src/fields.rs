@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use pliego_core::Result;
+use pliego_pdf::native::JsMessage;
 use pliego_pdf::{FieldFlags, Object, PdfDocument, PdfWidget, WidgetType};
 use serde::{Deserialize, Serialize};
 
@@ -173,10 +174,38 @@ pub struct FillResult {
     pub not_found: Vec<String>,
     /// Campos de solo lectura o valores que el campo no aceptó.
     pub rejected: Vec<String>,
+    /// Avisos de los scripts del formulario (`app.alert`, `console.println`, acciones bloqueadas y errores). Solo con
+    /// [`fill_with_scripts`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub messages: Vec<String>,
 }
 
 /// Rellena campos. Las casillas aceptan `Bool` o el nombre del estado; los radios, el nombre de la opción.
+/// No ejecuta los scripts del formulario (formato, validación, cálculo): para eso, [`fill_with_scripts`].
 pub fn fill(doc: &mut PdfDocument, values: &FieldValues) -> Result<FillResult> {
+    fill_impl(doc, values, false)
+}
+
+/// Como [`fill`], pero ejecutando el JavaScript del formulario con el motor propio (`pliego-formjs`) como lo haría
+/// un lector al teclear: tecleo y validación (un valor que el script rechaza queda en `rejected`), cálculo entre campos
+/// en el orden de `/CO` y formato. Los avisos de los scripts salen en [`FillResult::messages`]; las acciones peligrosas
+/// (enviar el formulario, abrir una URL...) nunca se ejecutan.
+pub fn fill_with_scripts(doc: &mut PdfDocument, values: &FieldValues) -> Result<FillResult> {
+    doc.enable_js()?;
+    let res = fill_impl(doc, values, true);
+    doc.disable_js()?;
+    res
+}
+
+fn describe(m: &JsMessage) -> String {
+    match m {
+        JsMessage::Alert { text, .. } => text.clone(),
+        JsMessage::Console(t) => t.clone(),
+        JsMessage::Blocked { action, detail } => format!("acción bloqueada: {action} {detail}").trim_end().to_owned(),
+    }
+}
+
+fn fill_impl(doc: &mut PdfDocument, values: &FieldValues, scripts: bool) -> Result<FillResult> {
     let mut res = FillResult::default();
     let n = doc.page_count()?;
     let mut seen: Vec<String> = Vec::new();
@@ -221,7 +250,7 @@ pub fn fill(doc: &mut PdfDocument, values: &FieldValues) -> Result<FillResult> {
                 (_, FieldValue::Text(t)) => t.clone(),
                 (_, FieldValue::Bool(b)) => b.to_string(),
             };
-            let ok = w.set_value(doc, &text, true)?;
+            let ok = w.set_value(doc, &text, !scripts)?;
             seen.push(name.clone());
             if ok {
                 if !res.filled.contains(&name) {
@@ -236,6 +265,9 @@ pub fn fill(doc: &mut PdfDocument, values: &FieldValues) -> Result<FillResult> {
         if !seen.contains(k) && !res.rejected.contains(k) {
             res.not_found.push(k.clone());
         }
+    }
+    if scripts {
+        res.messages = doc.take_js_messages().iter().map(describe).collect();
     }
     Ok(res)
 }

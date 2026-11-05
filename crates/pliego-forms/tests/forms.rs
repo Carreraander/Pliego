@@ -139,3 +139,77 @@ fn every_field_reports_a_rect_inside_its_page() {
         assert!(r[0] >= 0.0 && r[1] >= 0.0, "{}: fuera de la página {r:?}", f.name);
     }
 }
+
+/// PDF con dos campos numéricos (`a` entre 0 y 10, `b` libre) y un total calculado `t = a + b`.
+fn scripted_pdf() -> Vec<u8> {
+    let js = |c: &str| format!("<< /S /JavaScript /JS ({c}) >>");
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 5 0 R 6 0 R] /CO [6 0 R] \
+         /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 7 0 R >> >> >> >>"
+            .into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".into(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /Helv 7 0 R >> >> \
+         /Annots [4 0 R 5 0 R 6 0 R] >>"
+            .into(),
+        format!(
+            "<< /Type /Annot /Subtype /Widget /FT /Tx /T (a) /Rect [50 700 250 720] /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) \
+             /AA << /V {} >> >>",
+            js("AFRange_Validate(true, 0, true, 10);")
+        ),
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (b) /Rect [50 660 250 680] /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) >>"
+            .into(),
+        format!(
+            "<< /Type /Annot /Subtype /Widget /FT /Tx /T (t) /Rect [50 620 250 640] /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) \
+             /AA << /C {} >> >>",
+            js("AFSimple_Calculate('SUM', new Array('a','b'));")
+        ),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>".into(),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend(format!("{} 0 obj\n{o}\nendobj\n", i + 1).into_bytes());
+    }
+    let xref = out.len();
+    out.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).into_bytes());
+    for o in offsets {
+        out.extend(format!("{o:010} 00000 n \n").into_bytes());
+    }
+    out.extend(
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+            objs.len() + 1
+        )
+        .into_bytes(),
+    );
+    out
+}
+
+#[test]
+fn fill_with_scripts_validates_and_calculates() {
+    let mut doc = pliego_pdf::PdfDocument::from_bytes(&scripted_pdf()).unwrap();
+    let mut v = FieldValues::new();
+    v.insert("a".into(), FieldValue::Text("4".into()));
+    v.insert("b".into(), FieldValue::Text("2.5".into()));
+    let r = fill_with_scripts(&mut doc, &v).unwrap();
+    assert_eq!(r.filled.len(), 2, "{r:?}");
+    assert!(r.rejected.is_empty(), "{r:?}");
+    let fs = fields(&mut doc).unwrap();
+    assert_eq!(get(&fs, "t").value.as_deref(), Some("6.5"), "el total se calcula");
+
+    // Fuera de rango: la validación lo rechaza, avisa y el valor no cambia.
+    let mut v = FieldValues::new();
+    v.insert("a".into(), FieldValue::Text("99".into()));
+    let r = fill_with_scripts(&mut doc, &v).unwrap();
+    assert_eq!(r.rejected, ["a"], "{r:?}");
+    assert!(!r.messages.is_empty(), "el aviso de la validación llega: {r:?}");
+    let fs = fields(&mut doc).unwrap();
+    assert_eq!(get(&fs, "a").value.as_deref(), Some("4"));
+
+    // `fill` a secas no ejecuta scripts: acepta el valor y no recalcula.
+    let mut doc = pliego_pdf::PdfDocument::from_bytes(&scripted_pdf()).unwrap();
+    let r = fill(&mut doc, &v).unwrap();
+    assert_eq!(r.filled, ["a"]);
+    assert!(r.messages.is_empty());
+}

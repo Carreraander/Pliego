@@ -5,5 +5,7 @@
   "sha256": "8d48973e3eb472dda0f5f2435e595ac043f9f2219dd71883392f549445afa8a5",
   "dll_sha256": "71a3e63e6ab8f5746a0fc9de9bc3d0c0dc07eb60990dfd37d9db7fc891821943",
   "dll_version": "159.0.8138.0",
-  "nota": "Fijado en acr12 el 2026-11-05: el SHA-256 del .tgz coincide con el digest que publica la API de GitHub para el asset. Para cambiar de versión: fetch-pdfium.ps1 -Primera -Version chromium/<n>, revisar y actualizar version, sha256, dll_sha256 y dll_version en un PR."
+  "nota": "Fijado en acr12 el 2026-11-05: el SHA-256 del .tgz coincide con el digest que publica la API de GitHub para el asset. Para cambiar de versión: fetch-pdfium.ps1 -Primera -Version chromium/<n>, revisar y actualizar version, sha256, dll_sha256 y dll_version en un PR. linux_x64_*: lo usa solo la CI de Linux para las pruebas del motor (W37); no se empaqueta.",
+  "linux_x64_asset": "pdfium-linux-x64.tgz",
+  "linux_x64_sha256": "d6b1e28950a0392590d79bbdbb7eb19686872b688f8a36f170acb19e41473113"
 }

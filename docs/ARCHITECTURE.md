@@ -56,6 +56,24 @@ importa `pliego_pdf::*` y nunca `mupdf`. Reglas del contrato:
   PR pequeño al hilo de W30/gestión.
 Estado de la API y de la migración de cada crate: `docs/handoff/flujos/w30.md`.
 
+### Motor de render, texto y búsqueda (W37)
+Con la característica de Cargo `pdfium` de `pliego-pdf`, el dibujo (`Page::to_pixmap`, `render_region`, `bounds`), el
+texto (`to_text_page`, `text`, `words`) y la búsqueda (`Page::search`) pueden ir con **PDFium** en lugar de MuPDF. La API
+pública no cambia (solo se añadió `RenderBackend`, `Document::set_render_backend`, `pdfium_init` y relacionadas); el
+modelo de objetos, el guardado, los enlaces, el SVG y los formatos que no son PDF siguen con MuPDF hasta W36/W41.
+- **Elección por documento:** `Document::render_backend()` se fija al abrirlo con el valor de
+  `default_render_backend()` (MuPDF salvo que el programa lo cambie) y se cambia con `set_render_backend`. Una página
+  lleva el motor de su documento al hacer `load_page`.
+- **DLL:** `pdfium.dll` se carga **solo por ruta absoluta** (`pdfium_init`), nunca por `PATH` ni por el directorio
+  actual. Solo la carga el **worker** (`pliego-worker`, junto a su `.exe`; véase `configure_from_environment`);
+  `PLIEGO_ENGINE=mupdf|pdfium|auto` y `PLIEGO_PDFIUM_DLL` (ruta absoluta, para desarrollo y pruebas) lo controlan.
+  **Opt-in:** sin `PLIEGO_ENGINE` (o con `mupdf`) el worker usa MuPDF aunque la DLL esté; `auto` usa PDFium si carga.
+- **Copia en PDFium:** el documento se abre en PDFium desde el archivo original (o los bytes) la primera vez que se
+  pide una página; si tiene cambios sin guardar en memoria, PDFium lee una copia serializada sin cifrar.
+- **Coordenadas:** las mismas que antes (puntos, origen arriba a la izquierda, giro aplicado); PDFium trabaja en el
+  espacio de usuario y la conversión está en `PageGeom` (`crates/pliego-pdf/src/pdfium.rs`).
+- **Diferencias conocidas respecto a MuPDF:** `docs/handoff/flujos/w37.md`.
+
 ### `pliego_pdf::native` (W36): modelo de documento propio con lopdf
 Reimplementa `Object`, `PdfDocument`, `PdfPage` y `GraftMap` con los mismos nombres y firmas que los de la raíz
 de la capa (objetos, páginas, etiquetas, marcadores, adjuntos, capas, metadatos, cifrado, guardado completo e

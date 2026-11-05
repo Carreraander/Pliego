@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   1. Compila lanzadores, CLI, worker y pliego-setup (cargo, release).
-  2. Prepara la carpeta app-<versión> con la app, la CLI, el worker, los lanzadores y el desinstalador.
+  2. Prepara la carpeta app-<versión> con la app, la CLI, el worker (con pdfium.dll y sus avisos de licencia), los lanzadores y el desinstalador.
   3. Firma (opcional) con Authenticode si SIGN_TOOL y SIGN_ARGS están definidos; vacío = sin firmar.
   4. Empaqueta en dist\pliego-<versión>-x86_64.paq (lo que usa el actualizador, W22).
   5. Pega el .paq al ejecutable del instalador: dist\Pliego-Setup-<versión>-x86_64.exe.
@@ -101,6 +101,24 @@ foreach ($n in 'pliego.exe', 'pliego-worker.exe') {
   $src = Join-Path $target $n
   if (Test-Path $src) { Copy-Item $src (Join-Path $stage $n) }
   elseif (-not $FakeApp) { throw "Falta $n en $target" }
+}
+# pdfium.dll (W37): render, texto y búsqueda. Solo la carga el worker, por ruta absoluta desde su propia carpeta (nunca
+# por PATH). Versión y hashes fijados en tools\pdfium\pdfium.lock.json: fetch-pdfium.ps1 verifica el .tgz y la DLL.
+# PDFIUM_DIR (opcional) apunta a una carpeta ya descargada con pdfium.dll, LICENSE.pdfium y licenses\ (caché de acr12).
+# Los avisos de licencia (BSD-3/Apache-2.0 y terceros) se instalan en licenses\pdfium\ junto a la DLL.
+if (-not $FakeApp) {
+  $pdfiumDir = if ($env:PDFIUM_DIR) { $env:PDFIUM_DIR } else { Join-Path $OutDir 'pdfium' }
+  $pdfiumLock = Get-Content (Join-Path $repo 'tools\pdfium\pdfium.lock.json') -Raw | ConvertFrom-Json
+  $pdfiumDll = Join-Path $pdfiumDir 'pdfium.dll'
+  $cached = (Test-Path $pdfiumDll) -and ((Get-FileHash $pdfiumDll -Algorithm SHA256).Hash.ToLower() -eq $pdfiumLock.dll_sha256.ToLower())
+  if (-not $cached) { & (Join-Path $repo 'tools\pdfium\fetch-pdfium.ps1') -OutDir $pdfiumDir | Out-Host }
+  if (-not (Test-Path $pdfiumDll)) { throw "Falta pdfium.dll en $pdfiumDir: el worker no podría dibujar con PDFium." }
+  Copy-Item $pdfiumDll (Join-Path $stage 'pdfium.dll')
+  $pdfiumLic = Join-Path $stage 'licenses\pdfium'
+  New-Item -ItemType Directory -Force -Path $pdfiumLic | Out-Null
+  Copy-Item (Join-Path $pdfiumDir 'LICENSE.pdfium') (Join-Path $pdfiumLic 'LICENSE.pdfium')
+  if (Test-Path (Join-Path $pdfiumDir 'licenses')) { Copy-Item (Join-Path $pdfiumDir 'licenses\*') $pdfiumLic -Recurse -Force }
+  Write-Host "pdfium.dll $($pdfiumLock.version) ($($pdfiumLock.dll_version)) incluida junto al worker"
 }
 # DLL de Tesseract y Leptonica (vcpkg, DLL dinámicas) junto a pliego.exe: sin ellas la CLI sale con 0xC0000135 en un equipo
 # sin vcpkg. Se toma la carpeta bin de vcpkg a partir de TESSERACT_LIB_DIR (..\bin) o, si no, del PATH.

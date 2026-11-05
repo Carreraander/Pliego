@@ -40,3 +40,17 @@ Trampas que costó descubrir. Consultar antes de tocar lo relacionado.
   tests, nunca reales en el repo.
 - Ghostscript 10.02: `-dPDFX` es booleano; la versión PDF/X va en `PDFX_def.ps`. No se incluyen perfiles ICC.
 - OCR en Windows: Tesseract 5.5 y Leptonica 1.87 de vcpkg (`x64-windows-release`); ver `docs/ocr.md`.
+
+## PDFium (`pdfium-render`, W37)
+
+- **No uses `Pdfium::default()`**: busca la biblioteca en el directorio actual y, si no, en el sistema (y entra en pánico si falla). Carga siempre con
+  `Pdfium::bind_to_library(<ruta absoluta>)` (`pliego_pdf::pdfium_init`).
+- **`FPDF_RenderPageBitmapWithMatrix` proyecta primero la página a un rectángulo de tamaño entero** (trunca ancho y alto): para que una matriz de MuPDF dé el mismo
+  resultado hay que compensar `ancho/⌊ancho⌋` (véase `PageLink::render`). El modo con matriz no dibuja formularios (`FPDF_FFLDraw`): solo las apariencias `/AP`.
+- **PDFium ignora `/UserUnit`** en el tamaño de página; MuPDF y Acrobat lo aplican.
+- **Texto en el espacio de usuario**: origen abajo a la izquierda y sin girar; hay que convertirlo (`PageGeom`). Los caracteres «generados» son los espacios y saltos de línea que PDFium inventa.
+- **Las cajas de búsqueda de PDFium son las del texto**, no las de línea de MuPDF: no sirven tal cual para cubrir con una redacción.
+- **El texto de capas opcionales apagadas sí se extrae** con PDFium.
+- `pdfium-render` con `thread_safe` serializa todas las llamadas con un cerrojo global (PDFium no admite hilos concurrentes); sin la característica `image_*` no arrastra la crate `image`.
+- PDFium no soporta el filtro Brotli de PDF 2.0, y alguna página mal formada da `FormatError` donde MuPDF la repara: de ahí el respaldo a MuPDF del worker.
+

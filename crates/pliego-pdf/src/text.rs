@@ -110,6 +110,19 @@ impl CharFlags {
     }
 }
 
+impl BitOr for CharFlags {
+    type Output = CharFlags;
+    fn bitor(self, rhs: CharFlags) -> CharFlags {
+        CharFlags(self.0 | rhs.0)
+    }
+}
+
+impl BitOrAssign for CharFlags {
+    fn bitor_assign(&mut self, rhs: CharFlags) {
+        self.0 |= rhs.0;
+    }
+}
+
 /// Dirección de escritura.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WriteMode {
@@ -185,38 +198,77 @@ pub struct TextWord {
     pub word: usize,
 }
 
-/// Texto de una página.
+/// Texto de una página. Lo produce MuPDF o, si el documento usa [`crate::RenderBackend::Pdfium`], PDFium.
 pub struct TextPage {
-    pub(crate) raw: mupdf::TextPage,
+    inner: Inner,
+}
+
+enum Inner {
+    Mupdf(mupdf::TextPage),
+    /// Texto ya estructurado (bloques → líneas → caracteres) a partir de los caracteres de PDFium.
+    #[cfg(feature = "pdfium")]
+    Pdfium(Vec<TextBlock>),
 }
 
 impl TextPage {
-    /// Texto plano de toda la página (líneas separadas por salto de línea).
-    pub fn to_text(&self) -> Result<String> {
-        self.raw.to_text().map_err(err)
+    pub(crate) fn from_mupdf(raw: mupdf::TextPage) -> Self {
+        Self {
+            inner: Inner::Mupdf(raw),
+        }
     }
 
-    /// HTML de la página con `id` como número de página.
+    #[cfg(feature = "pdfium")]
+    pub(crate) fn from_pdfium(blocks: Vec<TextBlock>) -> Self {
+        Self {
+            inner: Inner::Pdfium(blocks),
+        }
+    }
+
+    fn mupdf(&self) -> Option<&mupdf::TextPage> {
+        match &self.inner {
+            Inner::Mupdf(raw) => Some(raw),
+            #[cfg(feature = "pdfium")]
+            Inner::Pdfium(_) => None,
+        }
+    }
+
+    /// Texto plano de toda la página (líneas separadas por salto de línea).
+    pub fn to_text(&self) -> Result<String> {
+        match &self.inner {
+            Inner::Mupdf(raw) => raw.to_text().map_err(err),
+            #[cfg(feature = "pdfium")]
+            Inner::Pdfium(blocks) => Ok(crate::pdfium::blocks_to_text(blocks)),
+        }
+    }
+
+    /// HTML de la página con `id` como número de página. (Con PDFium se genera un HTML sencillo de párrafos.)
     pub fn to_html(&self, id: i32, full: bool) -> Result<String> {
-        self.raw.to_html(id, full).map_err(err)
+        match &self.inner {
+            Inner::Mupdf(raw) => raw.to_html(id, full).map_err(err),
+            #[cfg(feature = "pdfium")]
+            Inner::Pdfium(blocks) => Ok(crate::pdfium::blocks_to_html(blocks, id, full)),
+        }
     }
 
     /// Cuadriláteros de las apariciones de `needle` (sin distinguir mayúsculas).
     pub fn search(&self, needle: &str) -> Result<Vec<Quad>> {
-        Ok(self
-            .raw
-            .search(needle)
-            .map_err(err)?
-            .into_iter()
-            .map(quad_from)
-            .collect())
+        match &self.inner {
+            Inner::Mupdf(raw) => Ok(raw.search(needle).map_err(err)?.into_iter().map(quad_from).collect()),
+            #[cfg(feature = "pdfium")]
+            Inner::Pdfium(blocks) => Ok(crate::pdfium::search_blocks(blocks, needle)),
+        }
     }
 
     /// Bloques → líneas → caracteres. Se calcula en cada llamada: guarda el resultado si lo vas a reutilizar.
     pub fn blocks(&self) -> Vec<TextBlock> {
+        #[cfg(feature = "pdfium")]
+        if let Inner::Pdfium(blocks) = &self.inner {
+            return blocks.clone();
+        }
+        let Some(raw) = self.mupdf() else { return Vec::new() };
         let mut fonts: HashMap<(String, u8), Arc<CharFont>> = HashMap::new();
         let mut out = Vec::new();
-        for block in self.raw.blocks() {
+        for block in raw.blocks() {
             let bounds = rect_from(block.bounds());
             match block.r#type() {
                 mupdf::text_page::TextBlockType::Text => {
@@ -290,8 +342,12 @@ impl TextPage {
 
     /// Palabras con su caja.
     pub fn words(&self) -> Vec<TextWord> {
-        self.raw
-            .words()
+        #[cfg(feature = "pdfium")]
+        if let Inner::Pdfium(blocks) = &self.inner {
+            return crate::pdfium::words_of(blocks);
+        }
+        let Some(raw) = self.mupdf() else { return Vec::new() };
+        raw.words()
             .into_iter()
             .map(|w| TextWord {
                 text: w.text,

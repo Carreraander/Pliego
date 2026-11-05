@@ -12,6 +12,7 @@ use std::path::Path;
 use pliego_core::{Error, Result};
 
 use crate::backend::{err, path_str, size_to};
+use crate::engine::{RenderBackend, default_render_backend};
 use crate::geom::Size;
 use crate::links::LinkDestination;
 use crate::object::{Object, Value};
@@ -29,6 +30,10 @@ pub(crate) enum DocRaw {
 /// Documento de cualquier formato legible (PDF, XPS, EPUB, imágenes, HTML…).
 pub struct Document {
     pub(crate) raw: DocRaw,
+    /// Quién dibuja y extrae el texto (véase [`crate::RenderBackend`]).
+    pub(crate) backend: RenderBackend,
+    #[cfg(feature = "pdfium")]
+    pub(crate) link: crate::pdfium::DocLink,
 }
 
 impl Document {
@@ -43,6 +48,9 @@ impl Document {
         let doc = mupdf::Document::open(path_str(path)?).map_err(err)?;
         Ok(Document {
             raw: DocRaw::Plain(doc),
+            backend: default_render_backend(),
+            #[cfg(feature = "pdfium")]
+            link: crate::pdfium::DocLink::from_path(path),
         })
     }
 
@@ -52,6 +60,9 @@ impl Document {
         let doc = mupdf::Document::from_bytes(bytes, magic).map_err(err)?;
         Ok(Document {
             raw: DocRaw::Plain(doc),
+            backend: default_render_backend(),
+            #[cfg(feature = "pdfium")]
+            link: crate::pdfium::DocLink::from_bytes(bytes, magic),
         })
     }
 
@@ -103,17 +114,28 @@ impl Document {
 
     /// Convierte a [`PdfDocument`]. Error si no es un PDF (compruébalo antes con [`Document::is_pdf`]).
     pub fn into_pdf(self) -> Result<PdfDocument> {
-        match self.raw {
-            DocRaw::Pdf(p) => Ok(PdfDocument::from_raw(p)),
+        let Document {
+            raw,
+            backend,
+            #[cfg(feature = "pdfium")]
+            link,
+        } = self;
+        let p = match raw {
+            DocRaw::Pdf(p) => p,
             DocRaw::Plain(d) => {
                 if !d.is_pdf() {
                     return Err(Error::Unsupported("el documento no es un PDF".into()));
                 }
-                mupdf::pdf::PdfDocument::try_from(d)
-                    .map(PdfDocument::from_raw)
-                    .map_err(err)
+                mupdf::pdf::PdfDocument::try_from(d).map_err(err)?
             }
+        };
+        let mut doc = PdfDocument::from_raw(p);
+        doc.doc.backend = backend;
+        #[cfg(feature = "pdfium")]
+        {
+            doc.doc.link = link;
         }
+        Ok(doc)
     }
 
     pub fn needs_password(&self) -> Result<bool> {
@@ -122,7 +144,12 @@ impl Document {
 
     /// `true` si la contraseña es válida (de usuario o de propietario).
     pub fn authenticate(&mut self, password: &str) -> Result<bool> {
-        self.base_mut().authenticate(password).map_err(err)
+        let ok = self.base_mut().authenticate(password).map_err(err)?;
+        #[cfg(feature = "pdfium")]
+        if ok {
+            self.link.set_password(password);
+        }
+        Ok(ok)
     }
 
     pub fn page_count(&self) -> Result<i32> {
@@ -130,7 +157,71 @@ impl Document {
     }
 
     pub fn load_page(&self, page_no: i32) -> Result<Page> {
-        self.base().load_page(page_no).map(Page::from_plain).map_err(err)
+        #[allow(unused_mut)]
+        let mut page = self.base().load_page(page_no).map(Page::from_plain).map_err(err)?;
+        #[cfg(feature = "pdfium")]
+        {
+            page.pdfium = self.pdfium_link(page_no, page.base())?;
+        }
+        Ok(page)
+    }
+
+    /// Motor que dibuja y extrae el texto de las páginas que se carguen de este documento.
+    pub fn render_backend(&self) -> RenderBackend {
+        self.backend
+    }
+
+    /// Cambia el motor de render y texto de este documento (afecta a las páginas que se carguen después).
+    /// `Pdfium` exige haber cargado la DLL ([`crate::pdfium_init`]); los documentos que no son PDF siempre usan MuPDF.
+    pub fn set_render_backend(&mut self, backend: RenderBackend) -> Result<()> {
+        if backend == RenderBackend::Pdfium && !crate::engine::pdfium_available() {
+            return Err(Error::Unsupported("PDFium no está disponible".into()));
+        }
+        self.backend = backend;
+        Ok(())
+    }
+
+    /// Enlace con la página `page_no` en PDFium, si este documento lo usa.
+    #[cfg(feature = "pdfium")]
+    pub(crate) fn pdfium_link(
+        &self,
+        page_no: i32,
+        mupdf_page: &mupdf::Page,
+    ) -> Result<Option<crate::pdfium::PageLink>> {
+        if self.backend != RenderBackend::Pdfium || !self.is_pdf() {
+            return Ok(None);
+        }
+        let dirty = matches!(&self.raw, DocRaw::Pdf(p) if p.has_unsaved_changes());
+        match self.link.page(page_no, dirty, || self.snapshot_for_pdfium()) {
+            Ok(mut link) => {
+                // MuPDF define el espacio de la página (incluido `/UserUnit`); PDFium se calibra contra él.
+                if let Ok(b) = mupdf_page.bounds() {
+                    link.calibrate(b.x1 - b.x0, b.y1 - b.y0);
+                }
+                Ok(Some(link))
+            }
+            Err(e) if crate::engine::pdfium_fallback() && !matches!(e, Error::Password) => {
+                eprintln!("pliego: PDFium no abre la página {page_no}: {e}; se usa MuPDF");
+                Ok(None)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Copia del documento actual (con los cambios sin guardar), sin cifrar, para que PDFium la lea.
+    #[cfg(feature = "pdfium")]
+    fn snapshot_for_pdfium(&self) -> Result<Vec<u8>> {
+        let DocRaw::Pdf(p) = &self.raw else {
+            return Err(Error::Unsupported(
+                "no hay copia en memoria del documento para PDFium".into(),
+            ));
+        };
+        let mut opts = WriteOptions::default();
+        opts.set_encryption(Encryption::None);
+        let mut out = Vec::new();
+        p.write_to_with_options(&mut out, write_options_to(&opts))
+            .map_err(err)?;
+        Ok(out)
     }
 
     /// Metadato estándar; cadena vacía si no existe.
@@ -220,7 +311,12 @@ impl Default for PdfDocument {
 impl PdfDocument {
     pub(crate) fn from_raw(raw: mupdf::pdf::PdfDocument) -> Self {
         Self {
-            doc: Document { raw: DocRaw::Pdf(raw) },
+            doc: Document {
+                raw: DocRaw::Pdf(raw),
+                backend: default_render_backend(),
+                #[cfg(feature = "pdfium")]
+                link: Default::default(),
+            },
         }
     }
 
@@ -251,16 +347,28 @@ impl PdfDocument {
         if !path.exists() {
             return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
         }
-        mupdf::pdf::PdfDocument::open(path_str(path)?)
+        #[allow(unused_mut)]
+        let mut doc = mupdf::pdf::PdfDocument::open(path_str(path)?)
             .map(Self::from_raw)
-            .map_err(err)
+            .map_err(err)?;
+        #[cfg(feature = "pdfium")]
+        {
+            doc.doc.link = crate::pdfium::DocLink::from_path(path);
+        }
+        Ok(doc)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<PdfDocument> {
         crate::fonts::init_fonts();
-        mupdf::pdf::PdfDocument::from_bytes(bytes)
+        #[allow(unused_mut)]
+        let mut doc = mupdf::pdf::PdfDocument::from_bytes(bytes)
             .map(Self::from_raw)
-            .map_err(err)
+            .map_err(err)?;
+        #[cfg(feature = "pdfium")]
+        {
+            doc.doc.link = crate::pdfium::DocLink::from_bytes(bytes, "application/pdf");
+        }
+        Ok(doc)
     }
 
     /// Abre y desbloquea. [`Error::Password`] si hace falta contraseña y falta o es incorrecta.
@@ -279,7 +387,13 @@ impl PdfDocument {
     // --- Páginas ---
 
     pub fn load_pdf_page(&self, page_no: i32) -> Result<PdfPage> {
-        self.pdf().load_pdf_page(page_no).map(PdfPage::from_raw).map_err(err)
+        #[allow(unused_mut)]
+        let mut page = self.pdf().load_pdf_page(page_no).map(PdfPage::from_raw).map_err(err)?;
+        #[cfg(feature = "pdfium")]
+        {
+            page.pdfium = self.pdfium_link(page_no, page.base())?;
+        }
+        Ok(page)
     }
 
     /// Objeto `/Page` de la página `page_no` (desde 0).

@@ -57,6 +57,25 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests
         run: cargo test --workspace
+      # Motor PDFium de pliego-pdf (W37): se descarga la versión fijada en tools/pdfium/pdfium.lock.json (hash verificado)
+      # y las pruebas del motor la cargan por ruta absoluta con PLIEGO_PDFIUM_DLL. Solo este paso la define: el resto
+      # de pruebas (worker, app) siguen con MuPDF, que es el motor por defecto sin la DLL.
+      - name: PDFium (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          url=$(jq -r '.fuente' tools/pdfium/pdfium.lock.json)/download/$(jq -r '.version' tools/pdfium/pdfium.lock.json | sed 's#/#%2F#')/$(jq -r '.linux_x64_asset' tools/pdfium/pdfium.lock.json)
+          curl -sSfL -o "$RUNNER_TEMP/pdfium.tgz" "$url"
+          echo "$(jq -r '.linux_x64_sha256' tools/pdfium/pdfium.lock.json)  $RUNNER_TEMP/pdfium.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/pdfium" && tar -xzf "$RUNNER_TEMP/pdfium.tgz" -C "$RUNNER_TEMP/pdfium"
+          echo "PLIEGO_PDFIUM_DLL=$RUNNER_TEMP/pdfium/lib/libpdfium.so" >> "$GITHUB_ENV"
+      - name: PDFium (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          ./tools/pdfium/fetch-pdfium.ps1 -OutDir "$env:RUNNER_TEMP\pdfium"
+          "PLIEGO_PDFIUM_DLL=$env:RUNNER_TEMP\pdfium\pdfium.dll" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Pruebas del motor PDFium
+        run: cargo test -p pliego-pdf --features pdfium --test pdfium -- --nocapture
 
   licenses:
     name: Licencias de dependencias

@@ -14,6 +14,13 @@ lopdf = { version = "0.46", default-features = false }
 md-5 = "0.11"
 getrandom = "0.4"
 serde.workspace = true
+pdfium-render = { workspace = true, optional = true }
+
+[features]
+default = []
+# Render, texto y búsqueda con PDFium (carga `pdfium.dll` por ruta absoluta, véase `pdfium_init`). MuPDF sigue siendo el
+# motor por defecto y el único para el modelo de objetos hasta W36/W41.
+pdfium = ["dep:pdfium-render"]
 
 [dev-dependencies]
 tempfile.workspace = true

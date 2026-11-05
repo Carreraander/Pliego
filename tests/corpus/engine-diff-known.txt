@@ -1,0 +1,4 @@
+# PDF con diferencias o caídas aceptadas en el arnés de comparación de motores (`engine-compare`).
+# Un fallo que no esté aquí hace fallar el arnés. Al arreglarlo, quita la línea. Añade el motivo en un comentario.
+# Bloquea a propósito (parche de teselas diminutas): sirve para probar el aislamiento con tiempo límite del worker.
+tiling-hang.pdf

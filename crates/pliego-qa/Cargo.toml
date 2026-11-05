@@ -13,6 +13,13 @@ pliego-engine-mupdf.workspace = true
 pliego-worker = { path = "../pliego-worker" }
 anyhow.workspace = true
 clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+flate2 = "1"
+tempfile.workspace = true
+
+[dev-dependencies]
+pliego-redact = { path = "../pliego-redact" }
 
 [lints]
 workspace = true
@@ -20,3 +27,11 @@ workspace = true
 [[bin]]
 name = "corpus-runner"
 path = "src/main.rs"
+
+[[bin]]
+name = "engine-compare"
+path = "src/bin/engine_compare.rs"
+
+[[bin]]
+name = "redaction-oracle"
+path = "src/bin/redaction_oracle.rs"

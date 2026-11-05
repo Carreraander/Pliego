@@ -73,7 +73,7 @@ formularios, las fuentes, las imágenes y la redacción, con **lopdf** (`pliego_
   traslación) se ajusta la página a su tamaño final y se desplaza el origen; con una matriz girada los campos no salen.
 - **Sin CMYK:** PDFium dibuja en RGB. Las planchas de `pliego-print` reescriben los colores del contenido y dibujan una vez
   por tinta (véase `separations.rs`); las imágenes y degradados no se separan.
-- **Sin JavaScript** (MuPDF/mujs era el único motor): los scripts de formularios necesitan un motor propio (flujo aparte).
+- **JavaScript de formularios:** lo ejecuta `pliego-formjs` (W42, `native/formjs.rs`); MuPDF/mujs ya no interviene.
 - **`/UserUnit`:** ni el modelo propio ni PDFium lo aplican al tamaño de página (MuPDF lo multiplicaba).
 - **Diferencias conocidas respecto a MuPDF:** `docs/handoff/flujos/w37.md`.
 

@@ -4,9 +4,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use pliego_core::{Error, JobContext, Report, Result};
-use pliego_pdf::{
-    Colorspace, Document, Image, ImageFormat, ImageSource, InsertImageOptions, Matrix, PdfDocument, Pixmap, Rect, Size,
-};
+use pliego_pdf::native::{PdfDocument, Raster};
+use pliego_pdf::{Rect, Size, WriteOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::util::write_atomic;
@@ -122,37 +121,9 @@ impl Default for ImagesToPdfOptions {
     }
 }
 
-/// Un fotograma listo para incrustar.
-struct Frame {
-    data: Vec<u8>,
-    /// "jpeg" o "png": cómo está codificado `data`.
-    hint: &'static str,
-    width: u32,
-    height: u32,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Kind {
-    Jpeg,
-    Png,
-    Webp,
-    /// TIFF, GIF, BMP... los lee MuPDF.
-    Mupdf,
-}
-
-fn sniff(bytes: &[u8], path: &Path) -> Result<Kind> {
-    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
-        Ok(Kind::Jpeg)
-    } else if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
-        Ok(Kind::Png)
-    } else if bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
-        Ok(Kind::Webp)
-    } else if bytes.starts_with(b"II*\0")
-        || bytes.starts_with(b"MM\0*")
-        || bytes.starts_with(b"GIF8")
-        || bytes.starts_with(b"BM")
-    {
-        Ok(Kind::Mupdf)
+fn sniff(bytes: &[u8], path: &Path) -> Result<()> {
+    if Raster::sniff(bytes).is_some() {
+        Ok(())
     } else if bytes.len() > 12
         && &bytes[4..8] == b"ftyp"
         && matches!(&bytes[8..12], b"heic" | b"heix" | b"mif1" | b"avif")
@@ -169,71 +140,21 @@ fn sniff(bytes: &[u8], path: &Path) -> Result<Kind> {
     }
 }
 
-fn png_bytes(pix: &Pixmap) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
-    pix.write_to(&mut out, ImageFormat::Png)?;
-    Ok(out)
-}
-
-fn load_frames(path: &Path) -> Result<Vec<Frame>> {
+/// Lee un archivo de imagen: un fotograma por imagen (un TIFF multipágina da varios).
+fn load_frames(path: &Path) -> Result<Vec<Raster>> {
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    match sniff(&bytes, path)? {
-        kind @ (Kind::Jpeg | Kind::Png) => {
-            let img = Image::from_bytes(&bytes)
-                .map_err(|e| Error::InvalidInput(format!("{}: imagen dañada ({e})", path.display())))?;
-            Ok(vec![Frame {
-                width: img.width(),
-                height: img.height(),
-                hint: if kind == Kind::Jpeg { "jpeg" } else { "png" },
-                data: bytes,
-            }])
-        }
-        Kind::Webp => {
-            let img = image::load_from_memory_with_format(&bytes, image::ImageFormat::WebP)
-                .map_err(|e| Error::InvalidInput(format!("{}: imagen WebP dañada ({e})", path.display())))?
-                .to_rgba8();
-            let (width, height) = img.dimensions();
-            let mut data = Vec::new();
-            img.write_to(&mut std::io::Cursor::new(&mut data), image::ImageFormat::Png)
-                .map_err(|e| Error::Other(format!("no se pudo recodificar {}: {e}", path.display())))?;
-            Ok(vec![Frame {
-                data,
-                hint: "png",
-                width,
-                height,
-            }])
-        }
-        Kind::Mupdf => mupdf_frames(path),
-    }
-}
-
-/// TIFF (también multipágina), GIF y BMP: se renderiza cada fotograma a su tamaño de píxeles nativo.
-fn mupdf_frames(path: &Path) -> Result<Vec<Frame>> {
-    let broken = |e: Error| Error::InvalidInput(format!("{}: imagen dañada ({e})", path.display()));
-    // Tamaño nativo del primer fotograma: sirve para deducir la escala píxeles/puntos.
-    let first = Image::from_file(path).map_err(broken)?;
-    let doc = Document::open(path).map_err(broken)?;
-    let count = doc.page_count()?;
-    let mut frames = Vec::new();
-    let mut scale = None;
-    for i in 0..count {
-        let page = doc.load_page(i)?;
-        let bounds = page.bounds()?;
-        let s = *scale.get_or_insert_with(|| first.width() as f32 / bounds.width().max(0.01));
-        let pix = page.to_pixmap(&Matrix::new_scale(s, s), Colorspace::Rgb, false, false)?;
-        frames.push(Frame {
-            width: pix.width(),
-            height: pix.height(),
-            hint: "png",
-            data: png_bytes(&pix)?,
-        });
-    }
-    Ok(frames)
+    sniff(&bytes, path)?;
+    Raster::decode(&bytes).map_err(|e| match e {
+        Error::InvalidInput(m) => Error::InvalidInput(format!("{}: {m}", path.display())),
+        Error::Unsupported(m) => Error::Unsupported(format!("{}: {m}", path.display())),
+        other => other,
+    })
 }
 
 /// Crea un PDF con una página por imagen. Los JPEG se incrustan sin recomprimir.
 ///
-/// `inputs` admite JPG, PNG, TIFF (multipágina), WebP, GIF y BMP; el formato se detecta por contenido.
+/// `inputs` admite JPG, PNG, TIFF (multipágina), WebP, GIF y BMP; el formato se detecta por contenido. El PDF se
+/// construye con el modelo propio (`pliego_pdf::native`), sin MuPDF.
 /// HEIC no está soportado todavía y devuelve un error claro.
 pub fn images_to_pdf(
     inputs: &[PathBuf],
@@ -256,23 +177,24 @@ pub fn images_to_pdf(
             pages += 1;
         }
     }
-    let mut buf = Vec::new();
-    pdf.write_to(&mut buf)?;
+    let mut write = WriteOptions::new();
+    write.set_compress(true).set_compress_images(true);
+    let buf = pdf.to_bytes(&write)?;
     write_atomic(output, &buf)?;
     ctx.step(inputs.len() as u64, inputs.len() as u64, "listo")?;
     Ok(Report::with_output(output, format!("{pages} página(s) creadas")))
 }
 
-fn add_page(pdf: &mut PdfDocument, frame: &Frame, o: &ImagesToPdfOptions) -> Result<()> {
+fn add_page(pdf: &mut PdfDocument, frame: &Raster, o: &ImagesToPdfOptions) -> Result<()> {
     let to_pt = 72.0 / o.dpi;
-    let (img_w, img_h) = (frame.width as f32 * to_pt, frame.height as f32 * to_pt);
+    let (img_w, img_h) = (frame.width() as f32 * to_pt, frame.height() as f32 * to_pt);
     let m = o.margin_pt;
 
     let (page_w, page_h) = match o.page_size.size_pt() {
         None => (img_w + 2.0 * m, img_h + 2.0 * m),
         Some((w, h)) => {
             let landscape = match o.orientation {
-                Orientation::Auto => frame.width > frame.height,
+                Orientation::Auto => frame.width() > frame.height(),
                 Orientation::Landscape => true,
                 Orientation::Portrait => false,
             };
@@ -299,16 +221,7 @@ fn add_page(pdf: &mut PdfDocument, frame: &Frame, o: &ImagesToPdfOptions) -> Res
         x1: x0 + w,
         y1: y0 + h,
     };
-    page.insert_image(
-        pdf,
-        rect,
-        ImageSource::Bytes {
-            data: &frame.data,
-            format_hint: Some(frame.hint),
-        },
-        InsertImageOptions::default(),
-    )?;
-    Ok(())
+    page.insert_raster(pdf, rect, frame)
 }
 
 #[cfg(test)]

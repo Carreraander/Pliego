@@ -39,6 +39,7 @@ mod object;
 mod outline;
 mod page;
 mod parse;
+mod raster;
 mod save;
 mod tree;
 mod widget;
@@ -61,6 +62,7 @@ pub use graft::GraftMap;
 pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageOptions, PageImageInfo};
 pub use object::Object;
 pub use page::PdfPage;
+pub use raster::Raster;
 pub use widget::PdfWidget;
 
 use std::cell::RefCell;

@@ -176,6 +176,9 @@ pub fn decrypt(input: &Path, output: &Path, password: &str) -> Result<Report> {
     let doc = open_pdf(input, Some(password))?;
     let mut o = WriteOptions::default();
     o.set_encryption(PdfEncryption::None);
+    // Si el diccionario de cifrado era un objeto indirecto (lo escriben qpdf, Acrobat y el modelo propio), al quitar
+    // el cifrado queda huérfano en el archivo con las huellas de las contraseñas (/O, /U): la limpieza lo elimina.
+    o.set_garbage(true);
     save_atomic(doc, input, output, o)?;
     Ok(Report::with_output(output, "Protección eliminada."))
 }
@@ -251,6 +254,10 @@ mod tests {
         decrypt(&enc_pdf, &plain, "abre").unwrap();
         assert!(open_pdf(&plain, None).is_ok());
         assert!(!bytes_contain(&plain, b"/Encrypt"));
+        assert!(
+            !bytes_contain(&plain, b"/Standard"),
+            "no debe quedar el diccionario de cifrado huérfano"
+        );
     }
 
     #[test]

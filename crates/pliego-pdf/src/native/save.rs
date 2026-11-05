@@ -472,13 +472,24 @@ fn ensure_id(doc: &mut lopdf::Document) -> Result<()> {
     Ok(())
 }
 
+/// Recorta `s` a `max` bytes sin partir un carácter.
+fn truncate_utf8(s: &str, max: usize) -> &str {
+    let mut end = s.len().min(max);
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
 fn encrypt(doc: &mut lopdf::Document, options: &WriteOptions, original: Option<EncryptionState>) -> Result<()> {
     let permissions = Permissions::from_bits_truncate(u64::from(options.permissions().bits()));
-    let user = options.user_password.as_str();
+    // La norma (ISO 32000-2, algoritmos 8 y 9) usa como máximo 127 bytes UTF-8 de la contraseña, y quien abre el
+    // archivo los recorta igual; lopdf al escribir no lo hace, y una contraseña más larga no volvería a abrir.
+    let user = truncate_utf8(options.user_password.as_str(), 127);
     let owner = if options.owner_password.is_empty() {
         user
     } else {
-        options.owner_password.as_str()
+        truncate_utf8(options.owner_password.as_str(), 127)
     };
     let state = match options.encryption {
         Encryption::None => return Ok(()),
@@ -535,5 +546,40 @@ fn encrypt(doc: &mut lopdf::Document, options: &WriteOptions, original: Option<E
             .map_err(err)?
         }
     };
-    doc.encrypt(&state).map_err(err)
+    doc.encrypt(&state).map_err(err)?;
+    complete_encrypt_dict(doc, options.encryption);
+    Ok(())
+}
+
+/// lopdf omite claves que la norma marca como opcionales pero que lectores estrictos (qpdf 12 avisa) esperan, y que
+/// Acrobat y qpdf escriben siempre: `/Length` de la clave en bits (arriba) y, en cada filtro de cifrado, su `/Length`
+/// en bytes y `/AuthEvent /DocOpen`.
+fn complete_encrypt_dict(doc: &mut lopdf::Document, enc: Encryption) {
+    let bits: i64 = match enc {
+        Encryption::Rc4_40 => 40,
+        Encryption::Rc4_128 | Encryption::Aes128 => 128,
+        Encryption::Aes256 => 256,
+        Encryption::Keep | Encryption::None => return,
+    };
+    let Ok(L::Reference(id)) = doc.trailer.get(b"Encrypt").cloned() else {
+        return;
+    };
+    let Some(L::Dictionary(dict)) = doc.objects.get_mut(&id) else {
+        return;
+    };
+    if !dict.has(b"Length") {
+        dict.set("Length", bits);
+    }
+    if let Ok(L::Dictionary(cf)) = dict.get_mut(b"CF") {
+        for (_, filter) in cf.iter_mut() {
+            if let L::Dictionary(f) = filter {
+                if !f.has(b"AuthEvent") {
+                    f.set("AuthEvent", L::Name(b"DocOpen".to_vec()));
+                }
+                if !f.has(b"Length") {
+                    f.set("Length", bits / 8);
+                }
+            }
+        }
+    }
 }

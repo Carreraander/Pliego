@@ -1,6 +1,6 @@
 //! [`PdfPage`]: página de un PDF a nivel de objetos (contenido, recursos, cajas, giro, enlaces).
 //!
-//! No dibuja ni extrae texto: eso es de PDFium (W37). Las anotaciones y los campos son de W39.
+//! No dibuja ni extrae texto: eso es de PDFium (W37). Las anotaciones están en `annot.rs`; los campos, en `widget.rs`.
 
 use lopdf::Object as L;
 use lopdf::{Dictionary, StringFormat};
@@ -282,9 +282,13 @@ impl PdfPage {
         Ok(Some(format!("/{name}")))
     }
 
-    /// Regenera las apariencias de las anotaciones modificadas (W39). Aquí no hay nada que regenerar.
+    /// Regenera las apariencias de las anotaciones modificadas. `true` si alguna cambió.
     pub fn update(&mut self) -> Result<bool> {
-        Ok(false)
+        let mut changed = false;
+        for mut a in self.annotations() {
+            changed |= a.update()?;
+        }
+        Ok(changed)
     }
 
     /// Crea enlaces en la página (`bounds` en el espacio de página, como los que devuelve `Page::links`).

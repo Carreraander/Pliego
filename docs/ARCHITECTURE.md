@@ -83,5 +83,9 @@ cambio es sustituir esa exportación por `pub use native::*` cuando W37 aporte l
 Un `Object` nativo es una **ruta** (documento + objeto raíz + pasos), no un puntero: lo que `dict_put` inserta se
 copia. Detalle, límites y pruebas en `docs/handoff/flujos/w36.md`.
 
+W39 completa `native` por partes (estado y límites en `docs/handoff/flujos/w39.md`): **anotaciones** (`annot.rs`, con sus
+apariencias en `appearance.rs`, escritas desde la especificación PDF y no desde MuPDF), después campos de formulario,
+fuentes e imágenes. Una anotación solo regenera su apariencia si algo la cambió (`State::annot_dirty`).
+
 ## Rendimiento objetivo (medido en acr12)
 Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB, instalador < 40 MB.

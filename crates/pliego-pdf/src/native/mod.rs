@@ -26,8 +26,11 @@
 //! - Una asa a un elemento directo deja de ser válida si se borra o reordena su contenedor.
 //! - Nada es `Send` (comparten `Rc<RefCell<…>>`).
 
+mod annot;
+mod appearance;
 mod document;
 mod graft;
+mod metrics;
 mod object;
 mod outline;
 mod page;
@@ -36,8 +39,11 @@ mod save;
 mod tree;
 
 #[cfg(test)]
+mod annot_tests;
+#[cfg(test)]
 mod tests;
 
+pub use annot::PdfAnnotation;
 pub use document::PdfDocument;
 pub use graft::GraftMap;
 pub use object::Object;
@@ -68,6 +74,8 @@ pub(crate) struct State {
     pub(crate) locked: bool,
     /// Lista de páginas (ids de objeto) en orden; se recalcula al cambiar el árbol.
     pub(crate) pages_cache: Option<Vec<ObjectId>>,
+    /// Anotaciones cuya apariencia hay que regenerar en el próximo `update()` (W39).
+    pub(crate) annot_dirty: BTreeSet<ObjectId>,
 }
 
 /// Datos del archivo de origen.

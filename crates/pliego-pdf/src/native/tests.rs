@@ -688,7 +688,7 @@ fn text_of(bytes: &[u8], password: Option<&str>, page: i32) -> String {
     doc.load_page(page).unwrap().text().unwrap()
 }
 
-fn corpus_file(rel: &str) -> Vec<u8> {
+pub(super) fn corpus_file(rel: &str) -> Vec<u8> {
     std::fs::read(corpus_dir().join(rel)).unwrap()
 }
 

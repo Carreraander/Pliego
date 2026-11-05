@@ -10,9 +10,9 @@ publish = false
 [workspace]
 
 [dependencies]
-# Sin `thread_safe`/`sync`: el worker será un proceso con un hilo de PDFium. `pdfium_latest` = API de la última
-# versión de pdfium-binaries que la crate conoce; la DLL fijada debe ser compatible (se comprueba al cargar).
-pdfium-render = { version = "0.9", default-features = false, features = ["pdfium_latest"] }
+# Sin `thread_safe`/`sync`: el worker será un proceso con un hilo de PDFium. `pdfium_8125` fija la API que
+# espera la DLL de chromium/8138 (medida en acr12, #186/#187); `pdfium_latest` es solo un alias de ella en 0.9.5.
+pdfium-render = { version = "0.9", default-features = false, features = ["pdfium_8125"] }
 serde_json = "1"
 
 [lints.rust]

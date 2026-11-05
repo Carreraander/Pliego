@@ -1,4 +1,4 @@
-//! Anotaciones PDF de Pliego: crear, listar, editar y borrar sobre un `mupdf::pdf::PdfDocument`.
+//! Anotaciones PDF de Pliego: crear, listar, editar y borrar sobre un `pliego_pdf::PdfDocument`.
 //!
 //! Las funciones trabajan en memoria; guardar el documento es cosa de quien llama.
 

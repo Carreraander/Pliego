@@ -67,7 +67,7 @@ fn runs_an_action_over_a_folder_without_touching_the_originals() {
             .all(|p| p.starts_with(dir.path().join("docs (lote)")))
     );
     let pages = |p: &std::path::Path| {
-        use mupdf::Document;
+        use pliego_pdf::Document;
         Document::open(p.to_str().unwrap()).unwrap().page_count().unwrap()
     };
     assert_eq!(pages(&report.outputs[0]), 2);

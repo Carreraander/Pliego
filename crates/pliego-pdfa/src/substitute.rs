@@ -6,11 +6,9 @@
 
 use std::fmt::Write as _;
 
-use mupdf::pdf::{PdfDocument, PdfObject};
-use mupdf::{Buffer, Font, Matrix, PathWalker};
 use pliego_core::Result;
-
-use crate::io::pdf_err;
+use pliego_pdf::{Font, Matrix, PathWalker};
+use pliego_pdf::{Object, PdfDocument};
 
 /// Unicode de los códigos 0x80..=0x9F de WinAnsi (cp1252); 0 = sin definir.
 const CP1252_HIGH: [u16; 32] = [
@@ -48,7 +46,7 @@ impl Outline {
     }
 }
 
-impl PathWalker for &mut Outline {
+impl PathWalker for Outline {
     fn move_to(&mut self, x: f32, y: f32) {
         self.point(x, y);
         let _ = writeln!(self.ops, "{x:.1} {y:.1} m");
@@ -68,14 +66,8 @@ impl PathWalker for &mut Outline {
     }
 }
 
-fn buffer(data: &[u8]) -> Result<Buffer> {
-    let mut b = Buffer::with_capacity(data.len());
-    std::io::Write::write_all(&mut b, data)?;
-    Ok(b)
-}
-
-fn stream(doc: &mut PdfDocument, data: &[u8]) -> Result<PdfObject> {
-    doc.add_stream(&buffer(data)?, None, false).map_err(pdf_err)
+fn stream(doc: &mut PdfDocument, data: &[u8]) -> Result<Object> {
+    doc.add_stream(data, None, false)
 }
 
 fn to_unicode_cmap(map: &[(u8, u32)]) -> String {
@@ -96,11 +88,11 @@ fn to_unicode_cmap(map: &[(u8, u32)]) -> String {
 }
 
 /// Convierte `font` (diccionario de una fuente estándar de 14) en una fuente Type3 equivalente.
-pub(crate) fn make_type3(doc: &mut PdfDocument, font: &mut PdfObject, base: &str) -> Result<()> {
-    let builtin = Font::new(base).map_err(pdf_err)?;
+pub(crate) fn make_type3(doc: &mut PdfDocument, font: &mut Object, base: &str) -> Result<()> {
+    let builtin = Font::new(base)?;
     let scale = Matrix::new(1000.0, 0.0, 0.0, 1000.0, 0.0, 0.0);
-    let mut char_procs = doc.new_dict().map_err(pdf_err)?;
-    let mut differences = doc.new_array().map_err(pdf_err)?;
+    let mut char_procs = doc.new_dict()?;
+    let mut differences = doc.new_array()?;
     let mut widths = vec![0i32; 256];
     let mut map = Vec::new();
     let (mut first, mut last) = (255u8, 0u8);
@@ -109,21 +101,15 @@ pub(crate) fn make_type3(doc: &mut PdfDocument, font: &mut PdfObject, base: &str
 
     for code in 32u8..=255 {
         let Some(uni) = winansi_unicode(code) else { continue };
-        let gid = builtin.encode_character(uni as i32).map_err(pdf_err)?;
+        let gid = builtin.encode_character(uni as i32)?;
         if gid <= 0 && uni != 0x20 && uni != 0xA0 {
             continue;
         }
-        let advance = if gid > 0 {
-            builtin.advance_glyph(gid).map_err(pdf_err)?
-        } else {
-            0.278
-        };
+        let advance = if gid > 0 { builtin.advance_glyph(gid)? } else { 0.278 };
         let w = (advance * 1000.0).round() as i32;
         let mut outline = Outline::default();
-        if gid > 0
-            && let Some(path) = builtin.outline_glyph_with_ctm(gid, &scale).map_err(pdf_err)?
-        {
-            path.walk(&mut outline).map_err(pdf_err)?;
+        if gid > 0 {
+            builtin.outline_glyph(gid, &scale, &mut outline)?;
         }
         let (llx, lly, urx, ury) = if outline.any {
             bbox.point(outline.min.0, outline.min.1);
@@ -136,15 +122,11 @@ pub(crate) fn make_type3(doc: &mut PdfDocument, font: &mut PdfObject, base: &str
         let content = format!("{w} 0 {llx:.0} {lly:.0} {urx:.0} {ury:.0} d1\n{}{fill}\n", outline.ops);
         let proc_ref = stream(doc, content.as_bytes())?;
         let name = format!("uni{uni:04X}");
-        char_procs.dict_put(name.as_str(), proc_ref).map_err(pdf_err)?;
+        char_procs.dict_put(name.as_str(), proc_ref)?;
         if prev.is_none_or(|p| p + 1 != code) {
-            differences
-                .array_push(PdfObject::new_int(code as i32).map_err(pdf_err)?)
-                .map_err(pdf_err)?;
+            differences.array_push(Object::new_int(code as i32)?)?;
         }
-        differences
-            .array_push(PdfObject::new_name(&name).map_err(pdf_err)?)
-            .map_err(pdf_err)?;
+        differences.array_push(Object::new_name(&name)?)?;
         prev = Some(code);
         widths[code as usize] = w;
         map.push((code, uni));
@@ -152,54 +134,46 @@ pub(crate) fn make_type3(doc: &mut PdfDocument, font: &mut PdfObject, base: &str
         last = last.max(code);
     }
 
-    let mut ws = doc.new_array().map_err(pdf_err)?;
+    let mut ws = doc.new_array()?;
     for c in first..=last {
-        ws.array_push(PdfObject::new_int(widths[c as usize]).map_err(pdf_err)?)
-            .map_err(pdf_err)?;
+        ws.array_push(Object::new_int(widths[c as usize])?)?;
     }
-    let mut enc = doc.new_dict().map_err(pdf_err)?;
-    enc.dict_put("Type", PdfObject::new_name("Encoding").map_err(pdf_err)?)
-        .map_err(pdf_err)?;
-    enc.dict_put("Differences", differences).map_err(pdf_err)?;
+    let mut enc = doc.new_dict()?;
+    enc.dict_put("Type", Object::new_name("Encoding")?)?;
+    enc.dict_put("Differences", differences)?;
     let tounicode = stream(doc, to_unicode_cmap(&map).as_bytes())?;
 
-    let mut bb = doc.new_array().map_err(pdf_err)?;
+    let mut bb = doc.new_array()?;
     let (b0, b1, b2, b3) = if bbox.any {
         (bbox.min.0, bbox.min.1, bbox.max.0, bbox.max.1)
     } else {
         (0.0, 0.0, 1000.0, 1000.0)
     };
     for v in [b0, b1, b2, b3] {
-        bb.array_push(PdfObject::new_int(v.round() as i32).map_err(pdf_err)?)
-            .map_err(pdf_err)?;
+        bb.array_push(Object::new_int(v.round() as i32)?)?;
     }
-    let mut fm = doc.new_array().map_err(pdf_err)?;
+    let mut fm = doc.new_array()?;
     for v in [0.001f32, 0.0, 0.0, 0.001, 0.0, 0.0] {
-        fm.array_push(PdfObject::new_real(v).map_err(pdf_err)?)
-            .map_err(pdf_err)?;
+        fm.array_push(Object::new_real(v)?)?;
     }
 
     for key in ["FontDescriptor", "BaseFont"] {
-        if font.get_dict(key).map_err(pdf_err)?.is_some() {
-            font.dict_delete(key).map_err(pdf_err)?;
+        if font.get_dict(key)?.is_some() {
+            font.dict_delete(key)?;
         }
     }
-    font.dict_put("Subtype", PdfObject::new_name("Type3").map_err(pdf_err)?)
-        .map_err(pdf_err)?;
-    font.dict_put("Name", PdfObject::new_name(base).map_err(pdf_err)?)
-        .map_err(pdf_err)?;
-    font.dict_put("FontBBox", bb).map_err(pdf_err)?;
-    font.dict_put("FontMatrix", fm).map_err(pdf_err)?;
-    font.dict_put("CharProcs", char_procs).map_err(pdf_err)?;
-    font.dict_put("Encoding", enc).map_err(pdf_err)?;
-    font.dict_put("FirstChar", PdfObject::new_int(first as i32).map_err(pdf_err)?)
-        .map_err(pdf_err)?;
-    font.dict_put("LastChar", PdfObject::new_int(last as i32).map_err(pdf_err)?)
-        .map_err(pdf_err)?;
-    font.dict_put("Widths", ws).map_err(pdf_err)?;
-    font.dict_put("ToUnicode", tounicode).map_err(pdf_err)?;
-    let res = doc.new_dict().map_err(pdf_err)?;
-    font.dict_put("Resources", res).map_err(pdf_err)?;
+    font.dict_put("Subtype", Object::new_name("Type3")?)?;
+    font.dict_put("Name", Object::new_name(base)?)?;
+    font.dict_put("FontBBox", bb)?;
+    font.dict_put("FontMatrix", fm)?;
+    font.dict_put("CharProcs", char_procs)?;
+    font.dict_put("Encoding", enc)?;
+    font.dict_put("FirstChar", Object::new_int(first as i32)?)?;
+    font.dict_put("LastChar", Object::new_int(last as i32)?)?;
+    font.dict_put("Widths", ws)?;
+    font.dict_put("ToUnicode", tounicode)?;
+    let res = doc.new_dict()?;
+    font.dict_put("Resources", res)?;
     Ok(())
 }
 

@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 use std::path::{Path, PathBuf};
 
-use mupdf::pdf::PdfDocument;
-use mupdf::{Document, TextPageFlags};
+use pliego_pdf::PdfDocument;
+use pliego_pdf::{Document, TextFlags};
 
 /// PDF mínimo de `pages` páginas con el texto "<label> p<N>" y un marcador por página ("<label> m<N>").
 pub fn build_pdf(label: &str, pages: usize) -> Vec<u8> {
@@ -80,7 +80,7 @@ pub fn open_pdf(path: &Path) -> PdfDocument {
 
 pub fn page_text(doc: &PdfDocument, i: i32) -> String {
     let page = doc.load_page(i).unwrap();
-    page.to_text_page(TextPageFlags::empty())
+    page.to_text_page(TextFlags::empty())
         .unwrap()
         .to_text()
         .unwrap()

@@ -7,14 +7,10 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use mupdf::pdf::{EmbeddedFileOptions, PdfDocument, PdfObject, PdfWriteOptions};
-use mupdf::{Document, Size};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{Document, Size};
+use pliego_pdf::{EmbeddedFileOptions, Object, PdfDocument, WriteOptions};
 use serde::{Deserialize, Serialize};
-
-fn pe(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Entry {
@@ -90,32 +86,27 @@ fn unique(name: &str, taken: &mut HashSet<String>) -> String {
     candidate
 }
 
-fn collection_dict(doc: &mut PdfDocument) -> Result<PdfObject> {
-    let field = |doc: &mut PdfDocument, subtype: &str, label: &str, order: i32| -> Result<PdfObject> {
-        let mut f = doc.new_dict().map_err(pe)?;
-        f.dict_put("Type", PdfObject::new_name("CollectionField").map_err(pe)?)
-            .map_err(pe)?;
-        f.dict_put("Subtype", PdfObject::new_name(subtype).map_err(pe)?)
-            .map_err(pe)?;
-        f.dict_put("N", PdfObject::new_string(label).map_err(pe)?).map_err(pe)?;
-        f.dict_put("O", PdfObject::new_int(order).map_err(pe)?).map_err(pe)?;
+fn collection_dict(doc: &mut PdfDocument) -> Result<Object> {
+    let field = |doc: &mut PdfDocument, subtype: &str, label: &str, order: i32| -> Result<Object> {
+        let mut f = doc.new_dict()?;
+        f.dict_put("Type", Object::new_name("CollectionField")?)?;
+        f.dict_put("Subtype", Object::new_name(subtype)?)?;
+        f.dict_put("N", Object::new_string(label)?)?;
+        f.dict_put("O", Object::new_int(order)?)?;
         Ok(f)
     };
-    let mut schema = doc.new_dict().map_err(pe)?;
-    schema
-        .dict_put("Type", PdfObject::new_name("CollectionSchema").map_err(pe)?)
-        .map_err(pe)?;
+    let mut schema = doc.new_dict()?;
+    schema.dict_put("Type", Object::new_name("CollectionSchema")?)?;
     let f = field(doc, "F", "Nombre", 1)?;
-    schema.dict_put("F", f).map_err(pe)?;
+    schema.dict_put("F", f)?;
     let s = field(doc, "Size", "Tamaño", 2)?;
-    schema.dict_put("Size", s).map_err(pe)?;
+    schema.dict_put("Size", s)?;
     let m = field(doc, "ModDate", "Modificado", 3)?;
-    schema.dict_put("ModDate", m).map_err(pe)?;
-    let mut c = doc.new_dict().map_err(pe)?;
-    c.dict_put("Type", PdfObject::new_name("Collection").map_err(pe)?)
-        .map_err(pe)?;
-    c.dict_put("View", PdfObject::new_name("D").map_err(pe)?).map_err(pe)?;
-    c.dict_put("Schema", schema).map_err(pe)?;
+    schema.dict_put("ModDate", m)?;
+    let mut c = doc.new_dict()?;
+    c.dict_put("Type", Object::new_name("Collection")?)?;
+    c.dict_put("View", Object::new_name("D")?)?;
+    c.dict_put("Schema", schema)?;
     Ok(c)
 }
 
@@ -129,13 +120,9 @@ fn save_atomic(doc: &PdfDocument, out: &Path) -> Result<()> {
         .suffix(".tmp")
         .tempfile_in(dir)
         .map_err(|e| Error::io_at(dir, e))?;
-    let mut opts = PdfWriteOptions::default();
+    let mut opts = WriteOptions::default();
     opts.set_garbage_level(1).set_compress(true);
-    let p = tmp
-        .path()
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("ruta no válida".into()))?;
-    doc.save_with_options(p, opts).map_err(pe)?;
+    doc.save_with_options(tmp.path(), &opts)?;
     tmp.persist(out).map_err(|e| Error::io_at(out, e.error))?;
     Ok(())
 }
@@ -159,8 +146,7 @@ pub fn create(files: &[PathBuf], out: &Path, ctx: &JobContext) -> Result<Report>
     doc.new_page(Size {
         width: 595.0,
         height: 842.0,
-    })
-    .map_err(pe)?;
+    })?;
     let mut taken = HashSet::new();
     let total = files.len() as u64;
     for (i, f) in files.iter().enumerate() {
@@ -176,10 +162,10 @@ pub fn create(files: &[PathBuf], out: &Path, ctx: &JobContext) -> Result<Report>
         );
         let mut opts = EmbeddedFileOptions::new(&name);
         opts.mime_type = mime_of(&name);
-        doc.add_embedded_file(&name, &data, opts).map_err(pe)?;
+        doc.add_embedded_file(&name, &data, opts)?;
     }
     let coll = collection_dict(&mut doc)?;
-    doc.catalog().map_err(pe)?.dict_put("Collection", coll).map_err(pe)?;
+    doc.catalog()?.dict_put("Collection", coll)?;
     save_atomic(&doc, out)?;
     ctx.step(total, total, "Terminado")?;
     Ok(Report::with_output(
@@ -190,20 +176,20 @@ pub fn create(files: &[PathBuf], out: &Path, ctx: &JobContext) -> Result<Report>
 
 fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    let mut d = Document::from_bytes(&bytes, "application/pdf").map_err(pe)?;
-    if d.needs_password().map_err(pe)? && !password.is_some_and(|p| d.authenticate(p).unwrap_or(false)) {
+    let mut d = Document::from_bytes(&bytes, "application/pdf")?;
+    if d.needs_password()? && !password.is_some_and(|p| d.authenticate(p).unwrap_or(false)) {
         return Err(Error::Password);
     }
-    PdfDocument::try_from(d).map_err(|_| Error::InvalidInput(format!("{} no es un PDF", path.display())))
+    d.into_pdf()
+        .map_err(|_| Error::InvalidInput(format!("{} no es un PDF", path.display())))
 }
 
 /// Archivos incrustados de un PDF.
 pub fn list(path: &Path, password: Option<&str>) -> Result<Listing> {
     let doc = open(path, password)?;
-    let is_portfolio = doc.catalog().map_err(pe)?.get_dict("Collection").map_err(pe)?.is_some();
+    let is_portfolio = doc.catalog()?.get_dict("Collection")?.is_some();
     let entries = doc
-        .embedded_files()
-        .map_err(pe)?
+        .embedded_files()?
         .into_iter()
         .map(|e| Entry {
             filename: e.filename.unwrap_or_else(|| e.name.clone()),
@@ -225,7 +211,7 @@ pub fn extract(
     ctx: &JobContext,
 ) -> Result<Report> {
     let doc = open(path, password)?;
-    let all = doc.embedded_files().map_err(pe)?;
+    let all = doc.embedded_files()?;
     let chosen: Vec<_> = if names.is_empty() {
         all
     } else {
@@ -251,7 +237,7 @@ pub fn extract(
     let total = chosen.len() as u64;
     for (i, e) in chosen.iter().enumerate() {
         ctx.step(i as u64, total, &e.name)?;
-        let Some(data) = doc.load_embedded_file(&e.name).map_err(pe)? else {
+        let Some(data) = doc.load_embedded_file(&e.name)? else {
             report.warnings.push(format!("«{}» no se pudo leer", e.name));
             continue;
         };

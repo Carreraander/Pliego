@@ -2,10 +2,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::Result;
+use pliego_pdf::{Object, PdfDocument};
 
-use crate::io::{name_of, pdf_err, xref_of};
+use crate::io::{name_of, xref_of};
 
 /// Límites contra documentos hostiles.
 const MAX_DEPTH: usize = 128;
@@ -31,7 +31,7 @@ pub(crate) struct Tree {
     pub truncated: bool,
 }
 
-fn nonempty_string(obj: &PdfObject, key: &str) -> bool {
+fn nonempty_string(obj: &Object, key: &str) -> bool {
     obj.get_dict(key)
         .ok()
         .flatten()
@@ -39,18 +39,14 @@ fn nonempty_string(obj: &PdfObject, key: &str) -> bool {
         .is_some_and(|s| !s.trim().is_empty())
 }
 
-fn role_map(root: &PdfObject) -> HashMap<String, String> {
+fn role_map(root: &Object) -> HashMap<String, String> {
     let mut map = HashMap::new();
     if let Ok(Some(rm)) = root.get_dict("RoleMap")
         && let Ok(iter) = rm.dict_iter()
     {
-        for entry in iter.flatten() {
-            let (k, v) = entry;
-            if let (Ok(k), Ok(v)) = (k.as_name(), v.as_name()) {
-                map.insert(
-                    String::from_utf8_lossy(&k).into_owned(),
-                    String::from_utf8_lossy(&v).into_owned(),
-                );
+        for (k, v) in iter {
+            if let Ok(v) = v.as_name() {
+                map.insert(k, String::from_utf8_lossy(&v).into_owned());
             }
         }
     }
@@ -76,7 +72,7 @@ struct Walker<'a> {
 }
 
 impl Walker<'_> {
-    fn page_of(&self, pg: &PdfObject) -> Option<usize> {
+    fn page_of(&self, pg: &Object) -> Option<usize> {
         self.doc
             .lookup_page_number(pg)
             .ok()
@@ -84,7 +80,7 @@ impl Walker<'_> {
     }
 
     /// Procesa un nodo hijo de `/K`: puede ser elemento, MCR, OBJR, entero (MCID) o matriz.
-    fn visit(&mut self, node: &PdfObject, parent: Option<usize>, page: Option<usize>, depth: usize) -> Result<()> {
+    fn visit(&mut self, node: &Object, parent: Option<usize>, page: Option<usize>, depth: usize) -> Result<()> {
         if depth > MAX_DEPTH || self.tree.elems.len() > MAX_NODES {
             self.tree.truncated = true;
             return Ok(());
@@ -96,8 +92,8 @@ impl Walker<'_> {
             return Ok(());
         }
         if node.is_array().unwrap_or(false) {
-            for i in 0..node.len().map_err(pdf_err)? {
-                if let Some(child) = node.get_array(i as i32).map_err(pdf_err)? {
+            for i in 0..node.len()? {
+                if let Some(child) = node.get_array(i as i32)? {
                     self.visit(&child, parent, page, depth + 1)?;
                 }
             }
@@ -139,7 +135,7 @@ impl Walker<'_> {
         if let Some(p) = parent {
             self.tree.elems[p].children.push(idx);
         }
-        if let Some(k) = node.get_dict("K").map_err(pdf_err)? {
+        if let Some(k) = node.get_dict("K")? {
             self.visit(&k, Some(idx), own_page, depth + 1)?;
         }
         Ok(())
@@ -148,8 +144,8 @@ impl Walker<'_> {
 
 /// Lee el árbol de estructura. `None` si el documento no tiene `StructTreeRoot`.
 pub(crate) fn read_tree(doc: &PdfDocument) -> Result<Option<Tree>> {
-    let catalog = doc.catalog().map_err(pdf_err)?;
-    let Some(root) = catalog.get_dict("StructTreeRoot").map_err(pdf_err)? else {
+    let catalog = doc.catalog()?;
+    let Some(root) = catalog.get_dict("StructTreeRoot")? else {
         return Ok(None);
     };
     if !root.is_dict().unwrap_or(false) {
@@ -161,7 +157,7 @@ pub(crate) fn read_tree(doc: &PdfDocument) -> Result<Option<Tree>> {
         tree: Tree::default(),
         seen: HashSet::new(),
     };
-    if let Some(k) = root.get_dict("K").map_err(pdf_err)? {
+    if let Some(k) = root.get_dict("K")? {
         w.visit(&k, None, None, 0)?;
     }
     Ok(Some(w.tree))

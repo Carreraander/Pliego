@@ -85,7 +85,9 @@ if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
 "@ | Set-Content -Encoding UTF8 $xml
   & java -jar $jar.FullName $xml
   if ($LASTEXITCODE -ne 0) { throw "El instalador de veraPDF terminó con código $LASTEXITCODE." }
-  Copy-Item (Join-Path $vdir 'verapdf.bat') $bin -Force
-  Write-Host "veraPDF en $vdir (lanzador: $bin\verapdf.bat; engine-compare busca «verapdf», así que ejecuta con -SoloEntorno)."
+  # verapdf.bat calcula su carpeta con %~dp0: copiarlo a bin\ lo rompe (no encuentra las clases). Lanzador que lo invoca en su sitio.
+  "@echo off`r`n`"$vdir\verapdf.bat`" %*`r`n" | Set-Content -Encoding ASCII (Join-Path $bin 'verapdf.cmd')
+  Remove-Item (Join-Path $bin 'verapdf.bat') -Force -ErrorAction SilentlyContinue
+  Write-Host "veraPDF en $vdir (lanzador: $bin\verapdf.cmd; engine-compare busca «verapdf», así que ejecuta con -SoloEntorno)."
 }
 Write-Host "Listo. Antes de usar el arnés: . .\tools\qa\instalar-validadores.ps1 -SoloEntorno"

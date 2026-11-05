@@ -1,14 +1,13 @@
-use mupdf::Rect;
-use mupdf::pdf::{InsertPdfOptions, InsertPosition, PageSelection, PdfDocument};
 use pliego_core::{Error, Result};
+use pliego_pdf::{InsertPdfOptions, InsertPosition, PageSelection, PdfDocument};
+use pliego_pdf::{Rect, Size};
 use serde::{Deserialize, Serialize};
 
 use crate::annots::{FormState, carry_annotations};
 use crate::outline::{read_outline, retarget, write_outline};
-use crate::pdf_err;
 
 pub fn page_count(doc: &PdfDocument) -> Result<u32> {
-    Ok(doc.page_count().map_err(pdf_err)?.max(0) as u32)
+    Ok(doc.page_count()?.max(0) as u32)
 }
 
 fn check(doc: &PdfDocument, pages: &[u32]) -> Result<u32> {
@@ -46,16 +45,15 @@ pub(crate) fn extract_inner(doc: &PdfDocument, pages: &[u32], annotations: bool)
             source_pages: PageSelection::Pages(indices(pages)),
             ..Default::default()
         },
-    )
-    .map_err(pdf_err)?;
+    )?;
     let outline = read_outline(doc)?;
     let map = |old: u32| pages.iter().position(|&p| p == old).map(|i| i as u32);
     write_outline(&mut out, &retarget(&outline, &map))?;
     if annotations && has_annotations(doc, pages)? {
         // El traspaso modifica el origen (corta vínculos a páginas), así que se trabaja sobre una copia privada.
         let mut bytes = Vec::new();
-        doc.write_to(&mut bytes).map_err(pdf_err)?;
-        let mut scratch = PdfDocument::from_bytes(&bytes).map_err(pdf_err)?;
+        doc.write_to(&mut bytes)?;
+        let mut scratch = PdfDocument::from_bytes(&bytes)?;
         let pairs: Vec<(u32, u32)> = pages.iter().enumerate().map(|(i, &p)| (p, i as u32)).collect();
         carry_annotations(&mut out, &mut scratch, &pairs, &mut FormState::default())?;
     }
@@ -64,8 +62,8 @@ pub(crate) fn extract_inner(doc: &PdfDocument, pages: &[u32], annotations: bool)
 
 fn has_annotations(doc: &PdfDocument, pages: &[u32]) -> Result<bool> {
     for &p in pages {
-        let page = doc.find_page(p as i32).map_err(pdf_err)?;
-        if page.get_dict("Annots").map_err(pdf_err)?.is_some() {
+        let page = doc.find_page(p as i32)?;
+        if page.get_dict("Annots")?.is_some() {
             return Ok(true);
         }
     }
@@ -95,8 +93,7 @@ pub fn insert_from(doc: &mut PdfDocument, src: &PdfDocument, src_pages: &[u32], 
             },
             ..Default::default()
         },
-    )
-    .map_err(pdf_err)?;
+    )?;
     Ok(())
 }
 
@@ -113,16 +110,18 @@ pub fn insert_blank(doc: &mut PdfDocument, at: u32, n: u32, size: Option<(f32, f
         None if total == 0 => (595.0, 842.0),
         None => {
             let neighbour = if at > 0 { at - 1 } else { 0 };
-            let b = doc
-                .load_page(neighbour as i32)
-                .map_err(pdf_err)?
-                .bounds()
-                .map_err(pdf_err)?;
+            let b = doc.load_page(neighbour as i32)?.bounds()?;
             (b.width(), b.height())
         }
     };
     for i in 0..n {
-        doc.new_page_at((at + i) as i32, size).map_err(pdf_err)?;
+        doc.new_page_at(
+            (at + i) as i32,
+            Size {
+                width: size.0,
+                height: size.1,
+            },
+        )?;
     }
     Ok(())
 }
@@ -142,7 +141,6 @@ pub fn delete(doc: &mut PdfDocument, pages: &[u32]) -> Result<()> {
         ));
     }
     doc.delete_pages(PageSelection::Pages(indices(&unique)))
-        .map_err(pdf_err)
 }
 
 /// Gira las páginas `degrees` (múltiplo de 90, positivo = sentido horario) respecto a su giro actual.
@@ -152,9 +150,9 @@ pub fn rotate(doc: &mut PdfDocument, pages: &[u32], degrees: i32) -> Result<()> 
         return Err(Error::InvalidInput("el giro debe ser múltiplo de 90 grados".into()));
     }
     for &p in pages {
-        let mut page = doc.load_pdf_page(p as i32).map_err(pdf_err)?;
-        let now = page.rotation().map_err(pdf_err)?;
-        page.set_rotation((now + degrees).rem_euclid(360)).map_err(pdf_err)?;
+        let mut page = doc.load_pdf_page(p as i32)?;
+        let now = page.rotation()?;
+        page.set_rotation((now + degrees).rem_euclid(360))?;
     }
     Ok(())
 }
@@ -162,7 +160,7 @@ pub fn rotate(doc: &mut PdfDocument, pages: &[u32], degrees: i32) -> Result<()> 
 /// Mueve una página a otra posición (la página queda en el índice `to`).
 pub fn move_page(doc: &mut PdfDocument, from: u32, to: u32) -> Result<()> {
     check(doc, &[from, to])?;
-    doc.move_page(from as usize, to as usize).map_err(pdf_err)
+    doc.move_page(from as usize, to as usize)
 }
 
 /// Reordena según `new_order`: la posición `i` del resultado es la página `new_order[i]` actual.
@@ -187,7 +185,7 @@ pub fn reorder(doc: &mut PdfDocument, new_order: &[u32]) -> Result<()> {
     for (target, &page) in new_order.iter().enumerate() {
         let from = current.iter().position(|&p| p == page).expect("permutación validada");
         if from != target {
-            doc.move_page(from, target).map_err(pdf_err)?;
+            doc.move_page(from, target)?;
             let moved = current.remove(from);
             current.insert(target, moved);
         }
@@ -202,7 +200,7 @@ pub fn duplicate(doc: &mut PdfDocument, pages: &[u32]) -> Result<()> {
     sorted.sort_unstable();
     sorted.dedup();
     for &p in sorted.iter().rev() {
-        doc.duplicate_page(p as usize).map_err(pdf_err)?;
+        doc.duplicate_page(p as usize)?;
     }
     Ok(())
 }
@@ -225,19 +223,19 @@ pub fn replace(doc: &mut PdfDocument, start: u32, len: u32, src: &PdfDocument, s
 
 /// CropBox (o MediaBox) en el espacio de usuario sin girar. `PdfPage::crop_box` mezcla las dimensiones
 /// visuales con las del espacio de usuario en páginas giradas, así que se lee del diccionario de la página.
-fn user_box(page: &mupdf::pdf::PdfPage) -> Result<Rect> {
+fn user_box(page: &pliego_pdf::PdfPage) -> Result<Rect> {
     let obj = page.object();
     for key in ["CropBox", "MediaBox"] {
-        let Some(arr) = obj.get_dict_inheritable(key).map_err(pdf_err)? else {
+        let Some(arr) = obj.get_dict_inheritable(key)? else {
             continue;
         };
-        if arr.len().map_err(pdf_err)? < 4 {
+        if arr.len()? < 4 {
             continue;
         }
         let mut v = [0.0f32; 4];
         let mut ok = true;
         for (i, slot) in v.iter_mut().enumerate() {
-            match arr.get_array(i as i32).map_err(pdf_err)?.map(|n| n.as_float()) {
+            match arr.get_array(i as i32)?.map(|n| n.as_float()) {
                 Some(Ok(f)) => *slot = f,
                 _ => ok = false,
             }
@@ -272,7 +270,7 @@ pub enum CropSpec {
 pub fn crop(doc: &mut PdfDocument, pages: &[u32], spec: CropSpec) -> Result<()> {
     check(doc, pages)?;
     for &p in pages {
-        let mut page = doc.load_pdf_page(p as i32).map_err(pdf_err)?;
+        let mut page = doc.load_pdf_page(p as i32)?;
         let rect = match spec {
             CropSpec::Rect { x0, y0, x1, y1 } => Rect::new(x0, y0, x1, y1),
             CropSpec::Margins {
@@ -291,7 +289,7 @@ pub fn crop(doc: &mut PdfDocument, pages: &[u32], spec: CropSpec) -> Result<()> 
                 p + 1
             )));
         }
-        page.set_crop_box(rect).map_err(pdf_err)?;
+        page.set_crop_box(rect)?;
     }
     Ok(())
 }

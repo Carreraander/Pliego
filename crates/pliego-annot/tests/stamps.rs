@@ -1,6 +1,6 @@
-use mupdf::pdf::PdfDocument;
-use mupdf::{Colorspace, Matrix, Size};
 use pliego_annot::*;
+use pliego_pdf::PdfDocument;
+use pliego_pdf::{Colorspace, Matrix, Size};
 
 fn blank() -> PdfDocument {
     let mut doc = PdfDocument::new();
@@ -18,9 +18,7 @@ fn reopen(doc: &PdfDocument) -> PdfDocument {
 /// Cuenta píxeles que no son blancos en una región de la página (coordenadas de página).
 fn ink_in(doc: &PdfDocument, page: i32, r: [i32; 4]) -> usize {
     let p = doc.load_page(page).unwrap();
-    let pm = p
-        .to_pixmap(&Matrix::IDENTITY, &Colorspace::device_rgb(), false, true)
-        .unwrap();
+    let pm = p.to_pixmap(&Matrix::IDENTITY, Colorspace::Rgb, false, true).unwrap();
     let n = pm.n() as usize;
     let w = pm.width() as usize;
     let s = pm.samples();
@@ -195,7 +193,7 @@ fn attachment_embeds_file() {
     let page = doc.load_pdf_page(0).unwrap();
     let a = page
         .annotations()
-        .find(|a| a.r#type().unwrap() == mupdf::pdf::PdfAnnotationType::FileAttachment)
+        .find(|a| a.r#type().unwrap() == pliego_pdf::PdfAnnotationType::FileAttachment)
         .expect("adjunto");
     let fs = a.object().get_dict("FS").unwrap().unwrap();
     assert_eq!(fs.get_dict("UF").unwrap().unwrap().as_string().unwrap(), "notas.txt");

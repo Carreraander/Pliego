@@ -1,6 +1,6 @@
-use mupdf::Size;
-use mupdf::pdf::PdfDocument;
 use pliego_annot::*;
+use pliego_pdf::PdfDocument;
+use pliego_pdf::Size;
 
 fn blank() -> PdfDocument {
     let mut doc = PdfDocument::new();

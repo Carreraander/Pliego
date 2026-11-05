@@ -4027,8 +4027,8 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 name = "pliego-a11y"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",
@@ -4049,8 +4049,8 @@ dependencies = [
 name = "pliego-annot"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
 ]
@@ -4081,7 +4081,6 @@ name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "mupdf",
  "p12-keystore",
  "pliego-a11y",
  "pliego-actions",
@@ -4146,7 +4145,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "mupdf",
  "p12-keystore",
  "pliego-a11y",
  "pliego-actions",
@@ -4348,8 +4346,8 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "jpeg-encoder",
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",
@@ -4359,8 +4357,8 @@ dependencies = [
 name = "pliego-organize"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",
@@ -4380,8 +4378,8 @@ dependencies = [
 name = "pliego-pdfa"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",
@@ -4391,8 +4389,8 @@ dependencies = [
 name = "pliego-portfolio"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "tempfile",
 ]
@@ -4412,8 +4410,8 @@ dependencies = [
 name = "pliego-protect"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "tempfile",
 ]
@@ -4528,8 +4526,8 @@ dependencies = [
 name = "pliego-stamp"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
 ]

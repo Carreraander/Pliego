@@ -6,7 +6,7 @@ use std::process::Command;
 use pliego_core::JobContext;
 use pliego_qa::engines;
 use pliego_qa::oracle::{OracleConfig, check_redacted};
-use pliego_redact::{Pattern, RedactJob, apply};
+use pliego_redact::{Pattern, RedactEngine, RedactJob, apply, apply_with_engine};
 
 fn corpus(rel: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -90,6 +90,54 @@ fn oraculo_detecta_el_original_y_acepta_lo_redactado() {
     apply(&corpus("redact/datos.pdf"), &out, None, &job, &JobContext::silent()).unwrap();
     let left = check_redacted(engine.as_ref(), &out, &cfg).unwrap();
     assert!(left.is_empty(), "{left:?}");
+}
+
+/// El oráculo es la verificación obligatoria del motor propio de redacción (W38): mismos datos, los dos motores, y
+/// los dos extractores de texto (MuPDF y PDFium si hay DLL) más los bytes del archivo.
+#[test]
+fn oraculo_acepta_lo_redactado_con_el_motor_propio() {
+    let engine = engines::by_name("mupdf").unwrap();
+    let datos = [
+        "12345678Z",
+        "X1234567L",
+        "A58818501",
+        "ES91 2100 0418 4502 0005 1332",
+        "ana.lopez@ejemplo.es",
+        "612 345 678",
+        "12/03/1985",
+    ];
+    let cfg = OracleConfig {
+        needles: datos.iter().map(|s| (*s).into()).collect(),
+        regions: vec![],
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("propio.pdf");
+    let job = RedactJob {
+        patterns: vec![
+            Pattern::Dni,
+            Pattern::Nie,
+            Pattern::Cif,
+            Pattern::Iban,
+            Pattern::Email,
+            Pattern::Phone,
+            Pattern::Date,
+        ],
+        ..Default::default()
+    };
+    apply_with_engine(
+        &corpus("redact/datos.pdf"),
+        &out,
+        None,
+        &job,
+        &JobContext::silent(),
+        RedactEngine::Native,
+    )
+    .unwrap();
+    let left = check_redacted(engine.as_ref(), &out, &cfg).unwrap();
+    assert!(left.is_empty(), "{left:?}");
+    // Y el original, que sigue teniéndolo todo, no pasa (control negativo).
+    let original = check_redacted(engine.as_ref(), &corpus("redact/datos.pdf"), &cfg).unwrap();
+    assert!(!original.is_empty());
 }
 
 #[test]

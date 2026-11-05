@@ -63,6 +63,7 @@ impl PdfDocument {
             deleted: BTreeSet::new(),
             trailer_dirty: true,
             unsaved: false,
+            no_incremental: false,
             locked: false,
             pages_cache: None,
             annot_dirty: BTreeSet::new(),
@@ -569,7 +570,7 @@ impl PdfDocument {
 
     pub fn can_be_saved_incrementally(&self) -> bool {
         let st = self.st.borrow();
-        !st.locked && st.base.as_ref().is_some_and(|b| !b.repaired && b.xref_start != 0)
+        !st.locked && !st.no_incremental && st.base.as_ref().is_some_and(|b| !b.repaired && b.xref_start != 0)
     }
 
     /// `true` si tiene un `/AcroForm`.
@@ -960,6 +961,7 @@ fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool) -> State {
         deleted: BTreeSet::new(),
         trailer_dirty: false,
         unsaved: false,
+        no_incremental: false,
         locked,
         pages_cache: None,
         annot_dirty: BTreeSet::new(),

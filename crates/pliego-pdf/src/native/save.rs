@@ -110,7 +110,7 @@ fn incremental(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
     let base = st
         .base
         .as_ref()
-        .filter(|b| !b.repaired && b.xref_start != 0)
+        .filter(|b| !b.repaired && b.xref_start != 0 && !st.no_incremental)
         .ok_or_else(|| Error::Unsupported("este documento no admite guardado incremental".into()))?;
     if !matches!(options.encryption, Encryption::Keep)
         && base.encryption_state.is_some() == matches!(options.encryption, Encryption::None)
@@ -331,7 +331,7 @@ fn collect_refs(o: &L, out: &mut Vec<ObjectId>) {
 }
 
 /// Quita los objetos a los que no se llega desde el `trailer`.
-fn prune(doc: &mut lopdf::Document) {
+pub(super) fn prune(doc: &mut lopdf::Document) {
     let mut seen: HashSet<ObjectId> = HashSet::new();
     let mut work: Vec<ObjectId> = Vec::new();
     for (_, v) in doc.trailer.iter() {

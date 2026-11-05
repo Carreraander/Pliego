@@ -18,6 +18,9 @@ ttf-parser = { version = "0.25", default-features = false, features = ["std"] }
 flate2 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
 getrandom = "0.4"
+# Redacción de píxeles en imágenes DCT (JPEG): decodifica, borra y vuelve a codificar (W38). Ya están en el árbol.
+zune-jpeg = "0.5"
+jpeg-encoder = "0.6"
 # `tiff` lee las páginas de un TIFF (W40). Solo decodifica: el JPEG se incrusta tal cual.
 tiff = "0.11"
 serde.workspace = true

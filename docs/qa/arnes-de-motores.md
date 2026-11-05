@@ -82,3 +82,15 @@ con pruebas propias que usan MuPDF como motor de referencia, no con `engine-comp
   direcciones) y de robustez (archivos dañados y estructuras hostiles no provocan pánicos ni bucles).
 
 Cuando el motor nuevo de render esté enchufado en `engines::by_name`, `engine-compare` valida además lo que este módulo escribe.
+
+## Redacción con el motor propio (W38)
+
+- `cargo test -p pliego-pdf native::redact` (34 pruebas): casos construidos a mano (texto con `TJ`, `'` y `"`, formularios
+  compartidos, imágenes Flate y JPEG, imágenes en línea, vectores, anotaciones y campos, `Tr 3`, capas apagadas, cifrado,
+  contenido en matriz con recursos heredados) y dos pruebas sobre los 85 PDF del corpus: **redactar la página entera no deja
+  texto extraíble** y **redactar una palabra quita esa palabra y casi nada más**.
+- `cargo test -p pliego-redact`: las 9 pruebas de integración corren con los dos motores (`RedactEngine::Mupdf` y `Native`).
+- `cargo test -p pliego-qa --test harness oraculo`: el oráculo (texto de MuPDF, `pdftotext`, bytes, flujos descomprimidos y
+  literales) acepta el resultado del motor propio sobre `tests/corpus/redact/datos.pdf` con los siete patrones.
+- Manual: `PLIEGO_REDACT_ENGINE=native pliego redact ... --apply -o salida.pdf` y luego
+  `redaction-oracle salida.pdf --needle ...`.

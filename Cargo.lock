@@ -4448,6 +4448,7 @@ dependencies = [
  "flate2",
  "getrandom 0.4.3",
  "image",
+ "jpeg-encoder",
  "lopdf",
  "md-5",
  "mupdf",
@@ -4457,6 +4458,7 @@ dependencies = [
  "tempfile",
  "tiff",
  "ttf-parser",
+ "zune-jpeg",
 ]
 
 [[package]]

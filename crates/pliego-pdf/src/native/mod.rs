@@ -41,6 +41,7 @@ mod outline;
 mod page;
 mod parse;
 mod raster;
+mod redact;
 mod save;
 mod tree;
 mod widget;
@@ -64,6 +65,7 @@ pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageO
 pub use object::Object;
 pub use page::PdfPage;
 pub use raster::Raster;
+pub use redact::RedactReport;
 pub use widget::PdfWidget;
 
 use std::cell::RefCell;
@@ -87,6 +89,8 @@ pub(crate) struct State {
     pub(crate) trailer_dirty: bool,
     /// Hay cambios sin guardar.
     pub(crate) unsaved: bool,
+    /// Se redactó: ya no vale un guardado incremental (conservaría los bytes originales con los datos).
+    pub(crate) no_incremental: bool,
     /// El documento está cifrado y no se ha podido descifrar (falta contraseña).
     pub(crate) locked: bool,
     /// Lista de páginas (ids de objeto) en orden; se recalcula al cambiar el árbol.

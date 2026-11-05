@@ -36,8 +36,9 @@ corpus externo y el humo de robustez, en la CI nocturna.
 
 `tools/qa/instalar-validadores.ps1` los instala sin permisos de administrador en `D:\dev-cache\validadores` (qpdf desde
 sus versiones de GitHub; veraPDF con el instalador desatendido, que necesita Java 11+ en el PATH). Después,
-`. .\tools\qa\instalar-validadores.ps1 -SoloEntorno` añade `bin\` al PATH de la terminal. El script no se ha podido
-probar fuera de acr12: la primera ejecución debe confirmar la URL de veraPDF y anotar los SHA-256 que imprime.
+`. .\tools\qa\instalar-validadores.ps1 -SoloEntorno` añade `bin\` al PATH de la terminal. Probado en acr12 el 2026-11-05
+(qpdf 12.4.2, veraPDF 1.28.2; hashes y resultados en `docs/handoff/flujos/w34.md`). Para pasar varios directorios hay que repetir
+la opción: `--validate-dir A --validate-dir B` (un valor por aparición).
 
 ## `redaction-oracle`
 

@@ -1,13 +1,11 @@
 //! Enlaces internos y externos.
 
-use mupdf::pdf::links::LinkAction;
-use mupdf::pdf::{PdfAction, PdfDestination, PdfLink};
-use mupdf::{DestinationKind, Rect};
 use pliego_core::{Error, Report, Result};
 use pliego_document::Document;
+use pliego_pdf::{DestinationKind, LinkTarget as PdfLinkTarget, NewLink, Rect};
 
+use crate::load_page;
 use crate::types::{LinkTarget, RectPts};
-use crate::{load_page, pe};
 
 /// Crea un enlace en `rect` de la página `page`.
 pub fn add_link(doc: &mut Document, page: usize, rect: RectPts, target: &LinkTarget) -> Result<Report> {
@@ -21,29 +19,29 @@ pub fn add_link(doc: &mut Document, page: usize, rect: RectPts, target: &LinkTar
                     "la dirección del enlace debe ser ASCII y no estar vacía".into(),
                 ));
             }
-            PdfAction::Uri(uri.clone())
+            PdfLinkTarget::Uri(uri.clone())
         }
         LinkTarget::Page { page: dest } => {
-            let count = doc.pdf().page_count().map_err(pe)?.max(0) as usize;
+            let count = doc.pdf().page_count()?.max(0) as usize;
             if *dest >= count {
                 return Err(Error::InvalidInput(format!(
                     "la página de destino {} no existe",
                     dest + 1
                 )));
             }
-            PdfAction::GoTo(PdfDestination::Page {
+            PdfLinkTarget::Page {
                 page: *dest as u32,
                 kind: DestinationKind::Fit,
-            })
+            }
         }
     };
     doc.with_pdf_mut(|pdf| {
         let mut p = load_page(pdf, page)?;
-        let link = PdfLink {
+        let link = NewLink {
             bounds: Rect::new(rect[0], rect[1], rect[2], rect[3]),
-            action: LinkAction::Action(action),
+            target: action,
         };
-        p.add_links(pdf, &[link]).map_err(pe)
+        p.add_links(pdf, &[link])
     })?;
     Ok(Report {
         summary: format!("Enlace añadido en la página {}", page + 1),

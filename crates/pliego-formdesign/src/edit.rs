@@ -1,55 +1,52 @@
 use std::collections::HashSet;
 
-use mupdf::Buffer;
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::{Error, Result};
+use pliego_pdf::{Object, PdfDocument};
 
 use crate::ap::rebuild_ap;
 use crate::js::{FieldFormat, Validation, set_calculation, set_format, set_validation};
 use crate::objects::*;
-use crate::pe;
 use crate::read::page_widgets;
 use crate::spec::{FieldPatch, FieldSpec, FieldType};
 
 /// Diccionario o arreglo hijo de `parent[key]`; si falta lo crea con `src`. Se vuelve a leer tras escribirlo
 /// porque `try_clone` hace una copia profunda de los objetos directos.
-fn child(doc: &PdfDocument, parent: &mut PdfObject, key: &str, src: &str, want_array: bool) -> Result<PdfObject> {
-    if let Some(c) = parent.get_dict(key).map_err(pe)?
+fn child(doc: &PdfDocument, parent: &mut Object, key: &str, src: &str, want_array: bool) -> Result<Object> {
+    if let Some(c) = parent.get_dict(key)?
         && (if want_array { c.is_array() } else { c.is_dict() }).unwrap_or(false)
     {
         return Ok(c);
     }
     put(parent, key, obj(doc, src)?)?;
     parent
-        .get_dict(key)
-        .map_err(pe)?
+        .get_dict(key)?
         .ok_or_else(|| Error::Pdf(format!("no se pudo crear /{key}")))
 }
 
 /// Devuelve el `/AcroForm` (lo crea si falta) con fuente por defecto y `NeedAppearances`.
-fn acroform(doc: &mut PdfDocument) -> Result<PdfObject> {
-    let mut cat = doc.catalog().map_err(pe)?;
-    let mut af = match cat.get_dict("AcroForm").map_err(pe)? {
+fn acroform(doc: &mut PdfDocument) -> Result<Object> {
+    let mut cat = doc.catalog()?;
+    let mut af = match cat.get_dict("AcroForm")? {
         Some(a) if a.is_dict().unwrap_or(false) => a,
         _ => {
             let o = obj(doc, "<< /Fields [] >>")?;
-            let ind = doc.add_object(&o).map_err(pe)?;
-            put(&mut cat, "AcroForm", ind.try_clone().map_err(pe)?)?;
+            let ind = doc.add_object(&o)?;
+            put(&mut cat, "AcroForm", ind.try_clone()?)?;
             ind
         }
     };
     child(doc, &mut af, "Fields", "[]", true)?;
-    if af.get_dict("DA").map_err(pe)?.is_none() {
+    if af.get_dict("DA")?.is_none() {
         put(&mut af, "DA", obj(doc, &pdf_str(&da(0.0)))?)?;
     }
     let mut dr = child(doc, &mut af, "DR", "<< >>", false)?;
     let mut fonts = child(doc, &mut dr, "Font", "<< >>", false)?;
-    if fonts.get_dict("Helv").map_err(pe)?.is_none() {
+    if fonts.get_dict("Helv")?.is_none() {
         let f = obj(
             doc,
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
         )?;
-        let ind = doc.add_object(&f).map_err(pe)?;
+        let ind = doc.add_object(&f)?;
         put(&mut fonts, "Helv", ind)?;
     }
     put(&mut af, "NeedAppearances", doc.new_bool(true))?;
@@ -57,7 +54,7 @@ fn acroform(doc: &mut PdfDocument) -> Result<PdfObject> {
 }
 
 fn exists(doc: &PdfDocument, name: &str) -> Result<bool> {
-    for p in 0..doc.page_count().map_err(pe)? {
+    for p in 0..doc.page_count()? {
         if page_widgets(doc, p)?.iter().any(|(n, _)| n == name) {
             return Ok(true);
         }
@@ -66,17 +63,16 @@ fn exists(doc: &PdfDocument, name: &str) -> Result<bool> {
 }
 
 /// Flujo de apariencia (formulario XObject) con el contenido dado.
-fn form_xobject(doc: &mut PdfDocument, w: f32, h: f32, content: &str) -> Result<PdfObject> {
+fn form_xobject(doc: &mut PdfDocument, w: f32, h: f32, content: &str) -> Result<Object> {
     let dict = obj(
         doc,
         &format!("<< /Type /XObject /Subtype /Form /BBox [0 0 {w} {h}] /Resources << >> >>"),
     )?;
-    let buf = Buffer::from_bytes(content.as_bytes()).map_err(pe)?;
-    doc.add_stream(&buf, Some(&dict), false).map_err(pe)
+    doc.add_stream(content.as_bytes(), Some(&dict), false)
 }
 
 /// Aspecto de casilla (cruz) o radio (punto) y de reposo.
-fn button_ap(doc: &mut PdfDocument, kind: FieldType, on: &str, w: f32, h: f32) -> Result<PdfObject> {
+fn button_ap(doc: &mut PdfDocument, kind: FieldType, on: &str, w: f32, h: f32) -> Result<Object> {
     let frame = format!("0 G 1 w 0.5 0.5 {} {} re S", w - 1.0, h - 1.0);
     let mark = if kind == FieldType::RadioButton {
         let (cx, cy, r) = (w / 2.0, h / 2.0, (w.min(h) / 2.0 - 3.0).max(1.0));
@@ -130,7 +126,7 @@ fn button_ap(doc: &mut PdfDocument, kind: FieldType, on: &str, w: f32, h: f32) -
 }
 
 /// Aspecto fijo de un campo de firma: caja con fondo suave.
-fn signature_ap(doc: &mut PdfDocument, w: f32, h: f32) -> Result<PdfObject> {
+fn signature_ap(doc: &mut PdfDocument, w: f32, h: f32) -> Result<Object> {
     let n = form_xobject(
         doc,
         w,
@@ -146,12 +142,12 @@ fn signature_ap(doc: &mut PdfDocument, w: f32, h: f32) -> Result<PdfObject> {
     Ok(ap)
 }
 
-fn append_unique(arr: &mut PdfObject, item: PdfObject) -> Result<()> {
-    arr.array_push(item).map_err(pe)
+fn append_unique(arr: &mut Object, item: Object) -> Result<()> {
+    arr.array_push(item)
 }
 
-fn page_annots(doc: &PdfDocument, page: usize) -> Result<PdfObject> {
-    let mut p = doc.find_page(page as i32).map_err(pe)?;
+fn page_annots(doc: &PdfDocument, page: usize) -> Result<Object> {
+    let mut p = doc.find_page(page as i32)?;
     child(doc, &mut p, "Annots", "[]", true)
 }
 
@@ -162,7 +158,7 @@ fn page_annots(doc: &PdfDocument, page: usize) -> Result<PdfObject> {
 pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
     check_name(&spec.name)?;
     let rect = check_rect(spec.rect)?;
-    let pages = doc.page_count().map_err(pe)?;
+    let pages = doc.page_count()?;
     if spec.page as i32 >= pages {
         return Err(Error::InvalidInput(format!("la página {} no existe", spec.page + 1)));
     }
@@ -186,8 +182,7 @@ pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
     let (w, h) = (rect[2] - rect[0], rect[3] - rect[1]);
     let af = acroform(doc)?;
     let mut fields = af
-        .get_dict("Fields")
-        .map_err(pe)?
+        .get_dict("Fields")?
         .ok_or_else(|| Error::Pdf("el formulario no tiene /Fields".into()))?;
 
     let ft = match kind {
@@ -312,8 +307,8 @@ pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
                 psrc = psrc.replace(" /Kids", &format!(" /TU {} /Kids", pdf_str(t)));
             }
             let p = obj(doc, &psrc)?;
-            let ind = doc.add_object(&p).map_err(pe)?;
-            append_unique(&mut fields, ind.try_clone().map_err(pe)?)?;
+            let ind = doc.add_object(&p)?;
+            append_unique(&mut fields, ind.try_clone()?)?;
             ind
         };
         if radio_member && !parent_is_radio(&parent) {
@@ -322,14 +317,13 @@ pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
                 spec.name
             )));
         }
-        put(&mut widget, "Parent", parent.try_clone().map_err(pe)?)?;
-        let ind = doc.add_object(&widget).map_err(pe)?;
+        put(&mut widget, "Parent", parent.try_clone()?)?;
+        let ind = doc.add_object(&widget)?;
         let mut parent = parent;
         let mut kids = parent
-            .get_dict("Kids")
-            .map_err(pe)?
+            .get_dict("Kids")?
             .ok_or_else(|| Error::Pdf("el grupo de radio no tiene /Kids".into()))?;
-        append_unique(&mut kids, ind.try_clone().map_err(pe)?)?;
+        append_unique(&mut kids, ind.try_clone()?)?;
         if checked {
             put(&mut parent, "V", obj(doc, &pdf_name(&on))?)?;
             put(&mut parent, "DV", obj(doc, &pdf_name(&on))?)?;
@@ -338,8 +332,8 @@ pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
         return apply_scripts(doc, spec);
     }
 
-    let ind = doc.add_object(&widget).map_err(pe)?;
-    append_unique(&mut fields, ind.try_clone().map_err(pe)?)?;
+    let ind = doc.add_object(&widget)?;
+    append_unique(&mut fields, ind.try_clone()?)?;
     let x = xref_of(&ind);
     append_unique(&mut page_annots(doc, spec.page)?, ind)?;
     // Apariencia propia de MuPDF para texto, listas y botones.
@@ -347,8 +341,8 @@ pub fn add_field(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
         kind,
         FieldType::Text | FieldType::ComboBox | FieldType::ListBox | FieldType::PushButton
     ) {
-        let page = doc.load_pdf_page(spec.page as i32).map_err(pe)?;
-        if let Some(w) = page.load_widget(x).map_err(pe)? {
+        let page = doc.load_pdf_page(spec.page as i32)?;
+        if let Some(w) = page.load_widget(x)? {
             rebuild_ap(doc, &mut w.annotation().object())?;
         }
     }
@@ -369,13 +363,13 @@ fn apply_scripts(doc: &mut PdfDocument, spec: &FieldSpec) -> Result<()> {
     Ok(())
 }
 
-fn parent_is_radio(field: &PdfObject) -> bool {
+fn parent_is_radio(field: &Object) -> bool {
     flags_of(field) & F_RADIO != 0
 }
 
 /// Objeto de campo (el que lleva `/T`) del primer widget con ese nombre completo.
-fn find_field_object(doc: &PdfDocument, name: &str) -> Result<Option<PdfObject>> {
-    for p in 0..doc.page_count().map_err(pe)? {
+fn find_field_object(doc: &PdfDocument, name: &str) -> Result<Option<Object>> {
+    for p in 0..doc.page_count()? {
         for (n, w) in page_widgets(doc, p)? {
             if n == name {
                 return Ok(Some(field_of(&w.annotation().object())?));
@@ -388,10 +382,10 @@ fn find_field_object(doc: &PdfDocument, name: &str) -> Result<Option<PdfObject>>
 /// Modifica propiedades de un campo existente.
 pub fn update_field(doc: &mut PdfDocument, name: &str, patch: &FieldPatch) -> Result<()> {
     let mut targets: Vec<(i32, i32)> = Vec::new(); // (página, xref)
-    for p in 0..doc.page_count().map_err(pe)? {
+    for p in 0..doc.page_count()? {
         for (n, w) in page_widgets(doc, p)? {
             if n == name {
-                targets.push((p, w.xref().map_err(pe)?));
+                targets.push((p, w.xref()?));
             }
         }
     }
@@ -415,17 +409,15 @@ pub fn update_field(doc: &mut PdfDocument, name: &str, patch: &FieldPatch) -> Re
     let rect = patch.rect.map(check_rect).transpose()?;
 
     let first = {
-        let page = doc.load_pdf_page(targets[0].0).map_err(pe)?;
-        page.load_widget(targets[0].1)
-            .map_err(pe)?
+        let page = doc.load_pdf_page(targets[0].0)?;
+        page.load_widget(targets[0].1)?
             .ok_or_else(|| Error::Pdf("no se encontró el campo".into()))?
             .annotation()
             .object()
     };
     let mut field = field_of(&first)?;
     let is_btn = field
-        .get_dict_inheritable("FT")
-        .map_err(pe)?
+        .get_dict_inheritable("FT")?
         .and_then(|t| t.as_name().ok())
         .is_some_and(|t| t == b"Btn");
 
@@ -443,14 +435,14 @@ pub fn update_field(doc: &mut PdfDocument, name: &str, patch: &FieldPatch) -> Re
     }
     if let Some(m) = patch.max_len {
         if m == 0 {
-            field.dict_delete("MaxLen").map_err(pe)?;
+            field.dict_delete("MaxLen")?;
         } else {
-            put(&mut field, "MaxLen", doc.new_int(m as i32).map_err(pe)?)?;
+            put(&mut field, "MaxLen", doc.new_int(m as i32)?)?;
         }
     }
     if let Some(t) = &patch.tooltip {
         if t.is_empty() {
-            field.dict_delete("TU").map_err(pe)?;
+            field.dict_delete("TU")?;
         } else {
             put(&mut field, "TU", obj(doc, &pdf_str(t))?)?;
         }
@@ -472,8 +464,8 @@ pub fn update_field(doc: &mut PdfDocument, name: &str, patch: &FieldPatch) -> Re
     }
 
     for (p, x) in &targets {
-        let page = doc.load_pdf_page(*p).map_err(pe)?;
-        let Some(w) = page.load_widget(*x).map_err(pe)? else {
+        let page = doc.load_pdf_page(*p)?;
+        let Some(w) = page.load_widget(*x)? else {
             continue;
         };
         let mut o = w.annotation().object();
@@ -485,8 +477,7 @@ pub fn update_field(doc: &mut PdfDocument, name: &str, patch: &FieldPatch) -> Re
         }
         if !is_btn
             && field
-                .get_dict_inheritable("FT")
-                .map_err(pe)?
+                .get_dict_inheritable("FT")?
                 .is_some_and(|t| t.as_name().is_ok_and(|n| n != b"Sig"))
         {
             rebuild_ap(doc, &mut o)?;
@@ -504,19 +495,19 @@ fn leaf_renamed(old: &str, new: &str) -> String {
 
 fn set_default_value(
     doc: &mut PdfDocument,
-    field: &mut PdfObject,
+    field: &mut Object,
     is_btn: bool,
     v: &str,
     targets: &[(i32, i32)],
 ) -> Result<()> {
     if v.is_empty() {
-        field.dict_delete("V").map_err(pe)?;
-        field.dict_delete("DV").map_err(pe)?;
+        field.dict_delete("V")?;
+        field.dict_delete("DV")?;
         if is_btn {
             put(field, "V", obj(doc, "/Off")?)?;
             for (p, x) in targets {
-                let page = doc.load_pdf_page(*p).map_err(pe)?;
-                if let Some(w) = page.load_widget(*x).map_err(pe)? {
+                let page = doc.load_pdf_page(*p)?;
+                if let Some(w) = page.load_widget(*x)? {
                     let mut o = w.annotation().object();
                     put(&mut o, "AS", obj(doc, "/Off")?)?;
                 }
@@ -532,8 +523,8 @@ fn set_default_value(
     // Botones: el valor es el estado marcado (o true/false en una casilla).
     let mut chosen = String::from("Off");
     for (p, x) in targets {
-        let page = doc.load_pdf_page(*p).map_err(pe)?;
-        if let Some(w) = page.load_widget(*x).map_err(pe)? {
+        let page = doc.load_pdf_page(*p)?;
+        if let Some(w) = page.load_widget(*x)? {
             let mut o = w.annotation().object();
             let on = crate::read::on_state(&o);
             let hit = match &on {
@@ -560,23 +551,23 @@ fn set_default_value(
 }
 
 /// Quita de los árboles de campos las referencias a widgets borrados (y los padres que se quedan sin hijos).
-fn prune(arr: &mut PdfObject, gone: &HashSet<i32>) -> Result<()> {
+fn prune(arr: &mut Object, gone: &HashSet<i32>) -> Result<()> {
     let mut i = 0;
-    while i < arr.len().map_err(pe)? {
-        let Some(item) = arr.get_array(i as i32).map_err(pe)? else {
+    while i < arr.len()? {
+        let Some(item) = arr.get_array(i as i32)? else {
             i += 1;
             continue;
         };
         if gone.contains(&xref_of(&item)) {
-            arr.array_delete(i as i32).map_err(pe)?;
+            arr.array_delete(i as i32)?;
             continue;
         }
-        if let Some(mut kids) = item.get_dict("Kids").map_err(pe)?
+        if let Some(mut kids) = item.get_dict("Kids")?
             && kids.is_array().unwrap_or(false)
         {
             prune(&mut kids, gone)?;
-            if kids.len().map_err(pe)? == 0 {
-                arr.array_delete(i as i32).map_err(pe)?;
+            if kids.len()? == 0 {
+                arr.array_delete(i as i32)?;
                 continue;
             }
         }
@@ -588,23 +579,23 @@ fn prune(arr: &mut PdfObject, gone: &HashSet<i32>) -> Result<()> {
 /// Borra un campo (todos sus widgets) y lo quita del formulario.
 pub fn delete_field(doc: &mut PdfDocument, name: &str) -> Result<()> {
     let mut gone = HashSet::new();
-    for p in 0..doc.page_count().map_err(pe)? {
-        let mut page = doc.load_pdf_page(p).map_err(pe)?;
+    for p in 0..doc.page_count()? {
+        let mut page = doc.load_pdf_page(p)?;
         let hits: Vec<_> = page
             .widgets()
             .filter(|w| w.name().ok().flatten().as_deref() == Some(name))
             .collect();
         for w in hits {
-            gone.insert(w.xref().map_err(pe)?);
-            page.delete_widget(w).map_err(pe)?;
+            gone.insert(w.xref()?);
+            page.delete_widget(w)?;
         }
     }
     if gone.is_empty() {
         return Err(Error::InvalidInput(format!("el campo «{name}» no existe")));
     }
-    let af = doc.catalog().map_err(pe)?.get_dict("AcroForm").map_err(pe)?;
+    let af = doc.catalog()?.get_dict("AcroForm")?;
     if let Some(af) = af
-        && let Some(mut fields) = af.get_dict("Fields").map_err(pe)?
+        && let Some(mut fields) = af.get_dict("Fields")?
     {
         prune(&mut fields, &gone)?;
     }

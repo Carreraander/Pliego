@@ -1,6 +1,6 @@
-use mupdf::{Colorspace, Matrix};
 use pliego_document::{Document, SaveOptions};
 use pliego_edit::*;
+use pliego_pdf::{Colorspace, Matrix};
 
 const DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/corpus/edit/");
 
@@ -16,7 +16,7 @@ fn png(name: &str) -> Vec<u8> {
 fn pixel(doc: &Document, x: usize, y: usize) -> [u8; 3] {
     let page = doc.pdf().load_page(0).unwrap();
     let pm = page
-        .to_pixmap(&Matrix::new_scale(1.0, 1.0), &Colorspace::device_rgb(), false, true)
+        .to_pixmap(&Matrix::new_scale(1.0, 1.0), Colorspace::Rgb, false, true)
         .unwrap();
     let i = (y * pm.width() as usize + x) * 3;
     pm.samples()[i..i + 3].try_into().unwrap()

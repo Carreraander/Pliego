@@ -1,9 +1,7 @@
 //! Utilidades para construir y recorrer objetos PDF.
 
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::{Error, Result};
-
-use crate::pe;
+use pliego_pdf::{Object, PdfDocument};
 
 pub const F_READ_ONLY: u32 = 1;
 pub const F_REQUIRED: u32 = 1 << 1;
@@ -85,15 +83,15 @@ pub fn check_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn obj(doc: &PdfDocument, src: &str) -> Result<PdfObject> {
-    doc.new_object_from_str(src).map_err(pe)
+pub fn obj(doc: &PdfDocument, src: &str) -> Result<Object> {
+    doc.new_object_from_str(src)
 }
 
-pub fn put(o: &mut PdfObject, key: &str, v: PdfObject) -> Result<()> {
-    o.dict_put(key, v).map_err(pe)
+pub fn put(o: &mut Object, key: &str, v: Object) -> Result<()> {
+    o.dict_put(key, v)
 }
 
-pub fn flags_of(o: &PdfObject) -> u32 {
+pub fn flags_of(o: &Object) -> u32 {
     o.get_dict_inheritable("Ff")
         .ok()
         .flatten()
@@ -101,20 +99,20 @@ pub fn flags_of(o: &PdfObject) -> u32 {
         .unwrap_or(0) as u32
 }
 
-pub fn set_flag(field: &mut PdfObject, doc: &PdfDocument, bit: u32, on: bool) -> Result<()> {
+pub fn set_flag(field: &mut Object, doc: &PdfDocument, bit: u32, on: bool) -> Result<()> {
     let cur = flags_of(field);
     let new = if on { cur | bit } else { cur & !bit };
-    put(field, "Ff", doc.new_int(new as i32).map_err(pe)?)
+    put(field, "Ff", doc.new_int(new as i32)?)
 }
 
 /// Objeto de campo de un widget: el primero, subiendo por `/Parent`, que tenga `/T`.
-pub fn field_of(widget: &PdfObject) -> Result<PdfObject> {
-    let mut o = widget.try_clone().map_err(pe)?;
+pub fn field_of(widget: &Object) -> Result<Object> {
+    let mut o = widget.try_clone()?;
     loop {
-        if o.get_dict("T").map_err(pe)?.is_some() {
+        if o.get_dict("T")?.is_some() {
             return Ok(o);
         }
-        match o.get_dict("Parent").map_err(pe)? {
+        match o.get_dict("Parent")? {
             Some(p) => o = p,
             None => return Ok(o),
         }
@@ -122,7 +120,7 @@ pub fn field_of(widget: &PdfObject) -> Result<PdfObject> {
 }
 
 /// `/Rect` crudo de un widget.
-pub fn raw_rect(o: &PdfObject) -> [f32; 4] {
+pub fn raw_rect(o: &Object) -> [f32; 4] {
     let mut r = [0.0; 4];
     if let Ok(Some(a)) = o.get_dict("Rect") {
         for (i, v) in r.iter_mut().enumerate() {
@@ -134,7 +132,7 @@ pub fn raw_rect(o: &PdfObject) -> [f32; 4] {
     r
 }
 
-pub fn xref_of(o: &PdfObject) -> i32 {
+pub fn xref_of(o: &Object) -> i32 {
     if o.is_indirect().unwrap_or(false) {
         o.as_indirect().unwrap_or(-1)
     } else {

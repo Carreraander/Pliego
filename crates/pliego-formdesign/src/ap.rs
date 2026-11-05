@@ -1,11 +1,9 @@
 //! Apariencias de campos de texto, listas y botones (MuPDF no las genera al crear campos nuevos).
 
-use mupdf::Buffer;
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::{Error, Result};
+use pliego_pdf::{Object, PdfDocument};
 
 use crate::objects::*;
-use crate::pe;
 
 /// Texto como cadena PDF en WinAnsi (lo que no cabe se sustituye por `?`).
 fn winansi(s: &str) -> String {
@@ -26,7 +24,7 @@ fn winansi(s: &str) -> String {
 }
 
 /// Cuerpo de letra de un `/DA` (`/Helv 12 Tf 0 g`); 0 si es automático o no hay.
-pub fn da_size(widget: &PdfObject) -> f32 {
+pub fn da_size(widget: &Object) -> f32 {
     let Some(da) = widget
         .get_dict_inheritable("DA")
         .ok()
@@ -43,8 +41,8 @@ pub fn da_size(widget: &PdfObject) -> f32 {
         .unwrap_or(0.0)
 }
 
-fn helv(doc: &PdfDocument) -> Result<Option<PdfObject>> {
-    let af = doc.catalog().map_err(pe)?.get_dict("AcroForm").map_err(pe)?;
+fn helv(doc: &PdfDocument) -> Result<Option<Object>> {
+    let af = doc.catalog()?.get_dict("AcroForm")?;
     Ok(af
         .and_then(|a| a.get_dict("DR").ok().flatten())
         .and_then(|d| d.get_dict("Font").ok().flatten())
@@ -52,11 +50,10 @@ fn helv(doc: &PdfDocument) -> Result<Option<PdfObject>> {
 }
 
 /// Regenera `/AP /N` de un widget de texto, combo, lista o botón de acción a partir de sus propiedades.
-pub fn rebuild_ap(doc: &mut PdfDocument, widget: &mut PdfObject) -> Result<()> {
+pub fn rebuild_ap(doc: &mut PdfDocument, widget: &mut Object) -> Result<()> {
     let field = field_of(widget)?;
     let ft = field
-        .get_dict_inheritable("FT")
-        .map_err(pe)?
+        .get_dict_inheritable("FT")?
         .and_then(|t| t.as_name().ok())
         .unwrap_or_default();
     let ff = flags_of(&field);
@@ -189,14 +186,12 @@ pub fn rebuild_ap(doc: &mut PdfDocument, widget: &mut PdfObject) -> Result<()> {
     };
     let res = obj(doc, "<< /Font << >> >>")?;
     let mut fonts = res
-        .get_dict("Font")
-        .map_err(pe)?
+        .get_dict("Font")?
         .ok_or_else(|| Error::Pdf("no se pudo crear /Font".into()))?;
     put(&mut fonts, "Helv", helv)?;
     let mut dict = obj(doc, &format!("<< /Type /XObject /Subtype /Form /BBox [0 0 {w} {h}] >>"))?;
     put(&mut dict, "Resources", res)?;
-    let buf = Buffer::from_bytes(c.as_bytes()).map_err(pe)?;
-    let n = doc.add_stream(&buf, Some(&dict), false).map_err(pe)?;
+    let n = doc.add_stream(c.as_bytes(), Some(&dict), false)?;
     let mut ap = obj(doc, "<< >>")?;
     put(&mut ap, "N", n)?;
     put(widget, "AP", ap)

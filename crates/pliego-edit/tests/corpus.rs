@@ -1,9 +1,9 @@
 //! Verificación sobre el corpus de PDFs variados de `tests/corpus/edit/corpus`:
 //! editar una palabra deja el resto de la página visualmente idéntico.
 
-use mupdf::{Colorspace, Matrix};
 use pliego_document::{Document, SaveOptions};
 use pliego_edit::*;
+use pliego_pdf::{Colorspace, Matrix};
 use std::path::PathBuf;
 
 type Raster = (usize, usize, Vec<u8>);
@@ -15,7 +15,7 @@ fn dir() -> PathBuf {
 fn render(doc: &Document) -> Raster {
     let page = doc.pdf().load_page(0).unwrap();
     let pm = page
-        .to_pixmap(&Matrix::new_scale(1.0, 1.0), &Colorspace::device_rgb(), false, true)
+        .to_pixmap(&Matrix::new_scale(1.0, 1.0), Colorspace::Rgb, false, true)
         .unwrap();
     (pm.width() as usize, pm.height() as usize, pm.samples().to_vec())
 }

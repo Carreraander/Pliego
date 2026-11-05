@@ -1,4 +1,4 @@
-//! Diseñador de formularios de Pliego sobre un `mupdf::pdf::PdfDocument`.
+//! Diseñador de formularios de Pliego sobre un `pliego_pdf::PdfDocument`.
 //!
 //! Coordenadas: los rectángulos (`rect`) están en el espacio de usuario del PDF, es decir,
 //! `[x0, y0, x1, y1]` con el origen en la esquina inferior izquierda de la página (el valor crudo de `/Rect`).
@@ -22,7 +22,3 @@ pub use js::{
 pub use read::list_fields;
 pub use spec::{FieldPatch, FieldSpec, FieldType};
 pub use tab::{set_tab_order, tab_order};
-
-pub(crate) fn pe(e: mupdf::Error) -> pliego_core::Error {
-    pliego_core::Error::Pdf(e.to_string())
-}

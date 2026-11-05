@@ -115,7 +115,7 @@ fn bulk_fill_makes_one_pdf_per_row_with_progress_and_cancel() {
     assert_eq!(rep.outputs.len(), 3);
     assert!(out.join("ana.pdf").exists() && out.join("plantilla-002.pdf").exists());
     assert_eq!(*rec.0.lock().unwrap(), [0, 1, 2, 3]);
-    let mut d = mupdf::pdf::PdfDocument::open(out.join("plantilla-003.pdf").to_str().unwrap()).unwrap();
+    let mut d = pliego_pdf::PdfDocument::open(out.join("plantilla-003.pdf")).unwrap();
     assert_eq!(get(&fields(&mut d).unwrap(), "nombre").value.as_deref(), Some("Eva"));
 
     // Cancelación: no genera nada más.

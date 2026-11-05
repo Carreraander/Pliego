@@ -491,7 +491,18 @@ fn page_with_button(doc: &mut Native) {
     let p = page.object();
     let annots = p.get_dict("Annots").unwrap().unwrap();
     let mut annots = annots;
-    annots.array_push(b).unwrap();
+    annots.array_push(b.clone()).unwrap();
+    // Un widget que no cuelga de /AcroForm /Fields hace saltar a qpdf (versiones recientes).
+    let mut fields = doc
+        .catalog()
+        .unwrap()
+        .get_dict("AcroForm")
+        .unwrap()
+        .unwrap()
+        .get_dict("Fields")
+        .unwrap()
+        .unwrap();
+    fields.array_push(b).unwrap();
 }
 
 #[test]

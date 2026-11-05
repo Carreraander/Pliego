@@ -16,7 +16,7 @@ use pliego_core::Report;
 
 pub use pliego_annot::{AnnotId, AnnotSpec, CommentSummary};
 use pliego_annot::{export_xfdf, import_xfdf, summary};
-pub use pliego_forms::{FieldInfo, FieldValue, FieldValues};
+pub use pliego_forms::{FieldInfo, FieldValue, FieldValues, KeystrokeResult};
 
 /// Abre un PDF para anotarlo. Se lee a memoria para no dejar el archivo abierto (en Windows impediría sustituirlo).
 pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
@@ -77,7 +77,19 @@ fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
 
 /// Campos del formulario de `src` (con su recuadro en la página) para dibujar los controles sobre el visor.
 pub fn form_fields(src: &Path, password: Option<&str>) -> Result<Vec<FieldInfo>> {
-    pliego_forms::fields(&mut open(src, password)?)
+    pliego_forms::fields_with_scripts(&mut open(src, password)?)
+}
+
+/// Filtra una pulsación en curso en el campo `name` con su script de tecleo. No modifica el archivo.
+pub fn form_keystroke(
+    src: &Path,
+    password: Option<&str>,
+    name: &str,
+    change: &str,
+    current: &str,
+    sel: (usize, usize),
+) -> Result<pliego_forms::KeystrokeResult> {
+    pliego_forms::keystroke(&mut open(src, password)?, name, change, current, sel)
 }
 
 /// Resumen de los comentarios de `src`.
@@ -130,8 +142,20 @@ impl Editor {
     }
 
     /// Rellena campos de formulario en el archivo (Rellenar y firmar). Comparte la pila de deshacer con los comentarios.
+    /// Devuelve el contenido nuevo.
     pub fn fill(&self, path: &Path, values: &FieldValues, backup_suffix: &str) -> Result<Vec<u8>> {
-        self.edit_pdf(path, backup_suffix, |doc| {
+        self.fill_report(path, values, backup_suffix).map(|(bytes, _)| bytes)
+    }
+
+    /// Como [`Editor::fill`], con los avisos de los scripts del formulario (`app.alert`...).
+    pub fn fill_report(
+        &self,
+        path: &Path,
+        values: &FieldValues,
+        backup_suffix: &str,
+    ) -> Result<(Vec<u8>, Vec<String>)> {
+        let mut messages = Vec::new();
+        let bytes = self.edit_pdf(path, backup_suffix, |doc| {
             // Con el JavaScript del formulario: validación, cálculo entre campos y formato, como un lector.
             let r = pliego_forms::fill_with_scripts(doc, values)?;
             if r.filled.is_empty() {
@@ -146,8 +170,30 @@ impl Editor {
                     r.not_found.len()
                 )));
             }
+            messages = r.messages;
             Ok(())
-        })
+        })?;
+        Ok((bytes, messages))
+    }
+
+    /// Ejecuta la acción `trigger` (`U` para un botón) del campo `name` y guarda lo que el script cambie en el
+    /// documento. Devuelve el contenido nuevo y los avisos. Error si el campo no tiene esa acción.
+    pub fn run_action(
+        &self,
+        path: &Path,
+        name: &str,
+        trigger: &str,
+        backup_suffix: &str,
+    ) -> Result<(Vec<u8>, Vec<String>)> {
+        let mut messages = Vec::new();
+        let bytes = self.edit_pdf(path, backup_suffix, |doc| {
+            match pliego_forms::run_action(doc, name, trigger)? {
+                Some(m) => messages = m,
+                None => return Err(Error::InvalidInput(format!("el campo «{name}» no tiene esa acción"))),
+            }
+            Ok(())
+        })?;
+        Ok((bytes, messages))
     }
 
     /// Deshace el último cambio; `None` si no hay nada que deshacer.
@@ -361,7 +407,8 @@ trailer<</Root 1 0 R/Size 6>>\n%%EOF\n";
         let ed = Editor::default();
         let mut v = FieldValues::new();
         v.insert("nombre".into(), FieldValue::Text("Ñandú".into()));
-        ed.fill(&p, &v, "copia de seguridad").unwrap();
+        let (_, avisos) = ed.fill_report(&p, &v, "copia de seguridad").unwrap();
+        assert!(avisos.is_empty());
         assert_eq!(form_fields(&p, None).unwrap()[0].value.as_deref(), Some("Ñandú"));
         assert!(dir.path().join("f (copia de seguridad).pdf").exists());
         // Un nombre inexistente no cuenta como cambio.

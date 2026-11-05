@@ -376,6 +376,21 @@ impl PdfWidget {
         Ok(ok)
     }
 
+    /// Texto formateado que el script de formato (`/AA /F`) da al campo, si el JavaScript está habilitado y el campo
+    /// lo tiene. Es lo que se dibuja; `value()` es lo tecleado.
+    pub fn display_value(&self) -> Result<Option<String>> {
+        let shared = self.shared()?;
+        let st = shared.borrow();
+        Ok(st.js.display.get(&field_node(&st, self.id()?)).cloned())
+    }
+
+    /// Claves de las acciones del campo que tienen script (`K` tecleo, `V` validación, `C` cálculo, `F` formato, `U`
+    /// ratón arriba o acción del botón...). Vacío si el JavaScript no está habilitado.
+    pub fn script_triggers(&self) -> Result<Vec<String>> {
+        let shared = self.shared()?;
+        Ok(formjs::script_triggers(&shared, self.id()?))
+    }
+
     /// Pulsación en curso (sin confirmar el valor): ejecuta el script de tecleo con `willCommit` falso. `change` es
     /// el texto que se va a insertar, `current` el contenido actual y `sel` la selección que reemplaza. Devuelve
     /// `(aceptada, cambio)`: el script puede rechazar la pulsación o modificar el texto. Sin `enable_js`, todo se acepta.

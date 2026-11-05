@@ -4098,6 +4098,7 @@ dependencies = [
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",
+ "pliego-pdf",
  "pliego-pdfa",
  "pliego-portfolio",
  "pliego-print",
@@ -4165,6 +4166,7 @@ dependencies = [
  "pliego-office-export",
  "pliego-optimize",
  "pliego-organize",
+ "pliego-pdf",
  "pliego-pdfa",
  "pliego-portfolio",
  "pliego-print",
@@ -4185,8 +4187,8 @@ name = "pliego-compare"
 version = "0.1.0"
 dependencies = [
  "flate2",
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",
@@ -4197,8 +4199,8 @@ name = "pliego-convert"
 version = "0.1.0"
 dependencies = [
  "image",
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "pulldown-cmark",
  "serde",
  "serde_json",
@@ -4272,9 +4274,9 @@ dependencies = [
 name = "pliego-index"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
  "pliego-engine",
+ "pliego-pdf",
  "serde",
  "tantivy",
  "tempfile",
@@ -4305,8 +4307,8 @@ dependencies = [
 name = "pliego-measure"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "tempfile",
 ]
@@ -4315,9 +4317,9 @@ dependencies = [
 name = "pliego-ocr"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
  "pliego-engine",
+ "pliego-pdf",
  "serde",
  "sha2 0.10.9",
  "tempfile",
@@ -4330,9 +4332,9 @@ name = "pliego-office-export"
 version = "0.1.0"
 dependencies = [
  "image",
- "mupdf",
  "pliego-convert",
  "pliego-core",
+ "pliego-pdf",
  "roxmltree",
  "serde",
  "serde_json",
@@ -4399,8 +4401,8 @@ dependencies = [
 name = "pliego-print"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",
@@ -4436,8 +4438,8 @@ dependencies = [
 name = "pliego-redact"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "regex",
  "serde",
  "tempfile",

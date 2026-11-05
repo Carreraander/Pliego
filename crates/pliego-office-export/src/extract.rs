@@ -9,12 +9,9 @@
 //! texto estructurado de `pliego-convert` no conserva la posición de cada carácter. Esta variante parte las
 //! líneas cuando el hueco entre dos caracteres visibles supera [`SPLIT_EM`] veces el tamaño de la fuente.
 
-use mupdf::text_page::TextBlockType;
-use mupdf::{Document, Quad, TextPageFlags};
 use pliego_convert::{BBox, Block, Line, Span, StructuredPage};
 use pliego_core::{Error, Result};
-
-use crate::util::pdf_err;
+use pliego_pdf::{Document, Quad, TextBlockKind, TextFlags, WriteMode};
 
 /// Hueco, en múltiplos del tamaño de fuente, a partir del cual una línea se parte en fragmentos.
 /// Un espacio normal mide ~0,28 em; el texto justificado rara vez pasa de 0,6 em.
@@ -66,35 +63,33 @@ fn finish_piece(spans: &mut Vec<Span>, lines: &mut Vec<Line>, vertical: bool) {
 
 /// Texto estructurado de la página `page` (desde 0) con las líneas partidas por huecos grandes.
 pub(crate) fn structured_split(doc: &Document, page: u32) -> Result<StructuredPage> {
-    let count = doc.page_count().map_err(pdf_err)? as u32;
+    let count = doc.page_count()? as u32;
     if page >= count {
         return Err(Error::InvalidInput(format!(
             "página {} fuera de rango (hay {count})",
             page + 1
         )));
     }
-    let p = doc.load_page(page as i32).map_err(pdf_err)?;
-    let b = p.bounds().map_err(pdf_err)?;
-    let tp = p
-        .to_text_page(TextPageFlags::PRESERVE_IMAGES | TextPageFlags::PRESERVE_LIGATURES)
-        .map_err(pdf_err)?;
+    let p = doc.load_page(page as i32)?;
+    let b = p.bounds()?;
+    let tp = p.to_text_page(TextFlags::PRESERVE_IMAGES | TextFlags::PRESERVE_LIGATURES)?;
 
     let mut blocks = Vec::new();
     for block in tp.blocks() {
-        match block.r#type() {
-            TextBlockType::Image => blocks.push(Block::Image {
-                bbox: block.bounds().into(),
+        match block.kind {
+            TextBlockKind::Image => blocks.push(Block::Image {
+                bbox: block.bounds.into(),
             }),
-            TextBlockType::Text => {
+            TextBlockKind::Text => {
                 let mut lines: Vec<Line> = Vec::new();
-                for line in block.lines() {
-                    let vertical = matches!(line.wmode(), mupdf::WriteMode::Vertical);
+                for line in &block.lines {
+                    let vertical = line.wmode == WriteMode::Vertical;
                     let mut spans: Vec<Span> = Vec::new();
                     let mut prev: Option<(BBox, f32)> = None; // último carácter visible y su tamaño
-                    for ch in line.chars() {
-                        let Some(c) = ch.char() else { continue };
-                        let bbox = quad_bbox(&ch.quad());
-                        let size = (ch.size() * 100.0).round() / 100.0;
+                    for ch in &line.chars {
+                        let Some(c) = ch.ch else { continue };
+                        let bbox = quad_bbox(&ch.quad);
+                        let size = (ch.size * 100.0).round() / 100.0;
                         if !c.is_whitespace() {
                             if let Some((pb, psize)) = prev
                                 && !vertical
@@ -107,17 +102,17 @@ pub(crate) fn structured_split(doc: &Document, page: u32) -> Result<StructuredPa
                         if spans.is_empty() && c.is_whitespace() {
                             continue;
                         }
-                        let (font, bold, italic, mono, serif) = match ch.font() {
+                        let (font, bold, italic, mono, serif) = match &ch.font {
                             Some(f) => (
-                                strip_subset_prefix(f.name()).to_string(),
-                                f.is_bold(),
-                                f.is_italic(),
-                                f.is_monospaced(),
-                                f.is_serif(),
+                                strip_subset_prefix(&f.name).to_string(),
+                                f.bold,
+                                f.italic,
+                                f.monospaced,
+                                f.serif,
                             ),
                             None => (String::new(), false, false, false, false),
                         };
-                        let color = format!("#{:06x}", ch.argb() & 0x00ff_ffff);
+                        let color = format!("#{:06x}", ch.argb & 0x00ff_ffff);
                         match spans.last_mut() {
                             Some(s) if s.font == font && s.size == size && s.color == color => {
                                 s.text.push(c);

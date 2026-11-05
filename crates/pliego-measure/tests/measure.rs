@@ -1,15 +1,14 @@
 use std::path::PathBuf;
 
-use mupdf::Document;
-use mupdf::pdf::PdfDocument;
 use pliego_measure::{Scale, Shape, Unit, add_measurement, list_measurements, page_scale, set_scale};
+use pliego_pdf::PdfDocument;
 
 fn open(rel: &str) -> PdfDocument {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/corpus")
         .join(rel);
     let bytes = std::fs::read(p).unwrap();
-    PdfDocument::try_from(Document::from_bytes(&bytes, "application/pdf").unwrap()).unwrap()
+    PdfDocument::from_bytes(&bytes).unwrap()
 }
 
 fn reopen(doc: &PdfDocument) -> PdfDocument {
@@ -17,7 +16,7 @@ fn reopen(doc: &PdfDocument) -> PdfDocument {
     let out = dir.path().join("o.pdf");
     doc.save(out.to_str().unwrap()).unwrap();
     let bytes = std::fs::read(&out).unwrap();
-    PdfDocument::try_from(Document::from_bytes(&bytes, "application/pdf").unwrap()).unwrap()
+    PdfDocument::from_bytes(&bytes).unwrap()
 }
 
 #[test]

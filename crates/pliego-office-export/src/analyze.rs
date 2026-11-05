@@ -6,16 +6,16 @@
 use std::collections::{HashMap, HashSet};
 
 use image::{ExtendedColorType, ImageEncoder, codecs};
-use mupdf::{Colorspace, Matrix};
 use pliego_convert::{Block, StructuredPage};
 use pliego_core::{Error, JobContext, PageRange, Result};
+use pliego_pdf::{Colorspace, Matrix};
 
 use crate::extract::structured_split;
 use crate::lines::{Frag, cluster_rows, union};
 use crate::model::*;
 use crate::paragraphs::{ListCounter, Region, build_paragraphs};
 use crate::tables::{build_table, find_tables};
-use crate::util::{open_document, pdf_err};
+use crate::util::open_document;
 
 /// Qué piezas necesita el escritor que consume el análisis.
 #[derive(Debug, Clone, Copy)]
@@ -353,21 +353,19 @@ fn encode_region(img: &image::RgbImage, b: &BBox, scale: f32) -> Option<ImageDat
     })
 }
 
-fn render_page(doc: &mupdf::Document, page: u32, w: f32, h: f32, dpi: f32) -> Result<(image::RgbImage, f32)> {
+fn render_page(doc: &pliego_pdf::Document, page: u32, w: f32, h: f32, dpi: f32) -> Result<(image::RgbImage, f32)> {
     let mut scale = dpi / 72.0;
     let px = (w as f64 * scale as f64) * (h as f64 * scale as f64);
     if px > MAX_RENDER_PIXELS {
         scale *= (MAX_RENDER_PIXELS / px).sqrt() as f32;
     }
-    let p = doc.load_page(page as i32).map_err(pdf_err)?;
-    let pix = p
-        .to_pixmap(&Matrix::new_scale(scale, scale), &Colorspace::device_rgb(), false, true)
-        .map_err(pdf_err)?;
+    let p = doc.load_page(page as i32)?;
+    let pix = p.to_pixmap(&Matrix::new_scale(scale, scale), Colorspace::Rgb, false, true)?;
     let (pw, ph, n, stride) = (
         pix.width() as usize,
         pix.height() as usize,
         pix.n() as usize,
-        pix.stride() as usize,
+        pix.stride(),
     );
     if n != 3 {
         return Err(Error::Pdf(format!("mapa de bits inesperado de {n} canales")));
@@ -417,7 +415,7 @@ struct PageInput<'a> {
 
 #[allow(clippy::too_many_arguments)]
 fn layout_page(
-    doc: &mupdf::Document,
+    doc: &pliego_pdf::Document,
     input: PageInput,
     scanned: bool,
     opts: &AnalyzeOptions,
@@ -591,7 +589,7 @@ pub(crate) fn analyze(
     ctx: &JobContext,
 ) -> Result<Layout> {
     let doc = open_document(input, password)?;
-    let count = doc.page_count().map_err(pdf_err)? as u32;
+    let count = doc.page_count()? as u32;
     let selected = pages.resolve(count)?;
     let mut sps = Vec::with_capacity(selected.len());
     for (n, &p) in selected.iter().enumerate() {
@@ -679,7 +677,7 @@ pub(crate) fn analyze(
 /// Páginas (desde 1) que son solo una imagen, sin texto.
 pub(crate) fn scanned_pages(input: &std::path::Path, password: Option<&str>) -> Result<Vec<u32>> {
     let doc = open_document(input, password)?;
-    let count = doc.page_count().map_err(pdf_err)? as u32;
+    let count = doc.page_count()? as u32;
     let mut out = Vec::new();
     for p in 0..count {
         if is_scanned(&structured_split(&doc, p)?) {

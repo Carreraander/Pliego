@@ -5,11 +5,11 @@ use std::path::Path;
 use std::str::FromStr;
 
 use image::{ExtendedColorType, ImageEncoder, codecs};
-use mupdf::{Colorspace, Matrix, Pixmap, TextPageFlags};
 use pliego_core::{Error, JobContext, PageRange, Report, Result};
+use pliego_pdf::{Colorspace, Matrix, Pixmap, TextFlags};
 use serde::{Deserialize, Serialize};
 
-use crate::util::{ensure_not_same, file_stem, open_document, pdf_err, write_atomic};
+use crate::util::{ensure_not_same, file_stem, open_document, write_atomic};
 
 /// Límite de seguridad por imagen (≈ 300 MB RGB), igual de prudente que el visor.
 const MAX_PIXELS: u64 = 100_000_000;
@@ -73,7 +73,7 @@ fn pixmap_rgb(pix: &Pixmap) -> Result<Vec<u8>> {
         pix.width() as usize,
         pix.height() as usize,
         pix.n() as usize,
-        pix.stride() as usize,
+        pix.stride(),
     );
     if n != 3 {
         return Err(Error::Pdf(format!("mapa de bits inesperado de {n} canales")));
@@ -123,15 +123,15 @@ pub fn pdf_to_images(
         return Err(Error::InvalidInput("la resolución debe ser mayor que 0".into()));
     }
     let doc = open_document(input, password)?;
-    let count = doc.page_count().map_err(pdf_err)? as u32;
+    let count = doc.page_count()? as u32;
     let selected = pages.resolve(count)?;
     let stem = file_stem(input, "pagina");
     let scale = options.dpi / 72.0;
     let mut report = Report::default();
     for (n, &p) in selected.iter().enumerate() {
         ctx.step(n as u64, selected.len() as u64, &format!("página {}", p + 1))?;
-        let page = doc.load_page(p as i32).map_err(pdf_err)?;
-        let b = page.bounds().map_err(pdf_err)?;
+        let page = doc.load_page(p as i32)?;
+        let b = page.bounds()?;
         let (w, h) = (
             (b.width() * scale).ceil().max(1.0) as u64,
             (b.height() * scale).ceil().max(1.0) as u64,
@@ -143,9 +143,7 @@ pub fn pdf_to_images(
                 options.dpi
             )));
         }
-        let pix = page
-            .to_pixmap(&Matrix::new_scale(scale, scale), &Colorspace::device_rgb(), false, true)
-            .map_err(pdf_err)?;
+        let pix = page.to_pixmap(&Matrix::new_scale(scale, scale), Colorspace::Rgb, false, true)?;
         let path = out_dir.join(format!("{stem}-{:03}.{}", p + 1, options.format.extension()));
         ensure_not_same(input, &path)?;
         write_atomic(&path, &encode(&pix, options)?)?;
@@ -185,18 +183,18 @@ pub fn pdf_to_text(
 ) -> Result<Report> {
     ensure_not_same(input, output)?;
     let doc = open_document(input, password)?;
-    let count = doc.page_count().map_err(pdf_err)? as u32;
+    let count = doc.page_count()? as u32;
     let selected = pages.resolve(count)?;
-    let mut flags = TextPageFlags::empty();
+    let mut flags = TextFlags::empty();
     if options.dehyphenate {
-        flags |= TextPageFlags::DEHYPHENATE;
+        flags |= TextFlags::DEHYPHENATE;
     }
     let mut text = String::new();
     let mut empty_pages = 0;
     for (n, &p) in selected.iter().enumerate() {
         ctx.step(n as u64, selected.len() as u64, &format!("página {}", p + 1))?;
-        let page = doc.load_page(p as i32).map_err(pdf_err)?;
-        let t = page.to_text_page(flags).map_err(pdf_err)?.to_text().map_err(pdf_err)?;
+        let page = doc.load_page(p as i32)?;
+        let t = page.to_text_page(flags)?.to_text()?;
         if t.trim().is_empty() {
             empty_pages += 1;
         }

@@ -3,11 +3,10 @@
 
 use std::collections::BTreeSet;
 
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::Result;
+use pliego_pdf::{Object, PdfDocument};
 
 use crate::content::{self, Op};
-use crate::pdf_err;
 
 const MAX_DEPTH: usize = 8;
 
@@ -81,24 +80,24 @@ fn mul(a: Matrix, b: Matrix) -> Matrix {
     ]
 }
 
-fn name_of(obj: &PdfObject) -> Option<String> {
+fn name_of(obj: &Object) -> Option<String> {
     obj.as_name().ok().map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
-fn get(obj: &PdfObject, key: &str) -> Option<PdfObject> {
+fn get(obj: &Object, key: &str) -> Option<Object> {
     obj.get_dict(key).ok().flatten()
 }
 
-fn is_dict_like(o: &PdfObject) -> bool {
+fn is_dict_like(o: &Object) -> bool {
     o.is_dict().unwrap_or(false) || o.is_stream().unwrap_or(false)
 }
 
-fn number(obj: &PdfObject) -> Option<f32> {
+fn number(obj: &Object) -> Option<f32> {
     obj.as_float().ok()
 }
 
 /// Interpreta un espacio de color (nombre o matriz).
-pub(crate) fn parse_cs(cs: &PdfObject, resources: Option<&PdfObject>, depth: usize) -> Cs {
+pub(crate) fn parse_cs(cs: &Object, resources: Option<&Object>, depth: usize) -> Cs {
     if depth > 4 {
         return Cs::Other;
     }
@@ -172,13 +171,13 @@ pub(crate) fn scan_page(doc: &PdfDocument, page_index: usize) -> Result<PageScan
 
 /// Une los flujos de contenido de una página tal como los lee el escáner.
 pub(crate) fn page_content(doc: &PdfDocument, page_index: usize) -> Result<Vec<u8>> {
-    let page = doc.find_page(page_index as i32).map_err(pdf_err)?;
+    let page = doc.find_page(page_index as i32)?;
     Ok(get(&page, "Contents").map(|c| stream_bytes(&c)).unwrap_or_default())
 }
 
 pub(crate) fn scan_page_with(doc: &PdfDocument, page_index: usize, min_width: Option<f32>) -> Result<PageScan> {
-    let page = doc.find_page(page_index as i32).map_err(pdf_err)?;
-    let resources = page.get_dict_inheritable("Resources").map_err(pdf_err)?;
+    let page = doc.find_page(page_index as i32)?;
+    let resources = page.get_dict_inheritable("Resources")?;
     let data = match get(&page, "Contents") {
         Some(c) => stream_bytes(&c),
         None => Vec::new(),
@@ -194,7 +193,7 @@ pub(crate) fn scan_page_with(doc: &PdfDocument, page_index: usize, min_width: Op
 }
 
 /// Une los flujos de contenido (uno o una matriz de ellos).
-fn stream_bytes(obj: &PdfObject) -> Vec<u8> {
+fn stream_bytes(obj: &Object) -> Vec<u8> {
     if obj.is_array().unwrap_or(false) {
         let mut all = Vec::new();
         for i in 0..obj.len().unwrap_or(0) {
@@ -220,7 +219,7 @@ impl Scanner {
         }
     }
 
-    fn run(&mut self, data: &[u8], resources: Option<&PdfObject>, base: Matrix, depth: usize, key: i32) {
+    fn run(&mut self, data: &[u8], resources: Option<&Object>, base: Matrix, depth: usize, key: i32) {
         let ops = content::parse(data);
         let mut ctm = base;
         let mut gstack: Vec<Saved> = Vec::new();
@@ -286,7 +285,7 @@ impl Scanner {
         }
     }
 
-    fn font(&mut self, op: &Op, resources: Option<&PdfObject>) {
+    fn font(&mut self, op: &Op, resources: Option<&Object>) {
         let Some(key) = op.name_arg(0) else { return };
         let Some(font) = resources.and_then(|r| get(r, "Font")).and_then(|d| get(&d, key)) else {
             return;
@@ -303,7 +302,7 @@ impl Scanner {
         });
     }
 
-    fn xobject(&mut self, op: &Op, resources: Option<&PdfObject>, ctm: Matrix, depth: usize) {
+    fn xobject(&mut self, op: &Op, resources: Option<&Object>, ctm: Matrix, depth: usize) {
         let Some(key) = op.name_arg(0) else { return };
         let Some(xobj) = resources.and_then(|r| get(r, "XObject")).and_then(|d| get(&d, key)) else {
             return;
@@ -358,7 +357,7 @@ impl Scanner {
     }
 }
 
-fn font_is_embedded(font: &PdfObject) -> bool {
+fn font_is_embedded(font: &Object) -> bool {
     let subtype = get(font, "Subtype").and_then(|s| name_of(&s)).unwrap_or_default();
     if subtype == "Type3" {
         return true;
@@ -369,7 +368,7 @@ fn font_is_embedded(font: &PdfObject) -> bool {
             None => return false,
         }
     } else {
-        font.try_clone().unwrap_or_else(|_| PdfObject::new_null())
+        font.try_clone().unwrap_or_else(|_| Object::new_null())
     };
     get(&target, "FontDescriptor").is_some_and(|d| {
         ["FontFile", "FontFile2", "FontFile3"]

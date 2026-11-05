@@ -3,12 +3,13 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use mupdf::pdf::{InsertImageOptions, PageImageSource, PdfDocument};
-use mupdf::{Colorspace, ImageFormat, Matrix, Rect, Size, TextPageFlags};
 use pliego_core::{Error, JobContext, PageRange, Report, Result};
+use pliego_pdf::{
+    Colorspace, ImageFormat, ImageSource, InsertImageOptions, Matrix, PdfDocument, Rect, Size, TextFlags,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::util::{ensure_not_same, file_stem, open_document, pdf_err, write_atomic};
+use crate::util::{ensure_not_same, file_stem, open_document, write_atomic};
 
 /// Escapa texto para meterlo en HTML.
 fn escape(s: &str) -> String {
@@ -28,7 +29,7 @@ pub fn pdf_to_html(
 ) -> Result<Report> {
     ensure_not_same(input, output)?;
     let doc = open_document(input, password)?;
-    let count = doc.page_count().map_err(pdf_err)? as u32;
+    let count = doc.page_count()? as u32;
     let selected = pages.resolve(count)?;
     let title = file_stem(input, "documento");
     let mut html = format!(
@@ -37,9 +38,9 @@ pub fn pdf_to_html(
     );
     for (n, &p) in selected.iter().enumerate() {
         ctx.step(n as u64, selected.len() as u64, &format!("página {}", p + 1))?;
-        let page = doc.load_page(p as i32).map_err(pdf_err)?;
-        let tp = page.to_text_page(TextPageFlags::PRESERVE_LIGATURES).map_err(pdf_err)?;
-        html.push_str(&tp.to_html(p as i32, false).map_err(pdf_err)?);
+        let page = doc.load_page(p as i32)?;
+        let tp = page.to_text_page(TextFlags::PRESERVE_LIGATURES)?;
+        html.push_str(&tp.to_html(p as i32, false)?);
         html.push('\n');
     }
     html.push_str("</body>\n</html>\n");
@@ -60,14 +61,14 @@ pub fn pdf_to_svg(
     ctx: &JobContext,
 ) -> Result<Report> {
     let doc = open_document(input, password)?;
-    let count = doc.page_count().map_err(pdf_err)? as u32;
+    let count = doc.page_count()? as u32;
     let selected = pages.resolve(count)?;
     let stem = file_stem(input, "pagina");
     let mut report = Report::default();
     for (n, &p) in selected.iter().enumerate() {
         ctx.step(n as u64, selected.len() as u64, &format!("página {}", p + 1))?;
-        let page = doc.load_page(p as i32).map_err(pdf_err)?;
-        let svg = page.to_svg(&Matrix::IDENTITY).map_err(pdf_err)?;
+        let page = doc.load_page(p as i32)?;
+        let svg = page.to_svg(&Matrix::IDENTITY)?;
         let path = out_dir.join(format!("{stem}-{:03}.svg", p + 1));
         write_atomic(&path, svg.as_bytes())?;
         report.outputs.push(path);
@@ -108,31 +109,17 @@ pub fn extract_images(
             "solo se pueden extraer imágenes de archivos PDF".into(),
         ));
     }
-    drop(checked);
-    let path_str = input
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("ruta con caracteres no válidos".into()))?;
-    let mut pdf = PdfDocument::open(path_str).map_err(pdf_err)?;
-    if pdf.needs_password().map_err(pdf_err)? {
-        let ok = password
-            .map(|p| pdf.authenticate(p))
-            .transpose()
-            .map_err(pdf_err)?
-            .unwrap_or(false);
-        if !ok {
-            return Err(Error::Password);
-        }
-    }
-    let count = pdf.page_count().map_err(pdf_err)? as u32;
+    let pdf = checked.into_pdf()?;
+    let count = pdf.page_count()? as u32;
     let selected = pages.resolve(count)?;
     let stem = file_stem(input, "imagen");
     let mut seen = HashSet::new();
     let mut report = Report::default();
     for (n, &p) in selected.iter().enumerate() {
         ctx.step(n as u64, selected.len() as u64, &format!("página {}", p + 1))?;
-        let page = pdf.load_pdf_page(p as i32).map_err(pdf_err)?;
+        let page = pdf.load_pdf_page(p as i32)?;
         let mut idx = 0;
-        for info in page.images().map_err(pdf_err)? {
+        for info in page.images()? {
             if !seen.insert(info.xref) {
                 continue;
             }
@@ -142,10 +129,10 @@ pub fn extract_images(
             idx += 1;
             let (bytes, ext) = match info.filter.as_deref() {
                 Some(f) if f.contains("DCTDecode") && !f.contains(' ') => {
-                    (pdf.extract_image(info.xref).map_err(pdf_err)?.encoded, "jpg")
+                    (pdf.extract_image(info.xref)?.encoded, "jpg")
                 }
                 Some(f) if f.contains("JPXDecode") && !f.contains(' ') => {
-                    (pdf.extract_image(info.xref).map_err(pdf_err)?.encoded, "jp2")
+                    (pdf.extract_image(info.xref)?.encoded, "jp2")
                 }
                 _ => match decode_to_png(&pdf, info.xref, info.width, info.height) {
                     Ok(b) => (b, "png"),
@@ -173,15 +160,13 @@ fn decode_to_png(src: &PdfDocument, xref: i32, w: u32, h: u32) -> Result<Vec<u8>
     if w == 0 || h == 0 || u64::from(w) * u64::from(h) > 100_000_000 {
         return Err(Error::InvalidInput(format!("tamaño de imagen no válido: {w}x{h}")));
     }
-    let obj = src.new_indirect(xref, 0).map_err(pdf_err)?;
+    let obj = src.new_indirect(xref, 0)?;
     let mut tmp = PdfDocument::new();
-    let grafted = tmp.graft_object(&obj).map_err(pdf_err)?;
-    let mut page = tmp
-        .new_page(Size {
-            width: w as f32,
-            height: h as f32,
-        })
-        .map_err(pdf_err)?;
+    let grafted = tmp.graft_object(&obj)?;
+    let mut page = tmp.new_page(Size {
+        width: w as f32,
+        height: h as f32,
+    })?;
     page.insert_image(
         &mut tmp,
         Rect {
@@ -190,14 +175,11 @@ fn decode_to_png(src: &PdfDocument, xref: i32, w: u32, h: u32) -> Result<Vec<u8>
             x1: w as f32,
             y1: h as f32,
         },
-        PageImageSource::ExistingXref(grafted.as_indirect().map_err(pdf_err)?),
+        ImageSource::ExistingXref(grafted.as_indirect()?),
         InsertImageOptions::default(),
-    )
-    .map_err(pdf_err)?;
-    let pix = page
-        .to_pixmap(&Matrix::IDENTITY, &Colorspace::device_rgb(), true, false)
-        .map_err(pdf_err)?;
+    )?;
+    let pix = page.to_pixmap(&Matrix::IDENTITY, Colorspace::Rgb, true, false)?;
     let mut out = Vec::new();
-    pix.write_to(&mut out, ImageFormat::PNG).map_err(pdf_err)?;
+    pix.write_to(&mut out, ImageFormat::Png)?;
     Ok(out)
 }

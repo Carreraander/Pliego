@@ -3,9 +3,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, mpsc};
 
-use mupdf::pdf::{PdfDocument, PdfObject, PdfWriteOptions};
-use mupdf::{Colorspace, Matrix, TextPageFlags};
 use pliego_core::{Error, JobContext, PageRange, Report, Result};
+use pliego_pdf::{Colorspace, Matrix, Object, PdfDocument, PdfPage, TextFlags, WriteOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::preprocess::{binarize_sauvola, denoise_median3, estimate_skew, rotate, rotate_point, rotate_quarter};
@@ -69,10 +68,6 @@ impl Default for OcrOptions {
 const ORIENTATION_MIN_CONF: f32 = 5.0;
 /// Lado máximo de la imagen de reconocimiento (evita carteles gigantes).
 const MAX_SIDE_PX: f32 = 12_000.0;
-
-fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 struct Job {
     index: u32,
@@ -186,60 +181,55 @@ fn place_words(words: &[PixelWord], ctm: &Matrix, scale: f32) -> Vec<PlacedWord>
         .collect()
 }
 
-fn has_text(page: &mupdf::pdf::PdfPage) -> Result<bool> {
-    let tp = page.to_text_page(TextPageFlags::empty()).map_err(pdf_err)?;
-    Ok(!tp.to_text().map_err(pdf_err)?.trim().is_empty())
+fn has_text(page: &PdfPage) -> Result<bool> {
+    let tp = page.to_text_page(TextFlags::empty())?;
+    Ok(!tp.to_text()?.trim().is_empty())
 }
 
-fn ensure_font(doc: &mut PdfDocument) -> Result<PdfObject> {
-    let font = doc
-        .new_object_from_str("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>")
-        .map_err(pdf_err)?;
-    doc.add_object(&font).map_err(pdf_err)
+fn ensure_font(doc: &mut PdfDocument) -> Result<Object> {
+    let font =
+        doc.new_object_from_str("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>")?;
+    doc.add_object(&font)
 }
 
 fn add_text_layer(
     doc: &mut PdfDocument,
-    font: &PdfObject,
+    font: &Object,
     index: u32,
     rotation: u32,
     words: &[PixelWord],
     scale: f32,
 ) -> Result<()> {
-    let mut page = doc.load_pdf_page(index as i32).map_err(pdf_err)?;
+    let mut page = doc.load_pdf_page(index as i32)?;
     let mut obj = page.object();
     if rotation != 0 {
         let current = obj
-            .get_dict_inheritable("Rotate")
-            .map_err(pdf_err)?
+            .get_dict_inheritable("Rotate")?
             .and_then(|o| o.as_int().ok())
             .unwrap_or(0);
         let new = (current + rotation as i32).rem_euclid(360);
-        obj.dict_put("Rotate", PdfObject::new_int(new).map_err(pdf_err)?)
-            .map_err(pdf_err)?;
+        obj.dict_put("Rotate", Object::new_int(new)?)?;
     }
-    let ctm = obj.page_ctm().map_err(pdf_err)?;
+    let ctm = obj.page_ctm()?;
     let placed = place_words(words, &ctm, scale);
     if placed.is_empty() {
         return Ok(());
     }
-    let mut resources = page.resources().map_err(pdf_err)?;
-    let mut fonts = match resources.get_dict("Font").map_err(pdf_err)? {
-        Some(f) if f.is_dict().map_err(pdf_err)? => f,
+    let mut resources = page.resources()?;
+    let mut fonts = match resources.get_dict("Font")? {
+        Some(f) if f.is_dict()? => f,
         _ => {
-            let d = doc.new_dict().map_err(pdf_err)?;
-            resources.dict_put("Font", d).map_err(pdf_err)?;
+            let d = doc.new_dict()?;
+            resources.dict_put("Font", d)?;
             resources
-                .get_dict("Font")
-                .map_err(pdf_err)?
+                .get_dict("Font")?
                 .ok_or_else(|| Error::Pdf("no se pudo crear /Font".into()))?
         }
     };
-    fonts.dict_put(FONT_RESOURCE, font.clone()).map_err(pdf_err)?;
+    fonts.dict_put(FONT_RESOURCE, font.clone())?;
     // Equilibra el estado gráfico del contenido original antes de añadir la capa.
-    page.wrap_contents(doc).map_err(pdf_err)?;
-    page.insert_contents(doc, &build_content(&placed), true)
-        .map_err(pdf_err)?;
+    page.wrap_contents(doc)?;
+    page.insert_contents(doc, &build_content(&placed), true)?;
     Ok(())
 }
 
@@ -256,15 +246,12 @@ pub fn ocr_document(input: &Path, output: &Path, opts: &OcrOptions, ctx: &JobCon
         Some(d) => d.clone(),
         None => tessdata::resolve_for(&opts.langs)?,
     };
-    let in_str = input
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("ruta de entrada no válida".into()))?;
     let mut doc =
-        PdfDocument::open(in_str).map_err(|e| Error::Pdf(format!("no se pudo abrir {}: {e}", input.display())))?;
-    if doc.needs_password().map_err(pdf_err)? {
+        PdfDocument::open(input).map_err(|e| Error::Pdf(format!("no se pudo abrir {}: {e}", input.display())))?;
+    if doc.needs_password()? {
         return Err(Error::Password);
     }
-    let page_count = doc.page_count().map_err(pdf_err)? as u32;
+    let page_count = doc.page_count()? as u32;
     let range: PageRange = opts.pages.parse()?;
     let selected = range.resolve(page_count)?;
 
@@ -273,7 +260,7 @@ pub fn ocr_document(input: &Path, output: &Path, opts: &OcrOptions, ctx: &JobCon
     let mut skipped = 0u32;
     for &i in &selected {
         ctx.step(0, 0, "Analizando páginas")?;
-        let page = doc.load_pdf_page(i as i32).map_err(pdf_err)?;
+        let page = doc.load_pdf_page(i as i32)?;
         if opts.mode == OcrMode::SkipText && has_text(&page)? {
             skipped += 1;
         } else {
@@ -351,18 +338,11 @@ pub fn ocr_document(input: &Path, output: &Path, opts: &OcrOptions, ctx: &JobCon
             let mut received = 0usize;
             for &i in &todo {
                 ctx.step(received as u64, total, &format!("Preparando página {}", i + 1))?;
-                let page = doc.load_pdf_page(i as i32).map_err(pdf_err)?;
-                let b = page.bounds().map_err(pdf_err)?;
+                let page = doc.load_pdf_page(i as i32)?;
+                let b = page.bounds()?;
                 let (pw, ph) = ((b.x1 - b.x0).max(1.0), (b.y1 - b.y0).max(1.0));
                 let scale = (dpi / 72.0).min(MAX_SIDE_PX / pw.max(ph));
-                let pix = page
-                    .to_pixmap(
-                        &Matrix::new_scale(scale, scale),
-                        &Colorspace::device_gray(),
-                        false,
-                        false,
-                    )
-                    .map_err(pdf_err)?;
+                let pix = page.to_pixmap(&Matrix::new_scale(scale, scale), Colorspace::Gray, false, false)?;
                 let img = GrayImage::from_interleaved(pix.width(), pix.height(), pix.n() as usize, pix.samples())?;
                 scales.insert(i, scale);
                 job_tx
@@ -420,13 +400,13 @@ fn write_atomically(doc: &PdfDocument, output: &Path) -> Result<()> {
         .suffix(".pdf")
         .tempfile_in(dir)
         .map_err(|e| Error::io_at(dir, e))?;
-    let mut opts = PdfWriteOptions::default();
+    let mut opts = WriteOptions::default();
     opts.set_compress(true);
     let tmp_str = tmp
         .path()
         .to_str()
         .ok_or_else(|| Error::InvalidInput("ruta de salida no válida".into()))?;
-    doc.save_with_options(tmp_str, opts).map_err(pdf_err)?;
+    doc.save_with_options(tmp_str, &opts)?;
     tmp.persist(output).map_err(|e| Error::io_at(output, e.error))?;
     Ok(())
 }

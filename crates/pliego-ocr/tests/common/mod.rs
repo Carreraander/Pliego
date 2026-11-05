@@ -3,11 +3,10 @@
 
 use std::path::Path;
 
-use mupdf::pdf::PdfDocument;
-use mupdf::{Colorspace, Image, Matrix, Pixmap, Size};
 use pliego_ocr::preprocess::{rotate, rotate_quarter};
 use pliego_ocr::textlayer::win_ansi;
 use pliego_ocr::{GrayImage, available_languages};
+use pliego_pdf::{Colorspace, Image, Matrix, PdfDocument, Pixmap, Size};
 
 pub struct ScanSpec<'a> {
     pub lines: &'a [&'a str],
@@ -64,7 +63,7 @@ pub fn render_gray(doc: &PdfDocument, dpi: f32) -> GrayImage {
     let page = doc.load_pdf_page(0).unwrap();
     let s = dpi / 72.0;
     let pix = page
-        .to_pixmap(&Matrix::new_scale(s, s), &Colorspace::device_gray(), false, false)
+        .to_pixmap(&Matrix::new_scale(s, s), Colorspace::Gray, false, false)
         .unwrap();
     GrayImage::from_interleaved(pix.width(), pix.height(), pix.n() as usize, pix.samples()).unwrap()
 }
@@ -74,7 +73,7 @@ pub fn image_pdf(img: &GrayImage, path: &Path) {
     let mut doc = PdfDocument::new();
     let (w_pt, h_pt) = (img.width as f32 * 72.0 / 300.0, img.height as f32 * 72.0 / 300.0);
     let mut page = doc.new_page(Size::new(w_pt, h_pt)).unwrap();
-    let mut pix = Pixmap::new_with_w_h(&Colorspace::device_gray(), img.width as i32, img.height as i32, false).unwrap();
+    let mut pix = Pixmap::new_with_w_h(Colorspace::Gray, img.width as i32, img.height as i32, false).unwrap();
     pix.samples_mut().copy_from_slice(&img.data);
     let image = Image::from_pixmap(&pix).unwrap();
     let image_obj = doc.add_image(&image).unwrap();
@@ -84,7 +83,7 @@ pub fn image_pdf(img: &GrayImage, path: &Path) {
     res.dict_put("XObject", xobj).unwrap();
     let content = format!("q {w_pt} 0 0 {h_pt} 0 0 cm /Im0 Do Q\n");
     page.insert_contents(&mut doc, content.as_bytes(), true).unwrap();
-    doc.save(path.to_str().unwrap()).unwrap();
+    doc.save(path).unwrap();
 }
 
 pub fn make_scan(path: &Path, spec: &ScanSpec) {
@@ -110,13 +109,13 @@ pub fn make_scan(path: &Path, spec: &ScanSpec) {
 
 /// Texto de todas las páginas, con espacios normalizados.
 pub fn extract_text(path: &Path) -> String {
-    let doc = mupdf::Document::open(path.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::Document::open(path).unwrap();
     let mut out = String::new();
     for i in 0..doc.page_count().unwrap() {
         let tp = doc
             .load_page(i)
             .unwrap()
-            .to_text_page(mupdf::TextPageFlags::empty())
+            .to_text_page(pliego_pdf::TextFlags::empty())
             .unwrap();
         out.push_str(&tp.to_text().unwrap());
         out.push(' ');

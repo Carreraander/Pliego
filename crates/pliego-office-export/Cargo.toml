@@ -10,7 +10,7 @@ repository.workspace = true
 pliego-core.workspace = true
 # Texto estructurado (W09): bloques, líneas y tramos con fuente, tamaño, color y caja.
 pliego-convert = { path = "../pliego-convert" }
-mupdf.workspace = true
+pliego-pdf.workspace = true
 serde.workspace = true
 tempfile.workspace = true
 # Escritura de contenedores OOXML (MIT).

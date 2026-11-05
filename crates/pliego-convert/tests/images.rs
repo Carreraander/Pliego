@@ -111,7 +111,7 @@ fn fixed_page_size_orientation_and_margins() {
         ..Default::default()
     };
     images_to_pdf(&[wide, tall], &pdf, &o, &JobContext::silent()).unwrap();
-    let doc = mupdf::Document::open(pdf.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::Document::open(&pdf).unwrap();
     let b0 = doc.load_page(0).unwrap().bounds().unwrap();
     let b1 = doc.load_page(1).unwrap().bounds().unwrap();
     assert!(

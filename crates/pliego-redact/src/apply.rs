@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use mupdf::pdf::{
-    PdfDocument, PdfRedactImageMethod, PdfRedactLineArtMethod, PdfRedactOptions, PdfRedactTextMethod, PdfWriteOptions,
-};
-use mupdf::{Rect, TextPageFlags};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{
+    PdfDocument, Rect, RedactImageMethod, RedactLineArtMethod, RedactOptions as PdfRedactOptions, RedactTextMethod,
+    TextFlags, WriteOptions,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::patterns::{Area, Pattern, find_patterns, pdf_err};
+use crate::patterns::{Area, Pattern, find_patterns};
 
 /// Relleno de las zonas redactadas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -68,7 +68,7 @@ pub struct Leftover {
 
 /// Añade marcas de redacción (sin aplicarlas). Devuelve cuántas.
 pub fn mark(doc: &mut PdfDocument, areas: &[Area]) -> Result<usize> {
-    let pages = doc.page_count().map_err(pdf_err)?.max(0) as u32;
+    let pages = doc.page_count()?.max(0) as u32;
     let mut by_page: BTreeMap<u32, Vec<&Area>> = BTreeMap::new();
     for a in areas {
         if a.page >= pages {
@@ -86,18 +86,17 @@ pub fn mark(doc: &mut PdfDocument, areas: &[Area]) -> Result<usize> {
     }
     let mut n = 0;
     for (p, list) in by_page {
-        let mut page = doc.load_pdf_page(p as i32).map_err(pdf_err)?;
+        let mut page = doc.load_pdf_page(p as i32)?;
         for a in list {
             page.add_redact_annotation(Rect {
                 x0: a.x0,
                 y0: a.y0,
                 x1: a.x1,
                 y1: a.y1,
-            })
-            .map_err(pdf_err)?;
+            })?;
             n += 1;
         }
-        page.update().map_err(pdf_err)?;
+        page.update()?;
     }
     Ok(n)
 }
@@ -108,23 +107,23 @@ pub fn apply_document(doc: &mut PdfDocument, options: &RedactOptions, ctx: &JobC
     let raw = PdfRedactOptions {
         black_boxes: options.fill == Fill::Black,
         image_method: match options.images {
-            ImageMode::Pixels => PdfRedactImageMethod::Pixels,
-            ImageMode::Remove => PdfRedactImageMethod::Remove,
-            ImageMode::Keep => PdfRedactImageMethod::None,
+            ImageMode::Pixels => RedactImageMethod::Pixels,
+            ImageMode::Remove => RedactImageMethod::Remove,
+            ImageMode::Keep => RedactImageMethod::None,
         },
         line_art: if options.remove_line_art {
-            PdfRedactLineArtMethod::RemoveIfCovered
+            RedactLineArtMethod::RemoveIfCovered
         } else {
-            PdfRedactLineArtMethod::None
+            RedactLineArtMethod::None
         },
-        text: PdfRedactTextMethod::Remove,
+        text: RedactTextMethod::Remove,
     };
-    let pages = doc.page_count().map_err(pdf_err)?.max(0);
+    let pages = doc.page_count()?.max(0);
     let mut changed = 0;
     for p in 0..pages {
         ctx.step(p as u64, pages as u64, "Aplicando redacciones")?;
-        let mut page = doc.load_pdf_page(p).map_err(pdf_err)?;
-        if page.redact_with_options(raw).map_err(pdf_err)? {
+        let mut page = doc.load_pdf_page(p)?;
+        if page.redact(raw)? {
             changed += 1;
         }
     }
@@ -138,22 +137,18 @@ fn squash(s: &str) -> String {
 
 /// Comprueba que ninguna de las cadenas se pueda extraer del texto ni encontrar con la búsqueda.
 pub fn verify(doc: &PdfDocument, needles: &[String]) -> Result<Vec<Leftover>> {
-    let pages = doc.page_count().map_err(pdf_err)?.max(0);
+    let pages = doc.page_count()?.max(0);
     let mut left = Vec::new();
     for p in 0..pages {
-        let page = doc.load_page(p).map_err(pdf_err)?;
-        let text = page
-            .to_text_page(TextPageFlags::empty())
-            .map_err(pdf_err)?
-            .to_text()
-            .map_err(pdf_err)?;
+        let page = doc.load_page(p)?;
+        let text = page.to_text_page(TextFlags::empty())?.to_text()?;
         let squashed = squash(&text);
         for n in needles {
             let sn = squash(n);
             if sn.is_empty() {
                 continue;
             }
-            let found = squashed.contains(&sn) || !page.search(n, 1).map_err(pdf_err)?.is_empty();
+            let found = squashed.contains(&sn) || !page.search(n, 1)?.is_empty();
             if found {
                 left.push(Leftover {
                     page: p as u32,
@@ -220,10 +215,10 @@ pub fn apply(
         .path()
         .to_str()
         .ok_or_else(|| Error::InvalidInput("la ruta de salida debe ser UTF-8".into()))?;
-    let mut write = PdfWriteOptions::default();
+    let mut write = WriteOptions::default();
     // Nivel 3: descarta los objetos que ya no se usan (los contenidos y las imágenes originales).
     write.set_garbage(true).set_garbage_level(3);
-    doc.save_with_options(tmp_str, write).map_err(pdf_err)?;
+    doc.save_with_options(tmp_str, &write)?;
 
     let needles: Vec<String> = matches.iter().map(|m| m.text.clone()).collect();
     // El documento reabierto se cierra antes de renombrar: en Windows no se puede mover un archivo abierto.
@@ -266,13 +261,10 @@ fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
-    let s = path
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("la ruta del archivo debe ser UTF-8".into()))?;
-    let mut doc = PdfDocument::open(s).map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? {
+    let mut doc = PdfDocument::open(path)?;
+    if doc.needs_password()? {
         match password {
-            Some(p) if doc.authenticate(p).map_err(pdf_err)? => {}
+            Some(p) if doc.authenticate(p)? => {}
             _ => return Err(Error::Password),
         }
     }

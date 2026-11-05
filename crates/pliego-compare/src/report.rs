@@ -397,8 +397,8 @@ fn detail_page(
     doc: &mut Doc,
     c: &Comparison,
     p: &PageComparison,
-    da: &mupdf::Document,
-    db: &mupdf::Document,
+    da: &pliego_pdf::Document,
+    db: &pliego_pdf::Document,
 ) -> Result<()> {
     const W: f32 = 842.0;
     const H: f32 = 595.0;

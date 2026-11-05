@@ -1,8 +1,7 @@
-use mupdf::pdf::PdfDocument;
 use pliego_core::{JobContext, Result};
+use pliego_pdf::PdfDocument;
 use serde::{Deserialize, Serialize};
 
-use crate::pdf_err;
 use crate::scan::{Cs, scan_page};
 
 /// Reglas que se comprueban. Los perfiles incluidos son un punto de partida; todo es ajustable.
@@ -133,16 +132,14 @@ impl PreflightReport {
 
 /// Comprueba el documento contra `profile`.
 pub fn preflight(doc: &PdfDocument, profile: &Profile, ctx: &JobContext<'_>) -> Result<PreflightReport> {
-    let pages = doc.page_count().map_err(pdf_err)?.max(0) as usize;
+    let pages = doc.page_count()?.max(0) as usize;
     let mut findings = Vec::new();
     let mut all_spots = std::collections::BTreeSet::new();
 
     if profile.require_output_intent {
         let has = doc
-            .catalog()
-            .map_err(pdf_err)?
-            .get_dict("OutputIntents")
-            .map_err(pdf_err)?
+            .catalog()?
+            .get_dict("OutputIntents")?
             .is_some_and(|a| a.len().unwrap_or(0) > 0);
         if !has {
             findings.push(Finding {
@@ -215,8 +212,8 @@ pub fn preflight(doc: &PdfDocument, profile: &Profile, ctx: &JobContext<'_>) -> 
             );
         }
         if profile.require_trim_box {
-            let page = doc.find_page(p as i32).map_err(pdf_err)?;
-            if page.get_dict("TrimBox").map_err(pdf_err)?.is_none() {
+            let page = doc.find_page(p as i32)?;
+            if page.get_dict("TrimBox")?.is_none() {
                 add(
                     Severity::Warning,
                     FindingCode::MissingTrimBox,

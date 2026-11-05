@@ -66,12 +66,12 @@ impl Default for CompareOptions {
 pub fn compare(a: &Path, b: &Path, opts: &CompareOptions, ctx: &JobContext) -> Result<Comparison> {
     let da = extract::open(a, opts.password_a.as_deref())?;
     let db = extract::open(b, opts.password_b.as_deref())?;
-    let na = da.page_count().map_err(extract::pdf_err)? as u32;
-    let nb = db.page_count().map_err(extract::pdf_err)? as u32;
+    let na = da.page_count()? as u32;
+    let nb = db.page_count()? as u32;
     let total = (na + nb) as u64 * 2;
 
     let mut done = 0u64;
-    let mut load = |doc: &mupdf::Document, n: u32, label: &str| -> Result<Vec<extract::PageData>> {
+    let mut load = |doc: &pliego_pdf::Document, n: u32, label: &str| -> Result<Vec<extract::PageData>> {
         let mut v = Vec::with_capacity(n as usize);
         for i in 0..n {
             ctx.step(done, total, &format!("Leyendo {label}, página {}", i + 1))?;

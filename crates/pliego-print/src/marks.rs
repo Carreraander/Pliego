@@ -1,9 +1,6 @@
-use mupdf::Buffer;
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::{Error, JobContext, Result};
+use pliego_pdf::{Object, PdfDocument};
 use serde::{Deserialize, Serialize};
-
-use crate::pdf_err;
 
 const MM: f32 = 72.0 / 25.4;
 
@@ -56,7 +53,7 @@ impl MarkOptions {
 
 type Rect = [f32; 4];
 
-fn rect_of(obj: &PdfObject) -> Option<Rect> {
+fn rect_of(obj: &Object) -> Option<Rect> {
     let mut r = [0.0; 4];
     for (i, slot) in r.iter_mut().enumerate() {
         *slot = obj.get_array(i as i32).ok().flatten()?.as_float().ok()?;
@@ -129,11 +126,9 @@ fn marks_stream(trim: Rect, o: &MarkOptions) -> String {
     s
 }
 
-fn push_stream(doc: &mut PdfDocument, parts: &mut PdfObject, text: &str) -> Result<()> {
-    let s = doc
-        .add_stream(&Buffer::from_bytes(text.as_bytes()).map_err(pdf_err)?, None, false)
-        .map_err(pdf_err)?;
-    parts.array_push(s).map_err(pdf_err)
+fn push_stream(doc: &mut PdfDocument, parts: &mut Object, text: &str) -> Result<()> {
+    let s = doc.add_stream(text.as_bytes(), None, false)?;
+    parts.array_push(s)
 }
 
 /// Añade marcas de corte y de registro a todas las páginas (o solo a `pages`, desde 0) y amplía las cajas.
@@ -148,7 +143,7 @@ pub fn add_printer_marks(
     ctx: &JobContext<'_>,
 ) -> Result<usize> {
     opts.validate()?;
-    let total = doc.page_count().map_err(pdf_err)?.max(0) as usize;
+    let total = doc.page_count()?.max(0) as usize;
     let targets: Vec<usize> = match pages {
         Some(list) => {
             if let Some(bad) = list.iter().find(|p| **p >= total) {
@@ -161,31 +156,23 @@ pub fn add_printer_marks(
         }
         None => (0..total).collect(),
     };
-    let reg_cs = doc
-        .new_object_from_str(
-            "[/Separation /All /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 1 1 1] /N 1 >>]",
-        )
-        .map_err(pdf_err)?;
-    let reg_cs = doc.add_object(&reg_cs).map_err(pdf_err)?;
+    let reg_cs = doc.new_object_from_str(
+        "[/Separation /All /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 1 1 1] /N 1 >>]",
+    )?;
+    let reg_cs = doc.add_object(&reg_cs)?;
 
     for (n, &p) in targets.iter().enumerate() {
         ctx.step(n as u64, targets.len() as u64, "Añadiendo marcas")?;
-        let mut page = doc.find_page(p as i32).map_err(pdf_err)?;
+        let mut page = doc.find_page(p as i32)?;
         let media = page
-            .get_dict_inheritable("MediaBox")
-            .map_err(pdf_err)?
+            .get_dict_inheritable("MediaBox")?
             .and_then(|m| rect_of(&m))
             .ok_or_else(|| Error::Pdf(format!("la página {} no tiene MediaBox", p + 1)))?;
         let crop = page
-            .get_dict_inheritable("CropBox")
-            .map_err(pdf_err)?
+            .get_dict_inheritable("CropBox")?
             .and_then(|m| rect_of(&m))
             .unwrap_or(media);
-        let trim = page
-            .get_dict("TrimBox")
-            .map_err(pdf_err)?
-            .and_then(|m| rect_of(&m))
-            .unwrap_or(crop);
+        let trim = page.get_dict("TrimBox")?.and_then(|m| rect_of(&m)).unwrap_or(crop);
         let bleed = expand(trim, opts.bleed);
         let slug = expand(trim, opts.bleed + opts.gap + opts.length);
         // La página final cubre la unión de lo que ya tenía y el área de marcas.
@@ -201,42 +188,40 @@ pub fn add_printer_marks(
             ("MediaBox", new_media),
             ("CropBox", new_media),
         ] {
-            let arr = doc.new_object_from_str(&rect_src(r)).map_err(pdf_err)?;
-            page.dict_put(key, arr).map_err(pdf_err)?;
+            let arr = doc.new_object_from_str(&rect_src(r))?;
+            page.dict_put(key, arr)?;
         }
 
         // Recursos propios de la página con el color de registro.
-        let mut resources = match page.get_dict_inheritable("Resources").map_err(pdf_err)? {
-            Some(r) => r.copy_dict().map_err(pdf_err)?,
-            None => doc.new_dict().map_err(pdf_err)?,
+        let mut resources = match page.get_dict_inheritable("Resources")? {
+            Some(r) => r.copy_dict()?,
+            None => doc.new_dict()?,
         };
-        let mut spaces = match resources.get_dict("ColorSpace").map_err(pdf_err)? {
-            Some(c) => c.copy_dict().map_err(pdf_err)?,
-            None => doc.new_dict().map_err(pdf_err)?,
+        let mut spaces = match resources.get_dict("ColorSpace")? {
+            Some(c) => c.copy_dict()?,
+            None => doc.new_dict()?,
         };
-        spaces
-            .dict_put("PliegoReg", reg_cs.try_clone().map_err(pdf_err)?)
-            .map_err(pdf_err)?;
-        resources.dict_put("ColorSpace", spaces).map_err(pdf_err)?;
-        page.dict_put("Resources", resources).map_err(pdf_err)?;
+        spaces.dict_put("PliegoReg", reg_cs.try_clone()?)?;
+        resources.dict_put("ColorSpace", spaces)?;
+        page.dict_put("Resources", resources)?;
 
         // Contenido: q + original + Q + marcas, para que el estado gráfico del original no afecte a las marcas.
-        let mut parts = doc.new_array().map_err(pdf_err)?;
+        let mut parts = doc.new_array()?;
         push_stream(doc, &mut parts, "q\n")?;
-        if let Some(original) = page.get_dict("Contents").map_err(pdf_err)? {
-            if original.is_array().map_err(pdf_err)? {
-                for i in 0..original.len().map_err(pdf_err)? {
-                    if let Some(part) = original.get_array(i as i32).map_err(pdf_err)? {
-                        parts.array_push(part).map_err(pdf_err)?;
+        if let Some(original) = page.get_dict("Contents")? {
+            if original.is_array()? {
+                for i in 0..original.len()? {
+                    if let Some(part) = original.get_array(i as i32)? {
+                        parts.array_push(part)?;
                     }
                 }
             } else {
-                parts.array_push(original).map_err(pdf_err)?;
+                parts.array_push(original)?;
             }
         }
         push_stream(doc, &mut parts, "Q\n")?;
         push_stream(doc, &mut parts, &marks_stream(trim, opts))?;
-        page.dict_put("Contents", parts).map_err(pdf_err)?;
+        page.dict_put("Contents", parts)?;
     }
     ctx.step(targets.len() as u64, targets.len() as u64, "Marcas añadidas")?;
     Ok(targets.len())

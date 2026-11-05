@@ -212,6 +212,17 @@ fn rellenar_y_disenar_formularios_en_un_pdf_protegido() {
     let b = ed.fill(&path, Some("abre"), &values, "copia de seguridad").unwrap();
     svc.reload_bytes(id, &b).unwrap();
     assert_paints(&svc, id);
+    // El filtro de pulsaciones y las acciones de los scripts también reciben la contraseña.
+    assert!(pliego_app_service::annot::form_keystroke(&path, None, &text.name, "a", "", (0, 0)).is_err());
+    assert!(
+        pliego_app_service::annot::form_keystroke(&path, Some("abre"), &text.name, "a", "", (0, 0))
+            .unwrap()
+            .accepted
+    );
+    assert!(matches!(
+        ed.run_action(&path, None, &text.name, "U", "cs"),
+        Err(Error::Password)
+    ));
     let after = pliego_app_service::annot::form_fields(&path, Some("abre")).unwrap();
     assert_eq!(
         after.iter().find(|f| f.name == text.name).unwrap().value.as_deref(),

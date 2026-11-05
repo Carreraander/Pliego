@@ -82,6 +82,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::annot_undo,
         annot::forms_fields,
         annot::forms_fill,
+        annot::forms_keystroke,
+        annot::forms_run_action,
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,
         annot::pick_xfdf_file,

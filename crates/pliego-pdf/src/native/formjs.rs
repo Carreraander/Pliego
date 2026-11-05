@@ -792,6 +792,25 @@ pub(super) fn run_action(shared: &Shared, widget_id: ObjectId, trigger: &str) ->
     r.map(|()| true)
 }
 
+/// Claves de las acciones con script del campo (`K`, `V`, `C`, `F`, `U`, `A`...), ordenadas. Vacío si el motor no está
+/// activo o no conoce el campo.
+pub(super) fn script_triggers(shared: &Shared, widget_id: ObjectId) -> Vec<String> {
+    let Some(rt) = take_runtime(shared) else {
+        return Vec::new();
+    };
+    let name = {
+        let st = shared.borrow();
+        let node = field_node(&st, widget_id);
+        qualified_name(&st, node).filter(|n| rt.ids.get(n) == Some(&node))
+    };
+    let mut keys: Vec<String> = name
+        .and_then(|n| rt.engine.form().field(&n).map(|f| f.scripts.keys().cloned().collect()))
+        .unwrap_or_default();
+    keys.sort();
+    give_back(shared, rt);
+    keys
+}
+
 /// Eventos de documento y de página que pueden tener un script.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JsDocEvent {

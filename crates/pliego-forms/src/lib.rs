@@ -10,5 +10,6 @@ mod xml;
 pub use bulk::bulk_fill;
 pub use data::{Format, export_data, import_data, import_data_bytes};
 pub use fields::{
-    FieldInfo, FieldKind, FieldValue, FieldValues, FillResult, fields, fill, fill_with_scripts, flatten, reset,
+    FieldInfo, FieldKind, FieldValue, FieldValues, FillResult, KeystrokeResult, fields, fields_with_scripts, fill,
+    fill_with_scripts, flatten, keystroke, reset, run_action,
 };

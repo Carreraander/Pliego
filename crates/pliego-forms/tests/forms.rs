@@ -144,12 +144,12 @@ fn every_field_reports_a_rect_inside_its_page() {
 fn scripted_pdf() -> Vec<u8> {
     let js = |c: &str| format!("<< /S /JavaScript /JS ({c}) >>");
     let objs: Vec<String> = vec![
-        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 5 0 R 6 0 R] /CO [6 0 R] \
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 5 0 R 6 0 R 8 0 R 9 0 R] /CO [6 0 R] \
          /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 7 0 R >> >> >> >>"
             .into(),
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".into(),
         "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /Helv 7 0 R >> >> \
-         /Annots [4 0 R 5 0 R 6 0 R] >>"
+         /Annots [4 0 R 5 0 R 6 0 R 8 0 R 9 0 R] >>"
             .into(),
         format!(
             "<< /Type /Annot /Subtype /Widget /FT /Tx /T (a) /Rect [50 700 250 720] /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) \
@@ -164,6 +164,17 @@ fn scripted_pdf() -> Vec<u8> {
             js("AFSimple_Calculate('SUM', new Array('a','b'));")
         ),
         "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>".into(),
+        format!(
+            "<< /Type /Annot /Subtype /Widget /FT /Tx /T (n) /Rect [50 580 250 600] /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) \
+             /AA << /K {} /F {} >> >>",
+            js("AFNumber_Keystroke(2, 0, 0, 0, '', false);"),
+            js("AFNumber_Format(2, 2, 0, 0, ' EUR', false);")
+        ),
+        format!(
+            "<< /Type /Annot /Subtype /Widget /FT /Btn /Ff 65536 /T (limpiar) /Rect [300 700 400 720] /F 4 /P 3 0 R \
+             /A {} >>",
+            js("this.getField('b').value = ''; app.alert('Hecho');")
+        ),
     ];
     let mut out = b"%PDF-1.7\n".to_vec();
     let mut offsets = Vec::new();
@@ -184,6 +195,56 @@ fn scripted_pdf() -> Vec<u8> {
         .into_bytes(),
     );
     out
+}
+
+#[test]
+fn fields_with_scripts_report_formatted_text_and_actions() {
+    let mut doc = pliego_pdf::PdfDocument::from_bytes(&scripted_pdf()).unwrap();
+    let mut v = FieldValues::new();
+    v.insert("n".into(), FieldValue::Text("1234.5".into()));
+    fill_with_scripts(&mut doc, &v).unwrap();
+    let fs = fields_with_scripts(&mut doc).unwrap();
+    let n = get(&fs, "n");
+    assert_eq!(n.value.as_deref(), Some("1234.5"), "el valor es lo tecleado");
+    assert_eq!(
+        n.display.as_deref(),
+        Some("1.234,50 EUR"),
+        "y el texto se enseña con formato"
+    );
+    assert_eq!(n.scripts, ["F", "K"]);
+    assert!(get(&fs, "limpiar").scripts.iter().any(|k| k == "A" || k == "U"));
+    // Sin scripts no hay texto formateado.
+    let fs = fields(&mut doc).unwrap();
+    assert_eq!(get(&fs, "n").display, None);
+    assert!(get(&fs, "n").scripts.is_empty());
+}
+
+#[test]
+fn keystroke_filters_typing_and_buttons_run_actions() {
+    let mut doc = pliego_pdf::PdfDocument::from_bytes(&scripted_pdf()).unwrap();
+    let ok = keystroke(&mut doc, "n", "7", "12", (2, 2)).unwrap();
+    assert!(ok.accepted && ok.change == "7", "{ok:?}");
+    let bad = keystroke(&mut doc, "n", "x", "12", (2, 2)).unwrap();
+    assert!(!bad.accepted, "una letra no entra en un campo numérico: {bad:?}");
+    // Un campo sin script de tecleo, o que no existe, lo acepta todo.
+    assert!(keystroke(&mut doc, "b", "x", "", (0, 0)).unwrap().accepted);
+    assert!(keystroke(&mut doc, "nadie", "x", "", (0, 0)).unwrap().accepted);
+
+    let mut v = FieldValues::new();
+    v.insert("b".into(), FieldValue::Text("5".into()));
+    fill_with_scripts(&mut doc, &v).unwrap();
+    let msgs = run_action(&mut doc, "limpiar", "U")
+        .unwrap()
+        .expect("el botón tiene acción");
+    assert_eq!(msgs, ["Hecho"]);
+    let fs = fields(&mut doc).unwrap();
+    assert_eq!(get(&fs, "b").value.as_deref(), Some(""), "el botón vació el campo b");
+    assert_eq!(
+        run_action(&mut doc, "n", "U").unwrap(),
+        None,
+        "el campo n no tiene acción de ratón"
+    );
+    assert_eq!(run_action(&mut doc, "nadie", "U").unwrap(), None);
 }
 
 #[test]

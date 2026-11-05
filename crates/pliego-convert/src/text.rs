@@ -59,7 +59,7 @@ fn read_utf8(path: &Path) -> Result<String> {
 }
 
 /// Comprueba las opciones y devuelve las medidas de la página.
-fn page_spec(options: &TextToPdfOptions) -> Result<PageSpec> {
+pub(crate) fn page_spec(options: &TextToPdfOptions) -> Result<PageSpec> {
     if options.backend == HtmlBackend::WebView2 {
         return Err(Error::Unsupported(
             "la impresión con WebView2 solo está disponible desde la app de escritorio en Windows".into(),

@@ -5,7 +5,7 @@ import { fileName, runToolJob } from "../run";
 import { createArgs, createProblem, optionalNumber, type CreateOrientation, type CreateSize } from "./request";
 import { ct } from "./strings";
 
-/** Crear PDF: imágenes (una página cada una), texto, Markdown, HTML o un documento de Office. */
+/** Crear PDF: imágenes (una página cada una), texto, Markdown, HTML, EPUB, CBZ, XPS o un documento de Office. */
 export default function CreatePanel(p: { onClose: () => void }) {
   const [files, setFiles] = createSignal<string[]>([]);
   const [size, setSize] = createSignal<CreateSize>("fit");

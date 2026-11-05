@@ -71,7 +71,7 @@ fn samples_to_cmyk(samples: &[u8], comps: usize) -> Vec<u8> {
             }
         }
         3 => {
-            for p in samples.chunks_exact(3) {
+            for p in samples.as_chunks::<3>().0 {
                 out.extend_from_slice(&rgb_to_cmyk(p[0], p[1], p[2]));
             }
         }
@@ -202,7 +202,7 @@ fn jpeg_ink(st: &State, d: &Dictionary, data: &[u8], w: u32, h: u32) -> Option<I
     }
     if out_cs == ColorSpace::YCCK {
         // YCC → RGB y, como libjpeg, C = 255 − R… (sigue «invertido»); K queda igual.
-        for p in px.chunks_exact_mut(4) {
+        for p in px.as_chunks_mut::<4>().0.iter_mut() {
             let (y, cb, cr) = (f32::from(p[0]), f32::from(p[1]) - 128.0, f32::from(p[2]) - 128.0);
             let clamp = |v: f32| v.round().clamp(0.0, 255.0) as u8;
             p[0] = 255 - clamp(y + 1.402 * cr);
@@ -226,7 +226,7 @@ fn jpeg_ink(st: &State, d: &Dictionary, data: &[u8], w: u32, h: u32) -> Option<I
 
 /// Pasa el gris `1 − tinta` de la plancha `channel` a un flujo de imagen `DeviceGray` de 8 bits comprimido.
 fn gray_stream(base: &Dictionary, ink: &InkImage, channel: usize) -> Stream {
-    let gray: Vec<u8> = ink.cmyk.chunks_exact(4).map(|p| 255 - p[channel]).collect();
+    let gray: Vec<u8> = ink.cmyk.as_chunks::<4>().0.iter().map(|p| 255 - p[channel]).collect();
     let mut dict = base.clone();
     for key in ["Filter", "DecodeParms", "Decode", "Mask", "Length", "DL"] {
         dict.remove(key.as_bytes());
@@ -278,7 +278,7 @@ impl PdfDocument {
             let guard = self.st.borrow();
             ink_image(&guard, stream, true).ok()??
         };
-        let gray: Vec<u8> = ink.cmyk.chunks_exact(4).map(|p| 255 - p[channel]).collect();
+        let gray: Vec<u8> = ink.cmyk.as_chunks::<4>().0.iter().map(|p| 255 - p[channel]).collect();
         // Los datos van en hexadecimal + Flate: así el marcador `EI` no puede aparecer dentro de ellos.
         let packed = crate::native::font::deflate(&gray);
         let mut out = format!("BI /W {} /H {} /CS /G /BPC 8 /F [/AHx /Fl] ID\n", ink.width, ink.height).into_bytes();

@@ -4613,10 +4613,12 @@ dependencies = [
  "pliego-core",
  "pliego-pdf",
  "pulldown-cmark",
+ "roxmltree",
  "serde",
  "serde_json",
  "tempfile",
  "tiff",
+ "zip",
 ]
 
 [[package]]

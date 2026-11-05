@@ -22,7 +22,8 @@ test.describe("navegación (W20)", () => {
     await expect(box).toBeFocused();
     await box.fill("ENDEREZAR");
     await expect(page.getByRole("option", { name: /Enderezar y limpiar/ })).toBeVisible();
-    await expect(page.getByRole("option", { name: /Enderezar y limpiar/ })).toHaveAttribute("aria-disabled", "true");
+    // Conectada (W24): ya no es «próximamente».
+    await expect(page.getByRole("option", { name: /Enderezar y limpiar/ })).not.toHaveAttribute("aria-disabled", "true");
     await box.fill("comprimir");
     await expect(page.getByRole("option").first()).toContainText("Comprimir");
     await page.keyboard.press("Enter");
@@ -48,10 +49,10 @@ test.describe("navegación (W20)", () => {
     for (const name of ["Comprimir", "Reconocer texto (OCR)", "Firma digital", "Redactar", "Comparar", "Asistente local", "Medir", "Validar PDF/A"]) {
       await expect(palette.getByRole("button", { name: new RegExp(name.replace(/[()]/g, "\\$&")) })).toBeVisible();
     }
-    // Firma digital ya está conectada (W28): no es «próximamente». Enderezar y limpiar sigue siéndolo.
-    await expect(palette.locator('[data-tool="sign.digital"]')).not.toContainText("Disponible más adelante");
-    await expect(palette.locator('[data-tool="ocr.clean"]')).toHaveAttribute("aria-disabled", "true");
-    await expect(palette.locator('[data-tool="ocr.clean"]')).toContainText("Disponible más adelante");
+    // Ninguna herramienta queda como «próximamente»: Firma digital (W28), OCR y Comparar (W24) ya están conectadas.
+    for (const id of ["sign.digital", "ocr.recognize", "ocr.clean", "ocr.languages", "compare.compare"]) {
+      await expect(palette.locator(`[data-tool="${id}"]`)).not.toContainText("Disponible más adelante");
+    }
     await palette.getByRole("searchbox").fill("marca agua");
     await expect(palette.locator(".pl-tool")).toHaveCount(1);
     await palette.locator('[data-tool="edit.watermark"]').click({ button: "right", force: true });

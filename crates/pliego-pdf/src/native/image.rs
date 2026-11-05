@@ -18,6 +18,8 @@ use pliego_core::{Error, Result};
 
 use super::appearance::n;
 use super::font::flate_stream;
+
+mod decode;
 use super::{Object, PdfDocument, PdfPage};
 use crate::geom::Rect;
 use crate::pixmap::{Colorspace, Pixmap};
@@ -53,6 +55,9 @@ impl Cs {
 enum Pixels {
     /// JPEG sin tocar: se incrusta con `/DCTDecode`.
     Jpeg { bytes: Vec<u8>, comps: u8, inverted: bool },
+    /// Imagen de un PDF con un filtro o espacio de color que el motor propio no decodifica (JBIG2, CCITT, JPEG 2000,
+    /// Separation…): se conocen sus dimensiones, pero no se puede pasar a píxeles ni reincrustar.
+    Unsupported(String),
     /// Muestras de 8 bits entrelazadas, sin alfa, más el alfa aparte.
     Raw {
         cs: Cs,
@@ -299,6 +304,7 @@ impl Image {
         match &self.inner.pixels {
             Pixels::Jpeg { comps, .. } => *comps,
             Pixels::Raw { cs, .. } => cs.comps() as u8,
+            Pixels::Unsupported(_) => 3,
         }
     }
     pub fn bits_per_component(&self) -> u8 {
@@ -326,6 +332,7 @@ impl Image {
                     Pixmap::from_samples(Colorspace::Rgb, w, h, false, dynamic.to_rgb8().into_raw())
                 }
             }
+            Pixels::Unsupported(what) => Err(Error::Unsupported(format!("imagen con {what}"))),
             Pixels::Raw { cs, samples, alpha } => {
                 let colorspace = match cs {
                     Cs::Gray => Colorspace::Gray,
@@ -493,6 +500,7 @@ impl PdfDocument {
                 }
                 st.add(L::Stream(Stream::new(d, bytes.clone())))
             }
+            Pixels::Unsupported(what) => return Err(Error::Unsupported(format!("imagen con {what}"))),
             Pixels::Raw { cs, samples, alpha } => {
                 let mut d = image_dict(w, h, *cs);
                 if let Some(a) = alpha {

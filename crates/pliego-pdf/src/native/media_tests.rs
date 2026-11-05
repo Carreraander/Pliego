@@ -265,3 +265,221 @@ fn replaced_images_survive_save_and_reopen() {
     assert_eq!(imgs.len(), 1);
     assert_eq!((imgs[0].width, imgs[0].height), (2, 2));
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// image_placements: el recorrido del contenido, comparado con MuPDF
+// ---------------------------------------------------------------------------------------------------------------
+
+type Placements = Vec<(u32, u32, [f32; 6])>;
+
+fn flat(p: Vec<(Image, Matrix)>) -> Placements {
+    p.into_iter()
+        .map(|(i, m)| (i.width(), i.height(), [m.a, m.b, m.c, m.d, m.e, m.f]))
+        .collect()
+}
+
+fn mupdf_placements(bytes: &[u8]) -> Placements {
+    let doc = crate::PdfDocument::from_bytes(bytes).unwrap();
+    let page = doc.load_pdf_page(0).unwrap();
+    page.image_placements()
+        .unwrap()
+        .into_iter()
+        .map(|(i, m)| (i.width(), i.height(), [m.a, m.b, m.c, m.d, m.e, m.f]))
+        .collect()
+}
+
+fn assert_same(ours: &Placements, theirs: &Placements) {
+    assert_eq!(ours.len(), theirs.len(), "{ours:?} vs {theirs:?}");
+    for (a, b) in ours.iter().zip(theirs) {
+        assert_eq!((a.0, a.1), (b.0, b.1));
+        for k in 0..6 {
+            assert!((a.2[k] - b.2[k]).abs() < 0.01, "{ours:?} vs {theirs:?}");
+        }
+    }
+}
+
+#[test]
+fn placements_match_mupdf_on_plain_and_rotated_pages() {
+    for rotate in [0, 90, 270] {
+        let mut doc = Native::new();
+        let mut page = doc
+            .new_page(Size {
+                width: 200.0,
+                height: 300.0,
+            })
+            .unwrap();
+        page.set_rotation(rotate).unwrap();
+        for (rect, bytes) in [
+            (Rect::new(10.0, 20.0, 110.0, 90.0), jpeg_rgb(16, 8, [10, 20, 30])),
+            (Rect::new(50.0, 150.0, 70.0, 250.0), png_rgba(3, 5, [1, 2, 3, 255])),
+        ] {
+            page.insert_image(
+                &mut doc,
+                rect,
+                ImageSource::Bytes {
+                    data: &bytes,
+                    format_hint: None,
+                },
+                InsertImageOptions::default(),
+            )
+            .unwrap();
+        }
+        let bytes = save(&doc);
+        let ours = flat(
+            Native::from_bytes(&bytes)
+                .unwrap()
+                .load_pdf_page(0)
+                .unwrap()
+                .image_placements()
+                .unwrap(),
+        );
+        assert_eq!(ours.len(), 2);
+        assert_same(&ours, &mupdf_placements(&bytes));
+    }
+}
+
+#[test]
+fn placements_walk_forms_inline_images_and_decode_pdf_images() {
+    let mut doc = Native::new();
+    let mut page = doc
+        .new_page(Size {
+            width: 200.0,
+            height: 200.0,
+        })
+        .unwrap();
+
+    // Imagen 2×2 de 4 bits indexada (paleta rojo/verde/azul/blanco) con Flate.
+    let palette = doc
+        .new_object_from_str("[/Indexed /DeviceRGB 3 <FF0000 00FF00 0000FF FFFFFF>]")
+        .unwrap();
+    let mut d = doc
+        .new_object_from_str("<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /BitsPerComponent 4 >>")
+        .unwrap();
+    d.dict_put("ColorSpace", palette).unwrap();
+    // Fila 0: índices 0,1 → 0x01; fila 1: 2,3 → 0x23 (cada fila ocupa 1 byte).
+    let indexed = doc.add_stream(&[0x01, 0x23], Some(&d), false).unwrap();
+    // Imagen de 2×1 en DeviceGray de 8 bits con /Decode invertido.
+    let d2 = doc
+        .new_object_from_str(
+            "<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /BitsPerComponent 8 /ColorSpace /DeviceGray /Decode [1 0] >>",
+        )
+        .unwrap();
+    let gray = doc.add_stream(&[0, 255], Some(&d2), false).unwrap();
+    // Formulario que dibuja la imagen indexada con su propia matriz y recursos.
+    let mut form = doc
+        .new_object_from_str("<< /Type /XObject /Subtype /Form /BBox [0 0 100 100] /Matrix [2 0 0 2 5 5] >>")
+        .unwrap();
+    let mut xo = doc.new_dict().unwrap();
+    xo.dict_put("Im", indexed.clone()).unwrap();
+    let mut fres = doc.new_dict().unwrap();
+    fres.dict_put("XObject", xo).unwrap();
+    form.dict_put("Resources", fres).unwrap();
+    let form = doc
+        .add_stream(b"q 10 0 0 10 1 2 cm /Im Do Q", Some(&form), false)
+        .unwrap();
+
+    let mut res = page.resources().unwrap();
+    let mut xo = doc.new_dict().unwrap();
+    xo.dict_put("G", gray).unwrap();
+    xo.dict_put("F", form).unwrap();
+    res.dict_put("XObject", xo).unwrap();
+    // Imagen en línea RGB de 1×1 y un formulario que se llama a sí mismo no debe colgar el recorrido.
+    page.insert_contents(
+        &mut doc,
+        b"q 40 0 0 20 100 100 cm /G Do Q\nq 1 0 0 1 30 40 cm /F Do Q\nq 8 0 0 8 150 150 cm BI /W 1 /H 1 /CS /RGB /BPC 8 ID \xff\x00\x00 EI Q\n",
+        true,
+    )
+    .unwrap();
+
+    let bytes = save(&doc);
+    let native = Native::from_bytes(&bytes).unwrap();
+    let ours = flat(native.load_pdf_page(0).unwrap().image_placements().unwrap());
+    assert_eq!(ours.len(), 3, "{ours:?}");
+    assert_same(&ours, &mupdf_placements(&bytes));
+
+    // Los píxeles decodificados coinciden con los de MuPDF.
+    let mine = native.load_pdf_page(0).unwrap().image_placements().unwrap();
+    let theirs_doc = crate::PdfDocument::from_bytes(&bytes).unwrap();
+    let theirs = theirs_doc.load_pdf_page(0).unwrap().image_placements().unwrap();
+    for ((a, _), (b, _)) in mine.iter().zip(&theirs) {
+        let (pa, pb) = (a.to_pixmap().unwrap(), b.to_pixmap().unwrap());
+        let strip = |p: &crate::Pixmap| -> Vec<u8> {
+            let n = usize::from(p.n());
+            (0..p.height() as usize)
+                .flat_map(|y| p.samples()[y * p.stride()..y * p.stride() + p.width() as usize * n].to_vec())
+                .collect()
+        };
+        assert_eq!(pa.colorspace(), pb.colorspace());
+        assert_eq!(strip(&pa), strip(&pb), "{}x{}", a.width(), a.height());
+    }
+}
+
+#[test]
+fn self_referencing_forms_do_not_loop() {
+    let mut doc = Native::new();
+    let mut page = doc
+        .new_page(Size {
+            width: 100.0,
+            height: 100.0,
+        })
+        .unwrap();
+    let mut form = doc
+        .new_object_from_str("<< /Type /XObject /Subtype /Form /BBox [0 0 100 100] >>")
+        .unwrap();
+    let form_ref = doc.add_stream(b"/F Do", Some(&form), false).unwrap();
+    // El formulario se llama a sí mismo a través de sus propios recursos.
+    let mut xo = doc.new_dict().unwrap();
+    xo.dict_put("F", form_ref.clone()).unwrap();
+    let mut fres = doc.new_dict().unwrap();
+    fres.dict_put("XObject", xo).unwrap();
+    let mut target = doc.new_indirect(form_ref.as_indirect().unwrap(), 0).unwrap();
+    target.dict_put("Resources", fres).unwrap();
+    let _ = &mut form;
+    let mut xo = doc.new_dict().unwrap();
+    xo.dict_put("F", form_ref).unwrap();
+    page.resources().unwrap().dict_put("XObject", xo).unwrap();
+    page.insert_contents(&mut doc, b"/F Do", true).unwrap();
+    assert!(page.image_placements().unwrap().is_empty());
+}
+
+#[test]
+fn corpus_placements_match_mupdf() {
+    let (mut files, mut pages_with_images) = (0, 0);
+    for path in super::tests::corpus() {
+        if path.ends_with("tiling-hang.pdf") {
+            continue;
+        }
+        let bytes = std::fs::read(&path).unwrap();
+        let (Ok(ours), Ok(theirs)) = (Native::from_bytes(&bytes), crate::PdfDocument::from_bytes(&bytes)) else {
+            continue;
+        };
+        if ours.needs_password().unwrap_or(true) || theirs.needs_password().unwrap_or(true) {
+            continue;
+        }
+        files += 1;
+        for p in 0..ours.page_count().unwrap().min(5) {
+            let a = flat(ours.load_pdf_page(p).unwrap().image_placements().unwrap());
+            let b: Placements = theirs
+                .load_pdf_page(p)
+                .unwrap()
+                .image_placements()
+                .map(|v| {
+                    v.into_iter()
+                        .map(|(i, m)| (i.width(), i.height(), [m.a, m.b, m.c, m.d, m.e, m.f]))
+                        .collect()
+                })
+                .unwrap_or_default();
+            pages_with_images += usize::from(!b.is_empty());
+            let name = format!("{} p{p}", path.display());
+            assert_eq!(a.len(), b.len(), "{name}: {a:?} vs {b:?}");
+            // MuPDF puede ordenarlas distinto (por ejemplo con capas): se comparan ordenadas.
+            let key = |t: &(u32, u32, [f32; 6])| (t.0, t.1, (t.2[4] * 10.0) as i64, (t.2[5] * 10.0) as i64);
+            let (mut a, mut b) = (a, b);
+            a.sort_by_key(key);
+            b.sort_by_key(key);
+            assert_same(&a, &b);
+        }
+    }
+    assert!(files > 3, "el corpus no se ha leído ({files} archivos)");
+    eprintln!("corpus: {files} archivos, {pages_with_images} páginas con imágenes");
+}

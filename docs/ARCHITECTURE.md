@@ -86,7 +86,7 @@ copia. Detalle, límites y pruebas en `docs/handoff/flujos/w36.md`.
 W39 completa `native` por partes (estado y límites en `docs/handoff/flujos/w39.md`): **anotaciones** (`annot.rs`, con sus
 apariencias en `appearance.rs`, escritas desde la especificación PDF y no desde MuPDF), **campos de formulario y aplanado**
 (`widget.rs`, `formap.rs`, `flatten.rs`; sin JavaScript), **fuentes** (`font.rs`, las 14 estándar con Liberation/OFL en
-`crates/pliego-pdf/fonts/liberation/`) e **imágenes** (`image.rs`, solo PNG y JPEG). Una anotación solo regenera su apariencia si algo la cambió (`State::annot_dirty`).
+`crates/pliego-pdf/fonts/liberation/`), **imágenes** (`image.rs`, solo PNG y JPEG al crearlas) y **recorrido del contenido** (`content.rs`, `image_placements`). Una anotación solo regenera su apariencia si algo la cambió (`State::annot_dirty`).
 
 ### Cifrado (W40)
 El cifrado de lectura (RC4-40, RC4-128, AES-128, AES-256 R5/R6; contraseñas de usuario y de propietario; permisos) y

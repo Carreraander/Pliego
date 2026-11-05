@@ -4346,8 +4346,8 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "jpeg-encoder",
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",

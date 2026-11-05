@@ -5,7 +5,7 @@ use std::path::Path;
 use pliego_core::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{open, pdf_err};
+use crate::open;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImageUsage {
@@ -43,7 +43,7 @@ pub fn analyze_with_password(input: &Path, password: Option<&str>) -> Result<Spa
         .map_err(|e| pliego_core::Error::io_at(input, e))?
         .len();
     let doc = open(input, password)?;
-    let n = doc.xref_len().map_err(pdf_err)?;
+    let n = doc.count_objects()?;
     let mut u = SpaceUsage {
         total_bytes: total,
         object_count: n.saturating_sub(1) as u32,

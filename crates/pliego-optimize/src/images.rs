@@ -1,31 +1,17 @@
 //! Submuestreo y recompresión JPEG de imágenes.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use jpeg_encoder::{ColorType, Encoder};
-use mupdf::pdf::{PdfDocument, PdfObject};
-use mupdf::{Buffer, Device, Image, Matrix};
 use pliego_core::{Error, JobContext, Result};
+use pliego_pdf::{Image, Matrix, Object, PdfDocument};
 
-use crate::{ImageStats, pdf_err};
+use crate::ImageStats;
 
 pub(crate) struct ImageParams {
     pub target_dpi: f32,
     pub quality: u8,
     pub min_bytes: u64,
-}
-
-type Placements = Rc<RefCell<Vec<(Image, Matrix)>>>;
-
-/// Dispositivo que solo anota qué imágenes se dibujan y con qué matriz.
-struct Collector(Placements);
-
-impl mupdf::NativeDevice for Collector {
-    fn fill_image(&mut self, img: &Image, cmt: Matrix, _alpha: f32, _cp: mupdf::ColorParams) {
-        self.0.borrow_mut().push((img.clone(), cmt));
-    }
 }
 
 struct Seen {
@@ -41,20 +27,16 @@ fn effective_dpi(w: u32, h: u32, m: &Matrix) -> f32 {
 }
 
 pub(crate) fn optimize_images(doc: &mut PdfDocument, p: &ImageParams, ctx: &JobContext) -> Result<ImageStats> {
-    let pages = doc.page_count().map_err(pdf_err)? as u32;
+    let pages = doc.page_count()? as u32;
     let mut seen: HashMap<i32, Seen> = HashMap::new();
     for i in 0..pages {
         ctx.step(i as u64, pages as u64 * 2, "Buscando imágenes")?;
-        let page = doc.load_pdf_page(i as i32).map_err(pdf_err)?;
-        let infos = page.images().map_err(pdf_err)?;
+        let page = doc.load_pdf_page(i as i32)?;
+        let infos = page.images()?;
         if infos.is_empty() {
             continue;
         }
-        let placements: Placements = Rc::default();
-        let dev = Device::from_native(Collector(placements.clone())).map_err(pdf_err)?;
-        page.run_contents(&dev, &Matrix::IDENTITY).map_err(pdf_err)?;
-        drop(dev);
-        for (img, m) in placements.borrow().iter() {
+        for (img, m) in page.image_placements()?.iter() {
             let (w, h) = (img.width(), img.height());
             let dpi = effective_dpi(w, h, m);
             // Se asocia por dimensiones con los XObject de la página.
@@ -97,7 +79,7 @@ pub(crate) fn optimize_images(doc: &mut PdfDocument, p: &ImageParams, ctx: &JobC
 }
 
 fn count_images(doc: &PdfDocument) -> Result<u32> {
-    let n = doc.xref_len().map_err(pdf_err)? as i32;
+    let n = doc.count_objects()? as i32;
     let mut c = 0;
     for x in 1..n {
         if let Ok(o) = doc.new_indirect(x, 0)
@@ -110,7 +92,7 @@ fn count_images(doc: &PdfDocument) -> Result<u32> {
     Ok(c)
 }
 
-fn name_of(o: &PdfObject, key: &str) -> Option<String> {
+fn name_of(o: &Object, key: &str) -> Option<String> {
     o.get_dict(key)
         .ok()
         .flatten()
@@ -124,7 +106,7 @@ enum Outcome {
 }
 
 /// Nombre del filtro final de la imagen (el que la codifica).
-fn last_filter(o: &PdfObject) -> Option<String> {
+fn last_filter(o: &Object) -> Option<String> {
     let f = o.get_dict("Filter").ok().flatten()?;
     let f = if f.is_array().ok()? {
         f.get_array(f.len().ok()?.checked_sub(1)? as i32).ok().flatten()?
@@ -135,7 +117,7 @@ fn last_filter(o: &PdfObject) -> Option<String> {
 }
 
 /// Espacios de color que sabemos reescribir sin cambiar su significado.
-fn colorspace_components(o: &PdfObject) -> Option<u8> {
+fn colorspace_components(o: &Object) -> Option<u8> {
     let cs = o.get_dict("ColorSpace").ok().flatten()?;
     if cs.is_name().ok()? {
         return match String::from_utf8_lossy(&cs.as_name().ok()?).as_ref() {
@@ -155,7 +137,7 @@ fn colorspace_components(o: &PdfObject) -> Option<u8> {
 }
 
 fn recompress(doc: &mut PdfDocument, xref: i32, image: &Image, dpi: f32, p: &ImageParams) -> Result<Outcome> {
-    let mut obj = doc.new_indirect(xref, 0).map_err(pdf_err)?;
+    let mut obj = doc.new_indirect(xref, 0)?;
     let is_true = |k: &str| {
         obj.get_dict(k)
             .ok()
@@ -187,13 +169,13 @@ fn recompress(doc: &mut PdfDocument, xref: i32, image: &Image, dpi: f32, p: &Ima
         return Ok(Outcome::Skipped);
     }
 
-    let pix = image.to_pixmap().map_err(pdf_err)?;
+    let pix = image.to_pixmap()?;
     if pix.alpha() || pix.n() != comps || !(pix.n() == 1 || pix.n() == 3) {
         return Ok(Outcome::Skipped);
     }
     let (w, h) = (pix.width() as usize, pix.height() as usize);
     let n = pix.n() as usize;
-    let stride = pix.stride() as usize;
+    let stride = pix.stride();
     let mut data = Vec::with_capacity(w * h * n);
     for y in 0..h {
         data.extend_from_slice(&pix.samples()[y * stride..y * stride + w * n]);
@@ -228,16 +210,13 @@ fn recompress(doc: &mut PdfDocument, xref: i32, image: &Image, dpi: f32, p: &Ima
         return Ok(Outcome::Skipped);
     }
 
-    let write = |obj: &mut PdfObject| -> std::result::Result<(), mupdf::Error> {
-        obj.dict_put("Width", PdfObject::new_int(nw as i32)?)?;
-        obj.dict_put("Height", PdfObject::new_int(nh as i32)?)?;
-        obj.dict_put("BitsPerComponent", PdfObject::new_int(8)?)?;
-        obj.dict_put("Filter", PdfObject::new_name("DCTDecode")?)?;
-        obj.dict_delete("DecodeParms")?;
-        obj.dict_delete("Decode")?;
-        obj.write_raw_stream_buffer(&Buffer::from_bytes(&jpeg)?)
-    };
-    write(&mut obj).map_err(pdf_err)?;
+    obj.dict_put("Width", Object::new_int(nw as i32)?)?;
+    obj.dict_put("Height", Object::new_int(nh as i32)?)?;
+    obj.dict_put("BitsPerComponent", Object::new_int(8)?)?;
+    obj.dict_put("Filter", Object::new_name("DCTDecode")?)?;
+    obj.dict_delete("DecodeParms")?;
+    obj.dict_delete("Decode")?;
+    obj.write_raw_stream(&jpeg)?;
     Ok(Outcome::Recompressed { downsampled })
 }
 

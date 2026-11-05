@@ -13,15 +13,11 @@ mod usage;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use mupdf::pdf::{PdfDocument, PdfWriteOptions};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{PdfDocument, WriteOptions};
 use serde::{Deserialize, Serialize};
 
 pub use usage::{ImageUsage, SpaceUsage, analyze, analyze_with_password};
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 /// Preajustes de optimización.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -169,12 +165,12 @@ pub fn optimize_detailed(
 
     ctx.step(1, 3, "Guardando")?;
     let tmp = tmp_path(out);
-    let mut wo = PdfWriteOptions::default();
+    let mut wo = WriteOptions::default();
     wo.set_garbage_level(4)
         .set_compress(true)
         .set_compress_images(true)
         .set_compress_fonts(true);
-    doc.save_with_options(&path_str(&tmp)?, wo).map_err(pdf_err)?;
+    doc.save_with_options(&tmp, &wo)?;
     if let Err(e) = std::fs::rename(&tmp, out) {
         let _ = std::fs::remove_file(&tmp);
         return Err(Error::io_at(out, e));
@@ -218,10 +214,10 @@ pub(crate) fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
-    let mut doc = PdfDocument::open(&path_str(path)?).map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? {
+    let mut doc = PdfDocument::open(path)?;
+    if doc.needs_password()? {
         let ok = match password {
-            Some(p) => doc.authenticate(p).map_err(pdf_err)?,
+            Some(p) => doc.authenticate(p)?,
             None => false,
         };
         if !ok {
@@ -229,12 +225,6 @@ pub(crate) fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
         }
     }
     Ok(doc)
-}
-
-fn path_str(p: &Path) -> Result<String> {
-    p.to_str()
-        .map(str::to_owned)
-        .ok_or_else(|| Error::InvalidInput(format!("ruta no válida: {}", p.display())))
 }
 
 fn tmp_path(out: &Path) -> PathBuf {

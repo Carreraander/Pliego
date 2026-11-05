@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use jpeg_encoder::{ColorType, Encoder};
-use mupdf::{Colorspace, Document, Matrix, TextPageFlags};
 use pliego_core::JobContext;
 use pliego_optimize::{OptimizeOptions, Preset, analyze, optimize, optimize_detailed};
+use pliego_pdf::{Colorspace, Document, Matrix, TextFlags};
 
 /// Escribe un PDF de una página A4 con una imagen a página completa y, opcionalmente, texto invisible.
 fn pdf_with_image(
@@ -105,7 +105,7 @@ fn render(path: &Path, dpi: f32) -> Vec<u8> {
     let page = doc.load_page(0).unwrap();
     let s = dpi / 72.0;
     let pix = page
-        .to_pixmap(&Matrix::new_scale(s, s), &Colorspace::device_rgb(), false, true)
+        .to_pixmap(&Matrix::new_scale(s, s), Colorspace::Rgb, false, true)
         .unwrap();
     pix.samples().to_vec()
 }
@@ -114,7 +114,7 @@ fn text(path: &Path) -> String {
     let doc = Document::open(path.to_str().unwrap()).unwrap();
     doc.load_page(0)
         .unwrap()
-        .to_text_page(TextPageFlags::empty())
+        .to_text_page(TextFlags::empty())
         .unwrap()
         .to_text()
         .unwrap()

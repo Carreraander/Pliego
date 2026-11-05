@@ -9,6 +9,10 @@ repository.workspace = true
 [dependencies]
 pliego-core.workspace = true
 mupdf.workspace = true
+# Motor propio del modelo de objetos y del guardado (ola 5, W36). Solo `pliego-pdf` lo usa para esto.
+lopdf = { version = "0.46", default-features = false }
+md-5 = "0.11"
+getrandom = "0.4"
 serde.workspace = true
 
 [dev-dependencies]

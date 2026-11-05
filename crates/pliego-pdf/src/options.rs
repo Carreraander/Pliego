@@ -94,6 +94,7 @@ pub struct WriteOptions {
     pub(crate) clean: bool,
     pub(crate) sanitize: bool,
     pub(crate) appearance: bool,
+    pub(crate) object_streams: bool,
     pub(crate) encryption: Encryption,
     pub(crate) permissions: Option<Permission>,
     pub(crate) owner_password: String,
@@ -136,6 +137,10 @@ impl WriteOptions {
     flag_setter!(set_clean, clean, clean);
     flag_setter!(set_sanitize, sanitize, sanitize);
     flag_setter!(set_appearance, appearance, appearance);
+    flag_setter!(
+        /// Escribe flujos de objetos y de referencias (PDF 1.5, archivos más pequeños; no válido para PDF/A-1).
+        /// Solo lo aplica el guardado con el modelo propio (`native`); MuPDF lo ignora.
+        set_object_streams, object_streams, object_streams);
 
     /// Elimina objetos no usados (nivel 1). `false` desactiva la limpieza.
     pub fn set_garbage(&mut self, value: bool) -> &mut Self {

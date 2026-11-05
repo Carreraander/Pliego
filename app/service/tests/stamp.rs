@@ -1,6 +1,6 @@
-use mupdf::{Document, TextPageFlags};
 use pliego_app_service::stamp::{StampOp, stamp_copy, stamp_file};
 use pliego_core::JobContext;
+use pliego_pdf::{Document, TextFlags};
 use pliego_stamp::*;
 
 /// PDF mínimo de `pages` páginas A4 con el texto "P<N>".
@@ -44,7 +44,7 @@ fn text_of(path: &std::path::Path, i: i32) -> String {
     let d = Document::open(path.to_str().unwrap()).unwrap();
     d.load_page(i)
         .unwrap()
-        .to_text_page(TextPageFlags::empty())
+        .to_text_page(TextFlags::empty())
         .unwrap()
         .to_text()
         .unwrap()

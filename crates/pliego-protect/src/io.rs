@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use pliego_pdf::{PdfDocument, WriteOptions};
 use pliego_core::{Error, Result};
+use pliego_pdf::{PdfDocument, WriteOptions};
 
 /// Abre un PDF, autenticando con `password` si lo necesita.
 pub(crate) fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocument> {

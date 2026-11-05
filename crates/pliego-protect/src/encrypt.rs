@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use pliego_pdf::{Encryption as PdfEncryption, Permission, WriteOptions};
 use pliego_core::{Error, Report, Result};
+use pliego_pdf::{Encryption as PdfEncryption, Permission, WriteOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::io::{open_pdf, save_atomic};

@@ -4081,7 +4081,6 @@ name = "pliego-app-service"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "mupdf",
  "p12-keystore",
  "pliego-a11y",
  "pliego-actions",
@@ -4146,7 +4145,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "mupdf",
  "p12-keystore",
  "pliego-a11y",
  "pliego-actions",

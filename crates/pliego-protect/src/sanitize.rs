@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use pliego_pdf::{PdfDocument, Object, WriteOptions};
 use pliego_core::{JobContext, Report, Result};
+use pliego_pdf::{Object, PdfDocument, WriteOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::io::{open_pdf, save_atomic};
@@ -125,14 +125,8 @@ fn clear_field(field: &mut Object, depth: u32) -> Result<usize> {
         Some("Tx") | Some("Ch") => {
             remove_key(field, "AP")?;
         }
-        Some("Btn")
-            if is_form_field_button(field)
-                && !is_pushbutton(field)
-                && field.get_dict("AS")?.is_some() =>
-        {
-            field
-                .dict_put("AS", Object::new_name("Off")?)
-                ?;
+        Some("Btn") if is_form_field_button(field) && !is_pushbutton(field) && field.get_dict("AS")?.is_some() => {
+            field.dict_put("AS", Object::new_name("Off")?)?;
         }
         _ => {}
     }
@@ -279,8 +273,7 @@ pub fn sanitize_document(
             }
         }
         if n > 0 {
-            form.dict_put("NeedAppearances", Object::new_bool(true))
-                ?;
+            form.dict_put("NeedAppearances", Object::new_bool(true))?;
         }
         tally.add("Valores de formulario", n);
     }

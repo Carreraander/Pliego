@@ -214,7 +214,7 @@ fn from_dynamic(img: image::DynamicImage) -> Result<Raster> {
 fn split_rgba(raw: Vec<u8>) -> (Pixels, Option<Vec<u8>>) {
     let mut rgb = Vec::with_capacity(raw.len() / 4 * 3);
     let mut alpha = Vec::with_capacity(raw.len() / 4);
-    for p in raw.chunks_exact(4) {
+    for p in raw.chunks(4) {
         rgb.extend_from_slice(&p[..3]);
         alpha.push(p[3]);
     }

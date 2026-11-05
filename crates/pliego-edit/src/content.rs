@@ -3,7 +3,7 @@
 //! No interpreta todo el lenguaje: solo lo necesario para seguir la matriz de transformación (`q`, `Q`, `cm`)
 //! y localizar los operadores `Do`. Las imágenes dentro de XObjects de formulario no se tienen en cuenta.
 
-use mupdf::Matrix;
+use pliego_pdf::Matrix;
 
 #[derive(Debug, Clone)]
 pub enum Operand {
@@ -161,7 +161,7 @@ pub fn placements(ops: &[Op], is_image: impl Fn(&str) -> bool) -> Vec<Placement>
     let mut out = Vec::new();
     for op in ops {
         match op.operator.as_str() {
-            "q" => stack.push(ctm.clone()),
+            "q" => stack.push(ctm),
             "Q" => {
                 if let Some(m) = stack.pop() {
                     ctm = m;
@@ -175,7 +175,7 @@ pub fn placements(ops: &[Op], is_image: impl Fn(&str) -> bool) -> Vec<Placement>
                     .collect();
                 if n.len() == 6 {
                     let mut m = Matrix::new(n[0], n[1], n[2], n[3], n[4], n[5]);
-                    m.concat(ctm.clone());
+                    m.concat(ctm);
                     ctm = m;
                 }
             }
@@ -185,7 +185,7 @@ pub fn placements(ops: &[Op], is_image: impl Fn(&str) -> bool) -> Vec<Placement>
                 {
                     out.push(Placement {
                         name: name.clone(),
-                        ctm: ctm.clone(),
+                        ctm,
                         range: (op.start, op.end),
                     });
                 }
@@ -227,7 +227,7 @@ pub fn paths(ops: &[Op]) -> Vec<PathObject> {
     for op in ops {
         let o = op.operator.as_str();
         match o {
-            "q" => stack.push(ctm.clone()),
+            "q" => stack.push(ctm),
             "Q" => {
                 if let Some(m) = stack.pop() {
                     ctm = m;
@@ -237,7 +237,7 @@ pub fn paths(ops: &[Op]) -> Vec<PathObject> {
                 let n = nums(op);
                 if n.len() == 6 {
                     let mut m = Matrix::new(n[0], n[1], n[2], n[3], n[4], n[5]);
-                    m.concat(ctm.clone());
+                    m.concat(ctm);
                     ctm = m;
                 }
             }
@@ -269,7 +269,7 @@ pub fn paths(ops: &[Op]) -> Vec<PathObject> {
                     && !points.is_empty()
                 {
                     out.push(PathObject {
-                        ctm: ctm.clone(),
+                        ctm,
                         range: (start, op.end),
                         points,
                     });

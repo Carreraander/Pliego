@@ -1,25 +1,21 @@
 //! Documento PDF editable de Pliego (AGPL-3.0-or-later).
 //!
-//! [`Document`] envuelve un `mupdf::pdf::PdfDocument` y añade:
+//! [`Document`] envuelve un `pliego_pdf::PdfDocument` y añade:
 //! - número de **revisión** (sube con cada operación que modifica el documento),
 //! - **deshacer/rehacer** con instantáneas en memoria (acotadas por número y por bytes),
 //! - **guardado atómico** (temporal en la misma carpeta + renombrar),
 //! - **guardado incremental** para documentos firmados, que conserva intactos los bytes firmados,
 //! - **reparación** de PDFs dañados.
 //!
-//! `Document` no es `Send` (MuPDF usa contextos por hilo): úsalo siempre desde el mismo hilo.
+//! `Document` no es `Send` (el motor usa contextos por hilo): úsalo siempre desde el mismo hilo.
 
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use mupdf::pdf::{PdfDocument, PdfWriteOptions};
 use pliego_core::{Error, Result};
+use pliego_pdf::{PdfDocument, WriteOptions};
 use serde::{Deserialize, Serialize};
-
-fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 /// Opciones de guardado.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,35 +85,32 @@ pub struct Document {
     saved_revision: u64,
 }
 
-/// Abre un PDF por ruta. MuPDF solo acepta rutas UTF-8 en Windows, así que se exige en todas las plataformas.
+/// Abre un PDF por ruta.
 fn open_pdf(path: &Path) -> Result<PdfDocument> {
-    let s = path
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput(format!("la ruta {path:?} no es UTF-8 válido")))?;
-    PdfDocument::open(s).map_err(pdf_err)
+    PdfDocument::open(path)
 }
 
 // TODO(W02): cada operación serializa el documento completo sin comprimir; con PDFs de 100 MB o más
 // la memoria y la latencia crecen. Pasar a instantáneas incrementales o limitar el historial por tamaño.
 fn serialize(pdf: &PdfDocument) -> Result<Vec<u8>> {
-    let mut opts = PdfWriteOptions::default();
+    let mut opts = WriteOptions::default();
     // Sin compresión extra ni limpieza: la instantánea debe ser fiel y rápida.
     opts.set_compress(false).set_garbage(false);
     let mut out = Vec::new();
-    pdf.write_to_with_options(&mut out, opts).map_err(pdf_err)?;
+    pdf.write_to_with_options(&mut out, &opts)?;
     Ok(out)
 }
 
 fn load(bytes: &[u8], password: Option<&str>) -> Result<PdfDocument> {
-    let mut pdf = PdfDocument::from_bytes(bytes).map_err(pdf_err)?;
+    let mut pdf = PdfDocument::from_bytes(bytes)?;
     unlock(&mut pdf, password)?;
     Ok(pdf)
 }
 
 fn unlock(pdf: &mut PdfDocument, password: Option<&str>) -> Result<()> {
-    if pdf.needs_password().map_err(pdf_err)? {
+    if pdf.needs_password()? {
         let ok = match password {
-            Some(p) => pdf.authenticate(p).map_err(pdf_err)?,
+            Some(p) => pdf.authenticate(p)?,
             None => false,
         };
         if !ok {
@@ -286,8 +279,8 @@ impl Document {
         Ok(())
     }
 
-    fn write_options(opts: &SaveOptions, incremental: bool) -> PdfWriteOptions {
-        let mut w = PdfWriteOptions::default();
+    fn write_options(opts: &SaveOptions, incremental: bool) -> WriteOptions {
+        let mut w = WriteOptions::default();
         if incremental {
             w.set_incremental(true);
         } else {
@@ -310,7 +303,7 @@ impl Document {
         let res = (|| {
             let opts = Self::write_options(options, false);
             let mut buf = Vec::new();
-            self.pdf.write_to_with_options(&mut buf, opts).map_err(pdf_err)?;
+            self.pdf.write_to_with_options(&mut buf, &opts)?;
             let mut f = fs::File::create(&tmp).map_err(|e| Error::io_at(&tmp, e))?;
             f.write_all(&buf).map_err(|e| Error::io_at(&tmp, e))?;
             f.sync_all().map_err(|e| Error::io_at(&tmp, e))?;
@@ -361,12 +354,8 @@ impl Document {
         let tmp = temp_sibling(dest)?;
         let res = (|| {
             fs::copy(&origin, &tmp).map_err(|e| Error::io_at(&tmp, e))?;
-            let tmp_str = tmp
-                .to_str()
-                .ok_or_else(|| Error::InvalidInput("ruta no válida".into()))?;
             self.pdf
-                .save_with_options(tmp_str, Self::write_options(&SaveOptions::default(), true))
-                .map_err(pdf_err)?;
+                .save_with_options(&tmp, &Self::write_options(&SaveOptions::default(), true))?;
             // Abrir con permiso de escritura: en Windows `sync_all` falla sobre un handle de solo lectura.
             fs::OpenOptions::new()
                 .write(true)
@@ -423,14 +412,14 @@ pub fn repair(input: impl AsRef<Path>, output: impl AsRef<Path>, password: Optio
     let mut pdf = open_pdf(input)?;
     unlock(&mut pdf, password)?;
     // Forzar la lectura del árbol de páginas detecta daños que la apertura perezosa no ve.
-    let pages = pdf.page_count().map_err(pdf_err)?;
+    let pages = pdf.page_count()?;
     if pages <= 0 {
         return Err(Error::Pdf("no se pudo recuperar ninguna página del documento".into()));
     }
-    let mut opts = PdfWriteOptions::default();
+    let mut opts = WriteOptions::default();
     opts.set_garbage(true).set_compress(true);
     let mut buf = Vec::new();
-    pdf.write_to_with_options(&mut buf, opts).map_err(pdf_err)?;
+    pdf.write_to_with_options(&mut buf, &opts)?;
     let tmp = temp_sibling(output)?;
     let res = fs::write(&tmp, &buf)
         .map_err(|e| Error::io_at(&tmp, e))

@@ -1,7 +1,7 @@
 //! PDF de prueba: dos páginas en blanco, sin formulario.
 #![allow(dead_code)]
 
-use mupdf::pdf::PdfDocument;
+use pliego_pdf::PdfDocument;
 
 pub fn blank_pdf() -> Vec<u8> {
     let objs = [

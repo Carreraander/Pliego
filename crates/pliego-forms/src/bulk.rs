@@ -1,18 +1,14 @@
 use std::path::{Path, PathBuf};
 
-use mupdf::pdf::PdfDocument;
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::PdfDocument;
 
 use crate::csv;
 use crate::data::coerce;
 use crate::fields::{fields, fill, flatten};
-use crate::pe;
 
 fn open(path: &Path) -> Result<PdfDocument> {
-    let s = path
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("la ruta no es UTF-8 válida".into()))?;
-    PdfDocument::open(s).map_err(|e| Error::Pdf(format!("no se pudo abrir {}: {e}", path.display())))
+    PdfDocument::open(path).map_err(|e| Error::Pdf(format!("no se pudo abrir {}: {e}", path.display())))
 }
 
 fn safe_name(s: &str) -> String {
@@ -87,7 +83,7 @@ pub fn bulk_fill(
         let tmp = out_dir.join(format!(".pliego-{}-{i}.tmp", std::process::id()));
         {
             let mut f = std::fs::File::create(&tmp).map_err(|e| Error::io_at(&tmp, e))?;
-            doc.write_to(&mut f).map_err(pe)?;
+            doc.write_to(&mut f)?;
         }
         std::fs::rename(&tmp, &dest).map_err(|e| Error::io_at(&dest, e))?;
         used.push(dest.clone());

@@ -354,12 +354,10 @@ fn tab_order_reorders_fields() {
 }
 
 /// Cuenta los píxeles no blancos dentro del rectángulo (espacio PDF) de la página 0 renderizada a 72 ppp.
-fn ink(doc: &mupdf::pdf::PdfDocument, rect: [f32; 4]) -> usize {
-    use mupdf::{Colorspace, Matrix};
+fn ink(doc: &pliego_pdf::PdfDocument, rect: [f32; 4]) -> usize {
+    use pliego_pdf::{Colorspace, Matrix};
     let page = doc.load_pdf_page(0).unwrap();
-    let pm = page
-        .to_pixmap(&Matrix::IDENTITY, &Colorspace::device_rgb(), false, true)
-        .unwrap();
+    let pm = page.to_pixmap(&Matrix::IDENTITY, Colorspace::Rgb, false, true).unwrap();
     let (w, n) = (pm.width() as usize, pm.n() as usize);
     let h = pm.height() as f32;
     let s = pm.samples();

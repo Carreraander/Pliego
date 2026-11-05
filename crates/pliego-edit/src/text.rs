@@ -2,20 +2,19 @@
 
 use std::fmt::Write as _;
 
-use mupdf::pdf::{
-    InsertFontOptions, PdfPage, PdfRedactImageMethod, PdfRedactLineArtMethod, PdfRedactOptions, PdfRedactTextMethod,
-};
-use mupdf::{Matrix, Rect};
 use pliego_core::{Error, Report, Result};
 use pliego_document::Document;
+use pliego_pdf::{
+    Font, Matrix, PdfDocument, PdfPage, Rect, RedactImageMethod, RedactLineArtMethod, RedactOptions, RedactTextMethod,
+};
 
 use crate::blocks::extract;
 use crate::embed::embed_subset;
 use crate::fonts::{Metrics, base14_name, encode};
+use crate::load_page;
 use crate::original::{self, Original};
 use crate::types::{Align, FontFamily, RectPts, Style};
 use crate::unicode::{LoadedFont, Shaper, find_font, is_wide};
-use crate::{load_page, pe};
 
 const DEFAULT_SIZE: f32 = 12.0;
 
@@ -70,9 +69,7 @@ impl Face<'_> {
     /// Ascendente en fracción del tamaño.
     fn ascent(&self) -> f32 {
         match self {
-            Face::Std { name, .. } => mupdf::Font::new(name)
-                .map(|f| f.ascender().clamp(0.5, 1.2))
-                .unwrap_or(0.8),
+            Face::Std { name, .. } => Font::new(name).map(|f| f.ascender().clamp(0.5, 1.2)).unwrap_or(0.8),
             Face::Uni { shaper, .. } => shaper.ascender().clamp(0.5, 1.2),
             Face::Orig(_) => 0.8,
         }
@@ -80,16 +77,10 @@ impl Face<'_> {
 
     /// Prepara la fuente en la página para dibujar `lines`: nombre del recurso y, con fuente Unicode, el paso de
     /// glifo original a código del subconjunto incrustado.
-    fn prepare(
-        &self,
-        page: &mut PdfPage,
-        doc: &mut mupdf::pdf::PdfDocument,
-        lines: &[String],
-        label: &str,
-    ) -> Result<Prepared> {
+    fn prepare(&self, page: &mut PdfPage, doc: &mut PdfDocument, lines: &[String], label: &str) -> Result<Prepared> {
         match self {
             Face::Std { name, .. } => Ok(Prepared {
-                resource: page.insert_font(doc, &InsertFontOptions::new(name)).map_err(pe)?.0,
+                resource: page.insert_font(doc, name)?.0,
                 codes: None,
             }),
             Face::Orig(o) => Ok(Prepared {
@@ -196,7 +187,7 @@ fn pdf_num(v: f32) -> String {
 #[allow(clippy::too_many_arguments)]
 fn draw(
     page: &mut PdfPage,
-    doc: &mut mupdf::pdf::PdfDocument,
+    doc: &mut PdfDocument,
     r: &Resolved,
     lines: &[String],
     x0: f32,
@@ -210,8 +201,7 @@ fn draw(
     let font_res = &prepared.resource;
     let inv = page
         .object()
-        .page_ctm()
-        .map_err(pe)?
+        .page_ctm()?
         .invert()
         .ok_or_else(|| Error::Pdf("la matriz de la página no es invertible".into()))?;
     let mut s = String::new();
@@ -231,7 +221,7 @@ fn draw(
         // El texto se compone derecho en el espacio de la página visible (y hacia abajo); la matriz
         // de texto incluye la inversa de la página para que también salga derecho si está girada.
         let mut tm = Matrix::new(1.0, 0.0, 0.0, -1.0, x, baseline + leading * i as f32);
-        tm.concat(inv.clone());
+        tm.concat(inv);
         let hex = face.hex(line, &prepared)?;
         let _ = writeln!(
             s,
@@ -245,7 +235,7 @@ fn draw(
         );
     }
     s.push_str("ET\nQ\n");
-    page.insert_contents(doc, s.as_bytes(), true).map_err(pe)?;
+    page.insert_contents(doc, s.as_bytes(), true)?;
     Ok(())
 }
 
@@ -341,14 +331,14 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
             b.bbox[2] - 0.5,
             b.bbox[3] - inset_y,
         ]);
-        p.add_redact_annotation(area).map_err(pe)?;
-        let opts = PdfRedactOptions {
+        p.add_redact_annotation(area)?;
+        let opts = RedactOptions {
             black_boxes: false,
-            image_method: PdfRedactImageMethod::None,
-            line_art: PdfRedactLineArtMethod::None,
-            text: PdfRedactTextMethod::Remove,
+            image_method: RedactImageMethod::None,
+            line_art: RedactLineArtMethod::None,
+            text: RedactTextMethod::Remove,
         };
-        p.redact_with_options(opts).map_err(pe)?;
+        p.redact(opts)?;
         let mut p = load_page(pdf, page)?;
 
         let max_width = (b.bbox[2] - raw.first_origin.0).max(res.size);

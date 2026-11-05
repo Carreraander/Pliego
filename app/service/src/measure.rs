@@ -9,15 +9,11 @@ use std::path::Path;
 use pliego_core::Result;
 pub use pliego_measure::{Measurement, Pt, Scale, Unit};
 
-use crate::annot::Editor;
+use crate::annot::{Editor, open};
 
 /// Escala guardada en la página `page` (desde 0), si tiene una.
 pub fn page_scale(path: &Path, password: Option<&str>, page: u32) -> Result<Option<Scale>> {
-    let bytes = std::fs::read(path).map_err(|e| pliego_core::Error::io_at(path, e))?;
-    pliego_measure::page_scale(
-        &pliego_pdf::PdfDocument::from_bytes_with_password(&bytes, password)?,
-        page,
-    )
+    pliego_measure::page_scale(&open(path, password)?, page)
 }
 
 /// Escala por calibración: `page_points` puntos del papel equivalen a `real` `unit`.
@@ -47,7 +43,7 @@ pub fn save(
     closed: bool,
 ) -> Result<(Vec<u8>, Measurement)> {
     let mut measured = None;
-    let bytes = editor.edit_layer_pdf(path, backup_suffix, |doc| {
+    let bytes = editor.edit_pdf(path, backup_suffix, |doc| {
         pliego_measure::set_scale(doc, page, scale)?;
         measured = Some(pliego_measure::add_measurement(doc, page, scale, points, closed)?.0);
         Ok(())

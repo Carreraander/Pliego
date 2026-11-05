@@ -8,16 +8,12 @@
 
 use std::path::Path;
 
-use mupdf::pdf::PdfDocument;
 use pliego_core::{Error, Result};
+use pliego_pdf::{Matrix, PdfDocument};
 
 pub use pliego_formdesign::{FieldPatch, FieldSpec, FieldType};
 
 use crate::annot::{Editor, open};
-
-fn pe(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 /// Caja `[x0, y0, x1, y1]` normalizada de los cuatro vértices transformados.
 fn bounds_of(pts: [(f32, f32); 4]) -> [f32; 4] {
@@ -28,20 +24,20 @@ fn bounds_of(pts: [(f32, f32); 4]) -> [f32; 4] {
     [min(xs), min(ys), max(xs), max(ys)]
 }
 
-fn map_rect(r: [f32; 4], m: &mupdf::Matrix) -> [f32; 4] {
+fn map_rect(r: [f32; 4], m: &Matrix) -> [f32; 4] {
     let at = |x: f32, y: f32| (m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f);
     bounds_of([at(r[0], r[1]), at(r[2], r[1]), at(r[0], r[3]), at(r[2], r[3])])
 }
 
 /// Rectángulo del espacio de usuario del PDF al de página (el del visor).
 fn user_to_page(doc: &PdfDocument, page: usize, r: [f32; 4]) -> Result<[f32; 4]> {
-    let ctm = doc.load_pdf_page(page as i32).map_err(pe)?.ctm().map_err(pe)?;
+    let ctm = doc.load_pdf_page(page as i32)?.ctm()?;
     Ok(map_rect(r, &ctm))
 }
 
 /// Rectángulo del espacio de página del visor al de usuario del PDF.
 fn page_to_user(doc: &PdfDocument, page: usize, r: [f32; 4]) -> Result<[f32; 4]> {
-    let ctm = doc.load_pdf_page(page as i32).map_err(pe)?.ctm().map_err(pe)?;
+    let ctm = doc.load_pdf_page(page as i32)?.ctm()?;
     let inv = ctm
         .invert()
         .ok_or_else(|| Error::Pdf("la transformación de la página no es invertible".into()))?;
@@ -97,7 +93,7 @@ pub fn detect_copy(
     ctx: &pliego_core::JobContext,
 ) -> Result<pliego_core::Report> {
     let mut doc = open(path, password)?;
-    let pages = doc.page_count().map_err(pe)?.max(0) as usize;
+    let pages = doc.page_count()?.max(0) as usize;
     let mut found = Vec::new();
     for p in 0..pages {
         ctx.step(p as u64, pages as u64, "")?;
@@ -125,7 +121,7 @@ pub fn detect_copy(
 mod tests {
     use super::*;
     use crate::annot::save;
-    use mupdf::Size;
+    use pliego_pdf::Size;
 
     fn blank(path: &Path) {
         let mut doc = PdfDocument::new();

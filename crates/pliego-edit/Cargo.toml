@@ -9,7 +9,7 @@ repository.workspace = true
 [dependencies]
 pliego-core.workspace = true
 pliego-document = { path = "../pliego-document" }
-mupdf.workspace = true
+pliego-pdf.workspace = true
 serde.workspace = true
 rustybuzz = "0.20"
 subsetter = "0.2"

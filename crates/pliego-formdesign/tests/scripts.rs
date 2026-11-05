@@ -1,8 +1,8 @@
 mod common;
 
 use common::*;
-use mupdf::pdf::PdfDocument;
 use pliego_formdesign::*;
+use pliego_pdf::PdfDocument;
 
 fn text(name: &str, y: f32) -> FieldSpec {
     FieldSpec {

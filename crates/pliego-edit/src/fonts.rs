@@ -1,7 +1,7 @@
 //! Fuentes estándar y codificación WinAnsi (Windows-1252).
 
-use mupdf::Font;
 use pliego_core::{Error, Result};
+use pliego_pdf::Font;
 
 use crate::types::FontFamily;
 
@@ -95,16 +95,14 @@ pub fn encode(text: &str) -> Result<Vec<u8>> {
     )))
 }
 
-/// Medidor de anchos con la fuente estándar real de MuPDF.
+/// Medidor de anchos con la fuente estándar real del motor.
 pub struct Metrics {
     font: Font,
 }
 
 impl Metrics {
     pub fn new(name: &str) -> Result<Self> {
-        Ok(Self {
-            font: Font::new(name).map_err(crate::pe)?,
-        })
+        Ok(Self { font: Font::new(name)? })
     }
 
     /// Ancho en puntos de `text` (WinAnsi ya validado) al tamaño `size`.

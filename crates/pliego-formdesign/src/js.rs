@@ -4,12 +4,11 @@
 //! lectores habituales y MuPDF (mujs, sin acceso a archivos ni red). Los textos de usuario se insertan como literales
 //! JSON, que son literales JavaScript válidos, para que ningún nombre de campo o rótulo pueda inyectar código.
 
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::{Error, Result};
+use pliego_pdf::{Object, PdfDocument};
 use serde::{Deserialize, Serialize};
 
 use crate::objects::*;
-use crate::pe;
 use crate::read::page_widgets;
 
 /// Número: decimales, separadores al estilo español (`1.234,56`) y moneda opcional.
@@ -249,11 +248,8 @@ fn calc_script(c: &Calculation) -> String {
 }
 
 /// Fija (o quita, con `None`) la acción de `/AA` bajo la clave `key` (`F`, `K`, `V` o `C`).
-fn set_action(doc: &PdfDocument, field: &mut PdfObject, key: &str, js: Option<&str>) -> Result<()> {
-    let existing = field
-        .get_dict("AA")
-        .map_err(pe)?
-        .filter(|a| a.is_dict().unwrap_or(false));
+fn set_action(doc: &PdfDocument, field: &mut Object, key: &str, js: Option<&str>) -> Result<()> {
+    let existing = field.get_dict("AA")?.filter(|a| a.is_dict().unwrap_or(false));
     match js {
         Some(js) => {
             let mut aa = match existing {
@@ -261,8 +257,7 @@ fn set_action(doc: &PdfDocument, field: &mut PdfObject, key: &str, js: Option<&s
                 None => {
                     put(field, "AA", obj(doc, "<< >>")?)?;
                     field
-                        .get_dict("AA")
-                        .map_err(pe)?
+                        .get_dict("AA")?
                         .ok_or_else(|| Error::Pdf("no se pudo crear /AA".into()))?
                 }
             };
@@ -271,15 +266,15 @@ fn set_action(doc: &PdfDocument, field: &mut PdfObject, key: &str, js: Option<&s
         }
         None => {
             if let Some(mut aa) = existing {
-                aa.dict_delete(key).map_err(pe)?;
+                aa.dict_delete(key)?;
             }
             Ok(())
         }
     }
 }
 
-fn field_named(doc: &PdfDocument, name: &str) -> Result<PdfObject> {
-    for p in 0..doc.page_count().map_err(pe)? {
+fn field_named(doc: &PdfDocument, name: &str) -> Result<Object> {
+    for p in 0..doc.page_count()? {
         for (n, w) in page_widgets(doc, p)? {
             if n == name {
                 let f = field_of(&w.annotation().object())?;
@@ -313,7 +308,7 @@ pub fn set_validation(doc: &mut PdfDocument, name: &str, validation: &Validation
 
 /// Regenera la apariencia de los widgets de un campo (el formato cambia cómo se ve el valor).
 fn refresh_widgets(doc: &mut PdfDocument, name: &str) -> Result<()> {
-    for p in 0..doc.page_count().map_err(pe)? {
+    for p in 0..doc.page_count()? {
         for (n, w) in page_widgets(doc, p)? {
             if n == name {
                 crate::ap::rebuild_ap(doc, &mut w.annotation().object())?;
@@ -329,7 +324,7 @@ pub fn get_calculation(doc: &PdfDocument, name: &str) -> Result<Option<Calculati
     Ok(read_calc(&field))
 }
 
-pub(crate) fn read_calc(field: &PdfObject) -> Option<Calculation> {
+pub(crate) fn read_calc(field: &Object) -> Option<Calculation> {
     let js = field
         .get_dict("AA")
         .ok()??
@@ -387,10 +382,7 @@ pub fn set_calculation(doc: &mut PdfDocument, name: &str, calc: Option<&Calculat
             field_named(doc, f)?;
         }
     }
-    let previous = field
-        .get_dict("AA")
-        .map_err(pe)?
-        .and_then(|a| a.get_dict("C").ok().flatten());
+    let previous = field.get_dict("AA")?.and_then(|a| a.get_dict("C").ok().flatten());
     set_action(doc, &mut field, "C", calc.map(calc_script).as_deref())?;
     if let Err(e) = update_calc_order(doc) {
         // Deshace el cambio si deja un ciclo.
@@ -406,9 +398,9 @@ pub fn set_calculation(doc: &mut PdfDocument, name: &str, calc: Option<&Calculat
 /// Reconstruye `/CO` con todos los campos que tienen cálculo, ordenados por dependencias.
 fn update_calc_order(doc: &mut PdfDocument) -> Result<()> {
     let mut names: Vec<String> = Vec::new();
-    let mut objs: Vec<PdfObject> = Vec::new();
+    let mut objs: Vec<Object> = Vec::new();
     let mut deps: Vec<Vec<String>> = Vec::new();
-    for p in 0..doc.page_count().map_err(pe)? {
+    for p in 0..doc.page_count()? {
         for (n, w) in page_widgets(doc, p)? {
             if names.contains(&n) {
                 continue;
@@ -441,22 +433,19 @@ fn update_calc_order(doc: &mut PdfDocument) -> Result<()> {
         }
     }
     let mut af = doc
-        .catalog()
-        .map_err(pe)?
-        .get_dict("AcroForm")
-        .map_err(pe)?
+        .catalog()?
+        .get_dict("AcroForm")?
         .ok_or_else(|| Error::Pdf("el documento no tiene formulario".into()))?;
     if done.is_empty() {
-        af.dict_delete("CO").map_err(pe)?;
+        af.dict_delete("CO")?;
         return Ok(());
     }
     put(&mut af, "CO", obj(doc, "[]")?)?;
     let mut co = af
-        .get_dict("CO")
-        .map_err(pe)?
+        .get_dict("CO")?
         .ok_or_else(|| Error::Pdf("no se pudo crear /CO".into()))?;
     for i in done {
-        co.array_push(objs[i].try_clone().map_err(pe)?).map_err(pe)?;
+        co.array_push(objs[i].try_clone()?)?;
     }
     Ok(())
 }
@@ -488,10 +477,10 @@ fn compute(op: CalcOp, values: &[f64]) -> f64 {
 
 /// Valor actual de un campo por su nombre completo (vacío si no tiene).
 fn value_of(doc: &PdfDocument, name: &str) -> Result<String> {
-    for p in 0..doc.page_count().map_err(pe)? {
+    for p in 0..doc.page_count()? {
         for (n, w) in page_widgets(doc, p)? {
             if n == name {
-                return Ok(w.value().map_err(pe)?.unwrap_or_default());
+                return Ok(w.value()?.unwrap_or_default());
             }
         }
     }
@@ -504,20 +493,20 @@ fn value_of(doc: &PdfDocument, name: &str) -> Result<String> {
 /// Los cálculos creados con `set_calculation` se evalúan aquí de forma nativa (sin motor de scripts); los lectores
 /// externos ejecutan el mismo cálculo con su propio `AFSimple_Calculate`.
 pub fn recalculate(doc: &mut PdfDocument) -> Result<Vec<String>> {
-    let Some(af) = doc.catalog().map_err(pe)?.get_dict("AcroForm").map_err(pe)? else {
+    let Some(af) = doc.catalog()?.get_dict("AcroForm")? else {
         return Ok(Vec::new());
     };
-    let Some(co) = af.get_dict("CO").map_err(pe)? else {
+    let Some(co) = af.get_dict("CO")? else {
         return Ok(Vec::new());
     };
-    let want: Vec<i32> = (0..co.len().map_err(pe)?)
+    let want: Vec<i32> = (0..co.len()?)
         .filter_map(|i| co.get_array(i as i32).ok().flatten())
         .map(|o| xref_of(&o))
         .collect();
     // Nombre completo y cálculo de cada campo de /CO.
     let mut order: Vec<(String, Calculation)> = Vec::new();
     for x in want {
-        'found: for p in 0..doc.page_count().map_err(pe)? {
+        'found: for p in 0..doc.page_count()? {
             for (n, w) in page_widgets(doc, p)? {
                 let f = field_of(&w.annotation().object())?;
                 if xref_of(&f) == x {
@@ -541,14 +530,14 @@ pub fn recalculate(doc: &mut PdfDocument) -> Result<Vec<String>> {
         let k = 10f64.powi(calc.decimals.map_or(10, |d| d.min(10)) as i32);
         r = (r * k).round() / k;
         let text = format!("{r}");
-        for p in 0..doc.page_count().map_err(pe)? {
-            let page = doc.load_pdf_page(p).map_err(pe)?;
+        for p in 0..doc.page_count()? {
+            let page = doc.load_pdf_page(p)?;
             let widgets: Vec<_> = page
                 .widgets()
                 .filter(|w| w.name().ok().flatten().as_deref() == Some(&name))
                 .collect();
             for mut w in widgets {
-                w.set_value(doc, &text, true).map_err(pe)?;
+                w.set_value(doc, &text, true)?;
                 crate::ap::rebuild_ap(doc, &mut w.annotation().object())?;
             }
         }

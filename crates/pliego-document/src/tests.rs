@@ -17,14 +17,9 @@ fn title(doc: &Document) -> Option<String> {
 
 fn set_title(doc: &mut Document, t: &str) {
     doc.with_pdf_mut(|pdf| {
-        let mut info = pdf
-            .trailer()
-            .map_err(pdf_err)?
-            .get_dict("Info")
-            .map_err(pdf_err)?
-            .expect("Info");
-        let v = pdf.new_string(t).map_err(pdf_err)?;
-        info.dict_put("Title", v).map_err(pdf_err)
+        let mut info = pdf.trailer()?.get_dict("Info")?.expect("Info");
+        let v = pdf.new_string(t)?;
+        info.dict_put("Title", v)
     })
     .unwrap();
 }

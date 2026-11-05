@@ -61,6 +61,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         jobs::cancel_job,
         convert::create_pdf,
         compare::compare_pdfs,
+        compare::compare_view,
         ocr::ocr_pdf,
         ocr::ocr_languages,
         ocr::ocr_download_language,

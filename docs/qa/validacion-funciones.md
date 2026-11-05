@@ -104,7 +104,7 @@ e2e_documento_abierto`.
 ### Comparar y optimizar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `compare.compare` Comparar | 🟡 | Conectado como panel de tarea (no pantalla): compara el documento abierto con otro y guarda `<nombre> (comparación).pdf`; A: `compare.rs` (informe, idénticos, peticiones inválidas) | V; pantalla lado a lado (diseño original) pendiente |
+| `compare.compare` Comparar | 🟡 | Panel de tarea: compara el documento abierto con otro y guarda `<nombre> (comparación).pdf`; A: `compare.rs` (informe, idénticos, peticiones inválidas). **Vista lado a lado** («Ver lado a lado», comando `compare_view`): dos columnas en un solo lienzo con un solo desplazamiento, páginas emparejadas (huecos en insertadas/eliminadas), cambios resaltados en los dos (quitado rojo, añadido verde, cambiado ámbar, formato punteado, aspecto con recuadro), F3/Mayús+F3 y contador; A: `compare_view` en `app/service`, `view.test.ts` (disposición, cambios, saltos) y e2e simulado `tests/visual/compare-view.spec.ts` (capturas en `test-results/compare-view/`) | **W**: comparar dos PDF reales con teselas de PDFium; V: aspecto y posición de los resaltados sobre páginas reales, legibilidad en oscuro y alto contraste |
 | `optimize.compress` Comprimir | 🟢 | A + E2E: copia con el mismo número de páginas | Documentos con contraseña (el panel no la guarda) |
 | `optimize.advanced` Optimizar avanzado | 🟡 | A: `analyze` | — |
 
@@ -157,4 +157,4 @@ cd app && npm test
 
 1. Repetir en acr12 las pruebas marcadas **W** y pasar a Ander las **V** (`gestion/revision-manual-ander.md`).
 2. Contraseña en OCR, Comparar (archivo B), Combinar y las ediciones sobre el propio PDF (ver arriba).
-3. Pantalla lado a lado de Comparar.
+3. ~~Pantalla lado a lado de Comparar~~ (hecha; falta Windows y revisión visual).

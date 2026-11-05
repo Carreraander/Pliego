@@ -14,6 +14,7 @@ pliego-document = { path = "../../crates/pliego-document" }
 pliego-edit = { path = "../../crates/pliego-edit" }
 pliego-forms = { path = "../../crates/pliego-forms" }
 mupdf.workspace = true
+pliego-pdf.workspace = true
 tempfile.workspace = true
 pliego-optimize = { path = "../../crates/pliego-optimize" }
 pliego-a11y.workspace = true

@@ -2,9 +2,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand, ValueEnum};
-use mupdf::pdf::PdfDocument;
 use pliego_core::JobContext;
 use pliego_formdesign::{CalcOp, Calculation, FieldFormat, FieldPatch, FieldSpec, FieldType, NumberFormat, Validation};
+use pliego_pdf::PdfDocument;
 
 #[derive(Subcommand)]
 pub enum FormDesignCommand {

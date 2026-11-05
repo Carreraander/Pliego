@@ -65,3 +65,16 @@ encuentra nada. **Límites conocidos:** no descifra (pásale un PDF sin cifrar),
 El fuzzing con libFuzzer del motor actual sigue en `crates/pliego-engine/fuzz` (`tools/fuzz.sh`, `fuzz.yml`).
 `--mutate` es el humo en estable que corre contra cualquier motor; el objetivo de libFuzzer del motor nuevo lo añade
 quien lo implemente (W37) copiando ese directorio.
+
+## Modelo de documento nativo (W36)
+
+El arnés compara **render y texto** entre motores; el modelo de documento de `pliego_pdf::native` (lopdf) se valida
+con pruebas propias que usan MuPDF como motor de referencia, no con `engine-compare`:
+
+- `cargo test -p pliego-pdf native` abre los 85 PDF de `tests/corpus`, los guarda con cuatro combinaciones de opciones y
+  comprueba con MuPDF (páginas y texto) y con qpdf (`qpdf --check`, si está en el `PATH`) que la salida es válida.
+- `transcript_matches_mupdf` ejecuta el mismo guion de la API sobre los dos motores y compara el registro línea a línea.
+- Pruebas de guardado incremental (prefijo intacto, PDF firmado, cifrados), de cifrado (RC4-40/128, AES-128/256, en las dos
+  direcciones) y de robustez (archivos dañados y estructuras hostiles no provocan pánicos ni bucles).
+
+Cuando el motor nuevo de render esté enchufado en `engines::by_name`, `engine-compare` valida además lo que este módulo escribe.

@@ -56,5 +56,14 @@ importa `pliego_pdf::*` y nunca `mupdf`. Reglas del contrato:
   PR pequeño al hilo de W30/gestión.
 Estado de la API y de la migración de cada crate: `docs/handoff/flujos/w30.md`.
 
+### `pliego_pdf::native` (W36): modelo de documento propio con lopdf
+Reimplementa `Object`, `PdfDocument`, `PdfPage` y `GraftMap` con los mismos nombres y firmas que los de la raíz
+de la capa (objetos, páginas, etiquetas, marcadores, adjuntos, capas, metadatos, cifrado, guardado completo e
+incremental). No tiene render, texto ni búsqueda (PDFium, W37), anotaciones/widgets/fuentes/imágenes (W39),
+redacción (W38) ni conversión (W40). Mientras convive con MuPDF, la raíz sigue exportando el motor MuPDF; el
+cambio es sustituir esa exportación por `pub use native::*` cuando W37 aporte lo que falta, y W41 quita MuPDF.
+Un `Object` nativo es una **ruta** (documento + objeto raíz + pasos), no un puntero: lo que `dict_put` inserta se
+copia. Detalle, límites y pruebas en `docs/handoff/flujos/w36.md`.
+
 ## Rendimiento objetivo (medido en acr12)
 Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB, instalador < 40 MB.

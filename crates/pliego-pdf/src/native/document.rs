@@ -1062,15 +1062,19 @@ pub(crate) fn decode_text(o: &L) -> Option<String> {
     };
     if b.starts_with(&[0xFE, 0xFF]) {
         let units: Vec<u16> = b[2..]
-            .chunks_exact(2)
-            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_be_bytes(*c))
             .collect();
         return Some(String::from_utf16_lossy(&units));
     }
     if b.starts_with(&[0xFF, 0xFE]) {
         let units: Vec<u16> = b[2..]
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_le_bytes(*c))
             .collect();
         return Some(String::from_utf16_lossy(&units));
     }

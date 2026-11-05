@@ -1,6 +1,7 @@
 # Corpus de pruebas
 
 - `basic/`, y los demás subdirectorios por módulo: PDF pequeños y generados, incluidos en el repositorio.
+- `packages/`: un CBZ, un EPUB y un XPS mínimos (W41) para las pruebas de «Crear PDF» y de la CLI.
 - `external/` (ignorado por git): suites públicas de terceros (pdf.js, veraPDF, Isartor).
   Descargar con `python tools/fetch_corpus.py [--suite pdfjs|verapdf|isartor]`.
 - `private/` (ignorado por git): archivos propios que no se pueden publicar.

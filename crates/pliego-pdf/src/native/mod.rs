@@ -36,6 +36,7 @@ mod formap;
 mod formjs;
 mod graft;
 mod image;
+mod ink;
 mod metrics;
 mod object;
 mod outline;

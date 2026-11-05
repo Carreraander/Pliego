@@ -1,8 +1,10 @@
 //! Markdown → PDF: recorre los eventos de `pulldown-cmark` y los coloca con el [`Typesetter`].
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use pliego_core::Result;
+use pliego_pdf::native::Raster;
 use pulldown_cmark::{Alignment, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
 use super::Typeset;
@@ -10,6 +12,9 @@ use super::layout::{
     Align, CODE_BG, Face, GRAY_TEXT, HEAD_BG, LINK_BLUE, Line, Marker, PageSpec, Piece, RULE, Style, Typesetter,
     measure, text_width, wrap, wrap_pre,
 };
+
+/// Marcador que el traductor de HTML emite como `Event::Html` para forzar un salto de página (capítulos de un EPUB).
+pub(super) const PAGE_BREAK: &str = "pliego:pagebreak";
 
 struct ListCtx {
     ordered: bool,
@@ -39,6 +44,18 @@ struct Md {
     html_block: bool,
     table: Option<TableBuilder>,
     in_head: bool,
+    /// Imágenes disponibles por la dirección con que las nombra el documento (EPUB).
+    images: HashMap<String, Rc<Raster>>,
+    /// Imagen en curso: colocada (su texto alternativo se descarta) o sustituida por su texto alternativo.
+    image: Option<ImageState>,
+}
+
+enum ImageState {
+    Placed,
+    /// Texto alternativo: el `[` se escribe con el primer texto, para que una imagen sin él no deje `[]`.
+    Alt {
+        opened: bool,
+    },
 }
 
 pub(super) fn typeset(md: &str, spec: &PageSpec) -> Result<Typeset> {
@@ -51,6 +68,15 @@ pub(super) fn typeset(md: &str, spec: &PageSpec) -> Result<Typeset> {
 
 /// Coloca una secuencia de eventos (del analizador de Markdown o del traductor de HTML).
 pub(super) fn typeset_events<'a>(events: impl IntoIterator<Item = Event<'a>>, spec: &PageSpec) -> Result<Typeset> {
+    typeset_events_with(events, spec, HashMap::new())
+}
+
+/// Como [`typeset_events`], con las imágenes que se pueden colocar (por la dirección que traen los eventos).
+pub(super) fn typeset_events_with<'a>(
+    events: impl IntoIterator<Item = Event<'a>>,
+    spec: &PageSpec,
+    images: HashMap<String, Rc<Raster>>,
+) -> Result<Typeset> {
     let mut m = Md {
         ts: Typesetter::new(*spec),
         base: spec.font_size,
@@ -67,6 +93,8 @@ pub(super) fn typeset_events<'a>(events: impl IntoIterator<Item = Event<'a>>, sp
         html_block: false,
         table: None,
         in_head: false,
+        images,
+        image: None,
     };
     for ev in events {
         m.event(ev);
@@ -178,6 +206,14 @@ impl Md {
             Event::Start(tag) => self.start(tag),
             Event::End(tag) => self.end(tag),
             Event::Text(t) => {
+                match &mut self.image {
+                    Some(ImageState::Placed) => return,
+                    Some(ImageState::Alt { opened }) if !*opened => {
+                        *opened = true;
+                        self.push_text("[");
+                    }
+                    _ => {}
+                }
                 if let Some(code) = &mut self.code_block {
                     code.push_str(&t);
                 } else if self.html_block {
@@ -193,6 +229,13 @@ impl Md {
                 self.code = false;
             }
             Event::Html(t) => {
+                if t.contains(PAGE_BREAK) {
+                    self.flush(0.0);
+                    if !self.ts.at_top() {
+                        self.ts.page_break();
+                    }
+                    return;
+                }
                 let s = strip_tags(&t);
                 if !s.trim().is_empty() {
                     self.push_text(&s);
@@ -307,7 +350,23 @@ impl Md {
             Tag::Strong => self.bold += 1,
             Tag::Strikethrough => self.strike += 1,
             Tag::Link { dest_url, .. } => self.link = Some(Rc::from(dest_url.as_ref())),
-            Tag::Image { .. } => self.push_text("["),
+            Tag::Image { dest_url, .. } => {
+                let placed = if self.table.is_none() {
+                    self.images.get(dest_url.as_ref()).cloned()
+                } else {
+                    None
+                };
+                self.image = Some(match placed {
+                    Some(raster) => {
+                        self.flush(self.base * 0.3);
+                        let (left, width) = (self.left(), self.width());
+                        self.ts.image_block(raster, left, width);
+                        self.ts.gap(self.base * 0.5);
+                        ImageState::Placed
+                    }
+                    None => ImageState::Alt { opened: false },
+                });
+            }
             _ => {}
         }
     }
@@ -389,7 +448,11 @@ impl Md {
             TagEnd::Strong => self.bold = self.bold.saturating_sub(1),
             TagEnd::Strikethrough => self.strike = self.strike.saturating_sub(1),
             TagEnd::Link => self.link = None,
-            TagEnd::Image => self.push_text("]"),
+            TagEnd::Image => {
+                if let Some(ImageState::Alt { opened: true }) = self.image.take() {
+                    self.push_text("]");
+                }
+            }
             _ => {}
         }
     }

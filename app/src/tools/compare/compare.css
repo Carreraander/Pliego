@@ -1,0 +1,45 @@
+/* Comparar, vista lado a lado: solo tokens del sistema de diseño (docs/design/sistema-visual.md). */
+.cmp { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--pl-canvas); outline: none; }
+.cmp-bar { display: flex; align-items: center; gap: var(--pl-space-3); flex-wrap: wrap; min-height: var(--pl-toolbar-h); padding: 0 var(--pl-space-4); background: var(--pl-chrome); border-bottom: 1px solid var(--pl-border); }
+.cmp-count { min-width: 84px; font-size: var(--pl-text-caption); color: var(--pl-text-2); }
+.cmp-zoom { min-width: 48px; text-align: center; }
+.cmp-spacer { flex: 1; }
+.cmp-legend { display: flex; gap: var(--pl-space-4); list-style: none; margin: 0; padding: 0; font-size: var(--pl-text-caption); color: var(--pl-text-2); }
+.cmp-legend li { display: inline-flex; align-items: center; gap: var(--pl-space-2); }
+.cmp-swatch { display: inline-block; width: 12px; height: 12px; border-radius: var(--pl-radius-sm); }
+.cmp-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--pl-space-2) var(--pl-space-5); padding: var(--pl-space-2) var(--pl-space-4); font-size: var(--pl-text-caption); background: var(--pl-surface); border-bottom: 1px solid var(--pl-divider); }
+.cmp-summary p { margin: 0; }
+
+.cmp-scroll { position: relative; flex: 1; overflow: auto; outline: none; }
+.cmp-scroll:focus-visible { box-shadow: inset 0 0 0 2px var(--pl-focus); }
+.cmp-heads { position: sticky; top: 0; z-index: var(--pl-z-canvas-overlay); display: grid; grid-template-columns: 1fr 1fr; background: var(--pl-chrome); border-bottom: 1px solid var(--pl-border); min-width: 100%; }
+.cmp-head { display: flex; align-items: center; justify-content: center; gap: var(--pl-space-3); min-width: 0; padding: 0 var(--pl-space-4); font-size: var(--pl-text-caption); color: var(--pl-text-2); }
+.cmp-head + .cmp-head { border-left: 1px solid var(--pl-border); }
+.cmp-head b { color: var(--pl-text); font-weight: var(--pl-weight-semibold); }
+.cmp-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cmp-content { position: relative; min-width: 100%; }
+.cmp-row { position: absolute; left: 0; display: flex; }
+.cmp-cell { display: flex; justify-content: center; align-items: flex-start; flex: none; }
+.cmp-cell + .cmp-cell { border-left: 1px solid var(--pl-border-strong); }
+.cmp-pageno { position: absolute; left: 50%; top: 0; transform: translate(-50%, 0); padding: 0 var(--pl-space-3); border-radius: var(--pl-radius-full); background: var(--pl-chrome); border: 1px solid var(--pl-border); font-size: var(--pl-text-caption); color: var(--pl-text-2); line-height: 18px; pointer-events: none; opacity: 0.9; }
+
+.cmp-page { position: relative; flex: none; overflow: hidden; background: var(--pl-paper); box-shadow: var(--pl-page-shadow); }
+.cmp-page .tile { position: absolute; user-select: none; }
+.cmp-page .tile.low { left: 0; top: 0; }
+.cmp-gap { box-sizing: border-box; width: calc(100% - var(--pl-space-8)); margin: 0 auto; display: grid; place-items: center; border: 1px dashed var(--pl-border-strong); border-radius: var(--pl-radius-md); background: repeating-linear-gradient(135deg, transparent 0 10px, var(--pl-hover) 10px 20px); color: var(--pl-text-2); font-size: var(--pl-text-caption); text-align: center; }
+
+.cmp-mark { position: absolute; pointer-events: auto; border-radius: 2px; mix-blend-mode: multiply; }
+.cmp-removed, .cmp-added, .cmp-changed, .cmp-format, .cmp-visual { --c: var(--pl-warn); }
+.cmp-removed { --c: var(--pl-danger); }
+.cmp-added { --c: var(--pl-ok); }
+.cmp-changed { --c: var(--pl-warn); }
+.cmp-format, .cmp-visual { --c: var(--pl-info); }
+.cmp-swatch.cmp-removed, .cmp-swatch.cmp-added, .cmp-swatch.cmp-changed { background: color-mix(in srgb, var(--c) 35%, transparent); border: 1px solid var(--c); }
+.cmp-swatch.cmp-visual { border: 2px dashed var(--c); }
+.cmp-mark.cmp-removed, .cmp-mark.cmp-added, .cmp-mark.cmp-changed { background: color-mix(in srgb, var(--c) 32%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 70%, transparent); }
+.cmp-mark.cmp-removed { text-decoration: line-through; }
+/* El formato y el aspecto no tapan el texto: solo se subrayan o se enmarcan, y con otro trazo para no depender del color. */
+.cmp-mark.cmp-format { border-bottom: 2px dotted var(--c); mix-blend-mode: normal; }
+.cmp-mark.cmp-visual { border: 2px dashed var(--c); mix-blend-mode: normal; background: color-mix(in srgb, var(--c) 8%, transparent); }
+.cmp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

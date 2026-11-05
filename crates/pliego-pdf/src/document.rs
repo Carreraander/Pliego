@@ -3,8 +3,8 @@
 //!
 //! - No es `Send`: abrir y usar cada documento en un único hilo.
 //! - Los índices de página son `i32` desde 0.
-//! - Solo se abren PDF. Imágenes, texto, HTML, EPUB o XPS ya no se leen como documentos (las conversiones están en
-//!   `pliego-convert`).
+//! - Solo se abren PDF. Imágenes, texto, HTML, EPUB, CBZ o XPS ya no se leen como documentos (las conversiones están en
+//!   `pliego-convert`: `images_to_pdf`, `cbz_to_pdf`, `epub_to_pdf`, `xps_to_pdf`…).
 
 use std::ops::{Deref, DerefMut};
 use std::path::Path;

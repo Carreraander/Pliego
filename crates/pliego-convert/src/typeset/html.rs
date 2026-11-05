@@ -11,7 +11,11 @@
 //! `colspan`/`rowspan`, flex, grid, posicionamiento y caracteres fuera de Windows-1252 (se sustituyen por «?»).
 //! Se descarta el contenido de `head`, `script`, `style`, `svg`, `iframe` y similares.
 
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use pliego_core::Result;
+use pliego_pdf::native::Raster;
 use pulldown_cmark::{Alignment, BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, Tag, TagEnd};
 
 use super::Typeset;
@@ -24,6 +28,12 @@ const MAX_DEPTH: usize = 256;
 pub(super) fn typeset(html: &str, spec: &PageSpec) -> Result<Typeset> {
     let events = Translator::new().run(html);
     markdown::typeset_events(events, spec)
+}
+
+/// HTML con imágenes: `images` las da por el valor exacto de su `src`.
+pub(super) fn typeset_with_images(html: &str, spec: &PageSpec, images: HashMap<String, Rc<Raster>>) -> Result<Typeset> {
+    let events = Translator::new().run(html);
+    markdown::typeset_events_with(events, spec, images)
 }
 
 /// Elemento abierto que produce eventos.
@@ -269,18 +279,26 @@ impl Translator {
             }
             "hr" => {
                 self.end_inline_block();
-                self.emit(Event::Rule);
+                if attr(attrs, "class").is_some_and(|c| c.contains("pliego-pagebreak")) {
+                    self.emit(Event::Html(CowStr::from(format!("<!--{}-->", markdown::PAGE_BREAK))));
+                } else {
+                    self.emit(Event::Rule);
+                }
                 return;
             }
             "img" => {
-                if let Some(alt) = attr(attrs, "alt").filter(|a| !a.trim().is_empty()) {
+                let alt = attr(attrs, "alt").filter(|a| !a.trim().is_empty());
+                let src = attr(attrs, "src").unwrap_or_default();
+                if alt.is_some() || !src.is_empty() {
                     self.start(Tag::Image {
                         link_type: LinkType::Inline,
-                        dest_url: CowStr::from(String::new()),
+                        dest_url: CowStr::from(src),
                         title: CowStr::from(String::new()),
                         id: CowStr::from(String::new()),
                     });
-                    self.text_event(&alt);
+                    if let Some(alt) = alt {
+                        self.text_event(&alt);
+                    }
                     self.end(TagEnd::Image);
                 }
                 return;

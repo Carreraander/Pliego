@@ -10,10 +10,6 @@ repository.workspace = true
 pliego-core.workspace = true
 pliego-pdf.workspace = true
 
-[features]
-# Render y texto con PDFium (carga la DLL en tiempo de ejecución; véase `pliego_pdf::pdfium_init`).
-pdfium = ["pliego-pdf/pdfium"]
-
 [dev-dependencies]
 tempfile.workspace = true
 

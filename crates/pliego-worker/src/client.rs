@@ -28,9 +28,6 @@ pub struct WorkerConfig {
     pub debug: bool,
     /// Límite de memoria del proceso worker (solo Windows, mediante job object). `None` = sin límite.
     pub memory_limit: Option<usize>,
-    /// Motor de render y texto del worker (`PLIEGO_ENGINE`: `mupdf`, `pdfium` o `auto`). `None` = lo que diga el
-    /// entorno del proceso (por defecto `mupdf`; PDFium es opt-in con `pdfium` o `auto`).
-    pub engine: Option<String>,
 }
 
 impl WorkerConfig {
@@ -41,7 +38,6 @@ impl WorkerConfig {
             cache_bytes: 256 * 1024 * 1024,
             debug: false,
             memory_limit: Some(2 * 1024 * 1024 * 1024),
-            engine: None,
         }
     }
 
@@ -173,9 +169,6 @@ fn spawn(config: &WorkerConfig) -> io::Result<Proc> {
     cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     if config.debug {
         cmd.env("PLIEGO_WORKER_DEBUG", "1");
-    }
-    if let Some(engine) = &config.engine {
-        cmd.env("PLIEGO_ENGINE", engine);
     }
     #[cfg(windows)]
     {

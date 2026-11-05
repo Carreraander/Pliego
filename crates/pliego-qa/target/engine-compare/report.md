@@ -1,4 +1,4 @@
-# Comparación de motores: mupdf frente a mupdf
+# Comparación de motores: pdfium frente a pdfium
 
 Umbrales: tolerancia por canal 16, píxeles distintos ≤ 0.500 %, similitud de texto ≥ 0.980, 20 páginas máx.
 

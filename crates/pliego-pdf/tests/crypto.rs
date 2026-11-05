@@ -1,5 +1,5 @@
 //! Cifrado del motor nuevo (W40, bloque 7): lectura de PDF cifrados por **otro** productor (qpdf 11) con todos los
-//! algoritmos de la norma (RC4-40, RC4-128, AES-128, AES-256 R5 y R6), y escritura que qpdf y MuPDF aceptan.
+//! algoritmos de la norma (RC4-40, RC4-128, AES-128, AES-256 R5 y R6), y escritura que qpdf y PDFium aceptan.
 //!
 //! Los PDF de `tests/fixtures/crypto/` se generaron con qpdf (véase el `README.md` de esa carpeta). Cada uno es el
 //! mismo documento de prueba (`tests/corpus/basic/hola.pdf`, dos páginas, título «Documento de prueba») salvo los
@@ -10,7 +10,14 @@ use std::process::Command;
 
 use pliego_core::Error;
 use pliego_pdf::native::PdfDocument as Native;
-use pliego_pdf::{Document, Encryption, MetadataName, Permission, WriteOptions};
+use pliego_pdf::{
+    Document, Encryption, MetadataName, Permission, WriteOptions, pdfium_available, pdfium_init_from_environment,
+};
+
+/// `true` si PDFium está cargado; las comprobaciones que dibujan o extraen texto con él se omiten si no.
+fn pdfium() -> bool {
+    pdfium_available() || pdfium_init_from_environment().is_ok()
+}
 
 fn fixture(name: &str) -> Vec<u8> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -162,7 +169,7 @@ fn reads_every_algorithm_with_user_and_owner_passwords() {
     for c in CASES {
         let bytes = fixture(c.file);
         let locked = Native::from_bytes(&bytes).unwrap_or_else(|e| panic!("{}: {e}", c.file));
-        // Con contraseña de usuario vacía el documento se abre solo (como hace qpdf o MuPDF).
+        // Con contraseña de usuario vacía el documento se abre solo (como hace qpdf).
         let user_is_empty = c.user.is_empty();
         assert_eq!(locked.needs_password().unwrap(), !user_is_empty, "{}", c.file);
         if !user_is_empty {
@@ -217,13 +224,16 @@ fn reads_images_and_fonts_in_encrypted_files() {
     for (file, user) in [("r6-image.pdf", "u6"), ("r4-fonts.pdf", "u4"), ("r3-fonts.pdf", "u3")] {
         let bytes = fixture(file);
         let doc = Native::from_bytes_with_password(&bytes, Some(user)).unwrap();
-        // Descifrar es transparente: el resultado sin cifrar coincide con el original según MuPDF.
+        // Descifrar es transparente: el resultado sin cifrar coincide con el original según PDFium.
         let mut o = WriteOptions::new();
         o.set_encryption(Encryption::None);
         let clear = doc.to_bytes(&o).unwrap();
         let reopened = Document::from_bytes(&clear, "application/pdf").unwrap();
         assert!(!reopened.needs_password().unwrap(), "{file}");
         assert_eq!(reopened.page_count().unwrap(), doc.page_count().unwrap(), "{file}");
+        if !pdfium() {
+            continue;
+        }
         let text_of = |d: &Document| -> String {
             let mut s = String::new();
             for i in 0..d.page_count().unwrap() {
@@ -238,9 +248,9 @@ fn reads_images_and_fonts_in_encrypted_files() {
             }
             s
         };
-        let mut mupdf_enc = Document::from_bytes(&bytes, "application/pdf").unwrap();
-        assert!(mupdf_enc.authenticate(user).unwrap(), "{file}");
-        assert_eq!(text_of(&reopened), text_of(&mupdf_enc), "{file}");
+        let mut pdfium_enc = Document::from_bytes(&bytes, "application/pdf").unwrap();
+        assert!(pdfium_enc.authenticate(user).unwrap(), "{file}");
+        assert_eq!(text_of(&reopened), text_of(&pdfium_enc), "{file}");
         if file != "r6-image.pdf" {
             assert!(!text_of(&reopened).trim().is_empty(), "{file}: sin texto");
         }
@@ -288,7 +298,7 @@ fn qpdf(bytes: &[u8], args: &[&str], tag: &str) -> Option<(i32, String)> {
 }
 
 #[test]
-fn written_files_pass_qpdf_and_mupdf_for_every_algorithm() {
+fn written_files_pass_qpdf_and_pdfium_for_every_algorithm() {
     let hola = Native::from_bytes(&corpus("basic/hola.pdf")).unwrap();
     for enc in [
         Encryption::Rc4_40,
@@ -301,8 +311,8 @@ fn written_files_pass_qpdf_and_mupdf_for_every_algorithm() {
             .set_user_password("clave ñ")
             .set_owner_password("dueña");
         let out = hola.to_bytes(&o).unwrap();
-        // MuPDF (motor independiente) lo abre con ambas contraseñas.
-        for pw in ["clave ñ", "dueña"] {
+        // PDFium (motor independiente) lo abre con ambas contraseñas.
+        for pw in ["clave ñ", "dueña"].into_iter().filter(|_| pdfium()) {
             let mut m = Document::from_bytes(&out, "application/pdf").unwrap();
             assert!(m.needs_password().unwrap(), "{enc:?}");
             assert!(m.authenticate(pw).unwrap(), "{enc:?} con {pw:?}");
@@ -315,7 +325,7 @@ fn written_files_pass_qpdf_and_mupdf_for_every_algorithm() {
                 .unwrap();
             assert!(text.contains(HOLA), "{enc:?}");
         }
-        // qpdf (tercer motor) valida el cifrado y acepta las dos contraseñas.
+        // qpdf valida el cifrado y acepta las dos contraseñas.
         for pw in ["clave ñ", "dueña"] {
             if let Some((code, log)) = qpdf(&out, &["--check", &format!("--password={pw}")], "w") {
                 assert_eq!(code, 0, "{enc:?} con {pw:?}\n{log}");
@@ -353,9 +363,8 @@ fn written_files_pass_qpdf_and_mupdf_for_every_algorithm() {
 // --- Casos límite ---
 
 #[test]
-fn mupdf_written_encrypted_files_open_with_every_save_option() {
-    // MuPDF escribe el diccionario /Encrypt directo en el trailer (o en el flujo de referencias): lopdf solo lo
-    // admite indirecto, así que el modelo propio lo convierte al abrir.
+fn encrypted_files_open_with_every_save_option() {
+    // Todas las combinaciones de algoritmo y de flujos de objetos se pueden reabrir con la contraseña de usuario.
     let hola = pliego_pdf::PdfDocument::from_bytes(&corpus("basic/hola.pdf")).unwrap();
     for enc in [Encryption::Rc4_128, Encryption::Aes128, Encryption::Aes256] {
         for objstm in [false, true] {
@@ -363,9 +372,6 @@ fn mupdf_written_encrypted_files_open_with_every_save_option() {
             o.set_encryption(enc).set_user_password("u").set_owner_password("o");
             o.set_object_streams(objstm);
             let bytes = hola.to_bytes(&o).unwrap();
-            if std::env::var_os("DUMP").is_some() {
-                std::fs::write(format!("/tmp/mupdf-{enc:?}-{objstm}.pdf"), &bytes).unwrap();
-            }
             let doc = Native::from_bytes_with_password(&bytes, Some("u"))
                 .unwrap_or_else(|e| panic!("{enc:?} objstm={objstm}: {e}"));
             assert_eq!(doc.page_count().unwrap(), 2, "{enc:?} objstm={objstm}");

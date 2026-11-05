@@ -79,8 +79,19 @@ fn skewed_noisy_scan_with_deskew() {
         ..opts()
     };
     ocr_document(&input, &output, &o, &JobContext::silent()).unwrap();
-    let c = cer(&truth(), &extract_text(&output));
-    assert!(c < 0.03, "CER {c:.3}");
+    let got = extract_text(&output);
+    // La capa de texto sigue la inclinación del escaneo: las líneas derivan más que el interlineado y PDFium (que
+    // reordena por geometría, MuPDF seguía el orden del flujo) mezcla el orden de lectura de líneas vecinas. El
+    // reconocimiento se mide sin orden (las mismas palabras) y el orden solo en la primera línea.
+    let sorted = |t: &str| {
+        let mut w: Vec<&str> = t.split_whitespace().collect();
+        w.sort_unstable();
+        w.join(" ")
+    };
+    let c = cer(&sorted(&truth()), &sorted(&got));
+    assert!(c < 0.03, "CER (sin orden) {c:.3}");
+    let first: String = truth().split_whitespace().take(9).collect::<Vec<_>>().join(" ");
+    assert!(got.starts_with(&first), "primera línea: {got}");
 }
 
 #[test]

@@ -25,7 +25,7 @@ struct Args {
     /// Zona que debe quedar de un solo color: `pagina_desde_0,x0,y0,x1,y1` en puntos (repetible).
     #[arg(long = "region", value_parser = parse_region)]
     regions: Vec<Region>,
-    #[arg(long, default_value = "mupdf")]
+    #[arg(long, default_value = "pdfium")]
     engine: String,
 }
 

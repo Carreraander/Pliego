@@ -1,4 +1,4 @@
-//! Proceso `pliego-worker`: abre UN documento (PDFium o MuPDF) y atiende peticiones por stdin/stdout.
+//! Proceso `pliego-worker`: abre UN documento (lopdf + PDFium) y atiende peticiones por stdin/stdout.
 //! Si un PDF hostil tumba este proceso, la app sigue viva y lo relanza (ver `WorkerEngine`).
 
 // En Windows sin subsistema de consola: evita el conhost.exe colgado del proceso (stdio va por tuberías).
@@ -14,10 +14,8 @@ use pliego_worker::protocol::{
 };
 
 fn main() {
-    pliego_engine::init_fonts();
-    // MuPDF por defecto; PDFium es opt-in con `PLIEGO_ENGINE=pdfium` (obligatorio) o `auto` (si `pdfium.dll` está junto al
-    // ejecutable o en PLIEGO_PDFIUM_DLL). Un error aquí (p. ej. `pdfium` pedido y sin DLL) no impide arrancar: el documento falla al abrirse
-    // con un mensaje claro en lugar de dejar al worker sin responder.
+    // PDFium se carga de `pdfium.dll` junto al ejecutable o de PLIEGO_PDFIUM_DLL. Un error aquí no impide arrancar:
+    // dibujar y extraer texto fallan con un mensaje claro, y el resto de peticiones siguen funcionando.
     if let Err(e) = pliego_engine::configure_from_environment() {
         eprintln!("pliego-worker: {e}");
     }

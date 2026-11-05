@@ -74,30 +74,40 @@ impl PdfDocument {
     }
 
     fn render(&self, options: &WriteOptions) -> Result<Vec<u8>> {
-        let st = self.st.borrow();
-        if st.locked {
-            return Err(Error::Password);
-        }
-        if options.incremental {
-            return incremental(&st, options);
-        }
-        let mut doc = st.doc.clone();
-        let original_encryption = st.base.as_ref().and_then(|b| b.encryption_state.clone());
-        prepare(&mut doc, options, original_encryption)?;
-        let mut out = Vec::new();
-        if options.object_streams {
-            let so = SaveOptions::builder()
-                .use_object_streams(true)
-                .use_xref_streams(true)
-                .compression_level(6)
-                .build();
-            doc.save_with_options(&mut out, so).map_err(io_err)?;
-        } else {
-            doc.reference_table.cross_reference_type = XrefType::CrossReferenceTable;
-            doc.save_to(&mut out).map_err(io_err)?;
-        }
-        Ok(out)
+        render_state(&self.st.borrow(), options)
     }
+}
+
+/// Copia del estado tal como está, sin cifrar y sin tocar `unsaved`: es la que lee PDFium (véase `view.rs`).
+pub(crate) fn snapshot_clear(st: &State) -> Result<Vec<u8>> {
+    let mut options = WriteOptions::default();
+    options.set_encryption(Encryption::None);
+    render_state(st, &options)
+}
+
+fn render_state(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
+    if st.locked {
+        return Err(Error::Password);
+    }
+    if options.incremental {
+        return incremental(st, options);
+    }
+    let mut doc = st.doc.clone();
+    let original_encryption = st.base.as_ref().and_then(|b| b.encryption_state.clone());
+    prepare(&mut doc, options, original_encryption)?;
+    let mut out = Vec::new();
+    if options.object_streams {
+        let so = SaveOptions::builder()
+            .use_object_streams(true)
+            .use_xref_streams(true)
+            .compression_level(6)
+            .build();
+        doc.save_with_options(&mut out, so).map_err(io_err)?;
+    } else {
+        doc.reference_table.cross_reference_type = XrefType::CrossReferenceTable;
+        doc.save_to(&mut out).map_err(io_err)?;
+    }
+    Ok(out)
 }
 
 fn io_err(e: std::io::Error) -> Error {

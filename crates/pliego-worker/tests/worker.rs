@@ -9,15 +9,13 @@ fn hola() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/basic/hola.pdf")
 }
 
-fn config(engine: &str) -> WorkerConfig {
-    let mut cfg = WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"));
-    cfg.engine = Some(engine.into());
-    cfg
+fn config() -> WorkerConfig {
+    WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"))
 }
 
-/// Worker con MuPDF, aunque el entorno defina `PLIEGO_PDFIUM_DLL` o `PLIEGO_ENGINE`.
+/// Worker de prueba. PDFium se carga de `PLIEGO_PDFIUM_DLL`, que el worker hereda del entorno.
 fn engine() -> WorkerEngine {
-    WorkerEngine::new(config("mupdf"))
+    WorkerEngine::new(config())
 }
 
 fn tile() -> TileRequest {
@@ -75,7 +73,7 @@ fn recovers_when_worker_is_killed() {
 
 #[test]
 fn hung_worker_times_out_and_recovers() {
-    let mut cfg = config("mupdf");
+    let mut cfg = config();
     cfg.timeout = Duration::from_millis(1500);
     cfg.debug = true;
     let w = WorkerEngine::new(cfg).open(&hola(), None).unwrap();
@@ -92,7 +90,7 @@ fn hostile(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// PDF con un patrón de mosaico de paso 0,001: MuPDF no termina nunca. El worker lo corta por tiempo.
+/// PDF con un patrón de mosaico de paso 0,001: un motor ingenuo no termina nunca. El worker lo corta por tiempo.
 #[test]
 fn tiling_pattern_hang_is_contained() {
     let mut cfg = WorkerConfig::new(env!("CARGO_BIN_EXE_pliego-worker"));
@@ -188,7 +186,7 @@ fn reload_bytes_changes_content() {
     );
 }
 
-/// PDF hallado por el fuzzing: un marcador sin /Title tumbaba `Document::outlines` de MuPDF.
+/// PDF hallado por el fuzzing: un marcador sin /Title tumbaba `Document::outlines` del motor anterior.
 /// Ya no ocurre (recorrido propio de marcadores), y el documento sigue usable sin reinicios.
 #[test]
 fn outline_without_title_is_handled() {
@@ -321,43 +319,4 @@ fn unknown_layer_is_rejected_and_plain_pdfs_have_none() {
         doc.set_layer_visible(12345, false),
         Err(Error::InvalidInput(_))
     ));
-}
-
-/// El worker dibuja y extrae texto con PDFium cuando se le pide (`PLIEGO_ENGINE=pdfium`) y la DLL está disponible
-/// (`PLIEGO_PDFIUM_DLL`; sin ella la prueba se omite). El resultado cambia de pixel respecto a MuPDF, pero tamaño,
-/// texto y búsqueda coinciden.
-#[cfg(feature = "pdfium")]
-#[test]
-fn pdfium_worker_matches_mupdf_geometry_and_text() {
-    if !std::env::var_os("PLIEGO_PDFIUM_DLL").is_some_and(|p| std::path::Path::new(&p).is_file()) {
-        eprintln!("OMITIDA: define PLIEGO_PDFIUM_DLL con la ruta absoluta de la biblioteca de PDFium");
-        return;
-    }
-    let p = WorkerEngine::new(config("pdfium")).open(&hola(), None).unwrap();
-    let m = engine().open(&hola(), None).unwrap();
-    assert_eq!(p.info().unwrap(), m.info().unwrap());
-    assert_eq!(p.page_size(0).unwrap(), m.page_size(0).unwrap());
-    let (ip, im) = (p.render_page(0, 0.5).unwrap(), m.render_page(0, 0.5).unwrap());
-    assert_eq!((ip.width, ip.height), (im.width, im.height));
-    assert_ne!(ip.data, vec![255; ip.data.len()], "no debe salir en blanco");
-    let norm = |s: String| s.split_whitespace().collect::<Vec<_>>().join(" ");
-    assert_eq!(norm(p.page_text(0).unwrap()), norm(m.page_text(0).unwrap()));
-    assert_eq!(
-        p.search_page(1, "Pliego", 5).unwrap().quads.len(),
-        m.search_page(1, "Pliego", 5).unwrap().quads.len()
-    );
-    assert_eq!(p.restarts(), 0);
-}
-
-/// Pedir `pdfium` sin que la DLL esté junto al worker no lo tumba: el error de carga va a `stderr` y el documento se
-/// abre con MuPDF. (Se omite si el entorno ya aporta la DLL con `PLIEGO_PDFIUM_DLL`.)
-#[cfg(feature = "pdfium")]
-#[test]
-fn pdfium_requested_without_dll_still_opens_with_mupdf() {
-    if std::env::var_os("PLIEGO_PDFIUM_DLL").is_some() {
-        return;
-    }
-    let w = WorkerEngine::new(config("pdfium")).open(&hola(), None).unwrap();
-    assert_eq!(w.page_count().unwrap(), 2);
-    assert!(w.page_text(0).unwrap().contains("Hola Pliego"));
 }

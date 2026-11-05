@@ -7,8 +7,8 @@ license.workspace = true
 repository.workspace = true
 build = "build.rs"
 
-# Sin pruebas propias: el código con lógica vive en `pliego-app-service`. En Windows, WebView2 (CRT estático) y
-# MuPDF (CRT dinámico) no pueden enlazarse en un ejecutable de pruebas.
+# Sin pruebas propias: el código con lógica vive en `pliego-app-service`. En Windows, WebView2 (CRT estático) no puede
+# enlazarse en un ejecutable de pruebas.
 [lib]
 name = "pliego_app_lib"
 test = false

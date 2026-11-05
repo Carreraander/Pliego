@@ -19,7 +19,7 @@ pub struct PdfPage {
 
 const LETTER: Rect = Rect::new(0.0, 0.0, 612.0, 792.0);
 
-fn rect_of(o: &Object) -> Option<Rect> {
+pub(crate) fn rect_of(o: &Object) -> Option<Rect> {
     if !o.is_array().ok()? || o.len().ok()? < 4 {
         return None;
     }

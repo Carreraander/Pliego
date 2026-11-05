@@ -69,7 +69,7 @@ fn create_with_missing_file_fails_cleanly() {
 }
 
 #[test]
-fn export_html_svg_and_json() {
+fn export_html_and_json() {
     let dir = tempfile::tempdir().unwrap();
     let html = dir.path().join("o.html");
     let out = pliego()
@@ -81,17 +81,6 @@ fn export_html_svg_and_json() {
         .unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     assert!(std::fs::read_to_string(&html).unwrap().contains("Hola"));
-
-    let svgs = dir.path().join("svg");
-    let out = pliego()
-        .arg("export")
-        .arg(corpus())
-        .args(["--to", "svg", "-p", "1", "-o"])
-        .arg(&svgs)
-        .output()
-        .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    assert!(svgs.join("hola-001.svg").exists());
 
     let json = dir.path().join("o.json");
     let out = pliego()

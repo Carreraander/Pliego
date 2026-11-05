@@ -78,11 +78,11 @@ fn preset_and_text_stamps_are_visible_and_roundtrip() {
 fn image_stamp_keeps_aspect_ratio() {
     let dir = std::env::temp_dir().join(format!("pliego-annot-img-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let img = dir.join("firma.pnm");
-    // 4x2 píxeles negros (PNM binario).
-    let mut bytes = b"P6\n4 2\n255\n".to_vec();
-    bytes.extend(std::iter::repeat_n(0u8, 4 * 2 * 3));
-    std::fs::write(&img, bytes).unwrap();
+    let img = dir.join("firma.png");
+    // 4x2 píxeles negros.
+    let black =
+        pliego_pdf::Pixmap::from_samples(pliego_pdf::Colorspace::Rgb, 4, 2, false, vec![0u8; 4 * 2 * 3]).unwrap();
+    std::fs::write(&img, black.encode_png().unwrap()).unwrap();
     let mut doc = blank();
     add(
         &mut doc,

@@ -67,7 +67,7 @@ if (-not $SkipCargo) {
   Push-Location $repo
   try {
     $pkgs = @('-p', 'pliego-launcher', '-p', 'pliego-setup')
-    # Con -FakeApp no se compilan la CLI ni el worker (necesitan MuPDF): basta para probar el instalador.
+    # Con -FakeApp no se compilan la CLI ni el worker (necesitan PDFium y Tesseract): basta para probar el instalador.
     if (-not $FakeApp) { $pkgs += @('-p', 'pliego-cli', '-p', 'pliego-worker') }
     Invoke-Checked 'cargo' (@('build', '--release', '--locked') + $pkgs)
     if ($FakeApp) { Invoke-Checked 'cargo' @('build', '--release', '--locked', '-p', 'pliego-setup', '--example', 'fake_app') }
@@ -102,8 +102,8 @@ foreach ($n in 'pliego.exe', 'pliego-worker.exe') {
   if (Test-Path $src) { Copy-Item $src (Join-Path $stage $n) }
   elseif (-not $FakeApp) { throw "Falta $n en $target" }
 }
-# pdfium.dll (W37): render, texto y búsqueda. Solo la carga el worker, por ruta absoluta desde su propia carpeta (nunca
-# por PATH). Versión y hashes fijados en tools\pdfium\pdfium.lock.json: fetch-pdfium.ps1 verifica el .tgz y la DLL.
+# pdfium.dll (W37, W41): render, texto y búsqueda. Lo cargan el worker, la CLI y la app, por ruta absoluta desde la
+# carpeta de su ejecutable (nunca por PATH); por eso va en la raíz de la carpeta de la versión, junto a todos ellos. Versión y hashes fijados en tools\pdfium\pdfium.lock.json: fetch-pdfium.ps1 verifica el .tgz y la DLL.
 # PDFIUM_DIR (opcional) apunta a una carpeta ya descargada con pdfium.dll, LICENSE.pdfium y licenses\ (caché de acr12).
 # Los avisos de licencia (BSD-3/Apache-2.0 y terceros) se instalan en licenses\pdfium\ junto a la DLL.
 if (-not $FakeApp) {
@@ -118,7 +118,7 @@ if (-not $FakeApp) {
   New-Item -ItemType Directory -Force -Path $pdfiumLic | Out-Null
   Copy-Item (Join-Path $pdfiumDir 'LICENSE.pdfium') (Join-Path $pdfiumLic 'LICENSE.pdfium')
   if (Test-Path (Join-Path $pdfiumDir 'licenses')) { Copy-Item (Join-Path $pdfiumDir 'licenses\*') $pdfiumLic -Recurse -Force }
-  Write-Host "pdfium.dll $($pdfiumLock.version) ($($pdfiumLock.dll_version)) incluida junto al worker"
+  Write-Host "pdfium.dll $($pdfiumLock.version) ($($pdfiumLock.dll_version)) incluida junto a la app, la CLI y el worker"
 }
 # DLL de Tesseract y Leptonica (vcpkg, DLL dinámicas) junto a pliego.exe: sin ellas la CLI sale con 0xC0000135 en un equipo
 # sin vcpkg. Se toma la carpeta bin de vcpkg a partir de TESSERACT_LIB_DIR (..\bin) o, si no, del PATH.

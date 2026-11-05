@@ -192,7 +192,9 @@ fn watermark_text_front_and_behind() {
         let mut raw = Vec::new();
         d.write_to_with_options(&mut raw, &pliego_pdf::WriteOptions::default())
             .unwrap();
-        assert!(String::from_utf8_lossy(&raw).contains("/ca .25"));
+        assert!(
+            String::from_utf8_lossy(&raw).contains("/ca 0.25") || String::from_utf8_lossy(&raw).contains("/ca .25")
+        );
     }
 }
 

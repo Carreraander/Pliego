@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use pliego_core::{EngineDocument, Error, PdfEngine, Result};
-use pliego_engine_mupdf::MupdfEngine;
+use pliego_engine::DefaultEngine;
 
 /// Motor con documentos de tipo borrado, para poder elegirlo en tiempo de ejecución.
 pub trait DynEngine {
@@ -19,7 +19,7 @@ impl DynEngine for Mupdf {
         "mupdf"
     }
     fn open(&self, path: &Path) -> Result<Box<dyn EngineDocument>> {
-        Ok(Box::new(MupdfEngine.open(path, None)?))
+        Ok(Box::new(DefaultEngine.open(path, None)?))
     }
 }
 

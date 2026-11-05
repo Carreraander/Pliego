@@ -147,7 +147,7 @@ impl Index {
     /// Indexa (o actualiza) todos los PDFs de `folder`, recursivo. Los archivos cifrados o dañados se saltan con
     /// un aviso. Los que ya no existen en la carpeta salen del índice.
     pub fn add_folder(&self, folder: &Path, ctx: &JobContext) -> Result<Report> {
-        pliego_engine_mupdf::init_fonts();
+        pliego_engine::init_fonts();
         let mut files = Vec::new();
         list_pdfs(folder, &mut files)?;
         let root = folder.canonicalize().map_err(|e| Error::io_at(folder, e))?;

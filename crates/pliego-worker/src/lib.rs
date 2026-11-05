@@ -2,7 +2,7 @@
 //!
 //! - [`protocol`]: mensajes entre la app y el proceso `pliego-worker`.
 //! - [`WorkerEngine`]: implementa `PdfEngine`/`EngineDocument` hablando con el worker, intercambiable
-//!   con `MupdfEngine`. Si el worker cae o deja de responder, se relanza y se reabre el documento.
+//!   con `DefaultEngine`. Si el worker cae o deja de responder, se relanza y se reabre el documento.
 //! - [`TileCache`]: caché LRU de teselas con límite de memoria.
 
 pub mod cache;

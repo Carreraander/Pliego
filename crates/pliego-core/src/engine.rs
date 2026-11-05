@@ -1,4 +1,4 @@
-//! Abstracción del motor de render. La implementación por defecto es `pliego-engine-mupdf`.
+//! Abstracción del motor de render. La implementación por defecto es `pliego-engine`.
 //!
 //! Los documentos del motor NO son `Send` (MuPDF usa contextos por hilo): la app abre cada
 //! documento en un hilo dedicado y le envía peticiones por canal.

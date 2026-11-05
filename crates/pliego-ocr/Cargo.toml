@@ -16,7 +16,7 @@ sha2 = "0.10"
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 
 [dev-dependencies]
-pliego-engine-mupdf.workspace = true
+pliego-engine.workspace = true
 
 [lints]
 workspace = true

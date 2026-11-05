@@ -1,5 +1,5 @@
 [package]
-name = "pliego-engine-mupdf-fuzz"
+name = "pliego-engine-fuzz"
 version = "0.0.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
@@ -11,7 +11,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 pliego-core = { path = "../../pliego-core" }
-pliego-engine-mupdf = { path = ".." }
+pliego-engine = { path = ".." }
 
 # Fuera del workspace principal: se compila solo con `cargo +nightly fuzz`.
 [workspace]

@@ -54,6 +54,6 @@ encuentra nada. **Límites conocidos:** no descifra (pásale un PDF sin cifrar),
 
 ## Fuzzing
 
-El fuzzing con libFuzzer del motor actual sigue en `crates/pliego-engine-mupdf/fuzz` (`tools/fuzz.sh`, `fuzz.yml`).
+El fuzzing con libFuzzer del motor actual sigue en `crates/pliego-engine/fuzz` (`tools/fuzz.sh`, `fuzz.yml`).
 `--mutate` es el humo en estable que corre contra cualquier motor; el objetivo de libFuzzer del motor nuevo lo añade
 quien lo implemente (W37) copiando ese directorio.

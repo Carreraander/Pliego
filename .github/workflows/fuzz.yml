@@ -29,8 +29,8 @@ jobs:
         with:
           path: |
             ~/.cargo/registry
-            crates/pliego-engine-mupdf/fuzz/target
-          key: fuzz-${{ hashFiles('crates/pliego-engine-mupdf/fuzz/Cargo.toml') }}
+            crates/pliego-engine/fuzz/target
+          key: fuzz-${{ hashFiles('crates/pliego-engine/fuzz/Cargo.toml') }}
       - name: Fuzzing
         run: tools/fuzz.sh "${{ inputs.seconds || '3600' }}"
       - name: Subir fallos
@@ -38,5 +38,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-artifacts
-          path: crates/pliego-engine-mupdf/fuzz/artifacts/
+          path: crates/pliego-engine/fuzz/artifacts/
           if-no-files-found: ignore

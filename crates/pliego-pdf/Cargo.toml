@@ -1,0 +1,18 @@
+[package]
+name = "pliego-pdf"
+description = "Capa propia de acceso a PDF: tipos y operaciones de Pliego sobre el motor (hoy MuPDF; mañana PDFium + lopdf)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pliego-core.workspace = true
+mupdf.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

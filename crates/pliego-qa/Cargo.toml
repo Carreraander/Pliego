@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 pliego-core.workspace = true
-pliego-engine-mupdf.workspace = true
+pliego-engine.workspace = true
 pliego-worker = { path = "../pliego-worker" }
 anyhow.workspace = true
 clap.workspace = true

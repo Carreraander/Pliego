@@ -32,6 +32,7 @@ mod object;
 mod outline;
 mod page;
 mod parse;
+mod raster;
 mod save;
 mod tree;
 
@@ -42,6 +43,7 @@ pub use document::PdfDocument;
 pub use graft::GraftMap;
 pub use object::Object;
 pub use page::PdfPage;
+pub use raster::Raster;
 
 use std::cell::RefCell;
 use std::collections::BTreeSet;

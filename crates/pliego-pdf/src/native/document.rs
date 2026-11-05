@@ -43,7 +43,7 @@ impl PdfDocument {
         }
     }
 
-    fn guard(&self) -> Result<()> {
+    pub(crate) fn guard(&self) -> Result<()> {
         if self.st.borrow().locked {
             Err(Error::Password)
         } else {

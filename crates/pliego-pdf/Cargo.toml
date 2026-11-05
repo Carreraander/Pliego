@@ -13,6 +13,10 @@ mupdf.workspace = true
 lopdf = { version = "0.46", default-features = false }
 md-5 = "0.11"
 getrandom = "0.4"
+# Imágenes de mapa de bits a PDF sin MuPDF (W40): `image` para PNG/WebP/GIF/BMP y respaldo de JPEG, `tiff` para las
+# páginas de un TIFF. Solo decodifican (sin codificadores): el JPEG se incrusta tal cual.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+tiff = "0.11"
 serde.workspace = true
 pdfium-render = { workspace = true, optional = true }
 

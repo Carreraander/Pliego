@@ -3,12 +3,12 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use mupdf::pdf::{PdfDocument, PdfObject};
 use pliego_core::Result;
+use pliego_pdf::{Object, PdfDocument};
 use serde::{Deserialize, Serialize};
 
 use crate::Level;
-use crate::io::{name_of, open_pdf, pdf_err, xref_of};
+use crate::io::{name_of, open_pdf, xref_of};
 use crate::util::{array_items, entries, get};
 
 const MAX_DEPTH: usize = 32;
@@ -105,7 +105,7 @@ impl Ctx<'_> {
         }
     }
     /// Devuelve `false` si el objeto ya se visitó o se agotó el presupuesto.
-    fn enter(&mut self, obj: &PdfObject) -> bool {
+    fn enter(&mut self, obj: &Object) -> bool {
         if self.budget == 0 {
             self.truncated = true;
             return false;
@@ -120,13 +120,13 @@ fn page_label(page: Option<usize>) -> String {
     page.map(|p| format!(" (página {})", p + 1)).unwrap_or_default()
 }
 
-fn has_lzw(stream: &PdfObject) -> bool {
+fn has_lzw(stream: &Object) -> bool {
     let Some(f) = get(stream, "Filter") else { return false };
-    let is_lzw = |o: &PdfObject| o.as_name().is_ok_and(|n| n == b"LZWDecode" || n == b"LZW");
+    let is_lzw = |o: &Object| o.as_name().is_ok_and(|n| n == b"LZWDecode" || n == b"LZW");
     is_lzw(&f) || array_items(&f).iter().any(is_lzw)
 }
 
-fn check_stream_basics(ctx: &mut Ctx, stream: &PdfObject, page: Option<usize>) {
+fn check_stream_basics(ctx: &mut Ctx, stream: &Object, page: Option<usize>) {
     if has_lzw(stream) {
         ctx.add_once(
             Rule::LzwFilter,
@@ -143,7 +143,7 @@ fn check_stream_basics(ctx: &mut Ctx, stream: &PdfObject, page: Option<usize>) {
     }
 }
 
-fn check_action(ctx: &mut Ctx, action: &PdfObject, page: Option<usize>, depth: usize) {
+fn check_action(ctx: &mut Ctx, action: &Object, page: Option<usize>, depth: usize) {
     if depth > 16 || !action.is_dict().unwrap_or(false) {
         return;
     }
@@ -180,7 +180,7 @@ fn check_action(ctx: &mut Ctx, action: &PdfObject, page: Option<usize>, depth: u
     }
 }
 
-fn check_additional_actions(ctx: &mut Ctx, holder: &PdfObject, page: Option<usize>) {
+fn check_additional_actions(ctx: &mut Ctx, holder: &Object, page: Option<usize>) {
     if let Some(aa) = get(holder, "AA") {
         for (_, a) in entries(&aa) {
             check_action(ctx, &a, page, 0);
@@ -188,13 +188,13 @@ fn check_additional_actions(ctx: &mut Ctx, holder: &PdfObject, page: Option<usiz
     }
 }
 
-fn font_has_file(desc: &PdfObject) -> bool {
+fn font_has_file(desc: &Object) -> bool {
     ["FontFile", "FontFile2", "FontFile3"]
         .iter()
         .any(|k| get(desc, k).is_some())
 }
 
-fn check_font(ctx: &mut Ctx, font: &PdfObject, page: usize) {
+fn check_font(ctx: &mut Ctx, font: &Object, page: usize) {
     if !font.is_dict().unwrap_or(false) || !ctx.enter(font) {
         return;
     }
@@ -227,7 +227,7 @@ fn check_font(ctx: &mut Ctx, font: &PdfObject, page: usize) {
     }
 }
 
-fn check_gstate(ctx: &mut Ctx, gs: &PdfObject, page: usize) {
+fn check_gstate(ctx: &mut Ctx, gs: &Object, page: usize) {
     if ctx.level.allows_transparency() || !ctx.enter(gs) {
         return;
     }
@@ -251,7 +251,7 @@ fn check_gstate(ctx: &mut Ctx, gs: &PdfObject, page: usize) {
     }
 }
 
-fn check_resources(ctx: &mut Ctx, res: &PdfObject, page: usize, depth: usize) {
+fn check_resources(ctx: &mut Ctx, res: &Object, page: usize, depth: usize) {
     if depth > MAX_DEPTH || !res.is_dict().unwrap_or(false) {
         return;
     }
@@ -308,7 +308,7 @@ fn check_resources(ctx: &mut Ctx, res: &PdfObject, page: usize, depth: usize) {
     }
 }
 
-fn check_annotations(ctx: &mut Ctx, page_obj: &PdfObject, page: usize) {
+fn check_annotations(ctx: &mut Ctx, page_obj: &Object, page: usize) {
     let Some(annots) = get(page_obj, "Annots") else { return };
     for a in array_items(&annots).into_iter().take(10_000) {
         if !a.is_dict().unwrap_or(false) {
@@ -368,8 +368,8 @@ fn check_annotations(ctx: &mut Ctx, page_obj: &PdfObject, page: usize) {
 
 fn check_catalog(ctx: &mut Ctx) -> Result<()> {
     let level = ctx.level;
-    let catalog = ctx.doc.catalog().map_err(pdf_err)?;
-    let trailer = ctx.doc.trailer().map_err(pdf_err)?;
+    let catalog = ctx.doc.catalog()?;
+    let trailer = ctx.doc.trailer()?;
 
     if get(&trailer, "Encrypt").is_some() {
         ctx.add(
@@ -499,9 +499,9 @@ pub fn validate_doc(doc: &PdfDocument, level: Level) -> Result<Validation> {
         reported: HashSet::new(),
     };
     check_catalog(&mut ctx)?;
-    for p in 0..doc.page_count().map_err(pdf_err)?.max(0) as usize {
-        let page = doc.find_page(p as i32).map_err(pdf_err)?;
-        if let Some(res) = page.get_dict_inheritable("Resources").map_err(pdf_err)? {
+    for p in 0..doc.page_count()?.max(0) as usize {
+        let page = doc.find_page(p as i32)?;
+        if let Some(res) = page.get_dict_inheritable("Resources")? {
             check_resources(&mut ctx, &res, p, 0);
         }
         if let Some(g) = get(&page, "Group")

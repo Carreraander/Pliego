@@ -28,6 +28,7 @@
 
 mod annot;
 mod appearance;
+mod content;
 mod document;
 mod flatten;
 mod font;
@@ -39,6 +40,7 @@ mod object;
 mod outline;
 mod page;
 mod parse;
+mod raster;
 mod redact;
 mod save;
 mod tree;
@@ -62,6 +64,7 @@ pub use graft::GraftMap;
 pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageOptions, PageImageInfo};
 pub use object::Object;
 pub use page::PdfPage;
+pub use raster::Raster;
 pub use redact::RedactReport;
 pub use widget::PdfWidget;
 

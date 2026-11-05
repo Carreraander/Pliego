@@ -726,9 +726,40 @@ impl PdfDocument {
 
     /// Serializa el documento a `w` con las opciones dadas.
     pub fn write_to_with_options<W: Write>(&self, w: &mut W, options: &WriteOptions) -> Result<u64> {
+        if let Some(bytes) = self.encrypt_with_native(options)? {
+            w.write_all(&bytes)?;
+            return Ok(bytes.len() as u64);
+        }
         self.pdf()
             .write_to_with_options(w, write_options_to(options))
             .map_err(err)
+    }
+
+    /// Con [`crate::CryptoBackend::Native`] y un cifrado nuevo en `options`: serializa sin cifrar con MuPDF y cifra
+    /// con el modelo propio. `None` si no corresponde (otro motor, sin cifrado nuevo o guardado incremental).
+    fn encrypt_with_native(&self, options: &WriteOptions) -> Result<Option<Vec<u8>>> {
+        let new_cipher = matches!(
+            options.encryption,
+            Encryption::Rc4_40 | Encryption::Rc4_128 | Encryption::Aes128 | Encryption::Aes256
+        );
+        if !new_cipher || options.incremental || crate::engine::crypto_backend() != crate::CryptoBackend::Native {
+            return Ok(None);
+        }
+        let mut plain = options.clone();
+        plain.encryption = Encryption::None;
+        plain.permissions = None;
+        plain.owner_password.clear();
+        plain.user_password.clear();
+        let mut buf = Vec::new();
+        self.pdf()
+            .write_to_with_options(&mut buf, write_options_to(&plain))
+            .map_err(err)?;
+        // MuPDF ya aplicó limpieza, descompresión y demás: el cifrado solo añade el diccionario y cifra.
+        let mut native_opts = options.clone();
+        native_opts.garbage_level = 0;
+        native_opts.decompress = false;
+        let doc = crate::native::PdfDocument::from_bytes(&buf)?;
+        doc.to_bytes(&native_opts).map(Some)
     }
 
     /// Serializa con las opciones por defecto.
@@ -746,6 +777,10 @@ impl PdfDocument {
     /// Escribe directamente en `path` (no atómico: para guardado seguro usa `pliego-document`). Con
     /// `incremental`, `path` debe ser una copia del archivo de origen.
     pub fn save_with_options(&self, path: impl AsRef<Path>, options: &WriteOptions) -> Result<()> {
+        if let Some(bytes) = self.encrypt_with_native(options)? {
+            let path = path.as_ref();
+            return std::fs::write(path, bytes).map_err(|e| Error::io_at(path, e));
+        }
         self.pdf()
             .save_with_options(path_str(path.as_ref())?, write_options_to(options))
             .map_err(err)

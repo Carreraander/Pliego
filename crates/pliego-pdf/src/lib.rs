@@ -45,9 +45,9 @@ pub use annot::{
 };
 pub use document::{Document, GraftMap, PdfDocument};
 pub use engine::{
-    RenderBackend, configure_from_environment, default_render_backend, pdfium_available, pdfium_default_path,
-    pdfium_fallback, pdfium_init, pdfium_init_from_environment, pdfium_library_name, set_default_render_backend,
-    set_pdfium_fallback,
+    CryptoBackend, RenderBackend, configure_from_environment, crypto_backend, default_render_backend, pdfium_available,
+    pdfium_default_path, pdfium_fallback, pdfium_init, pdfium_init_from_environment, pdfium_library_name,
+    set_crypto_backend, set_default_render_backend, set_pdfium_fallback,
 };
 pub use font::{Font, PathWalker, SimpleFontEncoding};
 pub use fonts::{SystemFonts, init_fonts};

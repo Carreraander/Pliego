@@ -97,7 +97,16 @@ anchos, CMap predefinidos) se trata entero como sospechoso; nunca se adivina un 
 W39 completa `native` por partes (estado y límites en `docs/handoff/flujos/w39.md`): **anotaciones** (`annot.rs`, con sus
 apariencias en `appearance.rs`, escritas desde la especificación PDF y no desde MuPDF), **campos de formulario y aplanado**
 (`widget.rs`, `formap.rs`, `flatten.rs`; sin JavaScript), **fuentes** (`font.rs`, las 14 estándar con Liberation/OFL en
-`crates/pliego-pdf/fonts/liberation/`) e **imágenes** (`image.rs`, solo PNG y JPEG). Una anotación solo regenera su apariencia si algo la cambió (`State::annot_dirty`).
+`crates/pliego-pdf/fonts/liberation/`), **imágenes** (`image.rs`, solo PNG y JPEG al crearlas) y **recorrido del contenido** (`content.rs`, `image_placements`). Una anotación solo regenera su apariencia si algo la cambió (`State::annot_dirty`).
+
+### Cifrado (W40)
+El cifrado de lectura (RC4-40, RC4-128, AES-128, AES-256 R5/R6; contraseñas de usuario y de propietario; permisos) y
+de escritura (los mismos, con AES-256 R6 por defecto) vive en `pliego_pdf::native` y está probado con PDF de qpdf
+(`crates/pliego-pdf/tests/fixtures/crypto/`). Mientras el modelo de objetos de la raíz siga siendo MuPDF, la capa solo
+delega la **escritura**: con `PLIEGO_CRYPTO=native` (o `set_crypto_backend(CryptoBackend::Native)`) MuPDF serializa el
+documento sin cifrar y lo cifra el modelo propio. **Leer** un PDF cifrado sigue haciéndolo MuPDF hasta que el modelo
+pase a `native` (W41): descifrar a una copia perdería el `/Encrypt`, los permisos y el `Keep` del original. Por defecto
+`PLIEGO_CRYPTO` es `mupdf`. Detalle en `docs/handoff/flujos/w40.md`.
 
 ## Rendimiento objetivo (medido en acr12)
 Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB, instalador < 40 MB.

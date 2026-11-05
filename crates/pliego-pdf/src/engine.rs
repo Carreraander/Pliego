@@ -145,9 +145,10 @@ pub fn pdfium_init_from_environment() -> Result<PathBuf> {
 
 /// Configuración común de los programas de Pliego (worker, app, CLI) según el entorno:
 ///
-/// - `PLIEGO_ENGINE=mupdf`: MuPDF, sin cargar PDFium.
+/// - sin variable (o vacía) y `PLIEGO_ENGINE=mupdf`: MuPDF, sin cargar PDFium. **PDFium es opt-in** hasta que se decida
+///   lo contrario (W41).
 /// - `PLIEGO_ENGINE=pdfium`: PDFium obligatorio; si la DLL no carga, error.
-/// - sin variable o `auto`: PDFium si la DLL carga, MuPDF si no (se avisa por `stderr`).
+/// - `PLIEGO_ENGINE=auto`: PDFium si la DLL carga, MuPDF si no (se avisa por `stderr`).
 ///
 /// En los modos que usan PDFium se activa el respaldo a MuPDF por documento ([`set_pdfium_fallback`]) salvo con
 /// `PLIEGO_PDFIUM_STRICT=1`. Devuelve el motor por defecto resultante.
@@ -156,11 +157,11 @@ pub fn configure_from_environment() -> Result<RenderBackend> {
     let requested = requested.trim().to_ascii_lowercase();
     let strict = std::env::var("PLIEGO_PDFIUM_STRICT").is_ok_and(|v| v == "1");
     match requested.as_str() {
-        "mupdf" => {
+        "" | "mupdf" => {
             set_default_render_backend(RenderBackend::Mupdf)?;
             Ok(RenderBackend::Mupdf)
         }
-        "" | "auto" | "pdfium" => {
+        "auto" | "pdfium" => {
             let must = requested == "pdfium";
             match pdfium_init_from_environment() {
                 Ok(_) => {

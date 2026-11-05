@@ -15,8 +15,8 @@ use pliego_worker::protocol::{
 
 fn main() {
     pliego_engine::init_fonts();
-    // PDFium si `pdfium.dll` está junto al ejecutable (o PLIEGO_PDFIUM_DLL); si no, MuPDF. `PLIEGO_ENGINE=mupdf|pdfium`
-    // lo fuerza. Un error aquí (p. ej. `pdfium` pedido y sin DLL) no impide arrancar: el documento falla al abrirse
+    // MuPDF por defecto; PDFium es opt-in con `PLIEGO_ENGINE=pdfium` (obligatorio) o `auto` (si `pdfium.dll` está junto al
+    // ejecutable o en PLIEGO_PDFIUM_DLL). Un error aquí (p. ej. `pdfium` pedido y sin DLL) no impide arrancar: el documento falla al abrirse
     // con un mensaje claro en lugar de dejar al worker sin responder.
     if let Err(e) = pliego_engine::configure_from_environment() {
         eprintln!("pliego-worker: {e}");

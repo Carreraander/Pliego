@@ -26,6 +26,7 @@ mod fonts;
 mod geom;
 mod image;
 mod links;
+pub mod native;
 mod object;
 mod options;
 mod outline;

@@ -29,7 +29,7 @@ pub struct WorkerConfig {
     /// Límite de memoria del proceso worker (solo Windows, mediante job object). `None` = sin límite.
     pub memory_limit: Option<usize>,
     /// Motor de render y texto del worker (`PLIEGO_ENGINE`: `mupdf`, `pdfium` o `auto`). `None` = lo que diga el
-    /// entorno del proceso (por defecto `auto`: PDFium si `pdfium.dll` está junto al worker, MuPDF si no).
+    /// entorno del proceso (por defecto `mupdf`; PDFium es opt-in con `pdfium` o `auto`).
     pub engine: Option<String>,
 }
 

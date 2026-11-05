@@ -927,6 +927,16 @@ fn glyph_runs(text: &str, indices: &str, font: &Font) -> Vec<GlyphRun> {
     for entry in indices.split(';') {
         let mut e = entry.trim();
         if e.is_empty() {
+            // Entrada vacía: glifo por defecto de la cmap para el siguiente carácter (Windows escribe
+            // `;;;,26` y deja los índices en blanco). Si ya no quedan caracteres es un `;` sobrante.
+            if let Some(c) = chars.next() {
+                out.push(GlyphRun {
+                    gid: map(Some(c)),
+                    advance: None,
+                    dx: 0.0,
+                    dy: 0.0,
+                });
+            }
             continue;
         }
         // Agrupación `(n:m)`: n caracteres → m glifos. Se usa solo para saber cuántos caracteres se consumen.
@@ -950,6 +960,13 @@ fn glyph_runs(text: &str, indices: &str, font: &Font) -> Vec<GlyphRun> {
         let dy = num(f.next()).unwrap_or(0.0);
         out.push(GlyphRun { gid, advance, dx, dy });
     }
+    // La lista de índices puede ser más corta que `UnicodeString`: el resto se mapea con la cmap.
+    out.extend(chars.map(|c| GlyphRun {
+        gid: map(Some(c)),
+        advance: None,
+        dx: 0.0,
+        dy: 0.0,
+    }));
     out
 }
 
@@ -1292,6 +1309,29 @@ mod tests {
             })
         );
         assert_eq!(parse_color("rojo"), None);
+    }
+
+    #[test]
+    fn empty_indices_use_the_default_glyph() {
+        let bytes = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../pliego-pdf/fonts/liberation/LiberationSans-Regular.ttf"),
+        )
+        .unwrap();
+        let font = Font::from_bytes("Liberation", &bytes).unwrap();
+        let gid = |c: char| font.encode_character(c as i32).unwrap();
+        // Lo que escribe Windows: entradas vacías y una lista más corta que el texto.
+        let runs = glyph_runs("Pagina 1", ";;;;;,26", &font);
+        let gids: Vec<i32> = runs.iter().map(|r| r.gid).collect();
+        let want: Vec<i32> = "Pagina 1".chars().map(gid).collect();
+        assert_eq!(gids, want);
+        assert_eq!(runs[5].advance, Some(26.0));
+        assert!(runs[..5].iter().all(|r| r.advance.is_none()));
+        // Un `;` sobrante al final no añade glifos.
+        assert_eq!(glyph_runs("ab", ";;;", &font).len(), 2);
+        // Índices explícitos y vacíos mezclados.
+        let runs = glyph_runs("AB", ",300;", &font);
+        assert_eq!((runs.len(), runs[0].advance, runs[1].gid), (2, Some(300.0), gid('B')));
     }
 
     #[test]

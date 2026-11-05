@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Download Pliego for Windows · Free PDF editor</title>
+<meta name="description" content="Download Pliego, the free PDF editor for Windows 10 and 11. Per-user installer, no admin rights needed, Ed25519-signed updates.">
+<link rel="canonical" href="https://pdfpliego.com/download/">
+<link rel="alternate" hreflang="en" href="https://pdfpliego.com/download/">
+<link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/descargar/">
+<link rel="alternate" hreflang="x-default" href="https://pdfpliego.com/download/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#f2f3f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1d1c" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="logo" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/></symbol>
+<symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5h12v5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5zM16.5 11h1.5a2.5 2.5 0 0 1 0 5h-1.8M8 3.5c-.8 1 .8 2 0 3M11.5 3.5c-.8 1 .8 2 0 3"/></symbol>
+</defs></svg>
+<header class="site-header">
+  <div class="sheet">
+    <a class="brand" href="/" aria-label="Pliego, home"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
+    <nav class="site-nav" aria-label="Sections"><a href="/#features">Features</a><a href="/#price">Price</a><a href="/#privacy">Privacy</a><a href="/#faq">FAQ</a><a href="/es/descargar/" hreflang="es" lang="es">Español</a></nav>
+    <a class="btn btn-coffee btn-sm hide-xs" href="/#support"><svg aria-hidden="true"><use href="#i-coffee"/></svg>Support</a>
+    <a class="btn btn-primary btn-sm" href="/download/"><svg aria-hidden="true"><use href="#i-down"/></svg>Download</a>
+  </div>
+</header>
+<main id="content" class="doc"><div class="sheet"><div class="prose">
+<h1>Download Pliego for Windows</h1>
+<!-- PRE-RELEASE: replace this notice with the download button when the first version ships (see web/README.md). -->
+<div class="notice"><strong>Pliego is in pre-release.</strong> The first public beta will be published on this page. Until then you can follow the project or build it from the <a href="https://github.com/Carreraander/Pliego">source code</a>.</div>
+<div class="cta-row"><a class="btn btn-quiet" href="https://github.com/Carreraander/Pliego"><svg aria-hidden="true"><use href="#i-code"/></svg>Follow the project on GitHub</a></div>
+<h2>Requirements</h2>
+<ul><li>Windows 10 or Windows 11, 64-bit.</li><li>WebView2, which comes with Windows 11 and with an up-to-date Windows 10. If it is missing, the installer downloads it from Microsoft.</li><li>No administrator rights needed: Pliego installs for your user. To install it for every user on the PC, choose that option in the installer.</li></ul>
+<h2>Installing</h2>
+<ul><li>Run <strong>Pliego Setup</strong> and click Install. You can make Pliego your default PDF app from the installer itself.</li><li>To install it silently on many PCs: <span class="mono">Pliego-Setup.exe --silent</span>.</li><li>To uninstall it, use Windows Settings &gt; Apps, like any other program.</li></ul>
+<h2>Checking the download</h2>
+<p>Each release publishes its SHA-256 checksum next to the installer. In PowerShell, run <span class="mono">Get-FileHash .\Pliego-Setup.exe</span> and compare the result.</p>
+<h2>Updates</h2>
+<p>Pliego checks for updates signed with Ed25519 and tells you before installing them. If a new version fails to start, it goes back to the previous one on its own. You can turn updates off in Settings &gt; Updates.</p>
+</div></div></main>
+<footer class="site-footer">
+  <div class="sheet">
+    <div class="foot-cols">
+      <a class="brand" href="/" aria-label="Pliego, home"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
+      <nav aria-label="Product"><h2>Product</h2><a href="/download/">Download</a><a href="/#features">Features</a><a href="/#faq">Questions</a></nav>
+      <nav aria-label="Project"><h2>Project</h2><a href="https://github.com/Carreraander/Pliego">Source code</a><a href="https://github.com/Carreraander/Pliego/issues">Report a bug</a><a href="https://github.com/Carreraander/Pliego/blob/main/LICENSE">Licence</a><a href="/#support">Buy me a coffee</a></nav>
+      <nav aria-label="This site"><h2>This site</h2><a href="/privacy/">Privacy</a><a href="/es/descargar/" hreflang="es" lang="es">Español</a></nav>
+    </div>
+    <div class="legal">
+      <p>Pliego builds on PDFium, lopdf, Boa and Tesseract, among other components. See the <a href="https://github.com/Carreraander/Pliego/blob/main/THIRD-PARTY.md">third-party notices</a>.</p>
+      <p>Adobe and Acrobat are registered trademarks of Adobe Inc. in the United States and other countries. Microsoft, Windows, Word, Excel and PowerPoint are trademarks of Microsoft Corporation. Pliego is an independent project and is not affiliated with these companies.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

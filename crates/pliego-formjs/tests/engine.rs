@@ -626,3 +626,15 @@ fn set_action_stores_scripts() {
     }));
     assert!(!e.commit("a", "x").accepted, "la acción nueva se aplica");
 }
+
+#[test]
+fn document_scripts_run_without_a_target_field() {
+    let mut e = engine(vec![text("log")]);
+    let out = e.run_document_script(
+        "this.getField('log').value = event.type + '/' + event.name + '/' + (event.target === null);",
+        "WillSave",
+    );
+    assert!(out.errors.is_empty(), "{:?}", out.errors);
+    assert_eq!(value(&e, "log"), "Doc/WillSave/true");
+    assert!(out.changed_values().contains(&"log"));
+}

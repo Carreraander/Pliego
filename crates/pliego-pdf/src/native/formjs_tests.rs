@@ -436,3 +436,154 @@ fn fixture_form_with_every_field_type() {
     assert_eq!(value(&doc, "pais").as_deref(), Some("FR"));
     assert_eq!(value(&doc, "nombre").as_deref(), Some("Ana"));
 }
+
+#[test]
+fn keystroke_filters_typing_per_field() {
+    let specs = [
+        Spec {
+            name: "n",
+            extra: aa("K", "AFNumber_Keystroke(2, 0, 0, 0, '', false);"),
+        },
+        Spec {
+            name: "mayus",
+            extra: aa("K", "if (!event.willCommit) event.change = event.change.toUpperCase();"),
+        },
+        Spec {
+            name: "libre",
+            extra: String::new(),
+        },
+    ];
+    let mut doc = reopen(&doc_with(&specs, &[], None));
+    let page = doc.load_pdf_page(0).unwrap();
+    let get = |n: &str| {
+        page.widgets()
+            .find(|w| w.name().unwrap().as_deref() == Some(n))
+            .unwrap()
+    };
+    let (mut n, mut mayus, mut libre) = (get("n"), get("mayus"), get("libre"));
+    // Sin enable_js todo se acepta.
+    assert_eq!(n.keystroke(&mut doc, "x", "", (0, 0)).unwrap(), (true, "x".into()));
+    doc.enable_js().unwrap();
+    assert_eq!(n.keystroke(&mut doc, "7", "12", (2, 2)).unwrap(), (true, "7".into()));
+    assert!(!n.keystroke(&mut doc, "x", "12", (2, 2)).unwrap().0);
+    assert_eq!(
+        mayus.keystroke(&mut doc, "abc", "", (0, 0)).unwrap(),
+        (true, "ABC".into())
+    );
+    assert_eq!(libre.keystroke(&mut doc, "q", "", (0, 0)).unwrap(), (true, "q".into()));
+    assert!(
+        value(&doc, "n").unwrap_or_default().is_empty(),
+        "teclear no guarda el valor"
+    );
+}
+
+fn page_with_button(doc: &mut Native) {
+    let page = doc.load_pdf_page(0).unwrap();
+    let pid = id(&page.object());
+    let b = add(
+        doc,
+        &format!(
+            "<< /Type /Annot /Subtype /Widget /FT /Btn /Ff 65536 /T (limpiar) /Rect [300 700 400 720] /F 4 \
+             /P {pid} 0 R /MK << /CA (Limpiar) >> /A {} >>",
+            js("this.getField('a').value = ''; this.getField('b').display = display.hidden; app.alert('Hecho', 3);")
+        ),
+    );
+    let p = page.object();
+    let annots = p.get_dict("Annots").unwrap().unwrap();
+    let mut annots = annots;
+    annots.array_push(b).unwrap();
+}
+
+#[test]
+fn button_actions_run_and_change_other_fields() {
+    let specs = [
+        Spec {
+            name: "a",
+            extra: "/V (algo)".into(),
+        },
+        Spec {
+            name: "b",
+            extra: String::new(),
+        },
+    ];
+    let mut doc = doc_with(&specs, &[], None);
+    page_with_button(&mut doc);
+    let mut doc = reopen(&doc);
+    let page = doc.load_pdf_page(0).unwrap();
+    let mut btn = page
+        .widgets()
+        .find(|w| w.name().unwrap().as_deref() == Some("limpiar"))
+        .unwrap();
+    assert!(!btn.run_action(&mut doc, "U").unwrap(), "sin enable_js no hace nada");
+    doc.enable_js().unwrap();
+    assert!(btn.run_action(&mut doc, "U").unwrap());
+    assert_eq!(value(&doc, "a").as_deref(), Some(""));
+    let b = reopen(&doc);
+    let page = b.load_pdf_page(0).unwrap();
+    let w = page
+        .widgets()
+        .find(|w| w.name().unwrap().as_deref() == Some("b"))
+        .unwrap();
+    let f = w
+        .annotation()
+        .object()
+        .get_dict("F")
+        .unwrap()
+        .unwrap()
+        .as_int()
+        .unwrap();
+    assert_eq!(f & 2, 2, "el botón ocultó el campo b");
+    assert!(
+        doc.take_js_messages()
+            .iter()
+            .any(|m| matches!(m, super::JsMessage::Alert { text, icon: 3, .. } if text == "Hecho"))
+    );
+}
+
+#[test]
+fn document_and_page_events() {
+    use super::JsDocEvent as E;
+    let specs = [
+        Spec {
+            name: "x",
+            extra: String::new(),
+        },
+        Spec {
+            name: "log",
+            extra: String::new(),
+        },
+    ];
+    let doc = doc_with(&specs, &[], None);
+    let mut cat = doc.catalog().unwrap();
+    let fill = |what: &str| format!("this.getField('log').value = this.getField('log').value + '{what};';");
+    cat.dict_put("OpenAction", doc.new_object_from_str(&js(&fill("abrir"))).unwrap())
+        .unwrap();
+    cat.dict_put(
+        "AA",
+        doc.new_object_from_str(&format!(
+            "<< /WS {} /DS {} >>",
+            js(&fill("guardar")),
+            js(&fill("guardado"))
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let mut page = doc.load_pdf_page(0).unwrap().object();
+    page.dict_put(
+        "AA",
+        doc.new_object_from_str(&format!("<< /O {} >>", js(&fill("pagina"))))
+            .unwrap(),
+    )
+    .unwrap();
+    let mut doc = reopen(&doc);
+    assert!(!doc.run_document_event(E::Open).unwrap(), "sin enable_js no se ejecuta");
+    doc.enable_js().unwrap();
+    assert!(doc.run_document_event(E::Open).unwrap());
+    assert!(doc.run_document_event(E::PageOpen(0)).unwrap());
+    assert!(doc.run_document_event(E::WillSave).unwrap());
+    assert!(!doc.run_document_event(E::WillPrint).unwrap(), "sin script");
+    assert!(!doc.run_document_event(E::PageClose(0)).unwrap());
+    assert!(!doc.run_document_event(E::PageOpen(9)).unwrap(), "página inexistente");
+    assert!(doc.run_document_event(E::DidSave).unwrap());
+    assert_eq!(value(&doc, "log").as_deref(), Some("abrir;pagina;guardar;guardado;"));
+}

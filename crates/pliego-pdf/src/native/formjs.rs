@@ -734,3 +734,149 @@ pub(super) fn reset(shared: &Shared, widget_id: ObjectId) -> Result<bool> {
     give_back(shared, rt);
     r.map(|()| true)
 }
+
+/// Pulsación en curso en un campo (`/AA /K` con `willCommit` falso). `None` si el motor no está activo o no conoce el
+/// campo; si no, `(aceptada, cambio filtrado)`.
+pub(super) fn keystroke(
+    shared: &Shared,
+    widget_id: ObjectId,
+    change: &str,
+    current: &str,
+    sel: (usize, usize),
+) -> Result<Option<(bool, String)>> {
+    let Some(mut rt) = take_runtime(shared) else {
+        return Ok(None);
+    };
+    let (node, name) = {
+        let st = shared.borrow();
+        let node = field_node(&st, widget_id);
+        (node, qualified_name(&st, node))
+    };
+    let Some(name) = name.filter(|n| rt.ids.get(n) == Some(&node)) else {
+        give_back(shared, rt);
+        return Ok(None);
+    };
+    let out = rt.engine.keystroke(&name, change, current, sel);
+    log(shared, &out);
+    give_back(shared, rt);
+    Ok(Some((out.accepted, out.text.unwrap_or_else(|| change.to_string()))))
+}
+
+/// Ejecuta la acción `trigger` del campo (`U` ratón arriba, `D`, `E`, `X`, `Fo`, `Bl`; `A` es la del botón). `false`
+/// si el motor no está activo o no conoce el campo.
+pub(super) fn run_action(shared: &Shared, widget_id: ObjectId, trigger: &str) -> Result<bool> {
+    let Some(mut rt) = take_runtime(shared) else {
+        return Ok(false);
+    };
+    let (node, name) = {
+        let st = shared.borrow();
+        let node = field_node(&st, widget_id);
+        (node, qualified_name(&st, node))
+    };
+    let Some(name) = name.filter(|n| rt.ids.get(n) == Some(&node)) else {
+        give_back(shared, rt);
+        return Ok(false);
+    };
+    let has_action = rt.engine.form().field(&name).is_some_and(|f| {
+        let alt = if trigger == "U" { "A" } else { "U" };
+        f.scripts.contains_key(trigger) || (trigger == "A" || trigger == "U") && f.scripts.contains_key(alt)
+    });
+    if !has_action {
+        give_back(shared, rt);
+        return Ok(false);
+    }
+    let out = rt.engine.run_trigger(&name, trigger);
+    let r = apply(shared, &rt.ids, &rt.engine, &out);
+    log(shared, &out);
+    give_back(shared, rt);
+    r.map(|()| true)
+}
+
+/// Eventos de documento y de página que pueden tener un script.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JsDocEvent {
+    /// `/OpenAction` del catálogo.
+    Open,
+    /// `/AA /WC`: el documento se va a cerrar.
+    WillClose,
+    /// `/AA /WS`: se va a guardar.
+    WillSave,
+    /// `/AA /DS`: se ha guardado.
+    DidSave,
+    /// `/AA /WP`: se va a imprimir.
+    WillPrint,
+    /// `/AA /DP`: se ha impreso.
+    DidPrint,
+    /// `/AA /O` de la página (desde 0): la página se muestra.
+    PageOpen(usize),
+    /// `/AA /C` de la página: la página se deja de mostrar.
+    PageClose(usize),
+}
+
+impl JsDocEvent {
+    fn name(self) -> &'static str {
+        match self {
+            JsDocEvent::Open => "Open",
+            JsDocEvent::WillClose => "WillClose",
+            JsDocEvent::WillSave => "WillSave",
+            JsDocEvent::DidSave => "DidSave",
+            JsDocEvent::WillPrint => "WillPrint",
+            JsDocEvent::DidPrint => "DidPrint",
+            JsDocEvent::PageOpen(_) => "PageOpen",
+            JsDocEvent::PageClose(_) => "PageClose",
+        }
+    }
+}
+
+/// Código del script de un evento de documento o de página, si lo hay.
+fn aa_script(st: &State, key: &str, holder: &Dictionary) -> Option<String> {
+    let aa = match holder.get(b"AA").ok().and_then(|a| st.deref(a))? {
+        L::Dictionary(a) => a,
+        _ => return None,
+    };
+    action_js(st, aa.get(key.as_bytes()).ok()?)
+}
+
+fn doc_event_script(st: &mut State, ev: JsDocEvent) -> Option<String> {
+    let page_id = match ev {
+        JsDocEvent::PageOpen(i) | JsDocEvent::PageClose(i) => Some(*tree::page_list(st).get(i)?),
+        _ => None,
+    };
+    let st = &*st;
+    match ev {
+        JsDocEvent::Open => {
+            let cat = super::document::catalog_dict(st)?;
+            action_js(st, cat.get(b"OpenAction").ok()?)
+        }
+        JsDocEvent::PageOpen(_) => aa_script(st, "O", dict_at(st, page_id?)?),
+        JsDocEvent::PageClose(_) => aa_script(st, "C", dict_at(st, page_id?)?),
+        other => {
+            let key = match other {
+                JsDocEvent::WillClose => "WC",
+                JsDocEvent::WillSave => "WS",
+                JsDocEvent::DidSave => "DS",
+                JsDocEvent::WillPrint => "WP",
+                _ => "DP",
+            };
+            aa_script(st, key, super::document::catalog_dict(st)?)
+        }
+    }
+}
+
+/// Ejecuta el script de un evento de documento o de página. `false` si el motor no está activo o no hay script.
+pub(super) fn run_document_event(shared: &Shared, ev: JsDocEvent) -> Result<bool> {
+    if !shared.borrow().js.enabled {
+        return Ok(false);
+    }
+    let Some(code) = doc_event_script(&mut shared.borrow_mut(), ev) else {
+        return Ok(false);
+    };
+    let Some(mut rt) = take_runtime(shared) else {
+        return Ok(false);
+    };
+    let out = rt.engine.run_document_script(&code, ev.name());
+    let r = apply(shared, &rt.ids, &rt.engine, &out);
+    log(shared, &out);
+    give_back(shared, rt);
+    r.map(|()| true)
+}

@@ -376,6 +376,29 @@ impl PdfWidget {
         Ok(ok)
     }
 
+    /// Pulsación en curso (sin confirmar el valor): ejecuta el script de tecleo con `willCommit` falso. `change` es
+    /// el texto que se va a insertar, `current` el contenido actual y `sel` la selección que reemplaza. Devuelve
+    /// `(aceptada, cambio)`: el script puede rechazar la pulsación o modificar el texto. Sin `enable_js`, todo se acepta.
+    pub fn keystroke(
+        &mut self,
+        _doc: &mut PdfDocument,
+        change: &str,
+        current: &str,
+        sel: (usize, usize),
+    ) -> Result<(bool, String)> {
+        let shared = self.shared()?;
+        let id = self.id()?;
+        Ok(formjs::keystroke(&shared, id, change, current, sel)?.unwrap_or((true, change.to_string())))
+    }
+
+    /// Ejecuta la acción `trigger` del campo: `"U"` ratón arriba (también la acción de un botón, `"A"`), `"D"` ratón
+    /// abajo, `"E"`/`"X"` entra/sale el ratón, `"Fo"`/`"Bl"` foco. Devuelve `false` si el JavaScript no está
+    /// habilitado o el campo no tiene esa acción. Lo que el script cambie en otros campos queda aplicado.
+    pub fn run_action(&mut self, _doc: &mut PdfDocument, trigger: &str) -> Result<bool> {
+        let shared = self.shared()?;
+        formjs::run_action(&shared, self.id()?, trigger)
+    }
+
     /// Devuelve el campo a su valor por defecto (`/DV`, o vacío si no tiene).
     pub fn reset(&mut self, _doc: &mut PdfDocument) -> Result<()> {
         let shared = self.shared()?;

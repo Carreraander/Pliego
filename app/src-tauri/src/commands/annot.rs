@@ -112,8 +112,16 @@ pub async fn forms_fields(path: String) -> ApiResult<Vec<FieldInfo>> {
     Ok(joined?)
 }
 
-/// Rellena campos del PDF abierto (copia de seguridad antes del primer cambio) y recarga el visor.
-/// Devuelve cuántos cambios se pueden deshacer.
+/// Resultado de rellenar o ejecutar una acción: cuántos cambios se pueden deshacer y los avisos de los scripts del
+/// formulario (`app.alert`, `console.println`, acciones bloqueadas).
+#[derive(serde::Serialize)]
+pub struct FormEdit {
+    pub undo_depth: usize,
+    pub messages: Vec<String>,
+}
+
+/// Rellena campos del PDF abierto (copia de seguridad antes del primer cambio) y recarga el visor. Ejecuta el
+/// JavaScript del formulario (validación, cálculo y formato).
 #[tauri::command]
 pub async fn forms_fill(
     state: State<'_, AppState>,
@@ -122,9 +130,57 @@ pub async fn forms_fill(
     path: String,
     values: FieldValues,
     suffix: String,
-) -> ApiResult<usize> {
+) -> ApiResult<FormEdit> {
     let path = PathBuf::from(path);
-    let bytes = editor.0.fill(&path, &values, &suffix)?;
+    let (bytes, messages) = editor.0.fill_report(&path, &values, &suffix)?;
     state.service.reload_bytes(doc_id, &bytes)?;
-    Ok(editor.0.undo_depth(&path))
+    Ok(FormEdit {
+        undo_depth: editor.0.undo_depth(&path),
+        messages,
+    })
+}
+
+/// Ejecuta la acción de un botón (o de otro campo) del PDF abierto y recarga el visor.
+#[tauri::command]
+pub async fn forms_run_action(
+    state: State<'_, AppState>,
+    editor: State<'_, AnnotEditState>,
+    doc_id: DocId,
+    path: String,
+    name: String,
+    trigger: String,
+    suffix: String,
+) -> ApiResult<FormEdit> {
+    let path = PathBuf::from(path);
+    let (bytes, messages) = editor.0.run_action(&path, &name, &trigger, &suffix)?;
+    state.service.reload_bytes(doc_id, &bytes)?;
+    Ok(FormEdit {
+        undo_depth: editor.0.undo_depth(&path),
+        messages,
+    })
+}
+
+/// Resultado de filtrar una pulsación (ver `pliego_forms::KeystrokeResult`).
+#[tauri::command]
+pub async fn forms_keystroke(
+    path: String,
+    name: String,
+    change: String,
+    current: String,
+    sel_start: usize,
+    sel_end: usize,
+) -> ApiResult<annot::KeystrokeResult> {
+    let joined = tauri::async_runtime::spawn_blocking(move || {
+        annot::form_keystroke(
+            &PathBuf::from(path),
+            None,
+            &name,
+            &change,
+            &current,
+            (sel_start, sel_end),
+        )
+    })
+    .await
+    .map_err(|e| Error::Other(e.to_string()))?;
+    Ok(joined?)
 }

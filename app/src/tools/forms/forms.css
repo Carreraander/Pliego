@@ -4,6 +4,8 @@
 .pl-field-ctl:focus-visible { outline: 2px solid var(--pl-focus); background: var(--pl-surface); }
 .pl-field-ctl:disabled { opacity: 0.6; }
 .pl-field-ctl--check { padding: 0; }
+.pl-field-ctl--button { background: transparent; border-color: transparent; cursor: pointer; }
+.pl-field-ctl--button:hover { background: var(--pl-accent-soft); }
 .pl-signature-target { position: absolute; inset: 0; pointer-events: auto; cursor: crosshair; }
 .pl-signature-pop { position: fixed; top: calc(var(--pl-titlebar-h) + var(--pl-toolbar-h) + var(--pl-space-4)); left: 50%; transform: translateX(-50%); z-index: var(--pl-z-popover); background: var(--pl-surface-raised); border: 1px solid var(--pl-border); border-radius: var(--pl-radius-md); box-shadow: var(--pl-shadow-3); padding: var(--pl-space-4); }
 .pl-signature-pad { display: flex; flex-direction: column; gap: var(--pl-space-3); width: 360px; max-width: 80vw; }

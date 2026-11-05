@@ -16,7 +16,7 @@ use pliego_core::Result;
 const MAX_DEPTH: u8 = 2;
 
 #[derive(Clone)]
-enum Space {
+pub(super) enum Space {
     Gray,
     Rgb,
     Cmyk,
@@ -28,7 +28,7 @@ enum Space {
 }
 
 impl Space {
-    fn comps(&self) -> usize {
+    pub(super) fn comps(&self) -> usize {
         match self {
             Space::Gray => 1,
             Space::Rgb => 3,
@@ -85,7 +85,7 @@ fn expand_value(v: &L) -> L {
 }
 
 /// Copia del flujo con las abreviaturas de las imágenes en línea (`/W`, `/CS /G`, `/F /Fl`…) escritas enteras.
-fn normalize_inline(s: &Stream) -> Stream {
+pub(super) fn normalize_inline(s: &Stream) -> Stream {
     let mut d = Dictionary::new();
     for (k, v) in s.dict.iter() {
         let key = INLINE_KEYS
@@ -97,7 +97,7 @@ fn normalize_inline(s: &Stream) -> Stream {
     Stream::new(d, s.content.clone())
 }
 
-fn num(st: &State, v: Option<&L>) -> Option<f32> {
+pub(super) fn num(st: &State, v: Option<&L>) -> Option<f32> {
     match st.deref(v?)? {
         L::Integer(i) => Some(*i as f32),
         L::Real(r) => Some(*r),
@@ -105,7 +105,7 @@ fn num(st: &State, v: Option<&L>) -> Option<f32> {
     }
 }
 
-fn int(st: &State, d: &Dictionary, key: &[u8]) -> Option<i64> {
+pub(super) fn int(st: &State, d: &Dictionary, key: &[u8]) -> Option<i64> {
     num(st, d.get(key).ok()).map(|v| v as i64)
 }
 
@@ -118,7 +118,7 @@ fn bytes_of(st: &State, v: &L) -> Option<Vec<u8>> {
     }
 }
 
-fn space_of(st: &State, v: &L, depth: u8) -> Option<Space> {
+pub(super) fn space_of(st: &State, v: &L, depth: u8) -> Option<Space> {
     if depth > 4 {
         return None;
     }
@@ -165,7 +165,7 @@ fn space_of(st: &State, v: &L, depth: u8) -> Option<Space> {
 }
 
 /// Valor de la muestra `i` (de `bpc` bits) en una fila.
-fn sample_at(row: &[u8], i: usize, bpc: usize) -> u32 {
+pub(super) fn sample_at(row: &[u8], i: usize, bpc: usize) -> u32 {
     match bpc {
         8 => u32::from(*row.get(i).unwrap_or(&0)),
         16 => u32::from(*row.get(i * 2).unwrap_or(&0)) << 8 | u32::from(*row.get(i * 2 + 1).unwrap_or(&0)),

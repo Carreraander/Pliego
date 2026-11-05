@@ -74,10 +74,18 @@ pub struct Separations {
 /// Vista previa de separaciones de la página `page` (desde 0) a `dpi` ppp.
 ///
 /// PDFium solo dibuja en RGB, así que las planchas se obtienen dibujando la página **cuatro veces**, una por tinta:
-/// en una copia en memoria se reescriben los operadores de color del contenido (`k`, `g`, `rg`, `sc`…) por un gris
-/// que vale «1 − cantidad de esa tinta», y se invierte lo dibujado. Es exacto para vectores y texto en DeviceCMYK
-/// (los primarios y las mezclas salen con su porcentaje); el gris solo tiñe la plancha negra y el RGB se reparte con la
-/// conversión simple. **Las imágenes y los degradados no se reescriben**: se dibujan como están, convertidos a gris.
+/// en una copia en memoria se reescribe todo lo que pinta para que valga «1 − cantidad de esa tinta» en gris, y se
+/// invierte lo dibujado.
+///
+/// - Vectores y texto: se reescriben los operadores de color del contenido (`k`, `g`, `rg`, `sc`…), también en
+///   formularios y patrones de mosaico.
+/// - **Imágenes** (XObject y en línea; Gray, RGB, CMYK, ICC, Indexed, JPEG CMYK/YCCK de Adobe, con `/Decode`): se
+///   sustituyen por un gris de 8 bits con la tinta de la plancha.
+/// - **Degradados** (`sh` y patrones de tipo 2, con funciones de tipo 0, 2 y 3): su función pasa a dar el gris de la tinta.
+///
+/// Sigue sin separarse, y se dibuja como gris de luminosidad: las imágenes de JBIG2, CCITT, JPEG 2000, `Separation`,
+/// `DeviceN` y `Lab`, los degradados con función PostScript o de malla, los patrones sin color (`PaintType 2`) y
+/// las transparencias con máscara suave. El gris solo tiñe la plancha negra y el RGB se reparte con la conversión simple.
 /// Los colores directos se reparten por su alternativa de tinta (ver [`crate::inks`] para listarlos).
 pub fn separations(doc: &PdfDocument, page: usize, dpi: f32) -> Result<Separations> {
     if !(dpi.is_finite() && dpi > 0.0) {
@@ -135,45 +143,93 @@ pub fn separations(doc: &PdfDocument, page: usize, dpi: f32) -> Result<Separatio
     })
 }
 
-/// Sustituye en la copia los colores de la página (y de sus formularios) por el gris de la tinta `channel`.
+/// Sustituye en la copia los colores de la página (y de sus formularios, patrones, imágenes y degradados) por el gris
+/// de la tinta `channel`.
 fn rewrite_page(doc: &mut PdfDocument, page: usize, channel: usize) -> Result<()> {
     let mut page_obj = doc.find_page(page as i32)?;
     let data = crate::scan::page_content(doc, page)?;
     // Sin color explícito el contenido es negro: no lleva tinta en C, M ni Y.
     let mut out = if channel < 3 { b"1 g 1 G\n".to_vec() } else { Vec::new() };
-    out.extend(rewrite_content(&data, channel));
+    out.extend(rewrite_content(doc, &data, channel));
     let stream = doc.add_stream(&out, None, false)?;
     page_obj.dict_put("Contents", stream)?;
     let resources = page_obj.get_dict_inheritable("Resources")?;
     let mut seen = HashSet::new();
-    rewrite_forms(resources.as_ref(), channel, &mut seen, 0)
+    rewrite_resources(doc, resources.as_ref(), channel, &mut seen, 0)
 }
 
-fn rewrite_forms(resources: Option<&Object>, channel: usize, seen: &mut HashSet<i32>, depth: usize) -> Result<()> {
-    let Some(xobjects) = resources.and_then(|r| r.get_dict("XObject").ok().flatten()) else {
-        return Ok(());
-    };
+/// `true` la primera vez que se ve un objeto indirecto (los directos cuentan siempre como nuevos).
+fn first_visit(obj: &Object, seen: &mut HashSet<i32>) -> bool {
+    match obj.as_indirect() {
+        Ok(id) if id != 0 => seen.insert(id),
+        _ => true,
+    }
+}
+
+fn rewrite_resources(
+    doc: &PdfDocument,
+    resources: Option<&Object>,
+    channel: usize,
+    seen: &mut HashSet<i32>,
+    depth: usize,
+) -> Result<()> {
+    let Some(resources) = resources else { return Ok(()) };
     if depth > 8 {
         return Ok(());
     }
-    for (_, mut x) in xobjects.dict_iter()? {
-        let is_form = x
-            .get_dict("Subtype")?
-            .and_then(|s| s.as_name().ok())
-            .is_some_and(|n| n == b"Form");
-        if !is_form || !x.is_stream()? {
-            continue;
+    // Imágenes y formularios.
+    if let Some(xobjects) = resources.get_dict("XObject").ok().flatten() {
+        for (_, mut x) in xobjects.dict_iter()? {
+            let subtype = x.get_dict("Subtype")?.and_then(|s| s.as_name().ok());
+            if !x.is_stream()? || !first_visit(&x, seen) {
+                continue;
+            }
+            match subtype.as_deref() {
+                Some(b"Image") => {
+                    // Lo que no se sabe decodificar queda como está: se dibuja en gris.
+                    let _ = x.separate_image_ink(channel);
+                }
+                Some(b"Form") => {
+                    let data = x.read_stream()?;
+                    x.write_stream(&rewrite_content(doc, &data, channel))?;
+                    let own = x.get_dict("Resources")?;
+                    rewrite_resources(doc, own.as_ref().or(Some(resources)), channel, seen, depth + 1)?;
+                }
+                _ => {}
+            }
         }
-        if let Ok(id) = x.as_indirect()
-            && id != 0
-            && !seen.insert(id)
-        {
-            continue;
+    }
+    // Degradados de `sh`.
+    if let Some(shadings) = resources.get_dict("Shading").ok().flatten() {
+        for (_, sh) in shadings.dict_iter()? {
+            if first_visit(&sh, seen) {
+                let _ = sh.separate_shading_ink(channel);
+            }
         }
-        let data = x.read_stream()?;
-        x.write_stream(&rewrite_content(&data, channel))?;
-        let own = x.get_dict("Resources")?;
-        rewrite_forms(own.as_ref().or(resources), channel, seen, depth + 1)?;
+    }
+    // Patrones: de degradado (tipo 2) y de mosaico (tipo 1, que es un flujo de contenido con sus recursos).
+    if let Some(patterns) = resources.get_dict("Pattern").ok().flatten() {
+        for (_, mut pat) in patterns.dict_iter()? {
+            if !first_visit(&pat, seen) {
+                continue;
+            }
+            match pat.dict_get_int("PatternType")? {
+                Some(2) => {
+                    if let Some(sh) = pat.get_dict("Shading")?
+                        && first_visit(&sh, seen)
+                    {
+                        let _ = sh.separate_shading_ink(channel);
+                    }
+                }
+                Some(1) if pat.is_stream()? => {
+                    let data = pat.read_stream()?;
+                    pat.write_stream(&rewrite_content(doc, &data, channel))?;
+                    let own = pat.get_dict("Resources")?;
+                    rewrite_resources(doc, own.as_ref().or(Some(resources)), channel, seen, depth + 1)?;
+                }
+                _ => {}
+            }
+        }
     }
     Ok(())
 }
@@ -196,11 +252,19 @@ fn gray_for_ink(ink: f32) -> String {
 }
 
 /// Reescribe los operadores de color de un flujo de contenido.
-fn rewrite_content(data: &[u8], channel: usize) -> Vec<u8> {
+fn rewrite_content(doc: &PdfDocument, data: &[u8], channel: usize) -> Vec<u8> {
     let ops = content::parse(data);
     let mut out = Vec::with_capacity(data.len() + 64);
     let mut cursor = 0usize;
     for op in &ops {
+        if op.name == "BI" {
+            if let Some(gray) = doc.separate_inline_image(&data[op.range.0..op.range.1.min(data.len())], channel) {
+                out.extend_from_slice(&data[cursor..op.range.0]);
+                out.extend_from_slice(&gray);
+                cursor = op.range.1.min(data.len());
+            }
+            continue;
+        }
         let (Some(first), Some(last)) = (op.spans.first(), op.spans.last()) else {
             continue;
         };

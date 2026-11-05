@@ -4836,6 +4836,7 @@ dependencies = [
 name = "pliego-print"
 version = "0.1.0"
 dependencies = [
+ "jpeg-encoder",
  "pliego-core",
  "pliego-pdf",
  "serde",

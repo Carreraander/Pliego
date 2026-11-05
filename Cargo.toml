@@ -26,6 +26,10 @@ pliego-stamp = { path = "crates/pliego-stamp" }
 mupdf = { version = "0.8", default-features = false, features = [
   "js", "xps", "svg", "cbz", "img", "html", "epub", "brotli", "docx-output", "base14-fonts",
 ] }
+# PDFium (render, texto y búsqueda; W37). Solo con la característica `pdfium` de pliego-pdf. Sin `image_*` (no
+# queremos la crate `image`), con `thread_safe` (serializa todas las llamadas a la DLL con un cerrojo global) y la API
+# de `pdfium_8125`, la más alta que conoce la crate; la DLL fijada (chromium/8138) es posterior y compatible.
+pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
 anyhow = "1"
 thiserror = "2"
 clap = { version = "4.6", features = ["derive"] }

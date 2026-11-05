@@ -4,8 +4,8 @@
 
 use std::path::Path;
 
-pub use pliego_pdf::init_fonts;
 use pliego_pdf::{Colorspace, Document, IRect, Matrix, MetadataName, Outline, PdfDocument, Pixmap};
+pub use pliego_pdf::{RenderBackend, configure_from_environment, init_fonts};
 
 use pliego_core::{
     DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
@@ -16,6 +16,21 @@ const MAX_PIXELS: u64 = 100_000_000;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DefaultEngine;
+
+impl DefaultEngine {
+    /// Abre un documento con un motor de render y texto concreto, sin tocar el valor por defecto del proceso
+    /// (lo usa el arnés de comparación para tener MuPDF y PDFium en el mismo proceso).
+    pub fn open_with_backend(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        backend: RenderBackend,
+    ) -> Result<DefaultDocument> {
+        let mut doc = Document::open_with_password(path, password)?;
+        doc.set_render_backend(backend)?;
+        DefaultDocument::from_document(doc)
+    }
+}
 
 /// Documento abierto: los PDF se guardan como `PdfDocument` para poder recorrer sus objetos.
 enum Doc {

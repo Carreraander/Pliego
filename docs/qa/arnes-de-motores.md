@@ -1,8 +1,9 @@
 # Arnés de comparación de motores y oráculo de redacción (W34)
 
 Evidencia automática para la migración de MuPDF a PDFium + lopdf (ola 5). Vive en `crates/pliego-qa`.
-Los motores se eligen por nombre en `crates/pliego-qa/src/engines.rs`; hoy solo existe `mupdf`. Cuando haya motor
-nuevo, una línea en `engines::by_name` lo habilita y todo lo demás funciona igual (`--candidate pdfium`).
+Los motores se eligen por nombre en `crates/pliego-qa/src/engines.rs`: `mupdf` (referencia) y `pdfium` (W37, render y
+texto con PDFium sobre la misma capa `pliego-pdf`). `pdfium` busca la biblioteca en `PLIEGO_PDFIUM_DLL` (ruta
+absoluta) o junto al ejecutable; `tools/pdfium/fetch-pdfium.ps1` la descarga con la versión y el hash fijados.
 
 ## `engine-compare`
 
@@ -10,6 +11,9 @@ nuevo, una línea en `engines::by_name` lo habilita y todo lo demás funciona ig
 cargo build --release -p pliego-qa
 target/release/engine-compare tests/corpus --reference mupdf --candidate mupdf        # línea base
 target/release/engine-compare tests/corpus tests/corpus/external --candidate pdfium    # motor nuevo
+# PDFium rasteriza y sustituye fuentes base-14 de otra forma: con los umbrales por defecto (pensados para MuPDF contra
+# MuPDF) casi todo sale «fuera de umbral». Para PDFium usa los de W37:
+target/release/engine-compare tests/corpus --candidate pdfium --pixel-tolerance 64 --max-diff 0.06
 ```
 
 Por cada PDF (un proceso hijo con tiempo límite; una caída del motor no tira el arnés):

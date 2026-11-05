@@ -20,6 +20,7 @@
 mod annot;
 mod backend;
 mod document;
+mod engine;
 mod font;
 mod fonts;
 mod geom;
@@ -29,6 +30,8 @@ mod object;
 mod options;
 mod outline;
 mod page;
+#[cfg(feature = "pdfium")]
+mod pdfium;
 mod pixmap;
 mod text;
 mod widget;
@@ -40,6 +43,11 @@ pub use annot::{
     RedactTextMethod,
 };
 pub use document::{Document, GraftMap, PdfDocument};
+pub use engine::{
+    RenderBackend, configure_from_environment, default_render_backend, pdfium_available, pdfium_default_path,
+    pdfium_fallback, pdfium_init, pdfium_init_from_environment, pdfium_library_name, set_default_render_backend,
+    set_pdfium_fallback,
+};
 pub use font::{Font, PathWalker, SimpleFontEncoding};
 pub use fonts::{SystemFonts, init_fonts};
 pub use geom::{IRect, Matrix, Point, Quad, Rect, Size};

@@ -21,11 +21,18 @@ pub(crate) enum PageRaw {
 /// Página de cualquier documento. No es `Send`.
 pub struct Page {
     pub(crate) raw: PageRaw,
+    /// Enlace con la misma página en PDFium cuando el documento usa ese motor para dibujar y extraer texto.
+    #[cfg(feature = "pdfium")]
+    pub(crate) pdfium: Option<crate::pdfium::PageLink>,
 }
 
 impl Page {
     pub(crate) fn from_plain(p: mupdf::Page) -> Self {
-        Self { raw: PageRaw::Plain(p) }
+        Self {
+            raw: PageRaw::Plain(p),
+            #[cfg(feature = "pdfium")]
+            pdfium: None,
+        }
     }
 
     pub(crate) fn base(&self) -> &mupdf::Page {
@@ -37,12 +44,38 @@ impl Page {
 
     /// Caja de la página en puntos, con la rotación aplicada y origen arriba a la izquierda.
     pub fn bounds(&self) -> Result<Rect> {
+        #[cfg(feature = "pdfium")]
+        if let Some(link) = &self.pdfium {
+            return link.bounds();
+        }
         self.base().bounds().map(rect_from).map_err(err)
+    }
+
+    /// Motor que dibuja y extrae el texto de esta página.
+    pub fn render_backend(&self) -> crate::RenderBackend {
+        #[cfg(feature = "pdfium")]
+        if self.pdfium.is_some() {
+            return crate::RenderBackend::Pdfium;
+        }
+        crate::RenderBackend::Mupdf
     }
 
     /// Dibuja la página entera. `ctm` lleva el espacio de página a píxeles (p. ej. escala = ppp/72).
     /// `alpha`: fondo transparente en lugar de blanco. `show_extras`: incluye anotaciones y campos.
     pub fn to_pixmap(&self, ctm: &Matrix, cs: Colorspace, alpha: bool, show_extras: bool) -> Result<Pixmap> {
+        #[cfg(feature = "pdfium")]
+        if let Some(link) = &self.pdfium {
+            // Mismo rectángulo que `fz_new_pixmap_from_page`: la caja de la página transformada, redondeada
+            // hacia fuera con una tolerancia de 0,001.
+            let r = link.bounds()?.transform(ctm);
+            let region = IRect::new(
+                (r.x0 + 0.001).floor() as i32,
+                (r.y0 + 0.001).floor() as i32,
+                (r.x1 - 0.001).ceil() as i32,
+                (r.y1 - 0.001).ceil() as i32,
+            );
+            return link.render(ctm, region, cs, alpha, show_extras);
+        }
         let pix = self
             .base()
             .to_pixmap(&matrix_to(ctm), &cs.to_backend(), alpha, show_extras)
@@ -54,6 +87,10 @@ impl Page {
     pub fn render_region(&self, ctm: &Matrix, region: IRect, cs: Colorspace, show_extras: bool) -> Result<Pixmap> {
         if region.is_empty() {
             return Err(Error::InvalidInput("la región a dibujar está vacía".into()));
+        }
+        #[cfg(feature = "pdfium")]
+        if let Some(link) = &self.pdfium {
+            return link.render(ctm, region, cs, false, show_extras);
         }
         let mut pix = mupdf::Pixmap::new_with_rect(&cs.to_backend(), irect_to(region), false).map_err(err)?;
         pix.clear_with(255).map_err(err)?;
@@ -74,10 +111,20 @@ impl Page {
         self.base().to_svg(&matrix_to(ctm)).map_err(err)
     }
 
+    /// Texto estructurado. Con PDFium no hay bloques de imagen: si se pide `PRESERVE_IMAGES` esta llamada usa
+    /// MuPDF (W39 los aportará desde `image_placements`).
     pub fn to_text_page(&self, flags: TextFlags) -> Result<TextPage> {
+        #[cfg(feature = "pdfium")]
+        if let Some(link) = self
+            .pdfium
+            .as_ref()
+            .filter(|_| !flags.contains(TextFlags::PRESERVE_IMAGES))
+        {
+            return Ok(TextPage::from_pdfium(link.text_page()?.blocks()));
+        }
         self.base()
             .to_text_page(flags.to_backend())
-            .map(|raw| TextPage { raw })
+            .map(TextPage::from_mupdf)
             .map_err(err)
     }
 
@@ -92,6 +139,10 @@ impl Page {
 
     /// Cuadriláteros de hasta `hit_max` apariciones de `needle` (sin distinguir mayúsculas).
     pub fn search(&self, needle: &str, hit_max: u32) -> Result<Vec<Quad>> {
+        #[cfg(feature = "pdfium")]
+        if let Some(link) = &self.pdfium {
+            return link.search(needle, hit_max);
+        }
         Ok(self
             .base()
             .search(needle, hit_max)
@@ -194,7 +245,11 @@ impl DerefMut for PdfPage {
 impl PdfPage {
     pub(crate) fn from_raw(raw: mupdf::pdf::PdfPage) -> Self {
         Self {
-            page: Page { raw: PageRaw::Pdf(raw) },
+            page: Page {
+                raw: PageRaw::Pdf(raw),
+                #[cfg(feature = "pdfium")]
+                pdfium: None,
+            },
         }
     }
 

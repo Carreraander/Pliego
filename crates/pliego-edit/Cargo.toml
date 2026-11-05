@@ -4,6 +4,7 @@ description = "Edición del contenido de páginas: texto, imágenes y enlaces"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [dependencies]

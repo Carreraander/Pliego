@@ -1,4 +1,4 @@
-//! Edición del contenido de páginas de Pliego (AGPL-3.0-or-later).
+//! Edición del contenido de páginas de Pliego (BUSL-1.1).
 //!
 //! Todas las operaciones trabajan sobre un [`pliego_document::Document`], de modo que cada una sube la
 //! revisión y se puede deshacer. Las coordenadas son puntos PDF en el espacio de página del motor

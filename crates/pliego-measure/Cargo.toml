@@ -4,6 +4,7 @@ description = "Medidas sobre planos: escala calibrada, distancia, per√≠metro y √
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [dependencies]

@@ -4,6 +4,7 @@ description = "Lanzador de Pliego: Pliego.exe (app) y bin\\pliego.exe (CLI). Act
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [[bin]]

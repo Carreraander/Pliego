@@ -1,4 +1,4 @@
-//! «Acerca de»: versión, licencia, enlace al código fuente (obligatorio por la AGPL) y componentes de terceros.
+//! «Acerca de»: versión, licencia, enlace al código fuente y componentes de terceros.
 
 use serde::Serialize;
 
@@ -23,7 +23,7 @@ pub struct AboutInfo {
 pub fn about(version: &'static str) -> AboutInfo {
     AboutInfo {
         version,
-        license: "AGPL-3.0-or-later",
+        license: "BUSL-1.1",
         source_url: SOURCE_URL,
         components: vec![
             Component {
@@ -42,9 +42,9 @@ pub fn about(version: &'static str) -> AboutInfo {
                 license: "MIT",
             },
             Component {
-                name: "rustls",
-                version: env!("PLIEGO_DEP_RUSTLS"),
-                license: "MIT / Apache-2.0 / ISC",
+                name: "Boa (JavaScript de formularios)",
+                version: env!("PLIEGO_DEP_BOA"),
+                license: "MIT / Unlicense",
             },
         ],
     }
@@ -58,13 +58,18 @@ mod tests {
     fn versions_come_from_the_lockfile() {
         let info = about("9.9.9");
         assert!(info.components.iter().all(|c| !c.name.contains("MuPDF")));
+        assert!(
+            info.components.iter().all(|c| c.version != "desconocida"),
+            "{:?}",
+            info.components
+        );
         let pdfium = info.components.iter().find(|c| c.name.starts_with("PDFium")).unwrap();
         assert!(
             pdfium.version.chars().next().unwrap().is_ascii_digit(),
             "versión: {}",
             pdfium.version
         );
-        assert_eq!(info.license, "AGPL-3.0-or-later");
+        assert_eq!(info.license, "BUSL-1.1");
         assert!(info.source_url.starts_with("https://"));
     }
 }

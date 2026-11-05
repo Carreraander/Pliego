@@ -1,4 +1,4 @@
-//! Documento PDF editable de Pliego (AGPL-3.0-or-later).
+//! Documento PDF editable de Pliego (BUSL-1.1).
 //!
 //! [`Document`] envuelve un `pliego_pdf::PdfDocument` y añade:
 //! - número de **revisión** (sube con cada operación que modifica el documento),

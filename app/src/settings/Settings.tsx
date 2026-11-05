@@ -15,7 +15,7 @@ interface About { version: string; license: string; source_url: string; componen
 
 async function loadAbout(): Promise<About> {
   if (isTauri()) return invoke<About>("about_info");
-  return { version: updateService().currentVersion(), license: "AGPL-3.0-or-later", source_url: "https://github.com/Carreraander/Pliego", components: [] };
+  return { version: updateService().currentVersion(), license: "BUSL-1.1", source_url: "https://github.com/Carreraander/Pliego", components: [] };
 }
 
 function Row(props: { row: SettingRow }) {
@@ -99,7 +99,7 @@ function AboutSection() {
       <div class="pl-card">
         <dl>
           <dt>{st("about.version")}</dt><dd>{about()?.version ?? "…"}</dd>
-          <dt>{st("about.license")}</dt><dd>{about()?.license ?? "AGPL-3.0-or-later"}</dd>
+          <dt>{st("about.license")}</dt><dd>{about()?.license ?? "BUSL-1.1"}</dd>
           <dt>{st("about.source")}</dt><dd><Show when={about()}>{(a) => <a class="pl-link" href={a().source_url} target="_blank" rel="noreferrer">{a().source_url}</a>}</Show></dd>
         </dl>
       </div>
@@ -121,7 +121,7 @@ const sections = (): SettingsSection[] => [
   { id: "updates", title: () => st("section.updates"), icon: "refresh", order: 60, component: UpdatesSection, keywords: ["actualizar", "versión", "canal", "beta", "update"] },
   { id: "accessibility", title: () => st("section.accessibility"), icon: "accessibility", order: 80, rows: accessibilityRows },
   { id: "advanced", title: () => st("section.advanced"), icon: "keyboard", order: 90, component: AdvancedSection, keywords: ["atajos", "teclado", "restablecer", "shortcuts", "reset"] },
-  { id: "about", title: () => st("section.about"), icon: "info", order: 100, component: AboutSection, keywords: ["licencia", "agpl", "código fuente", "pdfium", "versión", "license"] },
+  { id: "about", title: () => st("section.about"), icon: "info", order: 100, component: AboutSection, keywords: ["licencia", "busl", "agpl", "código fuente", "pdfium", "versión", "license"] },
   ...extraSections(),
 ].sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
 

@@ -4,6 +4,7 @@ description = "Formato de paquete .paq y disposición en disco de Pliego (instal
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [features]

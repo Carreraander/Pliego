@@ -27,7 +27,7 @@ test.describe("Inicio", () => {
     await expect(rows.nth(1)).toContainText("ayer");
     await expect(rows.nth(2)).toHaveClass(/pl-recent--missing/);
     await expect(rows.nth(2)).toContainText("No se encuentra");
-    await expect(home).toContainText("AGPL-3.0");
+    await expect(home).toContainText("BUSL-1.1");
     await expect(page.locator(".pl-modebar")).toHaveCount(0);
   });
   test("fijar y quitar un reciente, y personalizar las acciones rápidas", async ({ page }) => {
@@ -84,7 +84,7 @@ test.describe("Ajustes", () => {
     await expect(settings.getByText("Pliego está al día").first()).toBeVisible();
     await expect(settings.getByText(/Servicio simulado/)).toBeVisible();
     await settings.getByRole("button", { name: "Acerca de" }).click();
-    await expect(settings).toContainText("AGPL-3.0-or-later");
+    await expect(settings).toContainText("BUSL-1.1");
     await expect(settings.getByRole("link", { name: /github.com\/Carreraander\/Pliego/ })).toBeVisible();
   });
   test("Avanzado abre la hoja de atajos; Ctrl+K encuentra un ajuste", async ({ page }) => {

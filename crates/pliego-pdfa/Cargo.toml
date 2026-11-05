@@ -4,6 +4,7 @@ description = "PDF/A: validación y conversión a PDF/A-1b, 2b, 2u y 3b"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [dependencies]

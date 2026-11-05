@@ -4,6 +4,7 @@ description = "Acciones en lote: secuencias de pasos guardadas que se aplican a 
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 
 [dependencies]

@@ -4,6 +4,7 @@ description = "Motor de JavaScript de formularios PDF (modelo de objetos de Acro
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 repository.workspace = true
 # Boa 0.22 pide Rust 1.91.
 rust-version = "1.91"

@@ -3,7 +3,7 @@ name = "pdfium-spike"
 description = "Spike W35: carga dinámica de pdfium.dll, arranque, render y memoria. No forma parte del workspace."
 version = "0.0.0"
 edition = "2024"
-license = "AGPL-3.0-or-later"
+license = "BUSL-1.1"
 publish = false
 
 # Crate aislado (no es miembro del workspace de Pliego): no altera Cargo.lock ni la CI.

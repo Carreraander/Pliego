@@ -7,7 +7,7 @@ const COMPONENTS: &[(&str, &str)] = &[
     ("pdfium-render", "PDFIUM"),
     ("tauri", "TAURI"),
     ("lopdf", "LOPDF"),
-    ("rustls", "RUSTLS"),
+    ("boa_engine", "BOA"),
 ];
 
 fn main() {

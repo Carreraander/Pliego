@@ -27,9 +27,9 @@ export const st = scoped<string>({
     "advanced.shortcuts": "Atajos de teclado", "advanced.shortcuts.open": "Ver y cambiar atajos (F1)", "advanced.shortcuts.hint": "Cada atajo se puede cambiar; no se permiten conflictos.",
     "advanced.reset": "Restablecer todos los ajustes", "advanced.reset.hint": "Vuelve a los valores de fábrica. No borra tus documentos.", "advanced.reset.button": "Restablecer",
     "advanced.dataDir": "Los ajustes se guardan en %APPDATA%\\Pliego\\settings.json.",
-    "about.title": "Pliego", "about.tagline": "Alternativa libre y gratuita para trabajar con PDF en Windows.", "about.version": "Versión", "about.license": "Licencia", "about.source": "Código fuente",
-    "about.sourceNote": "Pliego es software libre bajo la AGPL-3.0: tienes derecho a recibir el código fuente de esta versión.", "about.components": "Componentes de terceros",
-    "about.licenseText": "Este programa es software libre: puedes redistribuirlo y modificarlo bajo los términos de la Licencia Pública General Affero de GNU, versión 3 o posterior. Se distribuye sin ninguna garantía.",
+    "about.title": "Pliego", "about.tagline": "Alternativa gratuita para trabajar con PDF en Windows.", "about.version": "Versión", "about.license": "Licencia", "about.source": "Código fuente",
+    "about.sourceNote": "Vender Pliego, integrarlo en un producto de pago u ofrecerlo como servicio de pago requiere una licencia comercial.", "about.components": "Componentes de terceros",
+    "about.licenseText": "Pliego se distribuye bajo la Business Source License 1.1: el código es visible y usarlo es gratis. Cada versión pasa a la licencia AGPL-3.0 a los cuatro años. Se distribuye sin ninguna garantía.",
   },
   en: {
     "settings.title": "Settings", "settings.search": "Search settings", "settings.nav": "Settings sections", "settings.none": "No setting matches “{q}”",
@@ -57,7 +57,7 @@ export const st = scoped<string>({
     "advanced.reset": "Reset all settings", "advanced.reset.hint": "Back to factory values. Your documents are not touched.", "advanced.reset.button": "Reset",
     "advanced.dataDir": "Settings are stored in %APPDATA%\\Pliego\\settings.json.",
     "about.title": "Pliego", "about.tagline": "A free alternative for working with PDFs on Windows.", "about.version": "Version", "about.license": "License", "about.source": "Source code",
-    "about.sourceNote": "Pliego is free software under the AGPL-3.0: you have the right to receive the source code of this version.", "about.components": "Third-party components",
-    "about.licenseText": "This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License, version 3 or later. It is distributed without any warranty.",
+    "about.sourceNote": "Selling Pliego, building it into a paid product or offering it as a paid service requires a commercial license.", "about.components": "Third-party components",
+    "about.licenseText": "Pliego is distributed under the Business Source License 1.1: the code is visible and using it is free. Each version becomes AGPL-3.0 four years after its release. It is distributed without any warranty.",
   },
 });

@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use pliego_appdata::copyjob::{unique_in, unique_sibling};
 use pliego_convert::{
     ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
-    TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, office_to_pdf,
-    pdf_to_html, pdf_to_images, pdf_to_text, text_to_pdf,
+    TextExportOptions, TextToPdfOptions, cbz_to_pdf, epub_to_pdf, extract_images, html_to_pdf, images_to_pdf,
+    markdown_to_pdf, office_to_pdf, pdf_to_html, pdf_to_images, pdf_to_text, text_to_pdf, xps_to_pdf,
 };
 use pliego_core::{Error, JobContext, PageRange, Report, Result};
 use pliego_office_export::{CommonOptions, DocxOptions, PptxOptions, ScannedPolicy, XlsxOptions};
@@ -168,8 +168,8 @@ const OFFICE_EXTENSIONS: &[&str] = &[
     "pptm", "pps", "ppsx", "odp",
 ];
 
-/// Crea un PDF a partir de imágenes (una página por imagen), de un `.txt`, `.md` o `.html`, o de un documento de
-/// Office. El nombre sale del primer archivo: `<primero> (<etiqueta>).pdf`.
+/// Crea un PDF a partir de imágenes (una página por imagen), de un `.txt`, `.md` o `.html`, de un libro `.epub`, un cómic
+/// `.cbz`, un documento `.xps` o de un documento de Office. El nombre sale del primer archivo: `<primero> (<etiqueta>).pdf`.
 pub fn create_copy(inputs: &[PathBuf], req: &CreateRequest, ctx: &JobContext) -> Result<Report> {
     let first = inputs
         .first()
@@ -203,14 +203,19 @@ pub fn create_copy(inputs: &[PathBuf], req: &CreateRequest, ctx: &JobContext) ->
         one_only("los documentos de Office")?;
         return office_to_pdf(first, &out, ctx);
     }
+    if ext == "xps" || ext == "oxps" {
+        one_only("los documentos XPS")?;
+        return xps_to_pdf(first, &out, ctx);
+    }
     let text_fn: Option<TextConverter> = match ext.as_str() {
         "txt" => Some(text_to_pdf),
         "md" | "markdown" => Some(markdown_to_pdf),
         "html" | "htm" => Some(html_to_pdf),
+        "epub" => Some(epub_to_pdf),
         _ => None,
     };
     if let Some(convert) = text_fn {
-        one_only("los archivos de texto, Markdown y HTML")?;
+        one_only("los archivos de texto, Markdown, HTML y EPUB")?;
         let opts = TextToPdfOptions {
             page_size: if page_size == PageSizeSpec::Fit {
                 PageSizeSpec::A4
@@ -233,6 +238,10 @@ pub fn create_copy(inputs: &[PathBuf], req: &CreateRequest, ctx: &JobContext) ->
         upscale: req.upscale,
         ..Default::default()
     };
+    if ext == "cbz" {
+        one_only("los cómics CBZ")?;
+        return cbz_to_pdf(first, &out, &opts, ctx);
+    }
     images_to_pdf(inputs, &out, &opts, ctx)
 }
 
@@ -295,6 +304,35 @@ mod tests {
         );
         let h = export_copy(&input, &export("html", "texto"), &JobContext::silent()).unwrap();
         assert_eq!(h.outputs, vec![dir.path().join("doc (texto).html")]);
+    }
+
+    #[test]
+    fn books_comics_and_xps_become_pdf_copies() {
+        let _serial = crate::test_support::serial();
+        let dir = tempfile::tempdir().unwrap();
+        let ctx = JobContext::silent();
+        for (file, label) in [("mini.cbz", "cómic"), ("mini.epub", "libro"), ("mini.xps", "xps")] {
+            let src = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/corpus/packages")
+                .join(file);
+            let input = dir.path().join(file);
+            std::fs::copy(src, &input).unwrap();
+            let req = CreateRequest {
+                label: label.into(),
+                ..Default::default()
+            };
+            let r = create_copy(std::slice::from_ref(&input), &req, &ctx).unwrap();
+            let expected = dir
+                .path()
+                .join(format!("{} ({label}).pdf", file.split('.').next().unwrap()));
+            assert_eq!(r.outputs, vec![expected.clone()], "{file}");
+            assert!(std::fs::metadata(&expected).unwrap().len() > 200, "{file}");
+            // Varios a la vez no se admiten.
+            assert!(matches!(
+                create_copy(&[input.clone(), input], &req, &ctx),
+                Err(Error::InvalidInput(_))
+            ));
+        }
     }
 
     #[test]

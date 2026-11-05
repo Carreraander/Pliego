@@ -14,6 +14,8 @@ pub(crate) struct Op {
     pub args: Vec<Arg>,
     /// Posición (inicio, fin) en bytes de cada operando dentro del flujo.
     pub spans: Vec<(usize, usize)>,
+    /// Posición (inicio, fin) del operador en el flujo. En `BI` abarca toda la imagen en línea hasta `EI`.
+    pub range: (usize, usize),
 }
 
 impl Op {
@@ -116,6 +118,7 @@ pub(crate) fn parse(data: &[u8]) -> Vec<Op> {
                     name,
                     args: std::mem::take(&mut args),
                     spans: std::mem::take(&mut spans),
+                    range: (start, i),
                 });
             }
         }

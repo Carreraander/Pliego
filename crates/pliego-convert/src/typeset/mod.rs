@@ -47,3 +47,15 @@ pub(crate) fn markdown(md: &str, spec: &PageSpec) -> Result<Typeset> {
 pub(crate) fn html(source: &str, spec: &PageSpec) -> Result<Typeset> {
     html::typeset(source, spec)
 }
+
+/// HTML básico con imágenes (EPUB): `images` las da por el valor exacto del `src` de cada `<img>`.
+pub(crate) fn html_with_images(
+    source: &str,
+    spec: &PageSpec,
+    images: std::collections::HashMap<String, std::rc::Rc<pliego_pdf::native::Raster>>,
+) -> Result<Typeset> {
+    html::typeset_with_images(source, spec, images)
+}
+
+/// Marca que fuerza un salto de página dentro del HTML: `<hr class="pliego-pagebreak">`.
+pub(crate) const PAGE_BREAK_HR: &str = "<hr class=\"pliego-pagebreak\">";

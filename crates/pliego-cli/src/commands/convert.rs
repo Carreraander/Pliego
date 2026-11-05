@@ -4,8 +4,9 @@ use anyhow::{Context, bail};
 use clap::{Args, ValueEnum};
 use pliego_convert::{
     ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
-    TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, office_to_pdf,
-    pdf_to_html, pdf_to_images, pdf_to_text, structured_text_pages, text_to_pdf,
+    TextExportOptions, TextToPdfOptions, cbz_to_pdf, epub_to_pdf, extract_images, html_to_pdf, images_to_pdf,
+    markdown_to_pdf, office_to_pdf, pdf_to_html, pdf_to_images, pdf_to_text, structured_text_pages, text_to_pdf,
+    xps_to_pdf,
 };
 use pliego_core::{JobContext, PageRange, Report};
 
@@ -110,16 +111,24 @@ pub fn create(a: CreateArgs, json: bool) -> anyhow::Result<()> {
         let report = office_to_pdf(&a.inputs[0], &a.output, &JobContext::silent())?;
         return show(&report, json);
     }
+    if kind == "xps" || kind == "oxps" {
+        if a.inputs.len() != 1 {
+            bail!("los documentos XPS se convierten de uno en uno");
+        }
+        let report = xps_to_pdf(&a.inputs[0], &a.output, &JobContext::silent())?;
+        return show(&report, json);
+    }
     let doc_fn: Option<fn(&_, &_, &TextToPdfOptions, &JobContext) -> pliego_core::Result<Report>> = match kind.as_str()
     {
         "txt" => Some(text_to_pdf),
         "md" | "markdown" => Some(markdown_to_pdf),
         "html" | "htm" => Some(html_to_pdf),
+        "epub" => Some(epub_to_pdf),
         _ => None,
     };
     if let Some(convert) = doc_fn {
         if a.inputs.len() != 1 {
-            bail!("los archivos de texto, Markdown y HTML se convierten de uno en uno");
+            bail!("los archivos de texto, Markdown, HTML y EPUB se convierten de uno en uno");
         }
         let opts = TextToPdfOptions {
             page_size: if a.page_size == PageSizeSpec::Fit {
@@ -148,6 +157,13 @@ pub fn create(a: CreateArgs, json: bool) -> anyhow::Result<()> {
         },
         upscale: a.upscale,
     };
+    if kind == "cbz" {
+        if a.inputs.len() != 1 {
+            bail!("los cómics CBZ se convierten de uno en uno");
+        }
+        let report = cbz_to_pdf(&a.inputs[0], &a.output, &opts, &JobContext::silent())?;
+        return show(&report, json);
+    }
     let report = images_to_pdf(&a.inputs, &a.output, &opts, &JobContext::silent())?;
     show(&report, json)
 }

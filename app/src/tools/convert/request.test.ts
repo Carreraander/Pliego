@@ -33,6 +33,9 @@ describe("argumentos de Convertir", () => {
     expect(createProblem(["nota.txt"])).toBeNull();
     expect(createProblem(["nota.txt", "a.png"])).toBe("single");
     expect(createProblem(["C:\\x\\informe.DOCX", "b.docx"])).toBe("single");
+    expect(createProblem(["libro.epub"])).toBeNull();
+    expect(createProblem(["tebeo.CBZ", "a.png"])).toBe("single");
+    expect(createProblem(["doc.xps", "b.xps"])).toBe("single");
     expect(createArgs(["a.png"], "a4", null, "auto", false, "PDF")).toEqual({ paths: ["a.png"], pageSize: "a4", marginMm: 0, orientation: "auto", upscale: false, label: "PDF" });
     expect(pdfaArgs("a.pdf", "2b", "PDF-A")).toEqual({ path: "a.pdf", level: "2b", label: "PDF-A" });
   });

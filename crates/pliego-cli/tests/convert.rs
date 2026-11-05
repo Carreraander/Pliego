@@ -123,3 +123,43 @@ fn create_from_office_without_backend_or_with_it() {
         assert!(String::from_utf8_lossy(&out.stderr).contains("LibreOffice"));
     }
 }
+
+fn package(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/corpus/packages")
+        .join(name)
+}
+
+#[test]
+fn create_pdf_from_cbz_epub_and_xps() {
+    let dir = tempfile::tempdir().unwrap();
+    for (file, pages) in [("mini.cbz", 3), ("mini.epub", 2), ("mini.xps", 1)] {
+        let pdf = dir.path().join(format!("{file}.pdf"));
+        let out = pliego()
+            .args(["--json", "create"])
+            .arg(package(file))
+            .arg("-o")
+            .arg(&pdf)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{file}: {}", String::from_utf8_lossy(&out.stderr));
+        let out = pliego().args(["--json", "info"]).arg(&pdf).output().unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(v["page_count"], pages, "{file}");
+    }
+}
+
+#[test]
+fn packaged_formats_are_converted_one_at_a_time() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = pliego()
+        .arg("create")
+        .arg(package("mini.cbz"))
+        .arg(package("mini.cbz"))
+        .arg("-o")
+        .arg(dir.path().join("x.pdf"))
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("de uno en uno"));
+}

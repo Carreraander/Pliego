@@ -67,6 +67,10 @@ Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# UIA devuelve píxeles físicos; sin esto, con escala de pantalla distinta de 100 % CopyFromScreen usa píxeles lógicos y el recorte se descuadra.
+Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class PliegoDpi { [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); }'
+[void][PliegoDpi]::SetProcessDPIAware()
+
 $AE = [System.Windows.Automation.AutomationElement]
 $root = $AE::RootElement
 $tope = 6000

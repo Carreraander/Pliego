@@ -9,6 +9,10 @@ export interface FormField {
   name: string; kind: "text" | "check_box" | "radio_button" | "combo_box" | "list_box" | "push_button" | "signature" | "unknown";
   value: string | null; options: string[]; page: number; rect: [number, number, number, number] | null;
   read_only: boolean; multiline: boolean; password: boolean; signed: boolean;
+  /** Texto con el formato del campo (`1.234,50 €`); sin él, se muestra `value`. */
+  display?: string;
+  /** Acciones del campo con JavaScript: `K` tecleo, `V` validación, `C` cálculo, `F` formato, `U` ratón o botón... */
+  scripts?: string[];
 }
 
 /** Campos del documento activo; se vuelven a leer cuando cambia su revisión (cada relleno recarga el visor). */

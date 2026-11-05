@@ -29,11 +29,12 @@ pub struct Edited {
 fn run(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     backup_suffix: &str,
     op: impl FnOnce(&mut Document) -> Result<Report>,
 ) -> Result<Edited> {
     let mut report = None;
-    let bytes = editor.edit_document(path, backup_suffix, |doc| {
+    let bytes = editor.edit_document(path, password, backup_suffix, |doc| {
         report = Some(op(doc)?);
         Ok(())
     })?;
@@ -44,24 +45,28 @@ fn run(
 }
 
 /// Sustituye el texto del bloque `block` (id de [`blocks`]) de la página `page`.
+#[allow(clippy::too_many_arguments)]
 pub fn replace(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     block: usize,
     text: &str,
     style: &Style,
     backup_suffix: &str,
 ) -> Result<Edited> {
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::replace_text(doc, page, block, text, style)
     })
 }
 
 /// Añade texto nuevo dentro de `rect`.
+#[allow(clippy::too_many_arguments)]
 pub fn insert(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     rect: RectPts,
     text: &str,
@@ -71,7 +76,7 @@ pub fn insert(
     if text.trim().is_empty() {
         return Err(Error::InvalidInput("escribe el texto que quieres añadir".into()));
     }
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::insert_text(doc, page, rect, text, style)
     })
 }
@@ -107,6 +112,7 @@ mod tests {
         let out = replace(
             &ed,
             &p,
+            None,
             0,
             0,
             "Texto nuevo del bloque",
@@ -133,6 +139,7 @@ mod tests {
         insert(
             &ed,
             &p,
+            None,
             0,
             [60.0, 600.0, 300.0, 640.0],
             "Añadido aquí",
@@ -143,8 +150,8 @@ mod tests {
         let texts: Vec<_> = blocks(&p, 0, None).unwrap().into_iter().map(|b| b.text).collect();
         assert!(texts.iter().any(|t| t.contains("Añadido")), "{texts:?}");
         let before = std::fs::read(&p).unwrap();
-        assert!(insert(&ed, &p, 0, [0.0, 0.0, 10.0, 10.0], "  ", &Style::default(), "c").is_err());
-        assert!(replace(&ed, &p, 0, 99, "x", &Style::default(), "c").is_err());
+        assert!(insert(&ed, &p, None, 0, [0.0, 0.0, 10.0, 10.0], "  ", &Style::default(), "c").is_err());
+        assert!(replace(&ed, &p, None, 0, 99, "x", &Style::default(), "c").is_err());
         assert_eq!(std::fs::read(&p).unwrap(), before);
         assert_eq!(ed.undo_depth(&p), 1);
     }

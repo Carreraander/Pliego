@@ -199,7 +199,7 @@ fn xfdf_exporta_e_importa_los_comentarios() {
         },
     );
     spec.contents = Some("revisar".into());
-    let bytes = Editor::default().add(&path, &spec, "copia de seguridad").unwrap();
+    let bytes = Editor::default().add(&path, None, &spec, "copia de seguridad").unwrap();
     svc.reload_bytes(id, &bytes).unwrap();
 
     let exported = annot::export_xfdf_copy(&path, None, "comentarios").unwrap();
@@ -411,6 +411,7 @@ fn medir_guarda_la_escala_y_la_medida_en_el_pdf_abierto() {
     let (bytes, m) = measure::save(
         &ed,
         &path,
+        None,
         "copia de seguridad",
         0,
         &scale,

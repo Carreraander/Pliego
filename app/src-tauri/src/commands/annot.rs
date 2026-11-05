@@ -21,25 +21,38 @@ pub struct AnnotEditState(pub Editor);
 
 /// Comentarios del PDF de `path`, agrupados en hilos.
 #[tauri::command]
-pub async fn annot_summary(path: String) -> ApiResult<CommentSummary> {
-    let joined = tauri::async_runtime::spawn_blocking(move || annot::summary_of(&PathBuf::from(path), None))
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
+pub async fn annot_summary(path: String, password: Option<String>) -> ApiResult<CommentSummary> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || annot::summary_of(&PathBuf::from(path), password.as_deref()))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
     Ok(joined?)
 }
 
 /// Exporta los comentarios a `<nombre> (<suffix>).xfdf`.
 #[tauri::command]
-pub fn export_comments_xfdf(jobs: State<'_, JobsState>, path: String, suffix: String) -> JobId {
+pub fn export_comments_xfdf(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    suffix: String,
+) -> JobId {
     jobs.0
-        .spawn(move |_ctx| annot::export_xfdf_copy(&PathBuf::from(path), None, &suffix))
+        .spawn(move |_ctx| annot::export_xfdf_copy(&PathBuf::from(path), password.as_deref(), &suffix))
 }
 
 /// Importa un XFDF en una copia `<nombre> (<suffix>).pdf`.
 #[tauri::command]
-pub fn import_comments_xfdf(jobs: State<'_, JobsState>, path: String, xfdf: String, suffix: String) -> JobId {
-    jobs.0
-        .spawn(move |_ctx| annot::import_xfdf_copy(&PathBuf::from(path), None, &PathBuf::from(xfdf), &suffix))
+pub fn import_comments_xfdf(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    xfdf: String,
+    suffix: String,
+) -> JobId {
+    jobs.0.spawn(move |_ctx| {
+        annot::import_xfdf_copy(&PathBuf::from(path), password.as_deref(), &PathBuf::from(xfdf), &suffix)
+    })
 }
 
 /// Selector nativo de un archivo XFDF; `None` si se cancela.
@@ -63,11 +76,12 @@ pub async fn annot_add(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     spec: AnnotSpec,
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = editor.0.add(&path, &spec, &suffix)?;
+    let bytes = editor.0.add(&path, password.as_deref(), &spec, &suffix)?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(editor.0.undo_depth(&path))
 }
@@ -79,11 +93,12 @@ pub async fn annot_delete(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     id: AnnotId,
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = editor.0.delete(&path, id, &suffix)?;
+    let bytes = editor.0.delete(&path, password.as_deref(), id, &suffix)?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(editor.0.undo_depth(&path))
 }
@@ -105,10 +120,11 @@ pub async fn annot_undo(
 
 /// Campos del formulario de `path`, con su recuadro en la página (Rellenar y firmar).
 #[tauri::command]
-pub async fn forms_fields(path: String) -> ApiResult<Vec<FieldInfo>> {
-    let joined = tauri::async_runtime::spawn_blocking(move || annot::form_fields(&PathBuf::from(path), None))
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
+pub async fn forms_fields(path: String, password: Option<String>) -> ApiResult<Vec<FieldInfo>> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || annot::form_fields(&PathBuf::from(path), password.as_deref()))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
     Ok(joined?)
 }
 
@@ -120,11 +136,12 @@ pub async fn forms_fill(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     values: FieldValues,
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = editor.0.fill(&path, &values, &suffix)?;
+    let bytes = editor.0.fill(&path, password.as_deref(), &values, &suffix)?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(editor.0.undo_depth(&path))
 }

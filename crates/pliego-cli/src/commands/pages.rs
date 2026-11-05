@@ -197,6 +197,7 @@ pub fn merge(a: MergeArgs, json: bool) -> anyhow::Result<()> {
         keep_bookmarks: !a.no_bookmarks,
         bookmark_per_file: a.bookmark_per_file,
         password: a.password,
+        ..MergeOptions::default()
     };
     finish(
         pliego_organize::merge(&a.inputs, &a.output, &opts, &JobContext::silent())?,

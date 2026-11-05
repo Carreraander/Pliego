@@ -18,6 +18,7 @@ pub mod optimize;
 pub mod organize;
 pub mod outputpreview;
 pub mod pageedit;
+pub mod passwords;
 pub mod portfolio;
 pub mod protect;
 pub mod search_index;

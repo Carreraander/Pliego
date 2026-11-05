@@ -23,10 +23,11 @@ pub struct EditOutcome {
 
 /// Bloques de texto editables de la página `page` (desde 0).
 #[tauri::command]
-pub async fn edit_text_blocks(path: String, page: usize) -> ApiResult<Vec<TextBlock>> {
-    let joined = tauri::async_runtime::spawn_blocking(move || pageedit::blocks(&PathBuf::from(path), page, None))
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
+pub async fn edit_text_blocks(path: String, page: usize, password: Option<String>) -> ApiResult<Vec<TextBlock>> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || pageedit::blocks(&PathBuf::from(path), page, password.as_deref()))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
     Ok(joined?)
 }
 
@@ -52,6 +53,7 @@ pub async fn edit_text_replace(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     block: usize,
     text: String,
@@ -59,7 +61,16 @@ pub async fn edit_text_replace(
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::replace(&editor.0, &path, page, block, &text, &style, &suffix)?;
+    let edited = pageedit::replace(
+        &editor.0,
+        &path,
+        password.as_deref(),
+        page,
+        block,
+        &text,
+        &style,
+        &suffix,
+    )?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -71,6 +82,7 @@ pub async fn edit_text_insert(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     rect: RectPts,
     text: String,
@@ -78,6 +90,15 @@ pub async fn edit_text_insert(
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::insert(&editor.0, &path, page, rect, &text, &style, &suffix)?;
+    let edited = pageedit::insert(
+        &editor.0,
+        &path,
+        password.as_deref(),
+        page,
+        rect,
+        &text,
+        &style,
+        &suffix,
+    )?;
     finish(&state, &editor, doc_id, &path, edited)
 }

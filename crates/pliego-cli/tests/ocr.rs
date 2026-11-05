@@ -97,3 +97,73 @@ fn list_downloadable_json() {
     let v: Vec<String> = serde_json::from_slice(&out.stdout).unwrap();
     assert!(v.iter().any(|l| l == "spa"), "{v:?}");
 }
+
+/// Cifra `hola.pdf` con la CLI y devuelve la ruta (contraseña de apertura `abre`).
+fn encrypted(dir: &std::path::Path) -> PathBuf {
+    let enc = dir.join("cifrado.pdf");
+    let out = pliego()
+        .args(["protect", "encrypt"])
+        .arg(hola())
+        .arg("-o")
+        .arg(&enc)
+        .args(["--password", "abre", "--owner-password", "dueno"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    enc
+}
+
+#[test]
+fn ocr_of_a_protected_pdf_needs_the_password_and_keeps_it_protected() {
+    if !available_languages().iter().any(|l| l == "eng") {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let enc = encrypted(dir.path());
+    let run = |extra: &[&str], env: Option<&str>| {
+        let mut c = pliego();
+        c.env_remove("PLIEGO_PASSWORD").env_remove("RUST_BACKTRACE");
+        if let Some(pw) = env {
+            c.env("PLIEGO_PASSWORD", pw);
+        }
+        let out = dir.path().join(format!("o{}.pdf", extra.len() + env.map_or(0, |_| 10)));
+        let o = c
+            .args(["--json", "ocr"])
+            .arg(&enc)
+            .args(["--lang", "eng", "--force", "-o"])
+            .arg(&out)
+            .args(extra)
+            .output()
+            .unwrap();
+        (o, out)
+    };
+
+    // Sin contraseña o con una incorrecta: error claro y sin archivo de salida.
+    for (extra, env) in [
+        (vec![], None),
+        (vec!["--password", "mala"], None),
+        (vec![], Some("mala")),
+    ] {
+        let (o, out) = run(&extra, env);
+        assert!(!o.status.success());
+        assert!(
+            String::from_utf8_lossy(&o.stderr).contains("contraseña"),
+            "{extra:?} {env:?}"
+        );
+        assert!(!out.exists(), "sin salida a medias");
+    }
+    // Con la contraseña en la opción o en el entorno (así la manda la app): funciona.
+    for (extra, env) in [(vec!["--password", "abre"], None), (vec![], Some("abre"))] {
+        let (o, out) = run(&extra, env);
+        assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+        // La copia sigue protegida: sin contraseña, el propio OCR lo rechaza.
+        let again = pliego()
+            .arg("ocr")
+            .arg(&out)
+            .args(["--lang", "eng", "--force"])
+            .env_remove("PLIEGO_PASSWORD")
+            .output()
+            .unwrap();
+        assert!(!again.status.success(), "la copia debe seguir cifrada");
+    }
+}

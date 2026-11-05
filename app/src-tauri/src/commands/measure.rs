@@ -58,6 +58,7 @@ pub async fn measure_save(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: u32,
     scale: Scale,
     points: Vec<Pt>,
@@ -65,7 +66,16 @@ pub async fn measure_save(
     suffix: String,
 ) -> ApiResult<Saved> {
     let path = PathBuf::from(path);
-    let (bytes, measurement) = measure::save(&editor.0, &path, &suffix, page, &scale, &points, closed)?;
+    let (bytes, measurement) = measure::save(
+        &editor.0,
+        &path,
+        password.as_deref(),
+        &suffix,
+        page,
+        &scale,
+        &points,
+        closed,
+    )?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(Saved {
         measurement,

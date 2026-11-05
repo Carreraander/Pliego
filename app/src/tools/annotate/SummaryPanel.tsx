@@ -6,6 +6,7 @@ import { goToPage } from "../../state/navigation";
 import { activeDoc } from "../../state/documents";
 import { EmptyState, Notice, TaskPanel } from "../../ui";
 import { at } from "./text";
+import { withPassword } from "../../state/passwords";
 
 /** Reflejo de `pliego_annot::CommentSummary` (solo lo que se muestra). */
 export interface AnnotInfo { id: { page: number; xref: number }; kind: string; author?: string | null; contents?: string | null }
@@ -15,7 +16,7 @@ export interface CommentSummary { total: number; by_kind: Record<string, number>
 export default function SummaryPanel(p: { onClose: () => void }) {
   const [data] = createResource(
     () => activeDoc()?.path,
-    (path) => invoke<CommentSummary>("annot_summary", { path }).catch((e) => { throw new Error(isApiError(e) ? e.message : String(e)); }),
+    (path) => invoke<CommentSummary>("annot_summary", withPassword({ path })).catch((e) => { throw new Error(isApiError(e) ? e.message : String(e)); }),
   );
   const who = (a: AnnotInfo) => a.author || at("annotate.summary.noAuthor");
 

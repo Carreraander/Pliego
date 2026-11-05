@@ -33,9 +33,11 @@ pub fn measure(scale: &Scale, points: &[Pt], closed: bool) -> Result<Measurement
 }
 
 /// Guarda la escala de la página y una anotación de medida en el propio PDF. Devuelve el contenido nuevo y la medida.
+#[allow(clippy::too_many_arguments)]
 pub fn save(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     backup_suffix: &str,
     page: u32,
     scale: &Scale,
@@ -43,7 +45,7 @@ pub fn save(
     closed: bool,
 ) -> Result<(Vec<u8>, Measurement)> {
     let mut measured = None;
-    let bytes = editor.edit_pdf(path, backup_suffix, |doc| {
+    let bytes = editor.edit_pdf(path, password, backup_suffix, |doc| {
         pliego_measure::set_scale(doc, page, scale)?;
         measured = Some(pliego_measure::add_measurement(doc, page, scale, points, closed)?.0);
         Ok(())
@@ -92,6 +94,7 @@ mod tests {
         let (bytes, m) = save(
             &editor,
             &path,
+            None,
             "copia",
             0,
             &scale,
@@ -106,7 +109,7 @@ mod tests {
             .expect("la escala queda en la página");
         assert!((back.units_per_point - scale.units_per_point).abs() < 1e-9);
         assert_eq!(editor.undo_depth(&path), 1);
-        assert!(save(&editor, &path, "copia", 0, &scale, &[[0.0, 0.0]], false).is_err());
+        assert!(save(&editor, &path, None, "copia", 0, &scale, &[[0.0, 0.0]], false).is_err());
         std::fs::remove_dir_all(dir).ok();
     }
 }

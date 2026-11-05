@@ -4,6 +4,9 @@ import { activeDoc, currentPageIndex, rotation, setRotation, setZoom, zoom } fro
 import { goToPage } from "../../state/navigation";
 import { fitPageZoom, PAGE_GAP } from "../../viewer/layout";
 
+/** `goToPage` deja la página 8 px bajo el borde superior y la siguiente empieza `PAGE_GAP` px tras la actual: con 14 px de margen la página cabe entera y la siguiente queda fuera (con 2 × `PAGE_GAP` asomaban ~4 px). */
+const PRESENT_MARGIN = 8 + PAGE_GAP - 6;
+
 /** `true` mientras se presenta: la ventana está a pantalla completa y sin armazón. */
 export const [presenting, setPresenting] = createSignal(false);
 
@@ -43,7 +46,7 @@ function fitCurrent(): void {
   const view = document.querySelector<HTMLElement>('[data-testid="viewer"]');
   const size = doc?.sizes[currentPageIndex()];
   if (!doc || !view || !size) return;
-  setZoom(fitPageZoom(size, rotation(), { width: view.clientWidth, height: view.clientHeight }, 2 * PAGE_GAP));
+  setZoom(fitPageZoom(size, rotation(), { width: view.clientWidth, height: view.clientHeight }, PRESENT_MARGIN));
   goToPage(currentPageIndex());
 }
 

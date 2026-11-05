@@ -105,6 +105,7 @@ async function openTool(page: Page, query: string, option: RegExp) {
 
 test.describe("Medir y Presentación (backend simulado)", () => {
   test.use({
+    deviceScaleFactor: 1.25,
     locale: "es-ES",
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
   });
@@ -173,10 +174,15 @@ test.describe("Medir y Presentación (backend simulado)", () => {
     await page.waitForTimeout(300);
     await page.screenshot({ path: info.outputPath("presentacion-p1.png") });
     // La página cabe entera en el visor (ni recortada arriba ni abajo).
+    // Y la siguiente no asoma por abajo ni se ve la barra de desplazamiento (visto en la app real de Windows al 125 %).
     const fits = async (n: number) => {
       const view = (await page.getByTestId("viewer").boundingBox())!;
       const box = (await page.locator(`.page[data-page="${n}"]`).boundingBox())!;
-      return box.y >= view.y - 1 && box.y + box.height <= view.y + view.height + 1;
+      const nextLoc = page.locator(`.page[data-page="${n + 1}"]`);
+      const next = (await nextLoc.count()) ? await nextLoc.boundingBox() : null;
+      const hidden = !next || next.y >= view.y + view.height;
+      const noScrollbar = await page.getByTestId("viewer").evaluate((el) => el.offsetWidth === el.clientWidth);
+      return box.y >= view.y - 1 && box.y + box.height <= view.y + view.height + 1 && hidden && noScrollbar;
     };
     await expect.poll(() => fits(0)).toBe(true);
     await page.keyboard.press("ArrowRight");

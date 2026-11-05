@@ -91,3 +91,5 @@
 [data-presenting] .pl-window { grid-template-rows: minmax(0, 1fr); }
 [data-presenting] .pl-titlebar, [data-presenting] .pl-modebar, [data-presenting] .pl-status,
 [data-presenting] .pl-rail, [data-presenting] .pl-sidepanel, [data-presenting] .pl-inspector-col, [data-presenting] .pl-splitter { display: none; }
+[data-presenting] .viewer { scrollbar-width: none; }
+[data-presenting] .viewer::-webkit-scrollbar { display: none; }

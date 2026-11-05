@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use mupdf::pdf::PdfDocument;
-use mupdf::{Colorspace, Matrix, TextPageFlags};
 use pliego_core::JobContext;
+use pliego_pdf::{Colorspace, Matrix, PdfDocument, TextFlags};
 use pliego_redact::{Area, Fill, ImageMode, Pattern, RedactJob, RedactOptions, apply, find_patterns, verify};
 
 fn corpus() -> PathBuf {
@@ -10,7 +9,7 @@ fn corpus() -> PathBuf {
 }
 
 fn open(p: &Path) -> PdfDocument {
-    PdfDocument::open(p.to_str().unwrap()).unwrap()
+    PdfDocument::open(p).unwrap()
 }
 
 fn text_of(p: &Path) -> String {
@@ -18,7 +17,7 @@ fn text_of(p: &Path) -> String {
     let mut all = String::new();
     for i in 0..doc.page_count().unwrap() {
         let page = doc.load_page(i).unwrap();
-        all.push_str(&page.to_text_page(TextPageFlags::empty()).unwrap().to_text().unwrap());
+        all.push_str(&page.to_text_page(TextFlags::empty()).unwrap().to_text().unwrap());
     }
     all
 }
@@ -28,10 +27,10 @@ fn pixel(p: &Path, x: usize, y: usize) -> (u8, u8, u8) {
     let doc = open(p);
     let page = doc.load_page(0).unwrap();
     let pix = page
-        .to_pixmap(&Matrix::IDENTITY, &Colorspace::device_rgb(), false, false)
+        .to_pixmap(&Matrix::IDENTITY, Colorspace::Rgb, false, false)
         .unwrap();
     let n = pix.n() as usize;
-    let i = y * pix.stride() as usize + x * n;
+    let i = y * pix.stride() + x * n;
     let s = pix.samples();
     (s[i], s[i + 1], s[i + 2])
 }

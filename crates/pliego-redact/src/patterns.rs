@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
-use mupdf::pdf::PdfDocument;
-use mupdf::{Quad, TextPageFlags};
 use pliego_core::{Error, Result};
+use pliego_pdf::{PdfDocument, Quad, TextFlags};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -151,22 +150,22 @@ fn quad_bounds(q: &Quad) -> (f32, f32, f32, f32) {
 /// devuelven si pasan la validación del dígito o letra de control.
 pub fn find_patterns(doc: &PdfDocument, patterns: &[Pattern]) -> Result<Vec<Match>> {
     let compiled = compile(patterns)?;
-    let pages = doc.page_count().map_err(pdf_err)?.max(0);
+    let pages = doc.page_count()?.max(0);
     let mut out = Vec::new();
     for p in 0..pages {
-        let page = doc.load_page(p).map_err(pdf_err)?;
-        let tp = page.to_text_page(TextPageFlags::empty()).map_err(pdf_err)?;
+        let page = doc.load_page(p)?;
+        let tp = page.to_text_page(TextFlags::empty())?;
 
         // Texto de la página con la posición de cada carácter.
         let mut glyphs: Vec<Glyph> = Vec::new();
         let mut line_no = 0usize;
         for block in tp.blocks() {
-            for line in block.lines() {
-                for c in line.chars() {
-                    if let Some(ch) = c.char() {
+            for line in &block.lines {
+                for c in &line.chars {
+                    if let Some(ch) = c.ch {
                         glyphs.push(Glyph {
                             ch,
-                            quad: Some(c.quad()),
+                            quad: Some(c.quad),
                             line: line_no,
                         });
                     }
@@ -229,10 +228,6 @@ pub fn find_patterns(doc: &PdfDocument, patterns: &[Pattern]) -> Result<Vec<Matc
         }
     }
     Ok(out)
-}
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
 }
 
 #[cfg(test)]

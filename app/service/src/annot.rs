@@ -59,7 +59,7 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
     persist_with_retry(tmp, out)
 }
 
-/// Puente temporal: las herramientas que aún no se han migrado a `pliego-pdf` (anotaciones, medición) reciben un
+/// Puente temporal: las herramientas que aún no se han migrado a `pliego-pdf` (anotaciones) reciben un
 /// `mupdf::pdf::PdfDocument`. Cuando cada una se migre, su flujo cambia sus llamadas a `open`/`save`/`edit_pdf` y
 /// borra este módulo y el método `Editor::edit_mupdf`.
 pub mod legacy {

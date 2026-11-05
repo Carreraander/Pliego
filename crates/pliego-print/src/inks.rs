@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 
-use mupdf::pdf::PdfDocument;
 use pliego_core::Result;
+use pliego_pdf::PdfDocument;
 use serde::{Deserialize, Serialize};
 
-use crate::pdf_err;
 use crate::scan::scan_page;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,7 +35,7 @@ fn process_ink(name: &str) -> Option<&'static str> {
 /// Las tintas de proceso se detectan por el uso de CMYK (`k`, `DeviceCMYK`, ICC de 4 canales...). `None` y `All`
 /// (registro) no cuentan.
 pub fn inks(doc: &PdfDocument) -> Result<Vec<Ink>> {
-    let pages = doc.page_count().map_err(pdf_err)?.max(0) as usize;
+    let pages = doc.page_count()?.max(0) as usize;
     let mut found: BTreeMap<(u8, String), Vec<usize>> = BTreeMap::new();
     for p in 0..pages {
         let scan = scan_page(doc, p)?;

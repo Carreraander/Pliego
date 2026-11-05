@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 
-use mupdf::{Colorspace, Document, Matrix};
 use pliego_ocr::{GrayImage, OcrEngine, TesseractEngine, available_languages, ocr_page_image};
+use pliego_pdf::{Colorspace, Document, Matrix};
 
 fn render_hola(dpi: f32) -> GrayImage {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/basic/hola.pdf");
-    let doc = Document::open(path.to_str().unwrap()).unwrap();
+    let doc = Document::open(&path).unwrap();
     let page = doc.load_page(0).unwrap();
     let s = dpi / 72.0;
     let pix = page
-        .to_pixmap(&Matrix::new_scale(s, s), &Colorspace::device_gray(), false, false)
+        .to_pixmap(&Matrix::new_scale(s, s), Colorspace::Gray, false, false)
         .unwrap();
     GrayImage::from_interleaved(pix.width(), pix.height(), pix.n() as usize, pix.samples()).unwrap()
 }

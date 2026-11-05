@@ -119,13 +119,13 @@ fn report_is_a_readable_pdf_with_summary_and_detail_pages() {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("informe.pdf");
     write_report(&c, &out).unwrap();
-    let doc = mupdf::Document::open(out.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::Document::open(out.to_str().unwrap()).unwrap();
     // Resumen + una página de detalle (la insertada).
     assert_eq!(doc.page_count().unwrap(), 2);
     let text = doc
         .load_page(0)
         .unwrap()
-        .to_text_page(mupdf::TextPageFlags::empty())
+        .to_text_page(pliego_pdf::TextFlags::empty())
         .unwrap()
         .to_text()
         .unwrap();

@@ -21,8 +21,15 @@ export const layers: ToolManifest = {
   load: () => import("./LayersPanel"),
 };
 
+export const present: ToolManifest = {
+  id: "viewer.present", group: "view", kind: "task", title: "tools.viewer.present.title", description: "tools.viewer.present.description",
+  icon: "presentation", keywords: ["pantalla completa", "slides", "fullscreen"], shortcut: "F11", when: { document: true }, pinnable: true,
+  load: () => import("./PresentLauncher"),
+};
+
 export function registerViewTools(): void {
   registerTool(attachments);
   registerTool(layers);
+  registerTool(present);
   registerTool(properties);
 }

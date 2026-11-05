@@ -4422,9 +4422,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "flate2",
  "pliego-core",
  "pliego-engine",
+ "pliego-redact",
  "pliego-worker",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

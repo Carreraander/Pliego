@@ -1,0 +1,59 @@
+# Arnés de comparación de motores y oráculo de redacción (W34)
+
+Evidencia automática para la migración de MuPDF a PDFium + lopdf (ola 5). Vive en `crates/pliego-qa`.
+Los motores se eligen por nombre en `crates/pliego-qa/src/engines.rs`; hoy solo existe `mupdf`. Cuando haya motor
+nuevo, una línea en `engines::by_name` lo habilita y todo lo demás funciona igual (`--candidate pdfium`).
+
+## `engine-compare`
+
+```
+cargo build --release -p pliego-qa
+target/release/engine-compare tests/corpus --reference mupdf --candidate mupdf        # línea base
+target/release/engine-compare tests/corpus tests/corpus/external --candidate pdfium    # motor nuevo
+```
+
+Por cada PDF (un proceso hijo con tiempo límite; una caída del motor no tira el arnés):
+
+- páginas (las primeras `--max-pages`, 20) y tamaños;
+- render a **72 y 150 ppp** con los dos motores: píxeles distintos (tolerancia por canal `--pixel-tolerance` 16;
+  fallo si más de `--max-diff` 0,5 % de la página);
+- texto extraído: similitud de palabras (fallo por debajo de 0,98);
+- `--validate-dir <dir>`: `qpdf --check` y veraPDF sobre las **salidas** de las herramientas (se omiten si no están
+  instalados);
+- `--mutate N --seed S`: N copias corrompidas por PDF (bytes cambiados, truncado, trozos duplicados); el candidato no
+  debe caer ni colgarse. Determinista según la semilla.
+
+Informes en `target/engine-compare/report.{json,md}`. Sale con error si algo falla y **no** está en
+`tests/corpus/engine-diff-known.txt` (el equivalente a `known-issues.txt` para este arnés: un PDF por línea con el
+motivo en un comentario). Regla de la ola: si un PR de migración supera el umbral más de lo acordado en esa lista, no se
+fusiona y se abre incidencia con el PDF.
+
+Línea base (MuPDF contra MuPDF, 85 PDF de `tests/corpus`): 0 píxeles distintos, 0 diferencias de texto; solo
+`tiling-hang.pdf` se cuelga a propósito (conocido). Se ejecuta en cada PR dentro de `cargo test -p pliego-qa` y, con el
+corpus externo y el humo de robustez, en la CI nocturna.
+
+## `redaction-oracle`
+
+```
+target/release/redaction-oracle redactado.pdf --needle 12345678Z --needle "ES91 2100 0418" [--region 0,50,100,300,130]
+```
+
+Verificación obligatoria de cualquier motor que redacte (W38). Código de salida 1 si queda rastro. Vías independientes:
+
+1. texto extraído y búsqueda del motor;
+2. `pdftotext` (extractor ajeno, si está instalado);
+3. bytes del archivo en ASCII, UTF-16BE y hexadecimal;
+4. flujos descomprimidos (Flate), incluidos los de objetos comprimidos;
+5. literales de texto de los flujos de contenido, aunque el texto vaya partido por interletraje (`[(Hol)-20(a)] TJ`);
+6. `--region pagina,x0,y0,x1,y1` (puntos, origen arriba a la izquierda): la zona renderizada a 150 ppp debe ser de un solo
+   color.
+
+Tiene control negativo en las pruebas: sobre el original detecta los datos, y sobre la salida de `pliego-redact` no
+encuentra nada. **Límites conocidos:** no descifra (pásale un PDF sin cifrar), no decodifica flujos que no sean Flate
+(LZW, ASCII85) ni comprueba que las imágenes se recorten más allá de la región uniforme.
+
+## Fuzzing
+
+El fuzzing con libFuzzer del motor actual sigue en `crates/pliego-engine/fuzz` (`tools/fuzz.sh`, `fuzz.yml`).
+`--mutate` es el humo en estable que corre contra cualquier motor; el objetivo de libFuzzer del motor nuevo lo añade
+quien lo implemente (W37) copiando ese directorio.

@@ -43,3 +43,7 @@ all = { level = "warn", priority = -1 }
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# El arnés de comparación (pliego-qa) recorre millones de píxeles: sin optimizar tarda un minuto en las pruebas.
+[profile.dev.package.pliego-qa]
+opt-level = 3

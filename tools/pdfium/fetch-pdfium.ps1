@@ -50,4 +50,11 @@ Copy-Item (Join-Path $stage 'bin\pdfium.dll') (Join-Path $OutDir 'pdfium.dll') -
 Copy-Item (Join-Path $stage 'LICENSE') (Join-Path $OutDir 'LICENSE.pdfium') -Force
 if (Test-Path (Join-Path $stage 'licenses')) { Copy-Item (Join-Path $stage 'licenses') (Join-Path $OutDir 'licenses') -Recurse -Force }
 $dll = Get-Item (Join-Path $OutDir 'pdfium.dll')
+$dllHash = (Get-FileHash $dll.FullName -Algorithm SHA256).Hash.ToLower()
+if ($Primera) {
+  Write-Host "SHA-256 de pdfium.dll ($Version): $dllHash"
+} elseif ($lock.PSObject.Properties['dll_sha256'] -and $lock.dll_sha256 -and $dllHash -ne $lock.dll_sha256.ToLower()) {
+  Remove-Item $dll.FullName -Force
+  throw "pdfium.dll distinta: esperado $($lock.dll_sha256), obtenido $dllHash. DLL borrada."
+}
 Write-Host ("pdfium.dll listo: {0} ({1:N1} MB)" -f $dll.FullName, ($dll.Length / 1MB))

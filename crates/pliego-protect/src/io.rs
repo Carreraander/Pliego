@@ -1,25 +1,17 @@
 use std::path::Path;
 
-use mupdf::pdf::{PdfDocument, PdfWriteOptions};
+use pliego_pdf::{PdfDocument, WriteOptions};
 use pliego_core::{Error, Result};
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 /// Abre un PDF, autenticando con `password` si lo necesita.
 pub(crate) fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     if !path.exists() {
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
-    // En Windows `mupdf` solo acepta rutas UTF-8 (`&str`).
-    let path_str = path
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("la ruta del archivo debe ser UTF-8".into()))?;
-    let mut doc = PdfDocument::open(path_str).map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? {
+    let mut doc = PdfDocument::open(path)?;
+    if doc.needs_password()? {
         match password {
-            Some(p) if doc.authenticate(p).map_err(pdf_err)? => {}
+            Some(p) if doc.authenticate(p)? => {}
             _ => return Err(Error::Password),
         }
     }
@@ -27,7 +19,7 @@ pub(crate) fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocumen
 }
 
 /// Guarda en un temporal junto al destino y lo renombra. Nunca pisa la entrada.
-pub(crate) fn save_atomic(doc: PdfDocument, input: &Path, output: &Path, options: PdfWriteOptions) -> Result<()> {
+pub(crate) fn save_atomic(doc: PdfDocument, input: &Path, output: &Path, options: WriteOptions) -> Result<()> {
     let same = match (std::fs::canonicalize(input), std::fs::canonicalize(output)) {
         (Ok(a), Ok(b)) => a == b,
         _ => input == output,
@@ -46,12 +38,8 @@ pub(crate) fn save_atomic(doc: PdfDocument, input: &Path, output: &Path, options
         .suffix(".tmp")
         .tempfile_in(dir)
         .map_err(|e| Error::io_at(dir, e))?;
-    let tmp_str = tmp
-        .path()
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("la ruta de salida debe ser UTF-8".into()))?;
-    doc.save_with_options(tmp_str, options).map_err(pdf_err)?;
-    // Se suelta el documento antes de renombrar: en Windows MuPDF puede seguir teniendo abierto el temporal.
+    doc.save_with_options(tmp.path(), &options)?;
+    // Se suelta el documento antes de renombrar: en Windows el motor puede seguir teniendo abierto el temporal.
     drop(doc);
     // Windows: un antivirus o el indexador pueden retener el archivo recién escrito unos instantes (error 32).
     let mut tmp = tmp;

@@ -4410,8 +4410,8 @@ dependencies = [
 name = "pliego-protect"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "tempfile",
 ]

@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use mupdf::pdf::{Encryption as MuEncryption, PdfWriteOptions, Permission};
+use pliego_pdf::{Encryption as PdfEncryption, Permission, WriteOptions};
 use pliego_core::{Error, Report, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::io::{open_pdf, pdf_err, save_atomic};
+use crate::io::{open_pdf, save_atomic};
 
 /// Algoritmo de cifrado.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -140,11 +140,11 @@ impl Encryption {
     }
 }
 
-fn write_options(enc: &Encryption) -> PdfWriteOptions {
-    let mut o = PdfWriteOptions::default();
+fn write_options(enc: &Encryption) -> WriteOptions {
+    let mut o = WriteOptions::default();
     o.set_encryption(match enc.cipher {
-        Cipher::Aes256 => MuEncryption::Aes256,
-        Cipher::Aes128 => MuEncryption::Aes128,
+        Cipher::Aes256 => PdfEncryption::Aes256,
+        Cipher::Aes128 => PdfEncryption::Aes128,
     });
     // Si solo hay contraseña de apertura, la de permisos coincide con ella.
     let owner = if enc.owner_password.is_empty() {
@@ -174,8 +174,8 @@ pub fn encrypt(input: &Path, output: &Path, input_password: Option<&str>, enc: &
 /// Quita la protección de un documento del que se conoce la contraseña.
 pub fn decrypt(input: &Path, output: &Path, password: &str) -> Result<Report> {
     let doc = open_pdf(input, Some(password))?;
-    let mut o = PdfWriteOptions::default();
-    o.set_encryption(MuEncryption::None);
+    let mut o = WriteOptions::default();
+    o.set_encryption(PdfEncryption::None);
     save_atomic(doc, input, output, o)?;
     Ok(Report::with_output(output, "Protección eliminada."))
 }
@@ -204,19 +204,19 @@ pub fn set_permissions(
 /// Permisos que declara el documento (entrada /P del diccionario de cifrado) para quien no tiene la
 /// contraseña de permisos. Sin cifrado, todo está permitido.
 ///
-/// Se lee /P directamente: `PdfDocument::permissions` de `mupdf` 0.8 devuelve "todo permitido" cuando /P
+/// Se lee /P directamente: `PdfDocument::permissions` puede devolver "todo permitido" cuando /P
 /// trae los bits reservados activados (lo normal), así que no sirve para esto.
 pub fn permissions_of(input: &Path, password: Option<&str>) -> Result<Permissions> {
     let doc = open_pdf(input, password)?;
-    let trailer = doc.trailer().map_err(pdf_err)?;
-    let p = match trailer.get_dict("Encrypt").map_err(pdf_err)? {
-        Some(enc) => match enc.get_dict("P").map_err(pdf_err)? {
-            Some(p) => p.as_int().map_err(pdf_err)? as u32,
+    let trailer = doc.trailer()?;
+    let p = match trailer.get_dict("Encrypt")? {
+        Some(enc) => match enc.get_dict("P")? {
+            Some(p) => p.as_int()? as u32,
             None => return Ok(Permissions::all()),
         },
         None => return Ok(Permissions::all()),
     };
-    Ok(Permissions::from_bits(Permission::from_bits_truncate(p)))
+    Ok(Permissions::from_bits(Permission(p)))
 }
 
 #[cfg(test)]

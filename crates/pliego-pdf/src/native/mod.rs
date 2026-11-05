@@ -28,6 +28,7 @@
 
 mod annot;
 mod appearance;
+mod content;
 mod document;
 mod flatten;
 mod font;

@@ -112,7 +112,7 @@ impl Page {
     }
 
     /// Texto estructurado. Con PDFium no hay bloques de imagen: si se pide `PRESERVE_IMAGES` esta llamada usa
-    /// MuPDF (W39 los aportará desde `image_placements`).
+    /// MuPDF (W41 los puede aportar desde `native` `image_placements`).
     pub fn to_text_page(&self, flags: TextFlags) -> Result<TextPage> {
         #[cfg(feature = "pdfium")]
         if let Some(link) = self

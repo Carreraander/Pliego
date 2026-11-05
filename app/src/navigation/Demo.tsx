@@ -26,8 +26,12 @@ export function NavigationDemo() {
   const onScreen = () => currentScreen() !== null && currentScreen() !== undefined;
   const day = 86_400;
   const nowSec = Math.floor(Date.now() / 1000);
+  // «Hace 10 minutos» caía en «ayer» durante los primeros 10 min tras la medianoche (la prueba de Inicio fallaba
+  // a esa hora): se limita al comienzo del día local para que siga siendo «hoy».
+  const now = new Date();
+  const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
   setRecentsBackend(memoryBackend([
-    { path: "C:\\Docs\\contrato.pdf", name: "contrato.pdf", folder: "C:\\Docs", opened_at: nowSec - 600, pinned: true, exists: true, size: 120_000 },
+    { path: "C:\\Docs\\contrato.pdf", name: "contrato.pdf", folder: "C:\\Docs", opened_at: Math.max(nowSec - 600, todayStart), pinned: true, exists: true, size: 120_000 },
     { path: "C:\\Docs\\factura-octubre.pdf", name: "factura-octubre.pdf", folder: "C:\\Docs", opened_at: nowSec - day, pinned: false, exists: true, size: 30_000 },
     { path: "D:\\Antiguo\\informe-anual.pdf", name: "informe-anual.pdf", folder: "D:\\Antiguo", opened_at: nowSec - 12 * day, pinned: false, exists: false, size: null },
   ]));

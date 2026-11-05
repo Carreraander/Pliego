@@ -76,7 +76,7 @@ e2e_documento_abierto`.
 ### Formularios
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `forms.design` Diseñar | 🟡 | E2E: añadir, cambiar y borrar un campo con el documento abierto | **W**; V |
+| `forms.design` Diseñar | 🟡 | E2E: añadir, cambiar y borrar un campo con el documento abierto; `pliego-formdesign/tests/render_forms.rs` (Linux con PDFium de la CI): los 15 campos de un formulario (texto, número con €, fecha, %, multilínea, contraseña, casillas, radios, combo, lista, botón, firma) se dibujan con tinta donde toca, en vivo y tras guardar. **Bugs hallados y arreglados (2026-11-05):** (1) con texto formateado por scripts el PDF llevaba `/NeedAppearances true` y PDFium/Poppler/Edge regeneraban la apariencia desde `/V`: se veía `1234.5` en vez de `1.234,50 €` y `0.255` en vez de `25,5%`; ahora se reconstruye la apariencia y se baja la marca; (2) los radios del diseñador se dibujaban con marco cuadrado | **W** (dibujo en la app instalada); V (Reader) |
 | `forms.detect` Detectar campos | 🟡 | A: `tests/formdetect.rs` | — |
 
 ### OCR

@@ -199,6 +199,123 @@ fn pdftotext(path: &Path) -> Option<String> {
         .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// Palabras (separadas por espacios) de un texto, ordenadas: se comparan como multiconjunto, así que no depende
+/// del orden de lectura (que cambia en páginas giradas).
+fn sorted_words(text: &str) -> Vec<String> {
+    let mut w: Vec<String> = text.split_whitespace().map(str::to_owned).collect();
+    w.sort();
+    w
+}
+
+/// Quita de `words` (ordenadas) una copia de cada palabra de `remove`; las que no estén se ignoran.
+fn remove_words(words: &mut Vec<String>, remove: &[String]) {
+    for r in remove {
+        if let Ok(i) = words.binary_search(r) {
+            words.remove(i);
+        }
+    }
+}
+
+/// Palabras que sobran y que faltan en `got` respecto a `expected` (ambas ordenadas).
+fn word_diff(expected: &[String], got: &[String]) -> (Vec<String>, Vec<String>) {
+    let (mut extra, mut missing) = (Vec::new(), Vec::new());
+    let (mut i, mut j) = (0, 0);
+    while i < expected.len() || j < got.len() {
+        match (expected.get(i), got.get(j)) {
+            (Some(e), Some(g)) if e == g => {
+                i += 1;
+                j += 1;
+            }
+            (Some(e), Some(g)) if e < g => {
+                missing.push(e.clone());
+                i += 1;
+            }
+            (Some(_), Some(g)) => {
+                extra.push(g.clone());
+                j += 1;
+            }
+            (Some(e), None) => {
+                missing.push(e.clone());
+                i += 1;
+            }
+            (None, Some(g)) => {
+                extra.push(g.clone());
+                j += 1;
+            }
+            (None, None) => break,
+        }
+    }
+    (extra, missing)
+}
+
+/// Compara el texto extraíble del redactado con el del original, página a página, palabra a palabra: el resultado
+/// tiene que ser exactamente el original menos las palabras de cada dato (una vez por cada aparición del dato).
+///
+/// Detecta lo que la búsqueda de la cadena entera no ve: **restos parciales** (un trozo del dato que sobrevive, como
+/// «8Z» de «12345678Z» cuando la zona de borrado quedó corta o desplazada) y **texto vecino perdido** (palabras que no
+/// eran del dato y han desaparecido porque la zona se pasó). Es la comprobación que faltaba cuando la redacción en
+/// páginas giradas 90°/270° dejaba trozos y se llevaba vecinos sin que el oráculo lo notara.
+pub fn check_against_original(
+    engine: &dyn DynEngine,
+    original: &Path,
+    redacted: &Path,
+    needles: &[String],
+) -> Result<Vec<Finding>> {
+    let mut f = Vec::new();
+    let before = engine.open(original)?;
+    let after = engine.open(redacted)?;
+    let pages = before.page_count()?;
+    if after.page_count()? != pages {
+        f.push(Finding {
+            check: "páginas".into(),
+            detail: format!(
+                "el original tiene {pages} páginas y el redactado {}",
+                after.page_count()?
+            ),
+        });
+        return Ok(f);
+    }
+    for p in 0..pages {
+        let text = before.page_text(p)?;
+        let squashed = norm(&text);
+        let mut expected = sorted_words(&text);
+        for needle in needles {
+            let nn = norm(needle);
+            if nn.is_empty() {
+                continue;
+            }
+            let hits = squashed.matches(&nn).count();
+            let words: Vec<String> = needle.split_whitespace().map(str::to_owned).collect();
+            for _ in 0..hits {
+                remove_words(&mut expected, &words);
+            }
+        }
+        let got = sorted_words(&after.page_text(p)?);
+        let (extra, missing) = word_diff(&expected, &got);
+        if !extra.is_empty() {
+            f.push(Finding {
+                check: "resto parcial".into(),
+                detail: format!(
+                    "página {}: quedan palabras que no deberían estar ({}): puede ser un trozo de un dato",
+                    p + 1,
+                    extra.join(", ")
+                ),
+            });
+        }
+        if !missing.is_empty() {
+            f.push(Finding {
+                check: "texto vecino perdido".into(),
+                detail: format!(
+                    "página {}: faltan palabras que no eran del dato ({})",
+                    p + 1,
+                    missing.join(", ")
+                ),
+            });
+        }
+    }
+    Ok(f)
+}
+
 /// Ejecuta todas las comprobaciones. Devuelve la lista de hallazgos: vacía = el archivo pasa el oráculo.
 pub fn check_redacted(engine: &dyn DynEngine, path: &Path, cfg: &OracleConfig) -> Result<Vec<Finding>> {
     let mut f = Vec::new();
@@ -304,6 +421,27 @@ mod tests {
     fn literals_join_split_text() {
         let (lit, _) = text_literals(b"BT [(Hol)-20(a \\(x\\))] TJ ET");
         assert_eq!(lit, b"Hola (x)");
+    }
+
+    fn w(s: &str) -> Vec<String> {
+        sorted_words(s)
+    }
+
+    #[test]
+    fn word_diff_reports_leftovers_and_lost_neighbours() {
+        // Trozo del dato que sobrevive («8Z») y vecino perdido («Correo»).
+        let (extra, missing) = word_diff(&w("DNI Correo texto"), &w("DNI 8Z texto"));
+        assert_eq!(extra, ["8Z"]);
+        assert_eq!(missing, ["Correo"]);
+        let (extra, missing) = word_diff(&w("a b c"), &w("c b a"));
+        assert!(extra.is_empty() && missing.is_empty());
+    }
+
+    #[test]
+    fn remove_words_takes_one_copy_each() {
+        let mut v = w("12 12 345");
+        remove_words(&mut v, &w("12 999"));
+        assert_eq!(v, w("12 345"));
     }
 
     #[test]

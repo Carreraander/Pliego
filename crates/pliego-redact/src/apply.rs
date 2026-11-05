@@ -147,17 +147,6 @@ pub fn verify(doc: &PdfDocument, needles: &[String]) -> Result<Vec<Leftover>> {
     Ok(left)
 }
 
-/// Inset vertical de las zonas de coincidencia para no tocar líneas vecinas. El motor mide los glifos con las
-/// métricas de la fuente (no con la caja de línea del extractor), así que basta la banda central de la línea.
-fn shrink(a: &Area) -> Area {
-    let dy = (a.y1 - a.y0) * 0.25;
-    Area {
-        y0: a.y0 + dy,
-        y1: a.y1 - dy,
-        ..*a
-    }
-}
-
 /// Redacta `input` según `job` y escribe `output`. Antes de escribir, abre el resultado y comprueba
 /// que el texto de las coincidencias ya no se puede extraer ni buscar; si queda algo, devuelve error
 /// y no deja ningún archivo.
@@ -171,7 +160,8 @@ pub fn apply(
     let doc = open_pdf(input, password)?;
     let matches = find_patterns(&doc, &job.patterns)?;
     let mut areas: Vec<Area> = job.areas.clone();
-    areas.extend(matches.iter().flat_map(|m| m.areas.iter().map(shrink)));
+    // Las coincidencias se redactan por su banda central (ver `Match::core`), orientada según el texto.
+    areas.extend(matches.iter().flat_map(|m| m.core.iter().copied()));
     if areas.is_empty() {
         return Ok(Report {
             summary: "No se encontró nada que redactar; no se ha escrito ningún archivo.".into(),

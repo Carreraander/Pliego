@@ -1,7 +1,7 @@
 //! Oráculo de redacción por línea de órdenes.
 //!
 //! ```text
-//! redaction-oracle redactado.pdf --needle 12345678Z --needle "ES91 2100 0418" [--region 0,50,100,300,130]
+//! redaction-oracle redactado.pdf --needle 12345678Z --needle "ES91 2100 0418" [--region 0,50,100,300,130] [--original original.pdf]
 //! ```
 //! Sale con código 1 y lista los hallazgos si queda algún rastro (ver `pliego_qa::oracle`).
 
@@ -10,7 +10,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use pliego_qa::engines;
-use pliego_qa::oracle::{OracleConfig, Region, check_redacted};
+use pliego_qa::oracle::{OracleConfig, Region, check_against_original, check_redacted};
 
 #[derive(Parser)]
 #[command(
@@ -25,6 +25,10 @@ struct Args {
     /// Zona que debe quedar de un solo color: `pagina_desde_0,x0,y0,x1,y1` en puntos (repetible).
     #[arg(long = "region", value_parser = parse_region)]
     regions: Vec<Region>,
+    /// PDF original: además de buscar los datos, comprueba palabra a palabra que no queden trozos de ellos y que no se
+    /// haya perdido texto vecino (necesario en páginas giradas, donde un borrado desplazado deja restos).
+    #[arg(long)]
+    original: Option<PathBuf>,
     #[arg(long, default_value = "pdfium")]
     engine: String,
 }
@@ -48,14 +52,18 @@ fn main() -> ExitCode {
     let a = Args::parse();
     let run = || -> anyhow::Result<Vec<_>> {
         let engine = engines::by_name(&a.engine)?;
-        Ok(check_redacted(
+        let mut found = check_redacted(
             engine.as_ref(),
             &a.file,
             &OracleConfig {
                 needles: a.needles.clone(),
                 regions: a.regions.clone(),
             },
-        )?)
+        )?;
+        if let Some(original) = &a.original {
+            found.extend(check_against_original(engine.as_ref(), original, &a.file, &a.needles)?);
+        }
+        Ok(found)
     };
     match run() {
         Ok(f) if f.is_empty() => {

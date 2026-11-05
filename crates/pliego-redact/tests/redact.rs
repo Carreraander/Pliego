@@ -97,6 +97,90 @@ fn each_pattern_removes_its_text_and_keeps_the_rest() {
     }
 }
 
+/// Copia del corpus con todas las páginas giradas `angle` grados.
+fn rotated(dir: &Path, angle: i32) -> PathBuf {
+    let doc = open(&corpus());
+    for i in 0..doc.page_count().unwrap() {
+        let mut page = doc.load_pdf_page(i).unwrap();
+        page.set_rotation(angle).unwrap();
+        page.update().unwrap();
+    }
+    let path = dir.join(format!("giro{angle}.pdf"));
+    doc.save(&path).unwrap();
+    path
+}
+
+fn words(t: &str) -> Vec<String> {
+    let mut w: Vec<String> = t.split_whitespace().map(str::to_owned).collect();
+    w.sort();
+    w
+}
+
+/// Regresión: en páginas giradas 90°/270° la redacción dejaba trozos del dato (p. ej. «8Z», «ES91 2») y se llevaba
+/// texto vecino, porque el recorte vertical de la zona se aplicaba al eje equivocado. El texto restante tiene que ser
+/// exactamente el original menos las palabras del dato, en cualquier giro.
+#[test]
+fn rotated_pages_redact_exactly_the_match() {
+    let cases: [(Pattern, &str); 7] = [
+        (Pattern::Dni, "12345678Z"),
+        (Pattern::Nie, "X1234567L"),
+        (Pattern::Cif, "A58818501"),
+        (Pattern::Iban, "ES91 2100 0418 4502 0005 1332"),
+        (Pattern::Email, "ana.lopez@ejemplo.es"),
+        (Pattern::Phone, "+34 612 345 678"),
+        (Pattern::Date, "12/03/1985"),
+    ];
+    for angle in [0, 90, 180, 270] {
+        let dir = tempfile::tempdir().unwrap();
+        let input = rotated(dir.path(), angle);
+        let before = text_of(&input);
+        for (pattern, needle) in &cases {
+            let out = dir.path().join("salida.pdf");
+            apply(&input, &out, None, &job(vec![pattern.clone()]), &JobContext::silent())
+                .unwrap_or_else(|e| panic!("giro {angle} {pattern:?}: {e}"));
+            // Una coincidencia por página donde aparece el dato (el DNI está en las dos).
+            let hits = find_patterns(&open(&input), std::slice::from_ref(pattern)).unwrap();
+            assert!(!hits.is_empty(), "giro {angle}, {pattern:?}: no se encontró «{needle}»");
+            let mut expected = words(&before);
+            for m in &hits {
+                for w in m.text.split_whitespace() {
+                    let i = expected
+                        .iter()
+                        .position(|x| x == w)
+                        .expect("la palabra está en el original");
+                    expected.remove(i);
+                }
+            }
+            let got = words(&text_of(&out));
+            assert_eq!(
+                got, expected,
+                "giro {angle}, {pattern:?}: el texto restante no es el esperado"
+            );
+        }
+    }
+}
+
+/// Una zona marcada a mano en una página girada (coordenadas de página, como las ve el usuario) redacta lo que
+/// cubre y nada más.
+#[test]
+fn manual_area_on_rotated_page_redacts_what_it_covers() {
+    for angle in [90, 270] {
+        let dir = tempfile::tempdir().unwrap();
+        let input = rotated(dir.path(), angle);
+        let hit = &find_patterns(&open(&input), &[Pattern::Email]).unwrap()[0];
+        assert_eq!(hit.page, 0);
+        let out = dir.path().join("salida.pdf");
+        let manual = RedactJob {
+            areas: hit.core.clone(),
+            ..Default::default()
+        };
+        apply(&input, &out, None, &manual, &JobContext::silent()).unwrap();
+        let mut expected = words(&text_of(&input));
+        expected.remove(expected.iter().position(|w| w == "ana.lopez@ejemplo.es").unwrap());
+        assert_eq!(words(&text_of(&out)), expected, "giro {angle}");
+    }
+}
+
 #[test]
 fn dni_pattern_hits_both_pages_and_skips_invalid() {
     let doc = open(&corpus());

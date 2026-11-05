@@ -3,13 +3,11 @@
 //! [`TextPage`] se extrae una vez por página ([`crate::Page::to_text_page`]) y se puede recorrer varias veces.
 //! Las coordenadas están en puntos del **espacio de página** (origen arriba a la izquierda, con la rotación aplicada).
 
-use std::collections::HashMap;
 use std::ops::{BitOr, BitOrAssign};
 use std::sync::Arc;
 
 use pliego_core::Result;
 
-use crate::backend::{err, matrix_from, point_from, quad_from, quad_to, rect_from};
 use crate::geom::{Matrix, Point, Quad, Rect};
 
 /// Opciones de extracción de texto (combinables con `|`). `TextFlags::empty()` es el comportamiento por defecto.
@@ -36,27 +34,6 @@ impl TextFlags {
 
     pub const fn contains(self, other: TextFlags) -> bool {
         self.0 & other.0 == other.0
-    }
-
-    pub(crate) fn to_backend(self) -> mupdf::TextPageFlags {
-        use mupdf::TextPageFlags as F;
-        let table = [
-            (Self::PRESERVE_LIGATURES, F::PRESERVE_LIGATURES),
-            (Self::PRESERVE_WHITESPACE, F::PRESERVE_WHITESPACE),
-            (Self::PRESERVE_IMAGES, F::PRESERVE_IMAGES),
-            (Self::INHIBIT_SPACES, F::INHIBIT_SPACES),
-            (Self::DEHYPHENATE, F::DEHYPHENATE),
-            (Self::PRESERVE_SPANS, F::PRESERVE_SPANS),
-            (Self::CLIP, F::CLIP),
-            (Self::ACCURATE_BBOXES, F::ACCURATE_BBOXES),
-        ];
-        let mut out = F::empty();
-        for (mine, theirs) in table {
-            if self.contains(mine) {
-                out |= theirs;
-            }
-        }
-        out
     }
 }
 
@@ -91,22 +68,6 @@ impl CharFlags {
 
     pub const fn contains(self, other: CharFlags) -> bool {
         self.0 & other.0 == other.0
-    }
-
-    fn from_backend(f: mupdf::text_page::TextCharFlags) -> Self {
-        use mupdf::text_page::TextCharFlags as F;
-        let mut out = 0;
-        for (theirs, mine) in [
-            (F::STRIKEOUT, Self::STRIKEOUT),
-            (F::UNDERLINE, Self::UNDERLINE),
-            (F::SYNTHETIC, Self::SYNTHETIC),
-            (F::BOLD, Self::BOLD),
-        ] {
-            if f.contains(theirs) {
-                out |= mine.0;
-            }
-        }
-        CharFlags(out)
     }
 }
 
@@ -198,170 +159,38 @@ pub struct TextWord {
     pub word: usize,
 }
 
-/// Texto de una página. Lo produce MuPDF o, si el documento usa [`crate::RenderBackend::Pdfium`], PDFium.
+/// Texto de una página, extraído con PDFium y estructurado en bloques → líneas → caracteres.
 pub struct TextPage {
-    inner: Inner,
-}
-
-enum Inner {
-    Mupdf(mupdf::TextPage),
-    /// Texto ya estructurado (bloques → líneas → caracteres) a partir de los caracteres de PDFium.
-    #[cfg(feature = "pdfium")]
-    Pdfium(Vec<TextBlock>),
+    blocks: Vec<TextBlock>,
 }
 
 impl TextPage {
-    pub(crate) fn from_mupdf(raw: mupdf::TextPage) -> Self {
-        Self {
-            inner: Inner::Mupdf(raw),
-        }
-    }
-
-    #[cfg(feature = "pdfium")]
-    pub(crate) fn from_pdfium(blocks: Vec<TextBlock>) -> Self {
-        Self {
-            inner: Inner::Pdfium(blocks),
-        }
-    }
-
-    fn mupdf(&self) -> Option<&mupdf::TextPage> {
-        match &self.inner {
-            Inner::Mupdf(raw) => Some(raw),
-            #[cfg(feature = "pdfium")]
-            Inner::Pdfium(_) => None,
-        }
+    pub(crate) fn from_blocks(blocks: Vec<TextBlock>) -> Self {
+        Self { blocks }
     }
 
     /// Texto plano de toda la página (líneas separadas por salto de línea).
     pub fn to_text(&self) -> Result<String> {
-        match &self.inner {
-            Inner::Mupdf(raw) => raw.to_text().map_err(err),
-            #[cfg(feature = "pdfium")]
-            Inner::Pdfium(blocks) => Ok(crate::pdfium::blocks_to_text(blocks)),
-        }
+        Ok(crate::pdfium::blocks_to_text(&self.blocks))
     }
 
-    /// HTML de la página con `id` como número de página. (Con PDFium se genera un HTML sencillo de párrafos.)
+    /// HTML sencillo de la página (un párrafo por línea, colocado con coordenadas) con `id` como número de página.
     pub fn to_html(&self, id: i32, full: bool) -> Result<String> {
-        match &self.inner {
-            Inner::Mupdf(raw) => raw.to_html(id, full).map_err(err),
-            #[cfg(feature = "pdfium")]
-            Inner::Pdfium(blocks) => Ok(crate::pdfium::blocks_to_html(blocks, id, full)),
-        }
+        Ok(crate::pdfium::blocks_to_html(&self.blocks, id, full))
     }
 
     /// Cuadriláteros de las apariciones de `needle` (sin distinguir mayúsculas).
     pub fn search(&self, needle: &str) -> Result<Vec<Quad>> {
-        match &self.inner {
-            Inner::Mupdf(raw) => Ok(raw.search(needle).map_err(err)?.into_iter().map(quad_from).collect()),
-            #[cfg(feature = "pdfium")]
-            Inner::Pdfium(blocks) => Ok(crate::pdfium::search_blocks(blocks, needle)),
-        }
+        Ok(crate::pdfium::search_blocks(&self.blocks, needle))
     }
 
     /// Bloques → líneas → caracteres. Se calcula en cada llamada: guarda el resultado si lo vas a reutilizar.
     pub fn blocks(&self) -> Vec<TextBlock> {
-        #[cfg(feature = "pdfium")]
-        if let Inner::Pdfium(blocks) = &self.inner {
-            return blocks.clone();
-        }
-        let Some(raw) = self.mupdf() else { return Vec::new() };
-        let mut fonts: HashMap<(String, u8), Arc<CharFont>> = HashMap::new();
-        let mut out = Vec::new();
-        for block in raw.blocks() {
-            let bounds = rect_from(block.bounds());
-            match block.r#type() {
-                mupdf::text_page::TextBlockType::Text => {
-                    let mut lines = Vec::new();
-                    for line in block.lines() {
-                        let mut chars = Vec::new();
-                        for ch in line.chars() {
-                            let font = ch.font().map(|f| {
-                                let key = (
-                                    f.name().to_owned(),
-                                    u8::from(f.is_bold())
-                                        | u8::from(f.is_italic()) << 1
-                                        | u8::from(f.is_serif()) << 2
-                                        | u8::from(f.is_monospaced()) << 3,
-                                );
-                                fonts
-                                    .entry(key)
-                                    .or_insert_with(|| {
-                                        Arc::new(CharFont {
-                                            name: f.name().to_owned(),
-                                            bold: f.is_bold(),
-                                            italic: f.is_italic(),
-                                            serif: f.is_serif(),
-                                            monospaced: f.is_monospaced(),
-                                        })
-                                    })
-                                    .clone()
-                            });
-                            chars.push(TextChar {
-                                ch: ch.char(),
-                                origin: point_from(ch.origin()),
-                                quad: quad_from(ch.quad()),
-                                size: ch.size(),
-                                argb: ch.argb(),
-                                flags: CharFlags::from_backend(ch.flags()),
-                                font,
-                            });
-                        }
-                        lines.push(TextLine {
-                            bounds: rect_from(line.bounds()),
-                            wmode: match line.wmode() {
-                                mupdf::WriteMode::Horizontal => WriteMode::Horizontal,
-                                mupdf::WriteMode::Vertical => WriteMode::Vertical,
-                            },
-                            chars,
-                        });
-                    }
-                    out.push(TextBlock {
-                        kind: TextBlockKind::Text,
-                        bounds,
-                        lines,
-                        image_transform: None,
-                    });
-                }
-                mupdf::text_page::TextBlockType::Image => out.push(TextBlock {
-                    kind: TextBlockKind::Image,
-                    bounds,
-                    lines: Vec::new(),
-                    image_transform: block.ctm().map(matrix_from),
-                }),
-                _ => out.push(TextBlock {
-                    kind: TextBlockKind::Other,
-                    bounds,
-                    lines: Vec::new(),
-                    image_transform: None,
-                }),
-            }
-        }
-        out
+        self.blocks.clone()
     }
 
     /// Palabras con su caja.
     pub fn words(&self) -> Vec<TextWord> {
-        #[cfg(feature = "pdfium")]
-        if let Inner::Pdfium(blocks) = &self.inner {
-            return crate::pdfium::words_of(blocks);
-        }
-        let Some(raw) = self.mupdf() else { return Vec::new() };
-        raw.words()
-            .into_iter()
-            .map(|w| TextWord {
-                text: w.text,
-                bounds: rect_from(w.bounds),
-                block: w.block,
-                line: w.line,
-                word: w.word,
-            })
-            .collect()
+        crate::pdfium::words_of(&self.blocks)
     }
-}
-
-/// Convierte cuadriláteros propios a los del motor (para `highlight_selection` y similares).
-#[allow(dead_code)]
-pub(crate) fn quads_to(q: &[Quad]) -> Vec<mupdf::Quad> {
-    q.iter().copied().map(quad_to).collect()
 }

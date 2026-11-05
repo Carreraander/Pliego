@@ -115,7 +115,19 @@ fn streams_read_and_write() {
 
 #[test]
 fn save_options_compress_and_garbage() {
-    let doc = sample();
+    // El flujo debe ser lo bastante grande para que comprimirlo compense (un flujo diminuto se deja como está).
+    let mut doc = PdfDocument::new();
+    let font = Font::new("Helvetica").unwrap();
+    let fobj = doc.add_simple_font(&font, SimpleFontEncoding::Latin).unwrap();
+    for _ in 0..2 {
+        let mut page = doc.new_page(Size::A4).unwrap();
+        let mut res = page.resources().unwrap();
+        let mut fonts = doc.new_dict().unwrap();
+        fonts.dict_put("F1", fobj.try_clone().unwrap()).unwrap();
+        res.dict_put("Font", fonts).unwrap();
+        let stream = format!("BT /F1 24 Tf 72 700 Td (Hola mundo) Tj ET\n{}", "q Q\n".repeat(400));
+        page.insert_contents(&mut doc, stream.as_bytes(), true).unwrap();
+    }
     let plain = doc.to_bytes(&WriteOptions::new()).unwrap();
     let mut o = WriteOptions::new();
     o.set_compress(true).set_garbage_level(2);
@@ -313,12 +325,15 @@ fn images_insert_list_extract() {
 
 #[test]
 fn redaction_removes_text() {
-    let doc = reopen(&sample(), &WriteOptions::new());
-    let mut page = doc.load_pdf_page(0).unwrap();
-    let hit = page.search("Hola", 1).unwrap();
-    page.add_redact_annotation_quads(&hit).unwrap();
-    assert!(page.redact(RedactOptions::default()).unwrap());
-    drop(page);
+    let mut doc = reopen(&sample(), &WriteOptions::new());
+    let hit = doc.load_page(0).unwrap().search("Hola", 1).unwrap();
+    assert!(!hit.is_empty());
+    let (x0, y0) = (hit[0].ul.x.min(hit[0].ll.x), hit[0].ul.y.min(hit[0].ur.y));
+    let (x1, y1) = (hit[0].ur.x.max(hit[0].lr.x), hit[0].ll.y.max(hit[0].lr.y));
+    let report = doc
+        .redact_areas(&[(0, Rect::new(x0, y0, x1, y1))], RedactOptions::default())
+        .unwrap();
+    assert_eq!(report.pages_changed, 1);
     let saved = reopen(&doc, &WriteOptions::new());
     let text = saved.load_page(0).unwrap().text().unwrap();
     assert!(!text.contains("Hola") && text.contains("mundo"), "{text:?}");
@@ -352,27 +367,10 @@ fn font_metrics_and_outline() {
 }
 
 #[test]
-fn formats_other_than_pdf() {
-    let doc = Document::from_bytes(b"<html><body><p>Hola</p></body></html>", "html").unwrap();
-    assert!(!doc.is_pdf());
-    assert!(doc.into_pdf().is_err());
+fn formats_other_than_pdf_are_rejected() {
+    assert!(Document::from_bytes(b"<html><body><p>Hola</p></body></html>", "html").is_err());
+    assert!(Document::from_bytes(b"<html><body><p>Hola</p></body></html>", "application/pdf").is_err());
     assert!(Document::open("/no/existe.pdf").is_err());
-}
-
-#[test]
-fn pdf_writer_makes_a_pdf() {
-    let src = reopen(&sample(), &WriteOptions::new());
-    let dir = tempfile::tempdir().unwrap();
-    let out = dir.path().join("salida.pdf");
-    {
-        let mut w = PdfWriter::new(&out, "").unwrap();
-        let page = src.load_page(0).unwrap();
-        w.write_page(Rect::new(0.0, 0.0, 595.0, 842.0), &page, &Matrix::IDENTITY)
-            .unwrap();
-    }
-    let doc = PdfDocument::open(&out).unwrap();
-    assert_eq!(doc.page_count().unwrap(), 1);
-    assert!(doc.load_page(0).unwrap().text().unwrap().contains("Hola"));
 }
 
 #[test]

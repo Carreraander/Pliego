@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Idempotente: si una herramienta ya está instalada, solo la verifica. Instala con winget, cargo o descargas:
-  Git, Node LTS, LLVM, LLVM 19 (para mupdf-sys), Visual Studio Build Tools (C++), Rust (MSVC), WiX y cargo-deny.
+  Git, Node LTS, LLVM, LLVM 19 (para el bindgen de tesseract-sys), Visual Studio Build Tools (C++), Rust (MSVC), WiX y cargo-deny.
   Con -ConTesseract además Tesseract/Leptonica de vcpkg; con -ConExtras Acrobat Reader, Ghostscript y veraPDF (con
   un JRE). Nunca instala Office. Todo lo grande va al disco de trabajo (-Disco): por defecto D: si existe, si no C:.
   No toca carpetas de otros flujos ni de otros proyectos: solo crea <disco>\dev, <disco>\dev-tools y <disco>\dev-cache.
@@ -96,7 +96,7 @@ $wv = Get-ToolVersion 'candle' @('-?')
 if (-not $wv) { $wv = Get-ToolVersion 'wix' @('--version') }
 if ($wv) { Add-Result 'WiX Toolset' 'ya estaba' $wv } else { Ensure-Tool 'WiX Toolset' 'candle' @('-?') 'WiXToolset.WiXToolset' }
 
-# --- LLVM 19 en paralelo (para mupdf-sys) -------------------------------------------------------------
+# --- LLVM 19 en paralelo (para el bindgen de tesseract-sys) -------------------------------------------------------------
 # Como el runner de GitHub. No toca el LLVM instalado ni variables globales: pliego-env.ps1 lo pone en el PATH
 # solo de la terminal. Lo imprescindible es tener clang.exe en el PATH (sin él falta max_align_t).
 if (Test-Path "$Llvm19Dir\bin\libclang.dll") { Add-Result 'LLVM 19 (libclang)' 'ya estaba' $Llvm19Dir }

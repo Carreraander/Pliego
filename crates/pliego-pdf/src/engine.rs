@@ -1,185 +1,23 @@
-//! Elección del motor de **render, texto y búsqueda** (ola 5, W37).
-//!
-//! El modelo de objetos y el guardado siguen siendo de MuPDF hasta W36/W41; lo que se puede cambiar por documento
-//! es quién dibuja y quién extrae el texto:
-//!
-//! - [`RenderBackend::Mupdf`] (por defecto): todo con MuPDF, como hasta ahora.
-//! - [`RenderBackend::Pdfium`]: [`crate::Page::to_pixmap`], [`crate::Page::render_region`], [`crate::Page::bounds`],
-//!   [`crate::Page::to_text_page`], [`crate::Page::text`], [`crate::Page::words`] y [`crate::Page::search`] usan PDFium.
-//!   Requiere compilar con la característica `pdfium` y cargar `pdfium.dll` con [`pdfium_init`].
-//!
-//! El motor de un documento se fija al abrirlo (con el valor por defecto de [`default_render_backend`]) y se puede
-//! cambiar con `Document::set_render_backend`. Una página lleva el motor del documento en el momento de
-//! `load_page`.
+//! Carga de **PDFium**, el motor que dibuja, extrae texto y busca (ola 5, W37; único motor desde W41).
 //!
 //! **Carga de la DLL.** Solo por ruta absoluta (nunca por `PATH` ni por el directorio actual: evita el secuestro de
 //! DLL). [`pdfium_init_from_environment`] busca `pdfium.dll` junto al ejecutable y, para desarrollo y pruebas,
-//! acepta `PLIEGO_PDFIUM_DLL` con la ruta absoluta de la DLL.
-//!
-//! **Respaldo.** Si PDFium no puede abrir un documento que MuPDF sí abre, con [`set_pdfium_fallback`]`(true)` la
-//! capa sigue con MuPDF para ese documento y lo avisa por `stderr`; por defecto está desactivado para que el arnés
-//! de comparación vea el fallo.
+//! acepta `PLIEGO_PDFIUM_DLL` con la ruta absoluta de la DLL. Si nadie la ha cargado, la primera operación que la
+//! necesite lo intenta de ese modo.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use pliego_core::{Error, Result};
 
-/// Quién dibuja y extrae el texto de un documento.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum RenderBackend {
-    #[default]
-    Mupdf,
-    Pdfium,
-}
-
-impl RenderBackend {
-    /// Nombre estable (`"mupdf"`, `"pdfium"`), el mismo que usa el arnés de comparación y `PLIEGO_ENGINE`.
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Mupdf => "mupdf",
-            Self::Pdfium => "pdfium",
-        }
-    }
-
-    /// Interpreta un nombre (sin distinguir mayúsculas). `None` si no es uno de los motores.
-    pub fn parse(s: &str) -> Option<Self> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "mupdf" => Some(Self::Mupdf),
-            "pdfium" => Some(Self::Pdfium),
-            _ => None,
-        }
-    }
-}
-
-static DEFAULT_IS_PDFIUM: AtomicBool = AtomicBool::new(false);
-static FALLBACK: AtomicBool = AtomicBool::new(false);
-
-/// Quién cifra los documentos al guardarlos (ola 5, W40, bloque 7).
-///
-/// - [`CryptoBackend::Mupdf`] (por defecto): el guardado de MuPDF aplica el cifrado, como hasta ahora.
-/// - [`CryptoBackend::Native`]: MuPDF serializa el documento **sin cifrar** y lo cifra el modelo propio
-///   ([`crate::native`], lopdf): RC4-40, RC4-128, AES-128 y AES-256 (R6). Solo cambia quién escribe el cifrado:
-///   leer un PDF cifrado sigue haciéndolo MuPDF hasta que el modelo de objetos pase a `native` (W41), porque
-///   descifrar a una copia perdería el `/Encrypt` y los permisos del original.
-///
-/// Se puede fijar con [`set_crypto_backend`] o con la variable de entorno `PLIEGO_CRYPTO` (`mupdf` o `native`),
-/// que se lee la primera vez que se consulta.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum CryptoBackend {
-    #[default]
-    Mupdf,
-    Native,
-}
-
-impl CryptoBackend {
-    /// Nombre estable (`"mupdf"`, `"native"`), el mismo que usa `PLIEGO_CRYPTO`.
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Mupdf => "mupdf",
-            Self::Native => "native",
-        }
-    }
-
-    /// Interpreta un nombre (sin distinguir mayúsculas). `None` si no es uno de los motores.
-    pub fn parse(s: &str) -> Option<Self> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "mupdf" => Some(Self::Mupdf),
-            "native" | "lopdf" | "nativo" => Some(Self::Native),
-            _ => None,
-        }
-    }
-}
-
-const CRYPTO_UNSET: u8 = 0;
-const CRYPTO_MUPDF: u8 = 1;
-const CRYPTO_NATIVE: u8 = 2;
-static CRYPTO: AtomicU8 = AtomicU8::new(CRYPTO_UNSET);
-
-/// Quién cifra al guardar (véase [`CryptoBackend`]).
-pub fn crypto_backend() -> CryptoBackend {
-    match CRYPTO.load(Ordering::Relaxed) {
-        CRYPTO_NATIVE => CryptoBackend::Native,
-        CRYPTO_MUPDF => CryptoBackend::Mupdf,
-        _ => {
-            let chosen = match std::env::var("PLIEGO_CRYPTO") {
-                Ok(v) if !v.trim().is_empty() => CryptoBackend::parse(&v).unwrap_or_else(|| {
-                    eprintln!("pliego: PLIEGO_CRYPTO=«{v}» no válido; usa mupdf o native. Se usa mupdf");
-                    CryptoBackend::Mupdf
-                }),
-                _ => CryptoBackend::Mupdf,
-            };
-            set_crypto_backend(chosen);
-            chosen
-        }
-    }
-}
-
-/// Fija quién cifra al guardar. Afecta a los guardados que se hagan a partir de ahora.
-pub fn set_crypto_backend(backend: CryptoBackend) {
-    let v = match backend {
-        CryptoBackend::Mupdf => CRYPTO_MUPDF,
-        CryptoBackend::Native => CRYPTO_NATIVE,
-    };
-    CRYPTO.store(v, Ordering::Relaxed);
-}
-
-/// Motor que usarán los documentos que se abran a partir de ahora.
-pub fn default_render_backend() -> RenderBackend {
-    if DEFAULT_IS_PDFIUM.load(Ordering::Relaxed) {
-        RenderBackend::Pdfium
-    } else {
-        RenderBackend::Mupdf
-    }
-}
-
-/// Fija el motor por defecto de los documentos que se abran después. `Pdfium` exige haber cargado la DLL antes
-/// ([`pdfium_init`]); si no, error.
-pub fn set_default_render_backend(backend: RenderBackend) -> Result<()> {
-    if backend == RenderBackend::Pdfium && !pdfium_available() {
-        return Err(Error::Unsupported(
-            "PDFium no está disponible: compila con la característica `pdfium` y carga la DLL con `pdfium_init`".into(),
-        ));
-    }
-    DEFAULT_IS_PDFIUM.store(backend == RenderBackend::Pdfium, Ordering::Relaxed);
-    Ok(())
-}
-
-/// Con `true`, un documento que PDFium no abre sigue con MuPDF (y se avisa por `stderr`) en lugar de fallar.
-pub fn set_pdfium_fallback(enabled: bool) {
-    FALLBACK.store(enabled, Ordering::Relaxed);
-}
-
-pub fn pdfium_fallback() -> bool {
-    FALLBACK.load(Ordering::Relaxed)
-}
-
-/// `true` si PDFium está compilado y la DLL cargada.
+/// `true` si la DLL de PDFium está cargada.
 pub fn pdfium_available() -> bool {
-    #[cfg(feature = "pdfium")]
-    {
-        crate::pdfium::is_loaded()
-    }
-    #[cfg(not(feature = "pdfium"))]
-    {
-        false
-    }
+    crate::pdfium::is_loaded()
 }
 
 /// Carga `pdfium.dll` (o `libpdfium.so`) desde `path`, que debe ser **absoluta**. Es idempotente: una segunda
 /// llamada con la biblioteca ya cargada no hace nada.
 pub fn pdfium_init(path: &Path) -> Result<()> {
-    #[cfg(feature = "pdfium")]
-    {
-        crate::pdfium::init(path)
-    }
-    #[cfg(not(feature = "pdfium"))]
-    {
-        let _ = path;
-        Err(Error::Unsupported(
-            "esta compilación no incluye PDFium (característica `pdfium`)".into(),
-        ))
-    }
+    crate::pdfium::init(path)
 }
 
 /// Nombre del archivo de la biblioteca en esta plataforma.
@@ -212,58 +50,14 @@ pub fn pdfium_init_from_environment() -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Configuración común de los programas de Pliego (worker, app, CLI) según el entorno:
+/// Configuración común de los programas de Pliego (worker, app, CLI): carga PDFium desde [`pdfium_default_path`] y
+/// devuelve la ruta usada. Error si no está (sin ella no se puede dibujar ni extraer texto).
 ///
-/// - sin variable (o vacía) y `PLIEGO_ENGINE=mupdf`: MuPDF, sin cargar PDFium. **PDFium es opt-in** hasta que se decida
-///   lo contrario (W41).
-/// - `PLIEGO_ENGINE=pdfium`: PDFium obligatorio; si la DLL no carga, error.
-/// - `PLIEGO_ENGINE=auto`: PDFium si la DLL carga, MuPDF si no (se avisa por `stderr`).
-///
-/// En los modos que usan PDFium se activa el respaldo a MuPDF por documento ([`set_pdfium_fallback`]) salvo con
-/// `PLIEGO_PDFIUM_STRICT=1`. Devuelve el motor por defecto resultante.
-pub fn configure_from_environment() -> Result<RenderBackend> {
-    let requested = std::env::var("PLIEGO_ENGINE").unwrap_or_default();
-    let requested = requested.trim().to_ascii_lowercase();
-    let strict = std::env::var("PLIEGO_PDFIUM_STRICT").is_ok_and(|v| v == "1");
-    match requested.as_str() {
-        "" | "mupdf" => {
-            set_default_render_backend(RenderBackend::Mupdf)?;
-            Ok(RenderBackend::Mupdf)
-        }
-        "auto" | "pdfium" => {
-            let must = requested == "pdfium";
-            match pdfium_init_from_environment() {
-                Ok(_) => {
-                    set_pdfium_fallback(!strict);
-                    set_default_render_backend(RenderBackend::Pdfium)?;
-                    Ok(RenderBackend::Pdfium)
-                }
-                Err(e) if must => Err(e),
-                Err(e) => {
-                    eprintln!("pliego: PDFium no disponible ({e}); se usa MuPDF");
-                    Ok(RenderBackend::Mupdf)
-                }
-            }
-        }
-        other => Err(Error::InvalidInput(format!(
-            "PLIEGO_ENGINE=«{other}» no válido; usa mupdf, pdfium o auto"
-        ))),
+/// `PLIEGO_ENGINE` ya no elige motor: MuPDF no existe. Si vale `mupdf` se avisa por `stderr` y se ignora; cualquier
+/// otro valor se ignora en silencio (`pdfium` y `auto` valían antes y siguen valiendo).
+pub fn configure_from_environment() -> Result<PathBuf> {
+    if std::env::var("PLIEGO_ENGINE").is_ok_and(|v| v.trim().eq_ignore_ascii_case("mupdf")) {
+        eprintln!("pliego: PLIEGO_ENGINE=mupdf ya no existe (MuPDF se quitó); se usa PDFium");
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_names() {
-        assert_eq!(RenderBackend::parse("PDFium"), Some(RenderBackend::Pdfium));
-        assert_eq!(RenderBackend::parse(" mupdf "), Some(RenderBackend::Mupdf));
-        assert_eq!(RenderBackend::parse("otro"), None);
-        assert_eq!(RenderBackend::Pdfium.name(), "pdfium");
-        assert_eq!(CryptoBackend::parse(" Native "), Some(CryptoBackend::Native));
-        assert_eq!(CryptoBackend::parse("mupdf"), Some(CryptoBackend::Mupdf));
-        assert_eq!(CryptoBackend::parse("x"), None);
-        assert_eq!(CryptoBackend::Native.name(), "native");
-    }
+    pdfium_init_from_environment()
 }

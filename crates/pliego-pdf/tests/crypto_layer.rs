@@ -1,10 +1,9 @@
-//! El interruptor de cifrado de la capa (`PLIEGO_CRYPTO=native`, W40): MuPDF serializa sin cifrar y el modelo propio
-//! cifra. Este archivo es un binario aparte porque el interruptor es global del proceso.
+//! Cifrado a través de la capa pública (`Document`/`PdfDocument`, W40/W41): el modelo propio cifra y descifra.
 
 use std::path::Path;
 use std::process::Command;
 
-use pliego_pdf::{CryptoBackend, Document, Encryption, MetadataName, PdfDocument, Permission, WriteOptions};
+use pliego_pdf::{Document, Encryption, MetadataName, PdfDocument, Permission, WriteOptions};
 
 fn corpus(rel: &str) -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -12,7 +11,7 @@ fn corpus(rel: &str) -> std::path::PathBuf {
         .join(rel)
 }
 
-/// MuPDF escribe `/Encrypt <<…>>` directo en el trailer; el modelo propio, `/Encrypt N 0 R`.
+/// El modelo propio escribe `/Encrypt N 0 R` (indirecto).
 fn encrypt_is_indirect(bytes: &[u8]) -> bool {
     bytes
         .windows(10)
@@ -20,9 +19,7 @@ fn encrypt_is_indirect(bytes: &[u8]) -> bool {
 }
 
 #[test]
-fn native_backend_encrypts_through_the_layer() {
-    set_native();
-    assert_eq!(pliego_pdf::crypto_backend(), CryptoBackend::Native);
+fn encrypts_through_the_layer() {
     let doc = PdfDocument::open(corpus("basic/hola.pdf")).unwrap();
     for (enc, algo) in [
         (Encryption::Rc4_40, "R = 2"),
@@ -41,14 +38,16 @@ fn native_backend_encrypts_through_the_layer() {
             assert!(d.needs_password().unwrap());
             assert!(d.authenticate(pw).unwrap(), "{enc:?} {pw}");
             assert_eq!(d.page_count().unwrap(), 2);
-            let t = d
-                .load_page(0)
-                .unwrap()
-                .to_text_page(Default::default())
-                .unwrap()
-                .to_text()
-                .unwrap();
-            assert!(t.contains("Hola Pliego"), "{enc:?}");
+            if pliego_pdf::pdfium_available() || pliego_pdf::pdfium_init_from_environment().is_ok() {
+                let t = d
+                    .load_page(0)
+                    .unwrap()
+                    .to_text_page(Default::default())
+                    .unwrap()
+                    .to_text()
+                    .unwrap();
+                assert!(t.contains("Hola Pliego"), "{enc:?}");
+            }
         }
         let mut bad = Document::from_bytes(&bytes, "application/pdf").unwrap();
         assert!(!bad.authenticate("mala").unwrap());
@@ -59,8 +58,7 @@ fn native_backend_encrypts_through_the_layer() {
 }
 
 #[test]
-fn native_backend_writes_permissions_and_files_to_disk() {
-    set_native();
+fn writes_permissions_and_files_to_disk() {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("p.pdf");
     let doc = PdfDocument::open(corpus("basic/hola.pdf")).unwrap();
@@ -90,14 +88,13 @@ fn native_backend_writes_permissions_and_files_to_disk() {
 
 #[test]
 fn reopening_and_changing_the_encryption_keeps_the_content() {
-    set_native();
     let doc = PdfDocument::open(corpus("basic/hola.pdf")).unwrap();
     let mut o = WriteOptions::new();
     o.set_encryption(Encryption::Aes128)
         .set_user_password("uno")
         .set_owner_password("dos");
     let first = doc.to_bytes(&o).unwrap();
-    // Abrir cifrado (lo lee MuPDF), guardar con otro cifrado y otras contraseñas.
+    // Abrir cifrado , guardar con otro cifrado y otras contraseñas.
     let mut again = PdfDocument::from_bytes(&first).unwrap();
     assert!(again.authenticate("uno").unwrap());
     let mut o2 = WriteOptions::new();
@@ -110,7 +107,7 @@ fn reopening_and_changing_the_encryption_keeps_the_content() {
     assert!(d.authenticate("tres").unwrap());
     assert_eq!(d.page_count().unwrap(), 2);
     assert_eq!(d.metadata(MetadataName::Title).unwrap(), "Documento de prueba");
-    // Guardar sin pedir cifrado conserva el del original (MuPDF).
+    // Guardar sin pedir cifrado conserva el del original.
     let mut kept_src = PdfDocument::from_bytes(&second).unwrap();
     assert!(kept_src.authenticate("tres").unwrap());
     let kept = kept_src.to_bytes(&WriteOptions::new()).unwrap();
@@ -120,10 +117,6 @@ fn reopening_and_changing_the_encryption_keeps_the_content() {
     clear_o.set_encryption(Encryption::None);
     let clear = kept_src.to_bytes(&clear_o).unwrap();
     assert!(!PdfDocument::from_bytes(&clear).unwrap().needs_password().unwrap());
-}
-
-fn set_native() {
-    pliego_pdf::set_crypto_backend(CryptoBackend::Native);
 }
 
 fn qpdf_show(bytes: &[u8], password: &str) -> Option<String> {

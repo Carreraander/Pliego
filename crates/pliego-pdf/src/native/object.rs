@@ -151,7 +151,7 @@ impl Object {
         }
     }
 
-    fn state(&self) -> Result<&Shared> {
+    pub(crate) fn state(&self) -> Result<&Shared> {
         self.st
             .as_ref()
             .ok_or_else(|| pdf_err("el objeto no pertenece a ningún documento"))
@@ -211,7 +211,7 @@ impl Object {
                     st.doc.trailer = d;
                 }
                 st.trailer_dirty = true;
-                st.unsaved = true;
+                st.mark_changed();
                 st.invalidate_pages();
                 r
             }
@@ -409,7 +409,11 @@ impl Object {
     /// Cadena como UTF-8 (falla si los bytes no lo son; usa [`Object::as_bytes`] entonces).
     pub fn as_string(&self) -> Result<String> {
         self.read(|o| match o {
-            L::String(b, _) => String::from_utf8(b.clone()).map_err(|_| pdf_err("la cadena no es UTF-8")),
+            // UTF-8 tal cual; si no lo es (UTF-16 con BOM, PDFDocEncoding), se decodifica como texto PDF.
+            L::String(bytes, _) => Ok(String::from_utf8(bytes.clone())
+                .ok()
+                .or_else(|| super::document::decode_text(o))
+                .unwrap_or_default()),
             _ => Err(pdf_err("se esperaba una cadena")),
         })
     }

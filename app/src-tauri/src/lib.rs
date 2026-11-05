@@ -52,7 +52,7 @@ pub fn run() {
         })
         .setup(|app| {
             let handle = app.handle().clone();
-            // El worker (MuPDF aislado) va junto al ejecutable; en desarrollo, PLIEGO_WORKER.
+            // El worker (PDFium y lopdf, aislados) va junto al ejecutable; en desarrollo, PLIEGO_WORKER.
             let service = DocumentService::discover()?.on_document_changed(move |ev| {
                 let _ = handle.emit("document-changed", ev);
             });

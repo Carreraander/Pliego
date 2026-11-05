@@ -56,30 +56,33 @@ importa `pliego_pdf::*` y nunca `mupdf`. Reglas del contrato:
   PR pequeño al hilo de W30/gestión.
 Estado de la API y de la migración de cada crate: `docs/handoff/flujos/w30.md`.
 
-### Motor de render, texto y búsqueda (W37)
-Con la característica de Cargo `pdfium` de `pliego-pdf`, el dibujo (`Page::to_pixmap`, `render_region`, `bounds`), el
-texto (`to_text_page`, `text`, `words`) y la búsqueda (`Page::search`) pueden ir con **PDFium** en lugar de MuPDF. La API
-pública no cambia (solo se añadió `RenderBackend`, `Document::set_render_backend`, `pdfium_init` y relacionadas); el
-modelo de objetos, el guardado, los enlaces, el SVG y los formatos que no son PDF siguen con MuPDF hasta W36/W41.
-- **Elección por documento:** `Document::render_backend()` se fija al abrirlo con el valor de
-  `default_render_backend()` (MuPDF salvo que el programa lo cambie) y se cambia con `set_render_backend`. Una página
-  lleva el motor de su documento al hacer `load_page`.
-- **DLL:** `pdfium.dll` se carga **solo por ruta absoluta** (`pdfium_init`), nunca por `PATH` ni por el directorio
-  actual. Solo la carga el **worker** (`pliego-worker`, junto a su `.exe`; véase `configure_from_environment`);
-  `PLIEGO_ENGINE=mupdf|pdfium|auto` y `PLIEGO_PDFIUM_DLL` (ruta absoluta, para desarrollo y pruebas) lo controlan.
-  **Opt-in:** sin `PLIEGO_ENGINE` (o con `mupdf`) el worker usa MuPDF aunque la DLL esté; `auto` usa PDFium si carga.
+### Motor de render, texto y búsqueda (W37, W41)
+El dibujo (`Page::to_pixmap`, `render_region`, `bounds`), el texto (`to_text_page`, `text`, `words`) y la búsqueda
+(`Page::search`) van con **PDFium**; el modelo de objetos, el guardado, el cifrado, los enlaces, las anotaciones, los
+formularios, las fuentes, las imágenes y la redacción, con **lopdf** (`pliego_pdf::native`). MuPDF ya no está (W41).
+- **DLL:** `pdfium.dll` (`libpdfium.so`) se carga **solo por ruta absoluta**, nunca por `PATH` ni por el directorio
+  actual: la de `PLIEGO_PDFIUM_DLL` o la que hay junto al ejecutable. Se carga sola la primera vez que se dibuja, se
+  extrae texto o se busca; sin ella esas operaciones dan un error claro y todo lo demás funciona. El instalador la
+  pone junto a la app, la CLI y el worker.
 - **Copia en PDFium:** el documento se abre en PDFium desde el archivo original (o los bytes) la primera vez que se
-  pide una página; si tiene cambios sin guardar en memoria, PDFium lee una copia serializada sin cifrar.
-- **Coordenadas:** las mismas que antes (puntos, origen arriba a la izquierda, giro aplicado); PDFium trabaja en el
-  espacio de usuario y la conversión está en `PageGeom` (`crates/pliego-pdf/src/pdfium.rs`).
+  pide una página; si tiene cambios sin guardar en memoria (`State::generation`), PDFium lee una copia serializada sin
+  cifrar y se rehace al cambiar la generación.
+- **Coordenadas:** puntos, origen arriba a la izquierda, giro aplicado; PDFium trabaja en el espacio de usuario y la
+  conversión está en `PageGeom` (`crates/pliego-pdf/src/pdfium.rs`).
+- **Campos de formulario:** PDFium solo los dibuja con `FPDF_FFLDraw`, que ignora la matriz: con zoom y teselas (escala y
+  traslación) se ajusta la página a su tamaño final y se desplaza el origen; con una matriz girada los campos no salen.
+- **Sin CMYK:** PDFium dibuja en RGB. Las planchas de `pliego-print` reescriben los colores del contenido y dibujan una vez
+  por tinta (véase `separations.rs`); las imágenes y degradados no se separan.
+- **Sin JavaScript** (MuPDF/mujs era el único motor): los scripts de formularios necesitan un motor propio (flujo aparte).
+- **`/UserUnit`:** ni el modelo propio ni PDFium lo aplican al tamaño de página (MuPDF lo multiplicaba).
 - **Diferencias conocidas respecto a MuPDF:** `docs/handoff/flujos/w37.md`.
 
 ### `pliego_pdf::native` (W36): modelo de documento propio con lopdf
 Reimplementa `Object`, `PdfDocument`, `PdfPage` y `GraftMap` con los mismos nombres y firmas que los de la raíz
 de la capa (objetos, páginas, etiquetas, marcadores, adjuntos, capas, metadatos, cifrado, guardado completo e
 incremental). No tiene render, texto ni búsqueda (PDFium, W37), anotaciones/widgets/fuentes/imágenes (W39)
-ni conversión (W40); la redacción (W38) vive en `native::redact`. Mientras convive con MuPDF, la raíz sigue exportando el motor MuPDF; el
-cambio es sustituir esa exportación por `pub use native::*` cuando W37 aporte lo que falta, y W41 quita MuPDF.
+ni conversión (W40); la redacción (W38) vive en `native::redact`. Desde W41 la raíz de `pliego-pdf` reexporta `native` y
+`Document`/`Page` son envoltorios con PDFium encima.
 Un `Object` nativo es una **ruta** (documento + objeto raíz + pasos), no un puntero: lo que `dict_put` inserta se
 copia. Detalle, límites y pruebas en `docs/handoff/flujos/w36.md`.
 
@@ -91,7 +94,7 @@ afectados; borra píxeles en una copia de la imagen (Flate/sin filtro/JPEG) o qu
 elimina anotaciones bajo la zona, `/Thumb`, `/PieceInfo` y el `/ActualText` de lo marcado; y poda del documento lo que ya
 no cuelga del trailer (y desactiva el guardado incremental). Regla de seguridad: lo que no se puede medir (fuentes sin
 anchos, CMap predefinidos) se trata entero como sospechoso; nunca se adivina un ancho. En `pliego-redact` se elige con
-`RedactEngine` / `PLIEGO_REDACT_ENGINE=native` (por defecto MuPDF hasta la revisión de Ander). Detalle y límites en
+`pliego_redact::apply` (único motor desde W41). Detalle y límites en
 `docs/handoff/flujos/w38.md`.
 
 W39 completa `native` por partes (estado y límites en `docs/handoff/flujos/w39.md`): **anotaciones** (`annot.rs`, con sus
@@ -99,14 +102,12 @@ apariencias en `appearance.rs`, escritas desde la especificación PDF y no desde
 (`widget.rs`, `formap.rs`, `flatten.rs`; sin JavaScript), **fuentes** (`font.rs`, las 14 estándar con Liberation/OFL en
 `crates/pliego-pdf/fonts/liberation/`), **imágenes** (`image.rs`, solo PNG y JPEG al crearlas) y **recorrido del contenido** (`content.rs`, `image_placements`). Una anotación solo regenera su apariencia si algo la cambió (`State::annot_dirty`).
 
-### Cifrado (W40)
+### Cifrado (W40, W41)
 El cifrado de lectura (RC4-40, RC4-128, AES-128, AES-256 R5/R6; contraseñas de usuario y de propietario; permisos) y
 de escritura (los mismos, con AES-256 R6 por defecto) vive en `pliego_pdf::native` y está probado con PDF de qpdf
-(`crates/pliego-pdf/tests/fixtures/crypto/`). Mientras el modelo de objetos de la raíz siga siendo MuPDF, la capa solo
-delega la **escritura**: con `PLIEGO_CRYPTO=native` (o `set_crypto_backend(CryptoBackend::Native)`) MuPDF serializa el
-documento sin cifrar y lo cifra el modelo propio. **Leer** un PDF cifrado sigue haciéndolo MuPDF hasta que el modelo
-pase a `native` (W41): descifrar a una copia perdería el `/Encrypt`, los permisos y el `Keep` del original. Por defecto
-`PLIEGO_CRYPTO` es `mupdf`. Detalle en `docs/handoff/flujos/w40.md`.
+(`crates/pliego-pdf/tests/fixtures/crypto/`). Desde W41 es el único motor: `PLIEGO_CRYPTO` y `CryptoBackend` ya no
+existen. Un documento cifrado se abre con contraseña y PDFium lee la copia original con esa contraseña. Detalle en
+`docs/handoff/flujos/w40.md`.
 
 ## Rendimiento objetivo (medido en acr12)
 Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB, instalador < 40 MB.

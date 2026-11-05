@@ -180,7 +180,15 @@ fn update_changes_properties_and_moves() {
     assert_eq!(info.contents.as_deref(), Some("movido"));
     assert!(near(info.style.opacity.unwrap(), 0.25));
     assert!(near(info.style.border_width.unwrap(), 3.0));
-    assert!(near(info.rect[0], 110.0) && near(info.rect[1], 120.0));
+    // El recuadro se desplaza (10, 20); el motor lo ensancha lo que mide el borde, para que lo cubra.
+    assert!(
+        (info.rect[0] - 110.0).abs() <= 3.0
+            && (info.rect[1] - 120.0).abs() <= 3.0
+            && info.rect[0] <= 110.0
+            && info.rect[1] <= 120.0,
+        "{:?}",
+        info.rect
+    );
     assert!(info.modified.is_some());
 }
 

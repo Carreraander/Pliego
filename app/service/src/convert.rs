@@ -7,7 +7,7 @@ use pliego_appdata::copyjob::{unique_in, unique_sibling};
 use pliego_convert::{
     ExportImageFormat, ExtractImagesOptions, ImagesToPdfOptions, Orientation, PageSizeSpec, PdfToImagesOptions,
     TextExportOptions, TextToPdfOptions, extract_images, html_to_pdf, images_to_pdf, markdown_to_pdf, office_to_pdf,
-    pdf_to_html, pdf_to_images, pdf_to_svg, pdf_to_text, text_to_pdf,
+    pdf_to_html, pdf_to_images, pdf_to_text, text_to_pdf,
 };
 use pliego_core::{Error, JobContext, PageRange, Report, Result};
 use pliego_office_export::{CommonOptions, DocxOptions, PptxOptions, ScannedPolicy, XlsxOptions};
@@ -15,7 +15,7 @@ use pliego_office_export::{CommonOptions, DocxOptions, PptxOptions, ScannedPolic
 /// Lo que pide el panel «Exportar a imágenes o texto».
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExportRequest {
-    /// `png`, `jpg`, `tiff`, `svg`, `images` (las incrustadas), `txt` o `html`.
+    /// `png`, `jpg`, `tiff`, `images` (las incrustadas), `txt` o `html`.
     pub format: String,
     /// Páginas desde 1: `all`, `1-3,5`, `last`.
     pub pages: String,
@@ -68,7 +68,6 @@ pub fn export_copy(input: &Path, req: &ExportRequest, ctx: &JobContext) -> Resul
             };
             pdf_to_images(input, pw, &pages, &folder()?, &opts, ctx)
         }
-        "svg" => pdf_to_svg(input, pw, &pages, &folder()?, ctx),
         "images" => extract_images(input, pw, &pages, &folder()?, &ExtractImagesOptions::default(), ctx),
         "txt" => pdf_to_text(
             input,

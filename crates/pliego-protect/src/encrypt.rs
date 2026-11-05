@@ -206,20 +206,9 @@ pub fn set_permissions(
 
 /// Permisos que declara el documento (entrada /P del diccionario de cifrado) para quien no tiene la
 /// contraseña de permisos. Sin cifrado, todo está permitido.
-///
-/// Se lee /P directamente: `PdfDocument::permissions` puede devolver "todo permitido" cuando /P
-/// trae los bits reservados activados (lo normal), así que no sirve para esto.
 pub fn permissions_of(input: &Path, password: Option<&str>) -> Result<Permissions> {
     let doc = open_pdf(input, password)?;
-    let trailer = doc.trailer()?;
-    let p = match trailer.get_dict("Encrypt")? {
-        Some(enc) => match enc.get_dict("P")? {
-            Some(p) => p.as_int()? as u32,
-            None => return Ok(Permissions::all()),
-        },
-        None => return Ok(Permissions::all()),
-    };
-    Ok(Permissions::from_bits(Permission(p)))
+    Ok(Permissions::from_bits(doc.permissions()))
 }
 
 #[cfg(test)]

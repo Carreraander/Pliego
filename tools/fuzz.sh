@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fuzzing del parser de MuPDF con cargo-fuzz (requiere nightly: rustup toolchain install nightly; cargo install cargo-fuzz).
+# Fuzzing del motor (lopdf y PDFium; define PLIEGO_PDFIUM_DLL) con cargo-fuzz (requiere nightly: rustup toolchain install nightly; cargo install cargo-fuzz).
 # Uso: tools/fuzz.sh [segundos por objetivo]   (por defecto 600; 3600 para la pasada de una hora)
 set -euo pipefail
 secs="${1:-600}"

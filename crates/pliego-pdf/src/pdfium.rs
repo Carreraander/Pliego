@@ -4,18 +4,17 @@
 //! ([`init`]); todas las llamadas a la DLL pasan por el cerrojo global de `pdfium-render` (`thread_safe`), porque
 //! PDFium no admite hilos concurrentes.
 //!
-//! Qué hace PDFium aquí y qué sigue siendo de MuPDF:
-//! - PDFium: tamaño de página, dibujo (`to_pixmap`, `render_region`), texto (`text`, `words`, `to_text_page`) y
-//!   búsqueda (`Page::search`).
-//! - MuPDF: todo lo demás (objetos, guardado, enlaces, SVG, HTML, bloques de imagen del texto). Un documento con
-//!   cambios sin guardar se serializa a memoria y PDFium lee esa copia (véase [`DocLink::page`]).
+//! Qué hace PDFium aquí: dibujo (`to_pixmap`, `render_region`), texto (`text`, `words`, `to_text_page`) y
+//! búsqueda (`search`). Todo lo demás (objetos, guardado, enlaces, bloques de imagen del texto) es del modelo propio
+//! (`native`, lopdf). PDFium lee una copia del PDF en memoria que se renueva cuando el documento cambia (véase
+//! [`DocLink::page`]).
 //!
 //! Las coordenadas que entrega esta capa son siempre las de `pliego-pdf`: puntos, origen arriba a la izquierda y
 //! giro de página aplicado. PDFium trabaja en el espacio de usuario del PDF (origen abajo a la izquierda, sin
 //! girar); [`PageGeom`] hace la conversión.
 
 use std::cell::RefCell;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
@@ -67,22 +66,25 @@ pub(crate) fn init(path: &Path) -> Result<()> {
     }
 }
 
+/// La biblioteca de PDFium. Si nadie la ha cargado, lo intenta una vez desde `PLIEGO_PDFIUM_DLL` o la carpeta del
+/// ejecutable ([`crate::pdfium_init_from_environment`]), de modo que los programas y las pruebas no tengan que
+/// llamar a `pdfium_init` si la DLL está donde se espera.
 fn lib() -> Result<&'static Pdfium> {
-    PDFIUM
-        .get()
-        .ok_or_else(|| Error::Unsupported("PDFium no está cargado (llama a `pdfium_init`)".into()))
+    if let Some(p) = PDFIUM.get() {
+        return Ok(p);
+    }
+    let loaded = crate::engine::pdfium_init_from_environment();
+    PDFIUM.get().ok_or_else(|| match loaded {
+        Err(e) => Error::Unsupported(format!(
+            "PDFium no está disponible: {e}. Pon `pdfium.dll` junto al ejecutable o define PLIEGO_PDFIUM_DLL con su ruta absoluta"
+        )),
+        Ok(_) => Error::Unsupported("PDFium no está cargado".into()),
+    })
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 // Documentos
 // ---------------------------------------------------------------------------------------------------------------
-
-/// De dónde sale el PDF que lee PDFium.
-#[derive(Clone)]
-pub(crate) enum Source {
-    Path(PathBuf),
-    Bytes(Rc<Vec<u8>>),
-}
 
 /// Documento abierto en PDFium. Las páginas no se conservan: se cargan en cada operación.
 pub(crate) struct State {
@@ -90,83 +92,44 @@ pub(crate) struct State {
 }
 
 impl State {
-    fn open(source: &Source, password: Option<&str>) -> Result<Self> {
-        let pdfium = lib()?;
-        let doc = match source {
-            Source::Path(p) => pdfium.load_pdf_from_file(p, password),
-            Source::Bytes(b) => pdfium.load_pdf_from_byte_vec(b.to_vec(), password),
-        }
-        .map_err(perr)?;
-        Ok(Self { doc })
-    }
-
     fn from_vec(bytes: Vec<u8>, password: Option<&str>) -> Result<Self> {
         let doc = lib()?.load_pdf_from_byte_vec(bytes, password).map_err(perr)?;
         Ok(Self { doc })
     }
 }
 
-/// Enlace de un [`crate::Document`] con su copia en PDFium (se crea al pedirla).
+/// Copia de un documento de Pliego en PDFium, válida mientras el documento no cambie (se compara su «generación»,
+/// véase `native::State::generation`). Se crea al pedir la primera página.
 #[derive(Default)]
 pub(crate) struct DocLink {
-    source: Option<Source>,
-    password: Option<String>,
-    state: RefCell<Option<Rc<State>>>,
+    cached: RefCell<Option<(u64, Rc<State>)>>,
 }
 
 impl DocLink {
-    pub(crate) fn from_path(path: &Path) -> Self {
-        let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
-        Self {
-            source: Some(Source::Path(path)),
-            ..Self::default()
-        }
-    }
-
-    /// Enlace para un documento abierto desde memoria. Se guarda una copia de los bytes (solo si son un PDF) porque un
-    /// `Document` sin convertir a `PdfDocument` no se puede serializar desde MuPDF para dárselo a PDFium. Este coste
-    /// (una copia más en memoria) solo existe en compilaciones con la característica `pdfium`.
-    pub(crate) fn from_bytes(bytes: &[u8], magic: &str) -> Self {
-        if !magic.to_ascii_lowercase().contains("pdf") {
-            return Self::default();
-        }
-        Self {
-            source: Some(Source::Bytes(Rc::new(bytes.to_vec()))),
-            ..Self::default()
-        }
-    }
-
-    /// Recuerda la contraseña ya validada por MuPDF para abrir el original en PDFium.
-    pub(crate) fn set_password(&mut self, password: &str) {
-        self.password = Some(password.to_owned());
-        *self.state.borrow_mut() = None;
-    }
-
-    /// Enlace con la página `index`. `dirty_snapshot` se llama solo si el documento tiene cambios sin guardar y
-    /// debe devolver el PDF serializado **sin cifrar**; en ese caso se abre una copia nueva cada vez (no hay forma
-    /// barata de saber si cambió otra vez).
+    /// Enlace con la página `index`. `generation` es la del documento; si no coincide con la copia guardada, se llama
+    /// a `source`, que debe devolver el PDF actual (con la contraseña, si va cifrado) para abrir una copia nueva.
     pub(crate) fn page(
         &self,
         index: i32,
-        dirty: bool,
-        dirty_snapshot: impl FnOnce() -> Result<Vec<u8>>,
+        generation: u64,
+        source: impl FnOnce() -> Result<(Vec<u8>, Option<String>)>,
     ) -> Result<PageLink> {
         if index < 0 {
             return Err(Error::InvalidInput(format!("página {index} no válida")));
         }
-        let state = match (&self.source, dirty) {
-            // Sin original (documento nuevo) o con cambios sin guardar: copia de lo que hay en memoria.
-            (None, _) | (_, true) => Rc::new(State::from_vec(dirty_snapshot()?, None)?),
-            (Some(src), false) => {
-                let cached = self.state.borrow().clone();
-                match cached {
-                    Some(s) => s,
-                    None => {
-                        let s = Rc::new(State::open(src, self.password.as_deref())?);
-                        *self.state.borrow_mut() = Some(s.clone());
-                        s
-                    }
-                }
+        let cached = self
+            .cached
+            .borrow()
+            .as_ref()
+            .filter(|(g, _)| *g == generation)
+            .map(|(_, s)| s.clone());
+        let state = match cached {
+            Some(s) => s,
+            None => {
+                let (bytes, password) = source()?;
+                let s = Rc::new(State::from_vec(bytes, password.as_deref())?);
+                *self.cached.borrow_mut() = Some((generation, s.clone()));
+                s
             }
         };
         let count = state.doc.pages().len();
@@ -186,8 +149,8 @@ impl DocLink {
 pub(crate) struct PageLink {
     state: Rc<State>,
     index: i32,
-    /// Puntos de `pliego-pdf` por punto de PDFium. 1 salvo con `/UserUnit` (MuPDF lo aplica al tamaño de la página,
-    /// PDFium no): se calibra con las dimensiones que da MuPDF (véase [`PageLink::calibrate`]).
+    /// Puntos de `pliego-pdf` por punto de PDFium. 1 salvo con `/UserUnit` (el modelo propio lo aplica al tamaño de la
+    /// página, PDFium no): se calibra con las dimensiones de `PdfPage::bounds` (véase [`PageLink::calibrate`]).
     unit: f32,
 }
 
@@ -201,16 +164,16 @@ impl PageLink {
         PageGeom::of(page, self.unit)
     }
 
-    /// Ajusta la escala con el tamaño de la página según MuPDF (`/UserUnit`): si difiere de forma uniforme en ambos
+    /// Ajusta la escala con el tamaño de la página de `PdfPage::bounds` (`/UserUnit`): si difiere de forma uniforme en ambos
     /// ejes, esa razón es la unidad; si no coincide en los dos, se deja en 1 (cajas inválidas: cada motor elige otro
     /// tamaño por defecto y no hay una escala que las reconcilie).
-    pub(crate) fn calibrate(&mut self, mupdf_w: f32, mupdf_h: f32) {
+    pub(crate) fn calibrate(&mut self, model_w: f32, model_h: f32) {
         let Ok(page) = self.load() else { return };
         let (pw, ph) = (page.width().value, page.height().value);
-        if pw <= 0.0 || ph <= 0.0 || mupdf_w <= 0.0 || mupdf_h <= 0.0 {
+        if pw <= 0.0 || ph <= 0.0 || model_w <= 0.0 || model_h <= 0.0 {
             return;
         }
-        let (rw, rh) = (mupdf_w / pw, mupdf_h / ph);
+        let (rw, rh) = (model_w / pw, model_h / ph);
         if (rw - 1.0).abs() > 0.002 && ((rw - rh) / rw).abs() < 0.01 {
             self.unit = rw;
         }
@@ -239,25 +202,12 @@ impl PageLink {
         }
         let page = self.load()?;
         let g = self.geom(&page)?;
-        // `FPDF_RenderPageBitmapWithMatrix` parte de una proyección de la página a un rectángulo de tamaño entero
-        // (truncado); se compensa para que el resultado sea exactamente `ctm` sobre la página en puntos.
-        let (pw, ph) = (g.out_w / g.unit, g.out_h / g.unit);
-        let (wi, hi) = (pw.floor().max(1.0), ph.floor().max(1.0));
-        // Del espacio de MuPDF (puntos × unidad) al de PDFium, y de ahí a su rectángulo entero.
-        let (sx, sy) = (pw / wi * g.unit, ph / hi * g.unit);
-        let config = PdfRenderConfig::new()
-            .set_fixed_size(w, h)
-            .transform(
-                ctm.a * sx,
-                ctm.b * sx,
-                ctm.c * sy,
-                ctm.d * sy,
-                ctm.e - region.x0 as f32,
-                ctm.f - region.y0 as f32,
-            )
-            .map_err(perr)?
+        // PDFium dibuja los campos de formulario (FFLDraw) solo con «ajustar la página a un rectángulo», sin matriz:
+        // con escala y traslación (lo habitual: zoom y teselas) se ajusta la página a su tamaño final y se desplaza
+        // el origen. Con una `ctm` girada o con espejo se usa la matriz y los campos no se dibujan.
+        let axis_aligned = show_extras && ctm.b == 0.0 && ctm.c == 0.0 && ctm.a > 0.0 && ctm.d > 0.0;
+        let base = PdfRenderConfig::new()
             .render_annotations(show_extras)
-            .render_form_data(false)
             .clear_before_rendering(true)
             .set_clear_color(if alpha {
                 PdfColor::new(255, 255, 255, 0)
@@ -266,6 +216,31 @@ impl PageLink {
             })
             .set_format(PdfBitmapFormat::BGRA)
             .set_reverse_byte_order(true);
+        let config = if axis_aligned {
+            let fw = (g.out_w * ctm.a).round().max(1.0) as i32;
+            let fh = (g.out_h * ctm.d).round().max(1.0) as i32;
+            base.render_form_data(show_extras).set_fixed_size(fw, fh).set_origin(
+                (ctm.e - region.x0 as f32).round() as i32,
+                (ctm.f - region.y0 as f32).round() as i32,
+            )
+        } else {
+            // `FPDF_RenderPageBitmapWithMatrix` parte de una proyección de la página a un rectángulo de tamaño entero
+            // (truncado); se compensa para que el resultado sea exactamente `ctm` sobre la página en puntos.
+            let (pw, ph) = (g.out_w / g.unit, g.out_h / g.unit);
+            let (wi, hi) = (pw.floor().max(1.0), ph.floor().max(1.0));
+            let (sx, sy) = (pw / wi * g.unit, ph / hi * g.unit);
+            base.set_fixed_size(w, h)
+                .transform(
+                    ctm.a * sx,
+                    ctm.b * sx,
+                    ctm.c * sy,
+                    ctm.d * sy,
+                    ctm.e - region.x0 as f32,
+                    ctm.f - region.y0 as f32,
+                )
+                .map_err(perr)?
+                .render_form_data(false)
+        };
         let mut bitmap = PdfBitmap::empty(w, h, PdfBitmapFormat::BGRA).map_err(perr)?;
         page.render_into_bitmap_with_config(&mut bitmap, &config)
             .map_err(perr)?;
@@ -323,18 +298,19 @@ impl PageLink {
                     | u32::from(col.green()) << 8
                     | u32::from(col.blue())
             });
-            let angle = c.angle_degrees().unwrap_or(0.0);
+            // Ángulo del texto en la página ya girada (el de PDFium es respecto al espacio de usuario).
+            let angle = (c.angle_degrees().unwrap_or(0.0) - g.rotation as f32).rem_euclid(360.0);
             chars.push(RawChar {
                 code,
                 generated,
                 placed: true,
                 rect: g.rect_from_user(b.left().value, b.bottom().value, b.right().value, b.top().value),
                 origin: g.point_from_user(ox.value, oy.value),
-                size: c.scaled_font_size().value,
+                size: effective_size(&c),
                 argb,
                 font,
                 bold_flag: font_name_is_bold(c.font_weight().as_ref()),
-                vertical: (angle.abs() - 90.0).abs() < 1.0 || (angle.abs() - 270.0).abs() < 1.0,
+                vertical: (angle - 90.0).abs() < 1.0 || (angle - 270.0).abs() < 1.0,
             });
         }
         Ok(TextData { chars })
@@ -464,6 +440,20 @@ impl PageGeom {
 // Mapas de bits
 // ---------------------------------------------------------------------------------------------------------------
 
+/// Tamaño de letra efectivo. `scaled_font_size` multiplica por la escala vertical con signo de la matriz del texto: sale
+/// negativo con un giro de 180° y 0 con uno de 90°/270°. Se recupera la escala con el coseno del ángulo del texto;
+/// cerca de los 90° (donde ese dato no sirve) se supone 1.
+fn effective_size(c: &pdfium_render::prelude::PdfPageTextChar<'_>) -> f32 {
+    let unscaled = c.unscaled_font_size().value;
+    let scaled = c.scaled_font_size().value.abs();
+    let cos = c.angle_radians().unwrap_or(0.0).cos().abs();
+    if cos > 0.3 && scaled > 0.0 {
+        scaled / cos
+    } else {
+        unscaled
+    }
+}
+
 fn rgba_to_pixmap(rgba: &[u8], w: u32, h: u32, cs: Colorspace, alpha: bool) -> Pixmap {
     let n = cs.n() as usize + usize::from(alpha);
     let mut out = Vec::with_capacity(w as usize * h as usize * n);
@@ -476,7 +466,7 @@ fn rgba_to_pixmap(rgba: &[u8], w: u32, h: u32, cs: Colorspace, alpha: bool) -> P
             Colorspace::Bgr => out.extend_from_slice(&[b, g, r]),
             Colorspace::Gray => out.push(luma(r, g, b)),
             Colorspace::Cmyk => {
-                // Conversión simple sin perfil (MuPDF hace otra con perfil); solo la usan pruebas de color.
+                // Conversión simple sin perfil; solo la usan pruebas de color.
                 let k = 255 - r.max(g).max(b);
                 if k == 255 {
                     out.extend_from_slice(&[0, 0, 0, 255]);
@@ -494,7 +484,7 @@ fn rgba_to_pixmap(rgba: &[u8], w: u32, h: u32, cs: Colorspace, alpha: bool) -> P
     Pixmap::from_samples(cs, w, h, alpha, out).expect("tamaño calculado a partir de los mismos datos")
 }
 
-/// Luminancia como la de MuPDF (`fz_rgb_to_gray`: 0,3 R + 0,59 G + 0,11 B).
+/// Luminancia (0,3 R + 0,59 G + 0,11 B).
 fn luma(r: u8, g: u8, b: u8) -> u8 {
     ((u32::from(r) * 77 + u32::from(g) * 151 + u32::from(b) * 28) >> 8) as u8
 }

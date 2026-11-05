@@ -111,7 +111,7 @@ pub fn run(a: RedactArgs, json: bool) -> anyhow::Result<()> {
 
 fn preview(a: &RedactArgs, json: bool) -> anyhow::Result<()> {
     let doc = {
-        let mut d = mupdf::pdf::PdfDocument::open(a.input.to_str().context("la ruta debe ser UTF-8")?)
+        let mut d = pliego_pdf::PdfDocument::open(&a.input)
             .with_context(|| format!("no se pudo abrir {}", a.input.display()))?;
         if d.needs_password()? {
             match &a.password {

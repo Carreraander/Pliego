@@ -25,11 +25,7 @@ pub use pdfx::{PdfxLevel, PdfxOptions, find_ghostscript, to_pdfx};
 pub use preflight::{Finding, FindingCode, PreflightReport, Profile, Severity, preflight};
 pub use separations::{Plate, PlateChannel, Separations, separations};
 
-pub use mupdf::pdf::PdfDocument;
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> pliego_core::Error {
-    pliego_core::Error::Pdf(e.to_string())
-}
+pub use pliego_pdf::PdfDocument;
 
 /// Abre un PDF de solo lectura.
 pub fn open(path: &std::path::Path, password: Option<&str>) -> pliego_core::Result<PdfDocument> {
@@ -38,11 +34,12 @@ pub fn open(path: &std::path::Path, password: Option<&str>) -> pliego_core::Resu
         return Err(Error::io_at(path, std::io::Error::from(std::io::ErrorKind::NotFound)));
     }
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    let mut doc = mupdf::Document::from_bytes(&bytes, "application/pdf").map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
+    let mut doc = pliego_pdf::Document::from_bytes(&bytes, "application/pdf")?;
+    if doc.needs_password()? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
         return Err(Error::Password);
     }
-    PdfDocument::try_from(doc).map_err(|_| Error::InvalidInput(format!("{} no es un PDF", path.display())))
+    doc.into_pdf()
+        .map_err(|_| Error::InvalidInput(format!("{} no es un PDF", path.display())))
 }
 
 /// Guarda a un temporal junto al destino y lo renombra, para no dejar archivos a medias.
@@ -61,9 +58,9 @@ pub fn save(doc: &PdfDocument, out: &std::path::Path) -> pliego_core::Result<()>
         .path()
         .to_str()
         .ok_or_else(|| Error::InvalidInput("la ruta de salida debe ser UTF-8".into()))?;
-    let mut opts = mupdf::pdf::PdfWriteOptions::default();
+    let mut opts = pliego_pdf::WriteOptions::default();
     opts.set_garbage_level(2).set_compress(true);
-    doc.save_with_options(tmp_str, opts).map_err(pdf_err)?;
+    doc.save_with_options(tmp_str, &opts)?;
     tmp.persist(out).map_err(|e| Error::io_at(out, e.error))?;
     Ok(())
 }

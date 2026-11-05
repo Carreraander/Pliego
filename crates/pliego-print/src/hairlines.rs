@@ -1,11 +1,9 @@
 use std::collections::BTreeMap;
 
-use mupdf::Buffer;
-use mupdf::pdf::PdfDocument;
 use pliego_core::{Error, JobContext, Result};
+use pliego_pdf::PdfDocument;
 use serde::{Deserialize, Serialize};
 
-use crate::pdf_err;
 use crate::scan::{WidthEdit, page_content, scan_page_with};
 
 /// Resultado de [`fix_hairlines`].
@@ -56,7 +54,7 @@ pub fn fix_hairlines(doc: &mut PdfDocument, min_width: f32, ctx: &JobContext<'_>
             "el grosor mínimo debe ser un número positivo".into(),
         ));
     }
-    let pages = doc.page_count().map_err(pdf_err)?.max(0) as usize;
+    let pages = doc.page_count()?.max(0) as usize;
     let mut forms: BTreeMap<i32, BTreeMap<(usize, usize), f32>> = BTreeMap::new();
     let mut page_edits: Vec<(usize, Edits)> = Vec::new();
     let mut form_pages: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
@@ -84,19 +82,16 @@ pub fn fix_hairlines(doc: &mut PdfDocument, min_width: f32, ctx: &JobContext<'_>
     let mut changed_pages = std::collections::BTreeSet::new();
     for (p, edits) in page_edits {
         let data = apply(&page_content(doc, p)?, &edits);
-        let stream = doc
-            .add_stream(&Buffer::from_bytes(&data).map_err(pdf_err)?, None, false)
-            .map_err(pdf_err)?;
-        let mut page = doc.find_page(p as i32).map_err(pdf_err)?;
-        page.dict_put("Contents", stream).map_err(pdf_err)?;
+        let stream = doc.add_stream(&data, None, false)?;
+        let mut page = doc.find_page(p as i32)?;
+        page.dict_put("Contents", stream)?;
         report.widths_changed += edits.len();
         changed_pages.insert(p);
     }
     for (key, edits) in forms {
-        let mut form = doc.new_indirect(key, 0).map_err(pdf_err)?;
-        let data = apply(&form.read_stream().map_err(pdf_err)?, &edits);
-        form.write_stream_buffer(&Buffer::from_bytes(&data).map_err(pdf_err)?)
-            .map_err(pdf_err)?;
+        let mut form = doc.new_indirect(key, 0)?;
+        let data = apply(&form.read_stream()?, &edits);
+        form.write_stream(&data)?;
         report.widths_changed += edits.len();
         changed_pages.extend(form_pages.get(&key).into_iter().flatten().copied());
     }

@@ -85,6 +85,25 @@ fn parse_points(s: &str) -> anyhow::Result<Vec<Pt>> {
         .collect()
 }
 
+/// Guarda a un temporal junto al destino y lo renombra (mismas opciones que `pliego_organize::save`).
+fn save(doc: &pliego_pdf::PdfDocument, out: &std::path::Path) -> anyhow::Result<()> {
+    let dir = out
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(std::path::Path::new("."));
+    let tmp = tempfile::Builder::new()
+        .prefix(".pliego-")
+        .suffix(".tmp")
+        .tempfile_in(dir)
+        .with_context(|| format!("no se pudo escribir en {}", dir.display()))?;
+    let mut opts = pliego_pdf::WriteOptions::default();
+    opts.set_garbage_level(3).set_compress(true);
+    doc.save_with_options(tmp.path(), &opts)?;
+    tmp.persist(out)
+        .with_context(|| format!("no se pudo escribir {}", out.display()))?;
+    Ok(())
+}
+
 pub fn run(c: MeasureCommand, json: bool) -> anyhow::Result<()> {
     match c {
         MeasureCommand::Scale(a) => {
@@ -97,12 +116,12 @@ pub fn run(c: MeasureCommand, json: bool) -> anyhow::Result<()> {
                 (None, Some(pts)) => Scale::calibrate(pts, real, unit)?,
                 _ => bail!("indica la medida del papel con --paper o --points"),
             };
-            let mut doc = pliego_organize::open(&a.input, a.password.as_deref())?;
-            let sel = a.pages.resolve(pliego_organize::page_count(&doc)?)?;
+            let mut doc = pliego_pdf::PdfDocument::open_with_password(&a.input, a.password.as_deref())?;
+            let sel = a.pages.resolve(doc.page_count()?.max(0) as u32)?;
             for &p in &sel {
                 pliego_measure::set_scale(&mut doc, p, &scale)?;
             }
-            pliego_organize::save(&doc, &a.output)?;
+            save(&doc, &a.output)?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&scale)?);
             } else {
@@ -110,7 +129,7 @@ pub fn run(c: MeasureCommand, json: bool) -> anyhow::Result<()> {
             }
         }
         MeasureCommand::Add(a) => {
-            let mut doc = pliego_organize::open(&a.input, a.password.as_deref())?;
+            let mut doc = pliego_pdf::PdfDocument::open_with_password(&a.input, a.password.as_deref())?;
             let page = a.page.checked_sub(1).context("las páginas empiezan en 1")?;
             let scale = pliego_measure::page_scale(&doc, page)?.with_context(|| {
                 format!(
@@ -119,7 +138,7 @@ pub fn run(c: MeasureCommand, json: bool) -> anyhow::Result<()> {
                 )
             })?;
             let (m, _) = pliego_measure::add_measurement(&mut doc, page, &scale, &parse_points(&a.points)?, a.closed)?;
-            pliego_organize::save(&doc, &a.output)?;
+            save(&doc, &a.output)?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&m)?);
             } else {
@@ -127,8 +146,8 @@ pub fn run(c: MeasureCommand, json: bool) -> anyhow::Result<()> {
             }
         }
         MeasureCommand::List(a) => {
-            let doc = pliego_organize::open(&a.input, a.password.as_deref())?;
-            let n = pliego_organize::page_count(&doc)?;
+            let doc = pliego_pdf::PdfDocument::open_with_password(&a.input, a.password.as_deref())?;
+            let n = doc.page_count()?.max(0) as u32;
             let mut scales = Vec::new();
             for p in 0..n {
                 if let Some(s) = pliego_measure::page_scale(&doc, p)? {

@@ -3,12 +3,8 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use mupdf::Document;
 use pliego_core::{Error, Result};
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
+use pliego_pdf::Document;
 
 /// Abre un PDF y lo desbloquea si hace falta.
 pub(crate) fn open_document(path: &Path, password: Option<&str>) -> Result<Document> {
@@ -18,10 +14,10 @@ pub(crate) fn open_document(path: &Path, password: Option<&str>) -> Result<Docum
     let s = path
         .to_str()
         .ok_or_else(|| Error::InvalidInput(format!("ruta con caracteres no válidos: {}", path.display())))?;
-    let mut doc = Document::open(s).map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? {
+    let mut doc = Document::open(s)?;
+    if doc.needs_password()? {
         let ok = match password {
-            Some(p) => doc.authenticate(p).map_err(pdf_err)?,
+            Some(p) => doc.authenticate(p)?,
             None => false,
         };
         if !ok {

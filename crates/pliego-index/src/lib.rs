@@ -7,8 +7,8 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use mupdf::{Document, TextPageFlags};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{Document, TextFlags};
 use serde::{Deserialize, Serialize};
 use tantivy::collector::TopDocs;
 use tantivy::query::{QueryParser, TermQuery};
@@ -95,18 +95,15 @@ fn stamp(p: &Path) -> Result<(u64, u64)> {
 /// Texto de cada página. `Err(Password)` si el documento está cifrado.
 fn extract_pages(path: &Path) -> Result<Vec<String>> {
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    let doc = Document::from_bytes(&bytes, "application/pdf").map_err(|e| Error::Pdf(e.to_string()))?;
-    if doc.needs_password().map_err(|e| Error::Pdf(e.to_string()))? {
+    let doc = Document::from_bytes(&bytes, "application/pdf")?;
+    if doc.needs_password()? {
         return Err(Error::Password);
     }
-    let n = doc.page_count().map_err(|e| Error::Pdf(e.to_string()))?;
+    let n = doc.page_count()?;
     let mut pages = Vec::with_capacity(n.max(0) as usize);
     for i in 0..n {
-        let page = doc.load_page(i).map_err(|e| Error::Pdf(e.to_string()))?;
-        let text = page
-            .to_text_page(TextPageFlags::empty())
-            .and_then(|t| t.to_text())
-            .map_err(|e| Error::Pdf(e.to_string()))?;
+        let page = doc.load_page(i)?;
+        let text = page.to_text_page(TextFlags::empty())?.to_text()?;
         pages.push(text);
     }
     Ok(pages)

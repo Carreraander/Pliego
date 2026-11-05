@@ -3,12 +3,13 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use mupdf::pdf::{InsertImageOptions, PageImageSource, PdfDocument};
-use mupdf::{Colorspace, Document, Image, ImageFormat, Matrix, Rect, Size};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{
+    Colorspace, Document, Image, ImageFormat, ImageSource, InsertImageOptions, Matrix, PdfDocument, Pixmap, Rect, Size,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::util::{path_utf8, pdf_err, write_atomic};
+use crate::util::write_atomic;
 
 /// Tamaño de página al crear un PDF desde imágenes.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -168,9 +169,9 @@ fn sniff(bytes: &[u8], path: &Path) -> Result<Kind> {
     }
 }
 
-fn png_bytes(pix: &mupdf::Pixmap) -> Result<Vec<u8>> {
+fn png_bytes(pix: &Pixmap) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    pix.write_to(&mut out, ImageFormat::PNG).map_err(pdf_err)?;
+    pix.write_to(&mut out, ImageFormat::Png)?;
     Ok(out)
 }
 
@@ -208,21 +209,18 @@ fn load_frames(path: &Path) -> Result<Vec<Frame>> {
 
 /// TIFF (también multipágina), GIF y BMP: se renderiza cada fotograma a su tamaño de píxeles nativo.
 fn mupdf_frames(path: &Path) -> Result<Vec<Frame>> {
-    let broken = |e: mupdf::Error| Error::InvalidInput(format!("{}: imagen dañada ({e})", path.display()));
-    let path_str = path_utf8(path)?;
+    let broken = |e: Error| Error::InvalidInput(format!("{}: imagen dañada ({e})", path.display()));
     // Tamaño nativo del primer fotograma: sirve para deducir la escala píxeles/puntos.
-    let first = Image::from_file(path_str).map_err(broken)?;
-    let doc = Document::open(path_str).map_err(broken)?;
-    let count = doc.page_count().map_err(pdf_err)?;
+    let first = Image::from_file(path).map_err(broken)?;
+    let doc = Document::open(path).map_err(broken)?;
+    let count = doc.page_count()?;
     let mut frames = Vec::new();
     let mut scale = None;
     for i in 0..count {
-        let page = doc.load_page(i).map_err(pdf_err)?;
-        let bounds = page.bounds().map_err(pdf_err)?;
+        let page = doc.load_page(i)?;
+        let bounds = page.bounds()?;
         let s = *scale.get_or_insert_with(|| first.width() as f32 / bounds.width().max(0.01));
-        let pix = page
-            .to_pixmap(&Matrix::new_scale(s, s), &Colorspace::device_rgb(), false, false)
-            .map_err(pdf_err)?;
+        let pix = page.to_pixmap(&Matrix::new_scale(s, s), Colorspace::Rgb, false, false)?;
         frames.push(Frame {
             width: pix.width(),
             height: pix.height(),
@@ -259,7 +257,7 @@ pub fn images_to_pdf(
         }
     }
     let mut buf = Vec::new();
-    pdf.write_to(&mut buf).map_err(pdf_err)?;
+    pdf.write_to(&mut buf)?;
     write_atomic(output, &buf)?;
     ctx.step(inputs.len() as u64, inputs.len() as u64, "listo")?;
     Ok(Report::with_output(output, format!("{pages} página(s) creadas")))
@@ -291,12 +289,10 @@ fn add_page(pdf: &mut PdfDocument, frame: &Frame, o: &ImagesToPdfOptions) -> Res
     let x0 = (page_w - w) / 2.0;
     let y0 = (page_h - h) / 2.0;
 
-    let mut page = pdf
-        .new_page(Size {
-            width: page_w,
-            height: page_h,
-        })
-        .map_err(pdf_err)?;
+    let mut page = pdf.new_page(Size {
+        width: page_w,
+        height: page_h,
+    })?;
     let rect = Rect {
         x0,
         y0,
@@ -306,13 +302,12 @@ fn add_page(pdf: &mut PdfDocument, frame: &Frame, o: &ImagesToPdfOptions) -> Res
     page.insert_image(
         pdf,
         rect,
-        PageImageSource::Bytes {
+        ImageSource::Bytes {
             data: &frame.data,
             format_hint: Some(frame.hint),
         },
         InsertImageOptions::default(),
-    )
-    .map_err(pdf_err)?;
+    )?;
     Ok(())
 }
 

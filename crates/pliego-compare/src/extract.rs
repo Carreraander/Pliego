@@ -1,13 +1,9 @@
 //! Extracción de palabras con posición y formato, y render de páginas.
 
-use mupdf::{Colorspace, Document, Matrix, Page, TextPageFlags};
 use pliego_core::{Error, Result};
+use pliego_pdf::{Colorspace, Document, Matrix, Page, TextBlockKind, TextFlags};
 
 use crate::model::Rect;
-
-pub(crate) fn pdf_err(e: mupdf::Error) -> Error {
-    Error::Pdf(e.to_string())
-}
 
 /// Abre un documento y lo desbloquea si hace falta.
 pub(crate) fn open(path: &std::path::Path, password: Option<&str>) -> Result<Document> {
@@ -17,10 +13,10 @@ pub(crate) fn open(path: &std::path::Path, password: Option<&str>) -> Result<Doc
     let name = path
         .to_str()
         .ok_or_else(|| Error::InvalidInput(format!("ruta no válida: {}", path.display())))?;
-    let mut doc = Document::open(name).map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? {
+    let mut doc = Document::open(name)?;
+    if doc.needs_password()? {
         let ok = match password {
-            Some(p) => doc.authenticate(p).map_err(pdf_err)?,
+            Some(p) => doc.authenticate(p)?,
             None => false,
         };
         if !ok {
@@ -56,20 +52,20 @@ fn strip_subset(name: &str) -> &str {
 
 /// Límites de la página: se usan para llevar el origen a (0, 0).
 pub(crate) fn origin(page: &Page) -> Result<(f32, f32, f32, f32)> {
-    let b = page.bounds().map_err(pdf_err)?;
+    let b = page.bounds()?;
     Ok((b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0))
 }
 
 pub(crate) fn page_data(doc: &Document, index: u32) -> Result<PageData> {
-    let page = doc.load_page(index as i32).map_err(pdf_err)?;
+    let page = doc.load_page(index as i32)?;
     let (ox, oy, _, _) = origin(&page)?;
-    let tp = page.to_text_page(TextPageFlags::empty()).map_err(pdf_err)?;
+    let tp = page.to_text_page(TextFlags::empty())?;
     let mut words = Vec::new();
     for block in tp.blocks() {
-        if block.r#type() != mupdf::text_page::TextBlockType::Text {
+        if block.kind != TextBlockKind::Text {
             continue;
         }
-        for line in block.lines() {
+        for line in &block.lines {
             let mut cur = String::new();
             let mut rect: Option<Rect> = None;
             let mut font = String::new();
@@ -85,14 +81,13 @@ pub(crate) fn page_data(doc: &Document, index: u32) -> Result<PageData> {
                 }
                 cur.clear();
             };
-            for ch in line.chars() {
-                let Some(c) = ch.char() else { continue };
+            for ch in &line.chars {
+                let Some(c) = ch.ch else { continue };
                 if c.is_whitespace() {
                     flush(&mut cur, &mut rect, &font, size);
                     continue;
                 }
-                let q = ch.quad();
-                let r = mupdf::Rect::from(q);
+                let r = pliego_pdf::Rect::from(ch.quad);
                 let r = Rect {
                     x0: r.x0 - ox,
                     y0: r.y0 - oy,
@@ -101,10 +96,11 @@ pub(crate) fn page_data(doc: &Document, index: u32) -> Result<PageData> {
                 };
                 if rect.is_none() {
                     font = ch
-                        .font()
-                        .map(|f| strip_subset(f.name()).to_string())
+                        .font
+                        .as_ref()
+                        .map(|f| strip_subset(&f.name).to_string())
                         .unwrap_or_default();
-                    size = ch.size();
+                    size = ch.size;
                 }
                 rect = Some(rect.map_or(r, |old| old.union(&r)));
                 cur.push(c);
@@ -122,12 +118,10 @@ fn thumbnail(page: &Page) -> Result<Vec<u8>> {
     let sy = THUMB as f32 / h.max(1.0);
     let mut ctm = Matrix::new_translate(-ox, -oy);
     ctm.concat(Matrix::new_scale(sx, sy));
-    let pix = page
-        .to_pixmap(&ctm, &Colorspace::device_gray(), false, true)
-        .map_err(pdf_err)?;
+    let pix = page.to_pixmap(&ctm, Colorspace::Gray, false, true)?;
     let (pw, ph) = (pix.width() as usize, pix.height() as usize);
     let n = pix.n() as usize;
-    let stride = pix.stride() as usize;
+    let stride = pix.stride();
     let s = pix.samples();
     let mut out = vec![0u8; THUMB * THUMB];
     for y in 0..THUMB.min(ph) {
@@ -146,7 +140,7 @@ pub(crate) struct Raster {
 }
 
 pub(crate) fn render(doc: &Document, index: u32, scale: f32) -> Result<Raster> {
-    let page = doc.load_page(index as i32).map_err(pdf_err)?;
+    let page = doc.load_page(index as i32)?;
     let (ox, oy, w, h) = origin(&page)?;
     let (pw, ph) = ((w * scale).ceil() as u64, (h * scale).ceil() as u64);
     if pw * ph > 60_000_000 {
@@ -157,12 +151,10 @@ pub(crate) fn render(doc: &Document, index: u32, scale: f32) -> Result<Raster> {
     }
     let mut ctm = Matrix::new_translate(-ox, -oy);
     ctm.concat(Matrix::new_scale(scale, scale));
-    let pix = page
-        .to_pixmap(&ctm, &Colorspace::device_rgb(), false, true)
-        .map_err(pdf_err)?;
+    let pix = page.to_pixmap(&ctm, Colorspace::Rgb, false, true)?;
     let (width, height) = (pix.width() as usize, pix.height() as usize);
     let n = pix.n() as usize;
-    let stride = pix.stride() as usize;
+    let stride = pix.stride();
     let s = pix.samples();
     let mut rgb = Vec::with_capacity(width * height * 3);
     for y in 0..height {
@@ -176,7 +168,7 @@ pub(crate) fn render(doc: &Document, index: u32, scale: f32) -> Result<Raster> {
 
 /// Tamaño de la página en puntos.
 pub(crate) fn page_size(doc: &Document, index: u32) -> Result<(f32, f32)> {
-    let page = doc.load_page(index as i32).map_err(pdf_err)?;
+    let page = doc.load_page(index as i32)?;
     let (_, _, w, h) = origin(&page)?;
     Ok((w, h))
 }

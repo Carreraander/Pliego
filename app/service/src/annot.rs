@@ -55,6 +55,25 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
     persist_with_retry(tmp, out)
 }
 
+/// Igual que [`save`] para un `pliego_pdf::PdfDocument`.
+fn save_layer_pdf(doc: &pliego_pdf::PdfDocument, out: &Path) -> Result<()> {
+    let dir = out
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let tmp = tempfile::Builder::new()
+        .prefix(".pliego-")
+        .suffix(".tmp")
+        .tempfile_in(dir)
+        .map_err(|e| Error::io_at(dir, e))?
+        // Se suelta el manejador abierto: en Windows impide renombrar mientras exista.
+        .into_temp_path();
+    let mut opts = pliego_pdf::WriteOptions::default();
+    opts.set_garbage_level(3).set_compress(true);
+    doc.save_with_options(&tmp, &opts)?;
+    persist_with_retry(tmp, out)
+}
+
 fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
     // En Windows un antivirus o el indexador pueden tener el archivo recién escrito unos milisegundos.
     let mut tmp = tmp;
@@ -168,7 +187,24 @@ impl Editor {
             backup_suffix,
             |bytes| PdfDocument::from_bytes(bytes).map_err(pe),
             op,
-            |d| d,
+            save,
+        )
+    }
+
+    /// Como [`Editor::edit_pdf`] pero con un `pliego_pdf::PdfDocument` (los crates ya migrados a la capa `pliego-pdf`,
+    /// como `pliego-measure`). Desaparece cuando W33 migre este módulo.
+    pub fn edit_layer_pdf(
+        &self,
+        path: &Path,
+        backup_suffix: &str,
+        op: impl FnOnce(&mut pliego_pdf::PdfDocument) -> Result<()>,
+    ) -> Result<Vec<u8>> {
+        self.edit_with(
+            path,
+            backup_suffix,
+            pliego_pdf::PdfDocument::from_bytes,
+            op,
+            save_layer_pdf,
         )
     }
 
@@ -184,7 +220,7 @@ impl Editor {
             backup_suffix,
             |bytes| pliego_document::Document::open_bytes(bytes, None),
             op,
-            |d| d.pdf(),
+            |d, out| save(d.pdf(), out),
         )
     }
 
@@ -203,7 +239,7 @@ impl Editor {
         backup_suffix: &str,
         open: impl FnOnce(&[u8]) -> Result<D>,
         op: impl FnOnce(&mut D) -> Result<()>,
-        pdf_of: impl for<'a> Fn(&'a D) -> &'a PdfDocument,
+        save_doc: impl FnOnce(&D, &Path) -> Result<()>,
     ) -> Result<Vec<u8>> {
         let before = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
         let mut doc = open(&before)?;
@@ -213,7 +249,7 @@ impl Editor {
             // La copia de seguridad se escribe antes de tocar el original.
             write_bytes(&unique_sibling(path, backup_suffix, "pdf"), &before)?;
         }
-        save(pdf_of(&doc), path)?;
+        save_doc(&doc, path)?;
         let after = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
         let mut all = lock(&self.undo);
         let stack = all.entry(path.to_path_buf()).or_default();

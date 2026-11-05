@@ -1,10 +1,8 @@
 use std::path::Path;
 
-use mupdf::Document;
-use mupdf::pdf::{PdfDocument, PdfWriteOptions};
 use pliego_core::{Error, Result};
-
-use crate::pdf_err;
+use pliego_pdf::Document;
+use pliego_pdf::{PdfDocument, WriteOptions};
 
 /// Abre un PDF para modificarlo.
 pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
@@ -14,11 +12,12 @@ pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     // Se lee a memoria y no se mantiene el archivo abierto: en Windows no se puede sustituir un archivo
     // abierto, y con --in-place el destino es el propio original.
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    let mut doc = Document::from_bytes(&bytes, "application/pdf").map_err(pdf_err)?;
-    if doc.needs_password().map_err(pdf_err)? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
+    let mut doc = Document::from_bytes(&bytes, "application/pdf")?;
+    if doc.needs_password()? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
         return Err(Error::Password);
     }
-    PdfDocument::try_from(doc).map_err(|_| Error::InvalidInput(format!("{} no es un PDF", path.display())))
+    doc.into_pdf()
+        .map_err(|_| Error::InvalidInput(format!("{} no es un PDF", path.display())))
 }
 
 /// Guarda a un temporal junto al destino y lo renombra, para no dejar archivos a medias.
@@ -33,13 +32,9 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
         .suffix(".tmp")
         .tempfile_in(dir)
         .map_err(|e| Error::io_at(dir, e))?;
-    let mut opts = PdfWriteOptions::default();
+    let mut opts = WriteOptions::default();
     opts.set_garbage_level(3).set_compress(true);
-    let path = tmp
-        .path()
-        .to_str()
-        .ok_or_else(|| Error::InvalidInput("ruta no válida".into()))?;
-    doc.save_with_options(path, opts).map_err(pdf_err)?;
+    doc.save_with_options(tmp.path(), &opts)?;
     tmp.persist(out).map_err(|e| Error::io_at(out, e.error))?;
     Ok(())
 }

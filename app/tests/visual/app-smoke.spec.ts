@@ -133,7 +133,10 @@ const OTHER = "C:\\Docs\\version-2.pdf";
 
 test.describe("otros archivos protegidos (backend simulado)", () => {
   test.use({ locale: "en-US" });
-  test.beforeEach(({}, info) => test.skip(info.project.name !== "claro", "una sola variante basta"));
+  test.beforeEach(({ browserName }, info) => {
+    void browserName;
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+  });
 
   async function openProtected(page: Page) {
     await installBackend(page, { protectedDoc: true, locked: { [OTHER]: "clave-b" } });

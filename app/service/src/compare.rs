@@ -6,7 +6,8 @@
 use std::path::Path;
 
 use pliego_appdata::copyjob::unique_sibling;
-use pliego_compare::{CompareOptions, Comparison};
+use pliego_compare::CompareOptions;
+pub use pliego_compare::Comparison;
 use pliego_core::{Error, JobContext, Report, Result};
 
 /// Lo que pide el panel «Comparar».
@@ -36,8 +37,9 @@ pub fn describe(c: &Comparison) -> String {
     )
 }
 
-/// Compara `first` con `req.other` y guarda el informe PDF junto a `first`.
-pub fn compare_copy(first: &Path, req: &CompareRequest, ctx: &JobContext) -> Result<Report> {
+/// Compara `first` con `req.other` sin escribir nada: lo que enseña la vista lado a lado (páginas emparejadas, cambios de
+/// texto con su posición y regiones distintas). `req.label` no se usa.
+pub fn compare_view(first: &Path, req: &CompareRequest, ctx: &JobContext) -> Result<Comparison> {
     if !req.text && !req.visual {
         return Err(Error::InvalidInput(
             "elige comparar el texto, el aspecto o ambos".into(),
@@ -53,7 +55,12 @@ pub fn compare_copy(first: &Path, req: &CompareRequest, ctx: &JobContext) -> Res
         password_b: req.password_b.clone(),
         ..CompareOptions::default()
     };
-    let result = pliego_compare::compare(first, &req.other, &opts, ctx)?;
+    pliego_compare::compare(first, &req.other, &opts, ctx)
+}
+
+/// Compara `first` con `req.other` y guarda el informe PDF junto a `first`.
+pub fn compare_copy(first: &Path, req: &CompareRequest, ctx: &JobContext) -> Result<Report> {
+    let result = compare_view(first, req, ctx)?;
     let out = unique_sibling(first, &req.label, "pdf");
     if let Err(e) = pliego_compare::write_report_with(&result, &out, ctx) {
         let _ = std::fs::remove_file(&out);
@@ -108,6 +115,32 @@ mod tests {
         // Una segunda comparación no pisa el informe anterior.
         let r2 = compare_copy(&a, &request(&b), &JobContext::silent()).unwrap();
         assert_ne!(r.outputs, r2.outputs);
+    }
+
+    #[test]
+    fn view_returns_the_comparison_and_writes_nothing() {
+        let _serial = crate::test_support::serial();
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a.pdf");
+        let b = dir.path().join("b.pdf");
+        std::fs::copy(corpus("organize/a.pdf"), &a).unwrap();
+        std::fs::copy(corpus("organize/b.pdf"), &b).unwrap();
+        let c = compare_view(&a, &request(&b), &JobContext::silent()).unwrap();
+        assert_eq!(
+            c.summary.pages_a as usize + c.summary.inserted_pages as usize - c.summary.deleted_pages as usize,
+            c.summary.pages_b as usize
+        );
+        assert!(!c.pages.is_empty());
+        // Se serializa tal cual para la interfaz.
+        let json = serde_json::to_value(&c).unwrap();
+        assert!(json["pages"].is_array());
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 2);
+        let mut none = request(&b);
+        none.text = false;
+        assert!(matches!(
+            compare_view(&a, &none, &JobContext::silent()),
+            Err(Error::InvalidInput(_))
+        ));
     }
 
     #[test]

@@ -14,6 +14,8 @@ tempfile.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+# JPEG CMYK y YCCK de prueba para las planchas (ya está en el árbol por `pliego-pdf`).
+jpeg-encoder = "0.6"
 
 [lints]
 workspace = true

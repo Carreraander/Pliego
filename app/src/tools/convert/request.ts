@@ -33,8 +33,8 @@ export type CreateSize = "fit" | "a4" | "a3" | "a5" | "letter" | "legal";
 export type CreateOrientation = "auto" | "portrait" | "landscape";
 export type PdfaLevel = "1b" | "2b" | "2u" | "3b";
 
-/** Extensiones que «Crear PDF» convierte de una en una (texto y Office); las imágenes se pueden juntar. */
-const SINGLE = /\.(txt|md|markdown|html?|docx?|docm|dot|dotx|rtf|odt|xlsx?|xlsm|xlsb|csv|ods|pptx?|pptm|pps|ppsx|odp)$/i;
+/** Extensiones que «Crear PDF» convierte de una en una (texto, libros, cómics y Office); las imágenes se pueden juntar. */
+const SINGLE = /\.(txt|md|markdown|html?|epub|cbz|xps|oxps|docx?|docm|dot|dotx|rtf|odt|xlsx?|xlsm|xlsb|csv|ods|pptx?|pptm|pps|ppsx|odp)$/i;
 export const isSingleOnly = (path: string): boolean => SINGLE.test(path);
 
 /** Si la lista no es válida, el motivo (`"single"`: texto u Office junto a otros archivos); si lo es, `null`. */

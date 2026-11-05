@@ -186,9 +186,18 @@ fn editar_y_anadir_texto_con_el_documento_abierto() {
     assert!(svc.page_text(id, 0).unwrap().contains("Añadido"));
 
     let rev = svc.revision(id).unwrap();
-    let out =
-        pliego_app_service::pageedit::replace(&ed, &path, None, 0, 0, "Texto nuevo", &style, "copia de seguridad")
-            .unwrap();
+    let out = pliego_app_service::pageedit::replace(
+        &ed,
+        &path,
+        None,
+        0,
+        0,
+        "Texto nuevo",
+        &style,
+        true,
+        "copia de seguridad",
+    )
+    .unwrap();
     svc.reload_bytes(id, &out.bytes).unwrap();
     assert_repaints(&svc, id, rev);
     assert!(svc.page_text(id, 0).unwrap().contains("Texto nuevo"));
@@ -418,7 +427,7 @@ fn convertir_comprobar_y_buscar_desde_un_pdf_abierto() {
     // Comprobaciones de solo lectura.
     assert!(checks::accessibility(&path, None).is_ok());
     assert!(checks::preflight(&path, "basic", None).is_ok());
-    assert!(checks::pdfa(&path, checks::Level::A2b).is_ok());
+    assert!(checks::pdfa(&path, checks::Level::A2b, None).is_ok());
 
     // Cartera: crear con dos archivos, listar y extraer.
     let other = dir.path().join("otro.pdf");

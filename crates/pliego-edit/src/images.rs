@@ -173,6 +173,12 @@ fn xref_of(page: &PdfPage, name: &str) -> i32 {
         .unwrap_or(0)
 }
 
+/// Cajas de las imágenes de la página (espacio MuPDF), para la recolocación del texto.
+pub(crate) fn image_boxes(pdf: &PdfDocument, page: usize) -> Result<Vec<RectPts>> {
+    let l = load(pdf, page)?;
+    Ok(l.list.iter().map(|pl| bbox_of(&mul(&pl.ctm, &l.p))).collect())
+}
+
 /// Imágenes colocadas en la página (desde 0), en orden de dibujo.
 pub fn images(doc: &Document, page: usize) -> Result<Vec<ImageObject>> {
     let l = load(doc.pdf(), page)?;

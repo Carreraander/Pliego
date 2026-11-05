@@ -3,7 +3,7 @@
 use std::rc::Rc;
 
 use pliego_core::{Error, Result};
-use pliego_pdf::native::PdfDocument;
+use pliego_pdf::native::{PdfDocument, Raster};
 use pliego_pdf::{LinkTarget, NewLink, Rect, Size, WriteOptions};
 
 use super::Typeset;
@@ -411,6 +411,8 @@ enum Op {
 struct PageBuf {
     ops: Vec<Op>,
     links: Vec<(Rect, String)>,
+    /// Imágenes de la página: posición `(x, y)` desde arriba a la izquierda, tamaño y número en `Typesetter::rasters`.
+    images: Vec<(f32, f32, f32, f32, usize)>,
 }
 
 /// Marcador de lista pendiente de dibujar junto a la primera línea del elemento.
@@ -431,6 +433,8 @@ pub(super) struct Typesetter {
     pub(super) marker: Option<Marker>,
     /// Borde derecho del marcador (su `x` de salida es `marker_right - ancho`).
     pub(super) marker_right: f32,
+    /// Imágenes colocadas (cada una se incrusta en el PDF al final).
+    rasters: Vec<Rc<Raster>>,
 }
 
 impl Typesetter {
@@ -443,6 +447,7 @@ impl Typesetter {
             bars: Vec::new(),
             marker: None,
             marker_right: 0.0,
+            rasters: Vec::new(),
         }
     }
 
@@ -479,6 +484,26 @@ impl Typesetter {
 
     fn page(&mut self) -> &mut PageBuf {
         self.pages.last_mut().expect("siempre hay una página")
+    }
+
+    /// Coloca una imagen como bloque: a 96 ppp, reducida para caber en `avail_w` y en una página, centrada, y pasa a
+    /// la página siguiente si no cabe en lo que queda.
+    pub(super) fn image_block(&mut self, raster: Rc<Raster>, left: f32, avail_w: f32) {
+        const PT_PER_PX: f32 = 0.75;
+        let (iw, ih) = (
+            (raster.width() as f32 * PT_PER_PX).max(1.0),
+            (raster.height() as f32 * PT_PER_PX).max(1.0),
+        );
+        let max_h = (self.bottom() - self.top()).max(36.0);
+        let scale = (avail_w / iw).min(max_h / ih).min(1.0);
+        let (w, h) = (iw * scale, ih * scale);
+        self.need(h);
+        let x = left + (avail_w - w) / 2.0;
+        let y = self.y;
+        let idx = self.rasters.len();
+        self.rasters.push(raster);
+        self.page().images.push((x, y, w, h, idx));
+        self.y += h;
     }
 
     pub(super) fn fill(&mut self, x: f32, y: f32, w: f32, h: f32, color: Color) {
@@ -590,13 +615,19 @@ impl Typesetter {
     /// Cierra el documento: escribe cada página en un PDF nuevo.
     pub(super) fn finish(mut self) -> Result<Typeset> {
         // Una última página vacía por un salto final no se escribe.
-        if self.pages.len() > 1 && self.pages.last().is_some_and(|p| p.ops.is_empty()) {
+        if self.pages.len() > 1
+            && self
+                .pages
+                .last()
+                .is_some_and(|p| p.ops.is_empty() && p.images.is_empty())
+        {
             self.pages.pop();
         }
         let mut pdf = PdfDocument::new();
         let mut font_objs: [Option<pliego_pdf::native::Object>; 6] = Default::default();
         let spec = self.spec;
         let count = self.pages.len();
+        let rasters = std::mem::take(&mut self.rasters);
         for buf in self.pages {
             let mut page = pdf.new_page(Size::new(spec.width, spec.height))?;
             let mut used = [false; 6];
@@ -649,6 +680,9 @@ impl Typesetter {
                 }
             }
             page.insert_contents(&mut pdf, content.as_bytes(), true)?;
+            for &(x, y, w, h, idx) in &buf.images {
+                page.insert_raster(&mut pdf, Rect::new(x, y, x + w, y + h), &rasters[idx])?;
+            }
             let mut fonts = pdf.new_dict()?;
             for face in FACES {
                 if !used[face.index()] {

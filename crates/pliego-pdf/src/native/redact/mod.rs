@@ -34,6 +34,7 @@ mod geom;
 mod imgs;
 mod lex;
 mod metrics;
+mod shift;
 mod std14;
 #[cfg(test)]
 mod tests;
@@ -48,6 +49,7 @@ use self::geom::{M, R};
 use self::imgs::{Erased, Target, erase};
 use self::lex::{Instr, Operand, fmt_num, parse, write_name, write_operand, write_string};
 use self::metrics::FontInfo;
+pub use self::shift::{ContentMove, CutContent, MoveReport};
 use super::object::decode_stream;
 use super::{State, pdf_err};
 use crate::geom::Rect;

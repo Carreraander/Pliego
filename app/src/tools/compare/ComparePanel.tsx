@@ -3,7 +3,8 @@ import { api } from "../../api";
 import { activeDoc } from "../../state/documents";
 import { unlockFile } from "../../state/unlock";
 import { Button, Checkbox, Field, Notice, TaskPanel, toast } from "../../ui";
-import { fileName, runToolJob } from "../run";
+import { openSideBySide } from "./open";
+import { errorText, fileName, runToolJob } from "../run";
 import { compareArgs, sameFile } from "./request";
 import { cmt } from "./strings";
 
@@ -32,9 +33,25 @@ export default function ComparePanel(p: { onClose: () => void }) {
     const id = await runToolJob({ command: "compare_pdfs", args: a, title: cmt("compare.job", { name: fileName(d.path) }), started: cmt("compare.started") });
     if (id !== null) p.onClose();
   };
+  const [busy, setBusy] = createSignal(false);
+  const sideBySide = async () => {
+    const d = doc();
+    if (!d || !other() || busy() || (!text() && !visual()) || same()) return;
+    setBusy(true);
+    try {
+      await openSideBySide({ doc: d, other: other()!, passwordB: passwordB(), text: text(), visual: visual() });
+      p.onClose();
+    } catch (e) {
+      toast({ tone: "danger", text: `${cmt("view.failed")}: ${errorText(e)}` });
+    } finally {
+      setBusy(false);
+    }
+  };
   const stem = () => fileName(doc()?.path ?? "").replace(/\.pdf$/i, "");
   return (
-    <TaskPanel title={cmt("compare.title")} onClose={p.onClose} primary={{ label: cmt("compare.run"), onClick: () => void run(), disabled: args() === null }}
+    <TaskPanel title={cmt("compare.title")} onClose={p.onClose} primary={{ label: cmt("compare.sideBySide"), icon: "columns-2", onClick: () => void sideBySide(), disabled: args() === null || busy() }}
+      secondary={[{ label: cmt("compare.run"), onClick: () => void run(), disabled: args() === null || busy() }]}
+      progress={busy() ? { value: null, label: cmt("compare.sideBySide.busy") } : undefined}
       notice={<>
         <Show when={!doc()}><Notice tone="warn" inline>{cmt("compare.noDoc")}</Notice></Show>
         <Show when={same()}><Notice tone="warn" inline>{cmt("compare.same")}</Notice></Show>
@@ -45,6 +62,7 @@ export default function ComparePanel(p: { onClose: () => void }) {
       <p class="pl-muted">{cmt("compare.other.hint")}</p>
       <Checkbox label={cmt("compare.text")} checked={text()} onChange={(e) => setText(e.currentTarget.checked)} />
       <Checkbox label={cmt("compare.visual")} checked={visual()} onChange={(e) => setVisual(e.currentTarget.checked)} />
+      <p class="pl-muted">{cmt("compare.sideBySide.hint")}</p>
       <p class="pl-muted">{cmt("compare.note", { name: `${stem()} (${cmt("compare.suffix")}).pdf` })}</p>
     </TaskPanel>
   );

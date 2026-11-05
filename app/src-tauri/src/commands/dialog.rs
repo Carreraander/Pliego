@@ -33,14 +33,15 @@ pub async fn pick_image_file(app: tauri::AppHandle, title: Option<String>) -> Op
         .map(|p| p.to_string_lossy().into_owned())
 }
 
-/// Selector de archivos para «Crear PDF»: imágenes, texto, Markdown, HTML y documentos de Office.
+/// Selector de archivos para «Crear PDF»: imágenes, texto, Markdown, HTML, libros EPUB, cómics CBZ, XPS y documentos de Office.
 #[tauri::command]
 pub async fn pick_source_files(app: tauri::AppHandle, title: Option<String>) -> Vec<String> {
     let mut dialog = app.dialog().file().add_filter(
-        "Imágenes, texto y Office",
+        "Imágenes, libros, texto y Office",
         &[
-            "jpg", "jpeg", "png", "tif", "tiff", "webp", "gif", "bmp", "txt", "md", "markdown", "html", "htm", "doc",
-            "docx", "docm", "rtf", "odt", "xls", "xlsx", "xlsm", "csv", "ods", "ppt", "pptx", "odp",
+            "jpg", "jpeg", "png", "tif", "tiff", "webp", "gif", "bmp", "txt", "md", "markdown", "html", "htm", "epub",
+            "cbz", "xps", "oxps", "doc", "docx", "docm", "rtf", "odt", "xls", "xlsx", "xlsm", "csv", "ods", "ppt",
+            "pptx", "odp",
         ],
     );
     if let Some(t) = title {

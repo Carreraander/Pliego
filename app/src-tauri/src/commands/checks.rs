@@ -25,8 +25,8 @@ pub async fn check_accessibility(path: String, password: Option<String>) -> ApiR
 
 /// Validación PDF/A (`level`: `1b`, `2b`, `2u` o `3b`).
 #[tauri::command]
-pub async fn validate_pdfa(path: String, level: Level) -> ApiResult<Validation> {
-    blocking(move || checks::pdfa(&PathBuf::from(path), level)).await
+pub async fn validate_pdfa(path: String, level: Level, password: Option<String>) -> ApiResult<Validation> {
+    blocking(move || checks::pdfa(&PathBuf::from(path), level, password.as_deref())).await
 }
 
 /// Comprobación previa con el perfil `basic`, `print` o `pdfx`.

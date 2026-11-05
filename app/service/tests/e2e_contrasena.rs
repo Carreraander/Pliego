@@ -272,10 +272,21 @@ fn editar_texto_y_medir_en_un_pdf_protegido() {
     let blocks = pageedit::blocks(&path, 0, Some("abre")).unwrap();
     assert_eq!(blocks.len(), 2);
     assert!(
-        pageedit::replace(&ed, &path, None, 0, 0, "x", &style, "cs").is_err(),
+        pageedit::replace(&ed, &path, None, 0, 0, "x", &style, true, "cs").is_err(),
         "sin contraseña no se edita"
     );
-    let out = pageedit::replace(&ed, &path, Some("abre"), 0, 0, "Texto nuevo del bloque", &style, "cs").unwrap();
+    let out = pageedit::replace(
+        &ed,
+        &path,
+        Some("abre"),
+        0,
+        0,
+        "Texto nuevo del bloque",
+        &style,
+        true,
+        "cs",
+    )
+    .unwrap();
     svc.reload_bytes(id, &out.bytes).unwrap();
     assert!(svc.page_text(id, 0).unwrap().contains("Texto nuevo"));
     let out = pageedit::insert(
@@ -441,6 +452,19 @@ fn insertar_paginas_de_otro_pdf_protegido() {
     let r = organize::insert_copy(&dest, Some("clave-a"), &source(Some("clave-b")), 0, "insertado").unwrap();
     // La copia conserva la protección del documento de destino.
     assert_eq!(assert_still_protected(&svc, &r.outputs[0], "clave-a"), nd + ns);
+}
+
+#[test]
+fn validar_pdfa_de_un_pdf_protegido_usa_la_contrasena() {
+    let dir = tempfile::tempdir().unwrap();
+    let enc = encrypted(dir.path(), "organize/a.pdf", "a", "abre");
+    let level = pliego_app_service::checks::Level::A2b;
+    assert!(matches!(
+        pliego_app_service::checks::pdfa(&enc, level, None),
+        Err(Error::Password)
+    ));
+    let v = pliego_app_service::checks::pdfa(&enc, level, Some("abre")).unwrap();
+    assert!(!v.issues.is_empty(), "un PDF cifrado no es PDF/A");
 }
 
 #[test]

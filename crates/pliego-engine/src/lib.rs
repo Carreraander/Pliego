@@ -56,12 +56,37 @@ impl PdfEngine for DefaultEngine {
     type Doc = DefaultDocument;
 
     fn open(&self, path: &Path, password: Option<&str>) -> Result<DefaultDocument> {
+        // Un PDF de tamaño normal se lee a memoria y no se deja abierto: en Windows un archivo abierto por el worker
+        // impide a la app guardar encima («Access is denied», error 5) al comentar, rellenar o editar.
+        if let Some(bytes) = read_unlocked(path)? {
+            return self.open_bytes(&bytes, password);
+        }
         DefaultDocument::from_document(Document::open_with_password(path, password)?)
     }
 
     fn open_bytes(&self, bytes: &[u8], password: Option<&str>) -> Result<DefaultDocument> {
         DefaultDocument::from_document(Document::from_bytes_with_password(bytes, "application/pdf", password)?)
     }
+}
+
+/// Tamaño máximo de un PDF que se abre desde memoria en vez de por ruta (por encima, el archivo queda abierto).
+const MAX_OPEN_FROM_MEMORY: u64 = 256 * 1024 * 1024;
+
+/// Contenido del archivo si es un PDF que cabe en memoria; `None` si hay que abrirlo por ruta (otros formatos o
+/// archivos enormes). Un archivo que no existe da el error de E/S habitual.
+fn read_unlocked(path: &Path) -> Result<Option<Vec<u8>>> {
+    let is_pdf = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+    if !is_pdf {
+        return Ok(None);
+    }
+    let len = std::fs::metadata(path).map_err(|e| Error::io_at(path, e))?.len();
+    if len > MAX_OPEN_FROM_MEMORY {
+        return Ok(None);
+    }
+    std::fs::read(path).map(Some).map_err(|e| Error::io_at(path, e))
 }
 
 impl DefaultDocument {

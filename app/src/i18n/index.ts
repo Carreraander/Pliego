@@ -12,9 +12,8 @@ export function detectLocale(lang: string | undefined): Locale {
   return lang?.toLowerCase().startsWith("en") ? "en" : "es";
 }
 
-const [locale, setLocale] = createSignal<Locale>(
-  detectLocale(typeof navigator === "undefined" ? undefined : navigator.language),
-);
+// Español hasta que se cargan los ajustes (el idioma por defecto del producto); «Automático» lo cambia luego.
+const [locale, setLocale] = createSignal<Locale>("es");
 export { locale, setLocale };
 
 /** Traduce una clave y sustituye `{nombre}` con los valores dados. Si falta la clave en el idioma, usa español. */

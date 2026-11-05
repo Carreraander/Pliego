@@ -5,7 +5,8 @@
  */
 import { createSignal } from "solid-js";
 
-export const SETTINGS_VERSION = 1;
+/** 2: el idioma por defecto pasa de «auto» (el de Windows) a español. */
+export const SETTINGS_VERSION = 2;
 
 export interface Settings {
   version: number;
@@ -26,7 +27,7 @@ export const DEFAULT_QUICK_ACTIONS = ["open", "merge", "ocr", "sign", "compress"
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
-  general: { language: "auto", theme: "auto", density: "comfortable", reopenTabs: false, greeting: true },
+  general: { language: "es", theme: "auto", density: "comfortable", reopenTabs: false, greeting: true },
   viewer: { defaultZoom: "fit-width", smoothScroll: true, nightReading: false },
   accessibility: { reduceMotion: "auto", strongFocus: false },
   updates: { mode: "auto", channel: "stable", metered: true },
@@ -68,6 +69,9 @@ export function migrate(raw: unknown): Settings {
     } else if (typeof value === typeof def) (out as unknown as Record<string, unknown>)[key] = value;
   }
   for (const [k, v] of Object.entries(raw)) if (!(k in out)) (out as unknown as Record<string, unknown>)[k] = v;
+  // Antes de la v2 el valor por defecto era «auto»: una persona de habla hispana con Windows en inglés veía la app en
+  // inglés sin haberlo elegido. Se pasa a español y puede volver a «Automático» en Ajustes.
+  if (!(typeof raw.version === "number" && raw.version >= 2) && out.general.language === "auto") out.general.language = "es";
   out.version = SETTINGS_VERSION;
   return out;
 }

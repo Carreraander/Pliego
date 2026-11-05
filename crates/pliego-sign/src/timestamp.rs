@@ -19,7 +19,7 @@ pub trait TimestampAuthority {
     fn timestamp(&self, request: &[u8]) -> Result<Vec<u8>>;
 }
 
-/// Cliente HTTP/HTTPS (RFC 3161); TLS con rustls y ring.
+/// Cliente HTTP/HTTPS (RFC 3161); TLS del sistema (pliego-net).
 pub struct HttpTsa {
     pub url: String,
 }
@@ -31,7 +31,7 @@ impl TimestampAuthority for HttpTsa {
                 "no se pudo contactar con el servidor de sellado de tiempo: {e}"
             ))
         };
-        let mut resp = ureq::post(&self.url)
+        let mut resp = pliego_net::post(&self.url)
             .header("Content-Type", "application/timestamp-query")
             .send(request)
             .map_err(|e| fail(&e))?;

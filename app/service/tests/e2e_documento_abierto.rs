@@ -186,7 +186,8 @@ fn editar_y_anadir_texto_con_el_documento_abierto() {
 
     let rev = svc.revision(id).unwrap();
     let out =
-        pliego_app_service::pageedit::replace(&ed, &path, 0, 0, "Texto nuevo", &style, "copia de seguridad").unwrap();
+        pliego_app_service::pageedit::replace(&ed, &path, 0, 0, "Texto nuevo", &style, true, "copia de seguridad")
+            .unwrap();
     svc.reload_bytes(id, &out.bytes).unwrap();
     assert_repaints(&svc, id, rev);
     assert!(svc.page_text(id, 0).unwrap().contains("Texto nuevo"));

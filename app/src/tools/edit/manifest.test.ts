@@ -22,7 +22,7 @@ describe("Editar", () => {
     expect(registerMode).toHaveBeenCalledWith(expect.objectContaining({ id: "edit.content", order: 50, needsDocument: true }));
   });
   it("tiene textos en español e inglés", () => {
-    for (const k of ["edit.editor.apply", "edit.hint.add", "tools.edit.content.title", "edit.family.mono"]) {
+    for (const k of ["edit.editor.apply", "edit.hint.add", "tools.edit.content.title", "edit.family.mono", "edit.tool.image", "edit.hint.link", "edit.reflow", "edit.link.bad"]) {
       expect(toolText(k, "es")).not.toBe(k);
       expect(toolText(k, "en")).not.toBe(toolText(k, "es"));
     }

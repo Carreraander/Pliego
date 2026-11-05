@@ -683,3 +683,289 @@ fn page_with_array_contents_and_inherited_resources() {
     let t = text(&out);
     assert!(!t.contains("secreto") && t.contains("publico"), "{t:?}");
 }
+
+// --- Mover y cortar contenido (W43) ---
+
+use crate::{Colorspace, ContentMove, Matrix};
+
+/// Líneas de texto de la página `page` con la `y` (arriba a la izquierda) de la primera letra de cada una.
+fn line_ys(bytes: &[u8], page: i32) -> Vec<(String, f32)> {
+    let doc = Document::from_bytes(bytes, "application/pdf").unwrap();
+    let tp = doc
+        .load_page(page)
+        .unwrap()
+        .to_text_page(crate::TextFlags::empty())
+        .unwrap();
+    let mut out = Vec::new();
+    for b in tp.blocks() {
+        for l in &b.lines {
+            let t = l.text();
+            if !t.trim().is_empty() {
+                out.push((t.trim().to_owned(), l.chars[0].origin.y));
+            }
+        }
+    }
+    out
+}
+
+fn y_of(bytes: &[u8], page: i32, word: &str) -> f32 {
+    line_ys(bytes, page)
+        .into_iter()
+        .find(|(t, _)| t.contains(word))
+        .unwrap_or_else(|| panic!("no hay «{word}» en {:?}", line_ys(bytes, page)))
+        .1
+}
+
+fn union_of(rs: &[Rect]) -> Rect {
+    let mut u = rs[0];
+    for r in rs {
+        u = Rect::new(u.x0.min(r.x0), u.y0.min(r.y0), u.x1.max(r.x1), u.y1.max(r.y1));
+    }
+    u
+}
+
+fn save(doc: &mut Native) -> Vec<u8> {
+    doc.to_bytes(&WriteOptions::new()).unwrap()
+}
+
+/// Cuatro líneas, cada una en su `BT…ET`.
+const FOUR_BT: &str = "BT /F1 12 Tf 72 780 Td (AAA) Tj ET BT /F1 12 Tf 72 760 Td (BBB) Tj ET \
+    BT /F1 12 Tf 72 740 Td (CCC) Tj ET BT /F1 12 Tf 72 720 Td (DDD) Tj ET";
+/// Las mismas, en un solo objeto de texto con posiciones relativas (como pdfTeX).
+const FOUR_TD: &str = "BT /F1 12 Tf 72 780 Td (AAA) Tj 0 -20 Td (BBB) Tj 0 -20 Td (CCC) Tj 0 -20 Td (DDD) Tj ET";
+
+fn region_of(pdf: &[u8], words: &[&str]) -> Rect {
+    let rs: Vec<Rect> = words.iter().map(|w| find(pdf, w)[0]).collect();
+    let u = union_of(&rs);
+    Rect::new(0.0, u.y0 - 1.0, 595.0, u.y1 + 1.0)
+}
+
+fn check_shift(content: &str) {
+    let pdf = one_page(content, HELV, "", vec![helv()]);
+    let before: Vec<(String, f32)> = line_ys(&pdf, 0);
+    let area = region_of(&pdf, &["CCC", "DDD"]);
+    let mut doc = Native::from_bytes(&pdf).unwrap();
+    let rep = doc
+        .move_content(
+            0,
+            &[ContentMove {
+                area,
+                dx: 0.0,
+                dy: 30.0,
+            }],
+        )
+        .unwrap();
+    assert_eq!(rep.text_runs_moved, 2, "{rep:?}");
+    let out = save(&mut doc);
+    let y = |w: &str| y_of(&out, 0, w);
+    let y0 = |w: &str| before.iter().find(|(t, _)| t.contains(w)).unwrap().1;
+    assert!((y("AAA") - y0("AAA")).abs() < 0.05);
+    assert!((y("BBB") - y0("BBB")).abs() < 0.05);
+    assert!((y("CCC") - y0("CCC") - 30.0).abs() < 0.05, "{:?}", line_ys(&out, 0));
+    assert!((y("DDD") - y0("DDD") - 30.0).abs() < 0.05);
+    // La x no cambia.
+    assert!((find(&out, "CCC")[0].x0 - find(&pdf, "CCC")[0].x0).abs() < 0.05);
+}
+
+#[test]
+fn move_shifts_separate_text_objects() {
+    check_shift(FOUR_BT);
+}
+
+#[test]
+fn move_splits_a_single_text_object_at_line_boundaries() {
+    check_shift(FOUR_TD);
+}
+
+#[test]
+fn move_keeps_two_shows_of_one_line_together_and_tj_kerning() {
+    let content = "BT /F1 12 Tf 72 780 Td (AAA) Tj 0 -20 Td (Hol) Tj [(a ) -300 (mundo)] TJ 0 -20 Td (ZZZ) Tj ET";
+    let pdf = one_page(content, HELV, "", vec![helv()]);
+    let area = region_of(&pdf, &["mundo"]);
+    let mut doc = Native::from_bytes(&pdf).unwrap();
+    doc.move_content(
+        0,
+        &[ContentMove {
+            area,
+            dx: 10.0,
+            dy: 40.0,
+        }],
+    )
+    .unwrap();
+    let out = save(&mut doc);
+    let (b, a) = (find(&pdf, "mundo")[0], find(&out, "mundo")[0]);
+    assert!(
+        (a.y0 - b.y0 - 40.0).abs() < 0.05 && (a.x0 - b.x0 - 10.0).abs() < 0.05,
+        "{b:?} {a:?}"
+    );
+    let (b, a) = (find(&pdf, "Hol")[0], find(&out, "Hol")[0]);
+    assert!((a.y0 - b.y0 - 40.0).abs() < 0.05, "la línea entera se mueve junta");
+    assert!((find(&out, "ZZZ")[0].y0 - find(&pdf, "ZZZ")[0].y0).abs() < 0.05);
+    assert!((find(&out, "AAA")[0].y0 - find(&pdf, "AAA")[0].y0).abs() < 0.05);
+}
+
+#[test]
+fn move_handles_quote_operators() {
+    let content = "BT /F1 12 Tf 14 TL 72 780 Td (primera) Tj (segunda) ' (tercera) ' (cuarta) ' ET";
+    let pdf = one_page(content, HELV, "", vec![helv()]);
+    let area = region_of(&pdf, &["tercera", "cuarta"]);
+    let mut doc = Native::from_bytes(&pdf).unwrap();
+    doc.move_content(
+        0,
+        &[ContentMove {
+            area,
+            dx: 0.0,
+            dy: -5.0,
+        }],
+    )
+    .unwrap();
+    let out = save(&mut doc);
+    for (w, d) in [("primera", 0.0), ("segunda", 0.0), ("tercera", -5.0), ("cuarta", -5.0)] {
+        let (b, a) = (find(&pdf, w)[0], find(&out, w)[0]);
+        assert!((a.y0 - b.y0 - d).abs() < 0.05, "{w}: {b:?} {a:?}");
+    }
+}
+
+/// Color del píxel (x, y) de la página a escala 1.
+fn pixel(bytes: &[u8], page: i32, x: u32, y: u32) -> [u8; 3] {
+    let doc = Document::from_bytes(bytes, "application/pdf").unwrap();
+    let pm = doc
+        .load_page(page)
+        .unwrap()
+        .to_pixmap(&Matrix::new_scale(1.0, 1.0), Colorspace::Rgb, false, false)
+        .unwrap();
+    let n = usize::from(pm.n());
+    let i = y as usize * pm.stride() + x as usize * n;
+    [pm.samples()[i], pm.samples()[i + 1], pm.samples()[i + 2]]
+}
+
+#[test]
+fn move_carries_paths_and_leaves_big_ones() {
+    // Rectángulo rojo pequeño (y de usuario 400-420) y fondo gris que cruza la zona.
+    let content = "0.8 g 0 300 595 200 re f 1 0 0 rg 100 400 50 20 re f BT /F1 12 Tf 72 780 Td (AAA) Tj ET";
+    let pdf = one_page(content, HELV, "", vec![helv()]);
+    // En página: el rojo ocupa y = 842-420 .. 842-400 = 422..442.
+    let area = Rect::new(90.0, 415.0, 200.0, 450.0);
+    let mut doc = Native::from_bytes(&pdf).unwrap();
+    let rep = doc
+        .move_content(
+            0,
+            &[ContentMove {
+                area,
+                dx: 0.0,
+                dy: 100.0,
+            }],
+        )
+        .unwrap();
+    assert_eq!(rep.objects_moved, 1, "{rep:?}");
+    let out = save(&mut doc);
+    assert_eq!(pixel(&out, 0, 120, 432), [204, 204, 204], "el hueco queda con el fondo");
+    assert_eq!(pixel(&out, 0, 120, 532), [255, 0, 0], "el rojo bajó 100");
+    // El fondo (que no cabe en la zona) no se movió.
+    assert_eq!(pixel(&out, 0, 300, 400), [204, 204, 204]);
+}
+
+#[test]
+fn move_works_on_rotated_pages() {
+    let pdf = one_page(FOUR_BT, HELV, "/Rotate 90", vec![helv()]);
+    let before = find(&pdf, "CCC")[0];
+    let area = region_of(&pdf, &["CCC", "DDD"]);
+    // Zona a lo ancho de la página girada (595 de alto → 842 de ancho): usa la caja real.
+    let area = Rect::new(area.x0, area.y0, area.x1.max(before.x1 + 5.0), area.y1);
+    let mut doc = Native::from_bytes(&pdf).unwrap();
+    let rep = doc
+        .move_content(
+            0,
+            &[ContentMove {
+                area,
+                dx: 0.0,
+                dy: 25.0,
+            }],
+        )
+        .unwrap();
+    assert!(rep.text_runs_moved >= 1, "{rep:?}");
+    let out = save(&mut doc);
+    let after = find(&out, "CCC")[0];
+    assert!((after.y0 - before.y0 - 25.0).abs() < 0.1, "{before:?} {after:?}");
+    assert!((after.x0 - before.x0).abs() < 0.1);
+}
+
+#[test]
+fn cut_and_paste_move_content_to_another_page() {
+    let objs = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>"
+            .to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>"
+            .to_vec(),
+        stream("", FOUR_BT.as_bytes()),
+        stream("", b"BT /F1 12 Tf 72 780 Td (TOP) Tj ET"),
+        helv(),
+    ];
+    let pdf = build(&objs);
+    let area = region_of(&pdf, &["CCC", "DDD"]);
+    let c_y = find(&pdf, "CCC")[0].y0;
+    let d_y = find(&pdf, "DDD")[0].y0;
+    let top_y = {
+        let d = Document::from_bytes(&pdf, "application/pdf").unwrap();
+        d.load_page(1).unwrap().search("TOP", 4).unwrap()[0].ul.y
+    };
+    let mut doc = Native::from_bytes(&pdf).unwrap();
+    // En la página 2, lo existente baja 60 y lo cortado se pega arriba. Entre cortar y pegar no se hace otra cosa.
+    doc.move_content(
+        1,
+        &[ContentMove {
+            area: Rect::new(0.0, 0.0, 595.0, 842.0),
+            dx: 0.0,
+            dy: 60.0,
+        }],
+    )
+    .unwrap();
+    let cut = doc.cut_content(0, area).unwrap().expect("había contenido");
+    assert_eq!(cut.report.opaque_skipped, 0);
+    // `cut.bounds.y0` es la parte alta de lo cortado en la página 1; va a la parte alta de la página 2.
+    doc.paste_content(1, &cut, 0.0, top_y - cut.bounds.y0).unwrap();
+    let out = save(&mut doc);
+    if let Ok(d) = std::env::var("PLIEGO_DUMP_DIR") {
+        std::fs::write(format!("{d}/cut.pdf"), &out).unwrap();
+    }
+    let p0 = line_ys(&out, 0);
+    assert!(p0.iter().all(|(t, _)| t != "CCC" && t != "DDD"), "{p0:?}");
+    assert!(p0.iter().any(|(t, _)| t == "AAA") && p0.iter().any(|(t, _)| t == "BBB"));
+    let p1 = line_ys(&out, 1);
+    let pos = |w: &str| p1.iter().find(|(t, _)| t == w).unwrap_or_else(|| panic!("{p1:?}")).1;
+    assert!(
+        (pos("TOP") - top_y - 12.0 - 60.0).abs() < 1.0 || pos("TOP") > top_y + 40.0,
+        "{p1:?}"
+    );
+    // Orden y separación de lo pegado conservados (C y D estaban a 20 pt).
+    assert!(
+        (pos("DDD") - pos("CCC") - (d_y - c_y)).abs() < 0.5,
+        "{p1:?} {c_y} {d_y}"
+    );
+    assert!(pos("CCC") < pos("TOP"), "lo pegado queda arriba de lo que bajó: {p1:?}");
+}
+
+#[test]
+fn move_with_opaque_font_leaves_text_and_reports() {
+    // Fuente sin anchos conocidos (no estándar, sin /Widths): no se puede medir, así que no se mueve.
+    let fonts = "/Font << /F1 5 0 R >>";
+    let odd =
+        b"<< /Type /Font /Subtype /Type0 /BaseFont /X /Encoding /UniJIS-UCS2-H /DescendantFonts [6 0 R] >>".to_vec();
+    let desc = b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /X >>".to_vec();
+    let pdf = one_page("BT /F1 12 Tf 72 700 Td <00410042> Tj ET", fonts, "", vec![odd, desc]);
+    let mut doc = Native::from_bytes(&pdf).unwrap();
+    let rep = doc
+        .move_content(
+            0,
+            &[ContentMove {
+                area: Rect::new(0.0, 0.0, 595.0, 842.0),
+                dx: 0.0,
+                dy: 30.0,
+            }],
+        )
+        .unwrap();
+    assert_eq!(rep.text_runs_moved, 0);
+    assert_eq!(rep.opaque_skipped, 1, "{rep:?}");
+}

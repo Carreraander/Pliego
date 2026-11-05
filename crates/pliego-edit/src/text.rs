@@ -10,6 +10,7 @@ use pliego_pdf::{
 
 use crate::blocks::extract;
 use crate::embed::embed_subset;
+use crate::flow::{self, FlowOptions};
 use crate::fonts::{Metrics, base14_name, encode};
 use crate::load_page;
 use crate::original::{self, Original};
@@ -298,6 +299,31 @@ fn rect_of(r: RectPts) -> Rect {
 /// con reflujo dentro del ancho del bloque, empezando donde empezaba el original. Lo que queda fuera del
 /// bloque no cambia. La fuente se sustituye por una estándar parecida y se avisa en el informe.
 pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &str, style: &Style) -> Result<Report> {
+    replace_impl(doc, page, block, new_text, style, &FlowOptions::NONE)
+}
+
+/// Como [`replace_text`], pero recoloca lo que rodea al párrafo: si gana o pierde líneas, lo que hay debajo (en su
+/// columna) baja o sube con su aspecto intacto, y lo que ya no cabe en la página pasa a la siguiente. Véase
+/// [`FlowOptions`].
+pub fn replace_text_flow(
+    doc: &mut Document,
+    page: usize,
+    block: usize,
+    new_text: &str,
+    style: &Style,
+    flow: &FlowOptions,
+) -> Result<Report> {
+    replace_impl(doc, page, block, new_text, style, flow)
+}
+
+fn replace_impl(
+    doc: &mut Document,
+    page: usize,
+    block: usize,
+    new_text: &str,
+    style: &Style,
+    flow: &FlowOptions,
+) -> Result<Report> {
     let mut report = Report::default();
     doc.with_pdf_mut(|pdf| {
         let p = load_page(pdf, page)?;
@@ -338,11 +364,19 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
             text: RedactTextMethod::Remove,
         };
         pdf.redact_areas(&[(page as i32, area)], opts)?;
-        let mut p = load_page(pdf, page)?;
 
         let max_width = (b.bbox[2] - raw.first_origin.0).max(res.size);
         let lines = wrap(new_text, &face, res.size, Some(max_width));
         let leading = raw.leading.unwrap_or(res.size * 1.2);
+
+        // Recolocación: lo de debajo sube o baja según cambie el número de líneas.
+        let delta = leading * (lines.len() as f32 - raw.block.lines.len() as f32);
+        let mut moved = false;
+        if flow.push_below && delta.abs() > 0.01 {
+            flow::push_below(pdf, page, b.bbox, leading, delta, flow, &mut report)?;
+            moved = true;
+        }
+        let mut p = load_page(pdf, page)?;
         draw(
             &mut p,
             pdf,
@@ -357,7 +391,7 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
         )?;
 
         let new_bottom = raw.first_origin.1 + leading * (lines.len().saturating_sub(1)) as f32;
-        if new_bottom > b.bbox[3] + 0.5 {
+        if new_bottom > b.bbox[3] + 0.5 && !moved {
             report.warnings.push(
                 "el texto nuevo ocupa más líneas que el original y puede invadir el contenido que hay debajo".into(),
             );

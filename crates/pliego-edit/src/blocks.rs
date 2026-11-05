@@ -6,7 +6,7 @@ use pliego_pdf::{CharFont, PdfPage, TextBlockKind, TextChar, TextFlags};
 
 use crate::fonts::family_from_name;
 use crate::load_page;
-use crate::types::{FontFamily, TextBlock};
+use crate::types::{FontFamily, RectPts, TextBlock};
 
 /// Nombre, negrita, cursiva, con remate y monoespaciada.
 type FontInfo = (String, bool, bool, bool, bool);
@@ -18,6 +18,8 @@ pub(crate) struct RawBlock {
     pub first_origin: (f32, f32),
     /// Distancia entre líneas base si el bloque tiene más de una línea.
     pub leading: Option<f32>,
+    /// Caja de cada línea no vacía, en el mismo orden que `block.lines`.
+    pub line_rects: Vec<RectPts>,
 }
 
 fn color_of(c: &TextChar) -> [f32; 3] {
@@ -80,6 +82,10 @@ pub(crate) fn extract(page: &PdfPage, index: usize) -> Result<Vec<RawBlock>> {
             },
             first_origin: (c0.origin.x, c0.origin.y),
             leading,
+            line_rects: lines
+                .iter()
+                .map(|(l, _)| [l.bounds.x0, l.bounds.y0, l.bounds.x1, l.bounds.y1])
+                .collect(),
         });
     }
     Ok(out)

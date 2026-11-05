@@ -842,39 +842,6 @@ impl PdfAnnotation {
 
     /// Escribe `built` como XObject de formulario en `/AP /N` (reutiliza el flujo anterior si lo hay).
     fn install(&self, shared: &Shared, built: Ap) -> Result<()> {
-        let mut dict = Dictionary::new();
-        dict.set("Type", L::Name(b"XObject".to_vec()));
-        dict.set("Subtype", L::Name(b"Form".to_vec()));
-        dict.set("BBox", rect_array(built.bbox));
-        let mut res = Dictionary::new();
-        if let Some(gs) = built.gs {
-            let mut g = Dictionary::new();
-            g.set("Type", L::Name(b"ExtGState".to_vec()));
-            if (gs.stroke - 1.0).abs() > 1e-4 {
-                g.set("CA", L::Real(gs.stroke));
-            }
-            if (gs.fill - 1.0).abs() > 1e-4 {
-                g.set("ca", L::Real(gs.fill));
-            }
-            if gs.multiply {
-                g.set("BM", L::Name(b"Multiply".to_vec()));
-            }
-            let mut ext = Dictionary::new();
-            ext.set("H", L::Dictionary(g));
-            res.set("ExtGState", L::Dictionary(ext));
-        }
-        if !built.fonts.is_empty() {
-            let mut fonts = Dictionary::new();
-            for (name, base) in &built.fonts {
-                let id = font_object(shared, base);
-                fonts.set(name.as_str(), L::Reference(id));
-            }
-            res.set("Font", L::Dictionary(fonts));
-        }
-        if !res.is_empty() {
-            dict.set("Resources", L::Dictionary(res));
-        }
-        let stream = Stream::new(dict, built.content.into_bytes());
         // ¿Ya hay un flujo en /AP /N? Se reutiliza su número de objeto.
         let existing = match self.obj.get_dict("AP")? {
             Some(a) => a
@@ -882,23 +849,73 @@ impl PdfAnnotation {
                 .and_then(|n| n.obj_id().or_else(|| n.as_indirect().ok().map(|i| (i as u32, 0)))),
             None => None,
         };
-        let id = {
-            let mut g = shared.borrow_mut();
-            match existing
-                .map(|id| g.resolve_id(id))
-                .filter(|id| matches!(g.doc.objects.get(id), Some(L::Stream(_))))
-            {
-                Some(id) => {
-                    g.doc.objects.insert(id, L::Stream(stream));
-                    g.touch(id);
-                    id
-                }
-                None => g.add(L::Stream(stream)),
-            }
-        };
+        let id = write_form(shared, existing, &built, None, &[]);
         let mut ap_dict = Dictionary::new();
         ap_dict.set("N", L::Reference(id));
         self.obj.dict_set(b"AP", L::Dictionary(ap_dict))
+    }
+}
+
+/// Escribe `built` como XObject de formulario. Si `existing` es un flujo, lo reemplaza en su sitio; si no, crea uno
+/// nuevo. `font_refs` fija objetos de fuente ya existentes para algunos nombres de recurso; el resto se crea como
+/// fuente estándar. Devuelve el número de objeto del formulario.
+pub(crate) fn write_form(
+    shared: &Shared,
+    existing: Option<ObjectId>,
+    built: &Ap,
+    matrix: Option<[f32; 6]>,
+    font_refs: &[(String, ObjectId)],
+) -> ObjectId {
+    let mut dict = Dictionary::new();
+    dict.set("Type", L::Name(b"XObject".to_vec()));
+    dict.set("Subtype", L::Name(b"Form".to_vec()));
+    dict.set("BBox", rect_array(built.bbox));
+    if let Some(m) = matrix {
+        dict.set("Matrix", reals(&m));
+    }
+    let mut res = Dictionary::new();
+    if let Some(gs) = built.gs {
+        let mut g = Dictionary::new();
+        g.set("Type", L::Name(b"ExtGState".to_vec()));
+        if (gs.stroke - 1.0).abs() > 1e-4 {
+            g.set("CA", L::Real(gs.stroke));
+        }
+        if (gs.fill - 1.0).abs() > 1e-4 {
+            g.set("ca", L::Real(gs.fill));
+        }
+        if gs.multiply {
+            g.set("BM", L::Name(b"Multiply".to_vec()));
+        }
+        let mut ext = Dictionary::new();
+        ext.set("H", L::Dictionary(g));
+        res.set("ExtGState", L::Dictionary(ext));
+    }
+    if !built.fonts.is_empty() {
+        let mut fonts = Dictionary::new();
+        for (name, base) in &built.fonts {
+            let id = font_refs
+                .iter()
+                .find(|(n, _)| n == name)
+                .map_or_else(|| font_object(shared, base), |(_, id)| *id);
+            fonts.set(name.as_str(), L::Reference(id));
+        }
+        res.set("Font", L::Dictionary(fonts));
+    }
+    if !res.is_empty() {
+        dict.set("Resources", L::Dictionary(res));
+    }
+    let stream = Stream::new(dict, built.content.clone().into_bytes());
+    let mut g = shared.borrow_mut();
+    match existing
+        .map(|id| g.resolve_id(id))
+        .filter(|id| matches!(g.doc.objects.get(id), Some(L::Stream(_))))
+    {
+        Some(id) => {
+            g.doc.objects.insert(id, L::Stream(stream));
+            g.touch(id);
+            id
+        }
+        None => g.add(L::Stream(stream)),
     }
 }
 

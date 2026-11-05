@@ -10,6 +10,7 @@ mod office;
 mod platform;
 mod structured;
 mod text;
+mod typeset;
 mod util;
 
 pub use export::{ExportImageFormat, PdfToImagesOptions, TextExportOptions, pdf_to_images, pdf_to_text};

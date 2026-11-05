@@ -467,6 +467,8 @@ impl PageGeom {
 fn rgba_to_pixmap(rgba: &[u8], w: u32, h: u32, cs: Colorspace, alpha: bool) -> Pixmap {
     let n = cs.n() as usize + usize::from(alpha);
     let mut out = Vec::with_capacity(w as usize * h as usize * n);
+    // `as_chunks` exige Rust 1.88; el MSRV del proyecto es 1.85.
+    #[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
     for px in rgba.chunks_exact(4) {
         let (r, g, b, a) = (px[0], px[1], px[2], px[3]);
         match cs {

@@ -93,4 +93,5 @@ Cuando el motor nuevo de render esté enchufado en `engines::by_name`, `engine-c
 - `cargo test -p pliego-qa --test harness oraculo`: el oráculo (texto de MuPDF, `pdftotext`, bytes, flujos descomprimidos y
   literales) acepta el resultado del motor propio sobre `tests/corpus/redact/datos.pdf` con los siete patrones.
 - Manual: `pliego redact ... --apply -o salida.pdf` y luego
-  `redaction-oracle salida.pdf --needle ...`.
+  `redaction-oracle salida.pdf --original entrada.pdf --needle ...`. **Usa siempre `--original`**: sin él el oráculo solo busca
+  el dato entero y no ve restos parciales (`8Z`) ni texto vecino perdido (fallo de las páginas giradas 90°/270°).

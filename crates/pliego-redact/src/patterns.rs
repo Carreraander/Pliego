@@ -84,8 +84,21 @@ pub struct Match {
     pub page: u32,
     pub pattern: String,
     pub text: String,
+    /// Zona completa de cada línea (la caja que da el extractor).
     pub areas: Vec<Area>,
+    /// Banda central de cada línea, de la misma longitud que `areas`: la caja del extractor es más alta que los
+    /// glifos y tocaría las líneas vecinas, así que al redactar se usa esta, recortada por los lados «de arriba» y
+    /// «de abajo» del texto. En texto vertical (página girada 90°/270° o texto girado) el recorte va en horizontal,
+    /// nunca a lo largo de la línea: eso dejaría sin cubrir los extremos del dato.
+    #[serde(default)]
+    pub core: Vec<Area>,
 }
+
+/// Caja de una línea de una coincidencia: número de línea, límites (x0, y0, x1, y1) y si avanza en vertical.
+type LineBox = (usize, (f32, f32, f32, f32), bool);
+
+/// Fracción de la altura de la línea que se recorta por cada lado en [`Match::core`].
+const CORE_INSET: f32 = 0.25;
 
 struct Compiled {
     pattern: Pattern,
@@ -133,6 +146,8 @@ struct Glyph {
     ch: char,
     quad: Option<Quad>,
     line: usize,
+    /// ¿La línea de este glifo avanza en vertical en el espacio de página?
+    vertical: bool,
 }
 
 fn quad_bounds(q: &Quad) -> (f32, f32, f32, f32) {
@@ -144,6 +159,33 @@ fn quad_bounds(q: &Quad) -> (f32, f32, f32, f32) {
         xs.iter().copied().fold(f32::MIN, f32::max),
         ys.iter().copied().fold(f32::MIN, f32::max),
     )
+}
+
+/// ¿La línea avanza en vertical? Se mide por el desplazamiento del primer al último glifo: las cajas de los glifos
+/// salen siempre alineadas con los ejes, así que su forma no dice hacia dónde va el texto (una `I` girada y una `I`
+/// recta se parecen). Una línea de un solo glifo cuenta como horizontal.
+fn advances_vertically<'a>(quads: impl Iterator<Item = &'a Quad>) -> bool {
+    let centre = |q: &Quad| ((q.ul.x + q.lr.x) / 2.0, (q.ul.y + q.lr.y) / 2.0);
+    let mut it = quads.map(centre);
+    let Some(first) = it.next() else { return false };
+    let last = it.last().unwrap_or(first);
+    (last.1 - first.1).abs() > (last.0 - first.0).abs()
+}
+
+/// Banda central de una línea: se recorta [`CORE_INSET`] por el lado de arriba y el de abajo del texto, que en una
+/// línea vertical son el izquierdo y el derecho.
+fn core_band(page: u32, b: (f32, f32, f32, f32), vertical: bool) -> Area {
+    let (mut x0, mut y0, mut x1, mut y1) = b;
+    if vertical {
+        let d = (x1 - x0) * CORE_INSET;
+        x0 += d;
+        x1 -= d;
+    } else {
+        let d = (y1 - y0) * CORE_INSET;
+        y0 += d;
+        y1 -= d;
+    }
+    Area { page, x0, y0, x1, y1 }
 }
 
 /// Busca los patrones en todo el documento. Las coincidencias de DNI, NIE, CIF e IBAN solo se
@@ -161,12 +203,14 @@ pub fn find_patterns(doc: &PdfDocument, patterns: &[Pattern]) -> Result<Vec<Matc
         let mut line_no = 0usize;
         for block in tp.blocks() {
             for line in &block.lines {
+                let vertical = advances_vertically(line.chars.iter().map(|c| &c.quad));
                 for c in &line.chars {
                     if let Some(ch) = c.ch {
                         glyphs.push(Glyph {
                             ch,
                             quad: Some(c.quad),
                             line: line_no,
+                            vertical,
                         });
                     }
                 }
@@ -174,6 +218,7 @@ pub fn find_patterns(doc: &PdfDocument, patterns: &[Pattern]) -> Result<Vec<Matc
                     ch: '\n',
                     quad: None,
                     line: line_no,
+                    vertical,
                 });
                 line_no += 1;
             }
@@ -192,7 +237,7 @@ pub fn find_patterns(doc: &PdfDocument, patterns: &[Pattern]) -> Result<Vec<Matc
                 }
                 let first = starts.partition_point(|&s| s < m.start());
                 let last = starts.partition_point(|&s| s < m.end());
-                let mut lines: Vec<(usize, (f32, f32, f32, f32))> = Vec::new();
+                let mut lines: Vec<LineBox> = Vec::new();
                 for g in &glyphs[first..last] {
                     let Some(q) = &g.quad else { continue };
                     if g.ch.is_whitespace() {
@@ -200,10 +245,10 @@ pub fn find_patterns(doc: &PdfDocument, patterns: &[Pattern]) -> Result<Vec<Matc
                     }
                     let b = quad_bounds(q);
                     match lines.last_mut() {
-                        Some((l, r)) if *l == g.line => {
+                        Some((l, r, _)) if *l == g.line => {
                             *r = (r.0.min(b.0), r.1.min(b.1), r.2.max(b.2), r.3.max(b.3));
                         }
-                        _ => lines.push((g.line, b)),
+                        _ => lines.push((g.line, b, g.vertical)),
                     }
                 }
                 if lines.is_empty() {
@@ -214,14 +259,18 @@ pub fn find_patterns(doc: &PdfDocument, patterns: &[Pattern]) -> Result<Vec<Matc
                     pattern: c.pattern.name(),
                     text: m.as_str().to_owned(),
                     areas: lines
-                        .into_iter()
-                        .map(|(_, b)| Area {
+                        .iter()
+                        .map(|(_, b, _)| Area {
                             page: p as u32,
                             x0: b.0,
                             y0: b.1,
                             x1: b.2,
                             y1: b.3,
                         })
+                        .collect(),
+                    core: lines
+                        .iter()
+                        .map(|(_, b, vertical)| core_band(p as u32, *b, *vertical))
                         .collect(),
                 });
             }

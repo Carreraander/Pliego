@@ -4250,8 +4250,8 @@ dependencies = [
 name = "pliego-formdesign"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",
@@ -4261,8 +4261,8 @@ dependencies = [
 name = "pliego-forms"
 version = "0.1.0"
 dependencies = [
- "mupdf",
  "pliego-core",
+ "pliego-pdf",
  "serde",
  "serde_json",
  "tempfile",

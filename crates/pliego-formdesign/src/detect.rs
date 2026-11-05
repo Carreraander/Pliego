@@ -5,10 +5,9 @@
 //! interpretan como campos de «subrayado». Las etiquetas salen de la capa de texto si existe; en un escaneo sin texto
 //! los campos se nombran `campo_N`. Es una heurística: la interfaz debe dejar revisar el resultado.
 
-use mupdf::{Colorspace, Matrix, TextExtractOptions, pdf::PdfDocument};
 use pliego_core::{Error, JobContext, Result};
+use pliego_pdf::{Colorspace, Matrix, Object, PdfDocument};
 
-use crate::pe;
 use crate::spec::{FieldSpec, FieldType};
 
 /// Píxeles por punto del mapa de bits (144 ppp).
@@ -381,17 +380,17 @@ fn find_label(c: &Candidate, words: &[Word], lines: &[TextLine]) -> Option<Strin
 /// Detecta campos de formulario en una página. Devuelve `FieldSpec` con nombre, tipo y rectángulo en espacio de
 /// usuario del PDF (listos para `add_field`), en orden de lectura.
 pub fn detect_fields(doc: &PdfDocument, page: usize, ctx: &JobContext) -> Result<Vec<FieldSpec>> {
-    let pages = doc.page_count().map_err(pe)?;
+    let pages = doc.page_count()?;
     if page as i32 >= pages {
         return Err(Error::InvalidInput(format!("la página {} no existe", page + 1)));
     }
     ctx.step(0, 4, "Analizando la página")?;
-    let pg = doc.load_pdf_page(page as i32).map_err(pe)?;
+    let pg = doc.load_pdf_page(page as i32)?;
     // Se trabaja con la página «derecha»: espacio de usuario con y hacia abajo, sin giro, con el origen en la
     // esquina superior izquierda de la caja visible. Así las líneas del documento siguen siendo horizontales
     // aunque la página tenga /Rotate.
-    let page_obj = doc.find_page(page as i32).map_err(pe)?;
-    let ctm = page_obj.page_ctm().map_err(pe)?;
+    let page_obj = doc.find_page(page as i32)?;
+    let ctm = page_obj.page_ctm()?;
     let inv = ctm
         .invert()
         .ok_or_else(|| Error::Pdf("la transformación de la página no es invertible".into()))?;
@@ -404,14 +403,15 @@ pub fn detect_fields(doc: &PdfDocument, page: usize, ctx: &JobContext) -> Result
         SCALE * (inv.e - cx0),
         SCALE * (cy1 - inv.f),
     );
-    let pm = pg
-        .to_pixmap(&render, &Colorspace::device_gray(), false, false)
-        .map_err(pe)?;
+    let pm = pg.to_pixmap(&render, Colorspace::Gray, false, false)?;
     let (w, h, n) = (pm.width() as usize, pm.height() as usize, pm.n() as usize);
-    let stride = pm.stride() as usize;
+    let stride = pm.stride();
     let samples = pm.samples();
-    let (ox, oy) = pm.origin();
-    let (ox, oy) = (ox as f32 / SCALE, oy as f32 / SCALE);
+    // Origen del mapa de bits: esquina de la caja de la página transformada, redondeada como lo hace el motor
+    // (la capa no expone el origen del `Pixmap`).
+    let bb = pg.bounds()?.transform(&render);
+    let (ox, oy) = ((bb.x0 + 0.001).floor(), (bb.y0 + 0.001).floor());
+    let (ox, oy) = (ox / SCALE, oy / SCALE);
     // Rectángulo del espacio de página al espacio derecho.
     let upright = |x0: f32, y0: f32, x1: f32, y1: f32| {
         let pts = [(x0, y0), (x1, y0), (x0, y1), (x1, y1)].map(|(x, y)| {
@@ -435,8 +435,7 @@ pub fn detect_fields(doc: &PdfDocument, page: usize, ctx: &JobContext) -> Result
 
     // Texto de la página (si lo hay): se borra del mapa para que no estorbe a recuadros y líneas.
     let words: Vec<Word> = pg
-        .words(TextExtractOptions::default())
-        .map_err(pe)?
+        .words()?
         .into_iter()
         .map(|t| Word {
             text: t.text,
@@ -644,7 +643,7 @@ pub fn detect_fields(doc: &PdfDocument, page: usize, ctx: &JobContext) -> Result
     let lines = group_lines(&words);
     let mut taken: Vec<String> = Vec::new();
     for p in 0..pages {
-        for wd in doc.load_pdf_page(p).map_err(pe)?.widgets() {
+        for wd in doc.load_pdf_page(p)?.widgets() {
             if let Ok(Some(nm)) = wd.name() {
                 taken.push(nm);
             }
@@ -691,7 +690,7 @@ pub fn detect_fields(doc: &PdfDocument, page: usize, ctx: &JobContext) -> Result
 }
 
 /// Esquina izquierda y borde superior (espacio de usuario) de la caja visible: `/CropBox` o, si falta, `/MediaBox`.
-fn visible_box(page: &mupdf::pdf::PdfObject) -> (f32, f32) {
+fn visible_box(page: &Object) -> (f32, f32) {
     let get = |k: &str| {
         let a = page.get_dict_inheritable(k).ok().flatten()?;
         let mut v = [0f32; 4];

@@ -1,7 +1,7 @@
 //! Genera un PDF de prueba con un AcroForm (texto, casilla, radio, combo, lista) sin datos reales.
 #![allow(dead_code)]
 
-use mupdf::pdf::PdfDocument;
+use pliego_pdf::PdfDocument;
 
 pub fn form_pdf() -> Vec<u8> {
     let stream = |s: &str| {

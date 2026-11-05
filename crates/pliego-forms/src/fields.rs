@@ -1,10 +1,8 @@
 use std::collections::BTreeMap;
 
-use mupdf::pdf::{FieldFlags, PdfDocument, PdfObject, PdfWidget, WidgetType};
-use pliego_core::{Error, Result};
+use pliego_core::Result;
+use pliego_pdf::{FieldFlags, Object, PdfDocument, PdfWidget, WidgetType};
 use serde::{Deserialize, Serialize};
-
-use crate::pe;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -76,10 +74,7 @@ fn on_states(w: &PdfWidget) -> Vec<String> {
         && n.is_dict().unwrap_or(false)
     {
         for i in 0..n.dict_len().unwrap_or(0) {
-            if let Ok(Some(k)) = n.get_dict_key(i as i32)
-                && let Ok(name) = k.as_name()
-            {
-                let name = String::from_utf8_lossy(&name).into_owned();
+            if let Ok(Some(name)) = n.get_dict_key(i as i32) {
                 if name != "Off" {
                     out.push(name);
                 }
@@ -89,7 +84,7 @@ fn on_states(w: &PdfWidget) -> Vec<String> {
     out
 }
 
-fn string_of(o: &PdfObject) -> Option<String> {
+fn string_of(o: &Object) -> Option<String> {
     if o.is_string().ok()? {
         o.as_string().ok()
     } else if o.is_name().ok()? {
@@ -129,14 +124,14 @@ fn choice_options(w: &PdfWidget) -> Vec<String> {
 
 /// Lista los campos del formulario (uno por nombre; los radios agrupan sus botones).
 pub fn fields(doc: &mut PdfDocument) -> Result<Vec<FieldInfo>> {
-    let n = doc.page_count().map_err(pe)?;
+    let n = doc.page_count()?;
     let mut out: Vec<FieldInfo> = Vec::new();
     for p in 0..n {
-        let page = doc.load_pdf_page(p).map_err(pe)?;
+        let page = doc.load_pdf_page(p)?;
         for w in page.widgets() {
-            let Some(name) = w.name().map_err(pe)? else { continue };
-            let flags = w.field_flags().map_err(pe)?;
-            let kind = kind_of(w.r#type().map_err(pe)?, flags);
+            let Some(name) = w.name()? else { continue };
+            let flags = w.field_flags()?;
+            let kind = kind_of(w.r#type()?, flags);
             if let Some(existing) = out.iter_mut().find(|f| f.name == name) {
                 if matches!(kind, FieldKind::RadioButton | FieldKind::CheckBox) {
                     for s in on_states(&w) {
@@ -155,7 +150,7 @@ pub fn fields(doc: &mut PdfDocument) -> Result<Vec<FieldInfo>> {
             out.push(FieldInfo {
                 name,
                 kind,
-                value: w.value().map_err(pe)?,
+                value: w.value()?,
                 options,
                 page: p as usize,
                 rect: w.annotation().bounds().ok().map(|r| [r.x0, r.y0, r.x1, r.y1]),
@@ -183,15 +178,15 @@ pub struct FillResult {
 /// Rellena campos. Las casillas aceptan `Bool` o el nombre del estado; los radios, el nombre de la opción.
 pub fn fill(doc: &mut PdfDocument, values: &FieldValues) -> Result<FillResult> {
     let mut res = FillResult::default();
-    let n = doc.page_count().map_err(pe)?;
+    let n = doc.page_count()?;
     let mut seen: Vec<String> = Vec::new();
     for p in 0..n {
-        let page = doc.load_pdf_page(p).map_err(pe)?;
+        let page = doc.load_pdf_page(p)?;
         let widgets: Vec<PdfWidget> = page.widgets().collect();
         for mut w in widgets {
-            let Some(name) = w.name().map_err(pe)? else { continue };
+            let Some(name) = w.name()? else { continue };
             let Some(val) = values.get(&name) else { continue };
-            let kind = kind_of(w.r#type().map_err(pe)?, w.field_flags().map_err(pe)?);
+            let kind = kind_of(w.r#type()?, w.field_flags()?);
             if w.is_readonly().unwrap_or(false) {
                 if !res.rejected.contains(&name) {
                     res.rejected.push(name.clone());
@@ -226,7 +221,7 @@ pub fn fill(doc: &mut PdfDocument, values: &FieldValues) -> Result<FillResult> {
                 (_, FieldValue::Text(t)) => t.clone(),
                 (_, FieldValue::Bool(b)) => b.to_string(),
             };
-            let ok = w.set_value(doc, &text, true).map_err(pe)?;
+            let ok = w.set_value(doc, &text, true)?;
             seen.push(name.clone());
             if ok {
                 if !res.filled.contains(&name) {
@@ -247,15 +242,15 @@ pub fn fill(doc: &mut PdfDocument, values: &FieldValues) -> Result<FillResult> {
 
 /// Restablece los campos indicados (o todos si `names` es `None`) a su valor por defecto.
 pub fn reset(doc: &mut PdfDocument, names: Option<&[String]>) -> Result<usize> {
-    let n = doc.page_count().map_err(pe)?;
+    let n = doc.page_count()?;
     let mut count = 0;
     for p in 0..n {
-        let page = doc.load_pdf_page(p).map_err(pe)?;
+        let page = doc.load_pdf_page(p)?;
         let widgets: Vec<PdfWidget> = page.widgets().collect();
         for mut w in widgets {
-            let name = w.name().map_err(pe)?.unwrap_or_default();
+            let name = w.name()?.unwrap_or_default();
             if names.is_none_or(|ns| ns.contains(&name)) && !w.is_readonly().unwrap_or(false) {
-                w.reset(doc).map_err(pe)?;
+                w.reset(doc)?;
                 count += 1;
             }
         }
@@ -266,6 +261,6 @@ pub fn reset(doc: &mut PdfDocument, names: Option<&[String]>) -> Result<usize> {
 /// Aplana los campos: su apariencia pasa a ser contenido fijo de la página. Devuelve cuántos había.
 pub fn flatten(doc: &mut PdfDocument) -> Result<usize> {
     let before = fields(doc)?.len();
-    doc.bake(false, true).map_err(|e| Error::Pdf(e.to_string()))?;
+    doc.bake(false, true)?;
     Ok(before)
 }

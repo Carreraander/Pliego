@@ -1,5 +1,5 @@
-use mupdf::pdf::PdfDocument;
 use pliego_core::{Error, Result};
+use pliego_pdf::PdfDocument;
 use serde::{Deserialize, Serialize};
 
 use crate::csv;

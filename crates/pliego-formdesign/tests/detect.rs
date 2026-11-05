@@ -4,10 +4,10 @@ mod common;
 
 use std::path::PathBuf;
 
-use mupdf::pdf::PdfDocument;
-use mupdf::{Colorspace, Matrix};
 use pliego_core::JobContext;
 use pliego_formdesign::*;
+use pliego_pdf::PdfDocument;
+use pliego_pdf::{Colorspace, Matrix};
 use serde_json::Value;
 
 fn corpus(name: &str) -> PathBuf {
@@ -84,14 +84,9 @@ fn flat_forms_reach_80_percent() {
 fn scan_of(doc: &PdfDocument, noise_per_mille: u64) -> PdfDocument {
     let page = doc.load_pdf_page(0).unwrap();
     let pm = page
-        .to_pixmap(&Matrix::new_scale(2.0, 2.0), &Colorspace::device_gray(), false, false)
+        .to_pixmap(&Matrix::new_scale(2.0, 2.0), Colorspace::Gray, false, false)
         .unwrap();
-    let (w, h, n, stride) = (
-        pm.width() as usize,
-        pm.height() as usize,
-        pm.n() as usize,
-        pm.stride() as usize,
-    );
+    let (w, h, n, stride) = (pm.width() as usize, pm.height() as usize, pm.n() as usize, pm.stride());
     let mut raw = Vec::with_capacity(w * h);
     for y in 0..h {
         for x in 0..w {

@@ -3,8 +3,13 @@ import { createSignal, For, Show } from "solid-js";
 import { Button, Icon, IconButton, Popover, ProgressBar } from "../ui";
 import { isTauri } from "../shell/platform";
 import { cancelJob, clearFinished, dismissJob, jobs, runningJobs, type Job } from "./state";
+import { locale } from "../i18n";
 import { jt } from "./strings";
+import { jobText } from "./translate";
 import "./jobs.css";
+
+/** Texto del motor (progreso, resumen) en el idioma de la app. */
+const jobT = (text: string): string => jobText(text, locale());
 
 const [open, setOpen] = createSignal(false);
 let openResult: ((path: string) => void) | null = null;
@@ -22,14 +27,14 @@ function JobItem(props: { job: Job }) {
     <li class="pl-job" data-status={j().status}>
       <div class="pl-job__head">
         <Icon name={j().status === "done" ? "check-circle" : j().status === "running" ? "refresh" : "x-circle"} size={16} />
-        <span class="pl-job__title">{j().title || j().label}</span>
+        <span class="pl-job__title">{jobT(j().title || j().label)}</span>
         <Show when={j().status !== "running"}><IconButton icon="x" label={jt("jobs.dismiss")} onClick={() => dismissJob(j().id)} /></Show>
       </div>
       <Show when={j().status === "running"}>
-        <ProgressBar value={j().total > 0 ? j().done / j().total : null} label={j().label || jt("jobs.progress", { done: j().done, total: j().total })} onCancel={() => void cancelJob(j().id)} />
+        <ProgressBar value={j().total > 0 ? j().done / j().total : null} label={jobT(j().label) || jt("jobs.progress", { done: j().done, total: j().total })} onCancel={() => void cancelJob(j().id)} />
       </Show>
       <Show when={j().status === "done"}>
-        <p class="pl-job__text">{j().report?.summary || jt("jobs.done")}</p>
+        <p class="pl-job__text">{jobT(j().report?.summary ?? "") || jt("jobs.done")}</p>
         <div class="pl-job__actions">
           <Show when={out()}><Show when={/\.pdf$/i.test(out()!)}><Button onClick={() => openResult?.(out()!)}>{jt("jobs.open")}</Button></Show><Button variant="ghost" onClick={() => void reveal(out()!)}>{jt("jobs.reveal")}</Button></Show>
         </div>

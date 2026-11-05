@@ -1,3 +1,4 @@
+import { withPassword } from "../../state/passwords";
 import "./checks.css";
 import { createSignal, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
@@ -23,9 +24,9 @@ export default function ChecksPanel(p: { toolId: Kind; onClose: () => void }) {
     if (!doc) return;
     setBusy(true); setError(null); setResult(null);
     try {
-      if (p.toolId === "access.check") setResult(fromA11y(await invoke<A11yReport>("check_accessibility", { path: doc.path })));
+      if (p.toolId === "access.check") setResult(fromA11y(await invoke<A11yReport>("check_accessibility", withPassword({ path: doc.path }))));
       else if (p.toolId === "access.validate-pdfa") setResult(fromPdfa(await invoke<PdfaValidation>("validate_pdfa", { path: doc.path, level: level() })));
-      else setResult(fromPreflight(await invoke<PreflightReport>("preflight_pdf", { path: doc.path, profile: profile() })));
+      else setResult(fromPreflight(await invoke<PreflightReport>("preflight_pdf", withPassword({ path: doc.path, profile: profile() }))));
     } catch (e) {
       setError(ct("checks.failed", { error: errorText(e) }));
     } finally {

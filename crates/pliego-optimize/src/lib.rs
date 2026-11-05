@@ -177,7 +177,7 @@ pub fn optimize_detailed(
     }
 
     ctx.step(2, 3, "Comprobando el resultado")?;
-    let after = analyze(out)?;
+    let after = analyze_with_password(out, opts.password.as_deref())?;
     let mut report = Report::with_output(
         out,
         format!(

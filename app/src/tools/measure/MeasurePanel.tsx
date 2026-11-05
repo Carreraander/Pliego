@@ -1,3 +1,4 @@
+import { withPassword } from "../../state/passwords";
 import "./measure.css";
 import { createEffect, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
@@ -27,7 +28,7 @@ export default function MeasurePanel(p: { onClose: () => void }) {
   createEffect(() => {
     const doc = activeDoc();
     if (!doc) return;
-    invoke<Scale | null>("measure_page_scale", { path: doc.path, page: marks().page })
+    invoke<Scale | null>("measure_page_scale", withPassword({ path: doc.path, page: marks().page }))
       .then((s) => { if (s) setActiveScale(s); })
       .catch(fail);
   });

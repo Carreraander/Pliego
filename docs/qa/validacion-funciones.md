@@ -25,6 +25,7 @@ e2e_documento_abierto`.
 - **A** = automatizado y en verde en Linux (CI). **E2E** = `e2e_documento_abierto.rs` (documento abierto en el worker).
 - **W** = falta repetirlo en Windows (acr12, turno de gestión): `cargo test -p pliego-app-service --test e2e_documento_abierto`
   y el resto de pruebas del servicio.
+- **E2E2** = `e2e_herramientas.rs`: lo que genera cada herramienta se abre y se pinta en el worker.
 - **V** = revisión visual de Ander (`gestion/revision-manual-ander.md`; el control de pantalla en acr12 se deniega solo).
 - 🟢 comprobado de punta a punta (salvo lo marcado W/V) · 🟡 conectado y con pruebas, pero falta Windows/visual ·
   🔴 sin conectar a la app.
@@ -35,7 +36,7 @@ e2e_documento_abierto`.
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
 | `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto | V: pantalla completa |
-| `viewer.layers` Capas | 🟡 | A: `layers`/`set_layer_visible` en `app/service/src/tests.rs` (sin capas); `pliego-engine` con capas | V; probar un PDF con capas en W |
+| `viewer.layers` Capas | 🟢 | E2E2 (`e2e_herramientas.rs`): PDF con una capa, ocultar y mostrar cambia la tesela y no toca el archivo; capa inexistente da error | V (un PDF de verdad con capas) |
 | `viewer.attachments` Adjuntos | 🟡 | A: `attachments.test.ts`; E2E: cartera (crear, listar, extraer) | V |
 | `viewer.properties` Propiedades | 🟡 | A: `properties.test.ts`, `document_info` | V |
 | Abrir, desplazarse, zoom, miniaturas, marcadores, búsqueda | 🟡 | A+E2E: abrir/teselas/búsqueda/esquema en `app/service/src/tests.rs`; ahora se abre desde memoria | W: abrir un PDF de 100+ páginas y guardar encima |
@@ -44,17 +45,17 @@ e2e_documento_abierto`.
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
 | `annotate.comment` resaltar, subrayar, nota, texto libre, dibujo | 🟡 | E2E: resaltar (por búsqueda), nota, texto libre, deshacer ×3 y copia de seguridad idéntica con el documento abierto; borrar | **W** (aquí estaba el error 5); V |
-| `annotate.xfdf` Importar/exportar | 🟡 | A: `import_xfdf_copy`/`export_xfdf_copy` en `annot.rs` | W, V |
+| `annotate.xfdf` Importar/exportar | 🟡 | A: `import_xfdf_copy`/`export_xfdf_copy`; E2E2: comentar con el documento abierto, exportar, importar en un PDF limpio y comprobar que se abre con el comentario | W, V |
 | `annotate.summary` Resumen | 🟡 | A+E2E: `summary_of` tras anotar | V |
-| `stamp.stamps` Sellos | 🟡 | A: `tests/stamps.rs`, `stamp_annot_copy` | V (Reader) |
+| `stamp.stamps` Sellos | 🟡 | A: `tests/stamps.rs`; E2E2: sello predefinido y de texto en todas las páginas, la copia se abre y la hoja cambia; texto vacío rechazado | V (Reader) |
 
 ### Rellenar y firmar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
 | `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor | W; V |
-| `sign.digital` Firma digital | 🟡 | A: `sign.rs` (firma una copia con PFX de prueba y la valida) | W: certificado del almacén de Windows (CNG), DNIe sin lector; V |
-| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar | W |
-| `sign.workflow` Flujo de firmas | 🟡 | A: `signflow_runs_in_order_and_keeps_an_audit_log` | W, V |
+| `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | W: certificado del almacén de Windows (CNG), DNIe sin lector; V |
+| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo | W |
+| `sign.workflow` Flujo de firmas | 🟡 | A: `signflow_runs_in_order_and_keeps_an_audit_log`; E2E2: preparar, dos firmas en orden, auditoría de 3 entradas, cada paso se abre y se pinta | W, V |
 
 ### Organizar
 | Herramienta | Estado | Evidencia | Falta |
@@ -70,7 +71,7 @@ e2e_documento_abierto`.
 | --- | --- | --- | --- |
 | `edit.content` editar texto / añadir texto | 🟡 | E2E: añadir y sustituir texto con el documento abierto, texto visible tras recargar | **W**; V (la recolocación tipo Acrobat no existe) |
 | `edit.watermark` Marca de agua | 🟢 | A + E2E: «CONFIDENCIAL» aparece en el texto | V (Reader) |
-| `edit.headerfooter`, `edit.background`, `edit.bates` | 🟡 | A: `tests/stamp.rs` | V |
+| `edit.headerfooter`, `edit.background`, `edit.bates` | 🟢 | A: `tests/stamp.rs`; E2E2: cada copia se abre, la hoja cambia y el texto («ENCABEZADO», «CASO-000001») sale en la página | V (Reader) |
 
 ### Formularios
 | Herramienta | Estado | Evidencia | Falta |
@@ -90,7 +91,7 @@ e2e_documento_abierto`.
 | --- | --- | --- | --- |
 | `protect.protect` Contraseña y permisos | 🟢 | A + E2E: cifra, el visor pide contraseña y con ella abre | V (Reader, aprobado en W07) |
 | `protect.redact` Redactar | 🟢 | A + E2E: buscar correos, redactar y comprobar que el texto ya no se extrae | V (Reader) |
-| `protect.sanitize` Sanear | 🟡 | A: `sanitize_deja_informe` | V |
+| `protect.sanitize` Sanear | 🟢 | A: `sanitize_deja_informe`; E2E2: la copia saneada se abre y se pinta con el mismo número de páginas | V |
 
 ### Convertir
 | Herramienta | Estado | Evidencia | Falta |
@@ -98,7 +99,7 @@ e2e_documento_abierto`.
 | `convert.create` Crear PDF | 🟢 | A + E2E: de `.txt` a PDF y se abre en el visor | imágenes y HTML en W |
 | `convert.export` imágenes/texto | 🟢 | A + E2E: PNG y TXT | — |
 | `convert.office` Word/Excel/PowerPoint | 🟡 | A: `office_formats_save_a_copy` | W (Office real), V |
-| `convert.pdfa` PDF/A | 🟡 | A: nivel desconocido rechazado, copia nueva | W |
+| `convert.pdfa` PDF/A | 🟡 | A: nivel desconocido rechazado, copia nueva; E2E2: la copia PDF/A-2b se abre y se pinta | W |
 
 ### Comparar y optimizar
 | Herramienta | Estado | Evidencia | Falta |
@@ -111,13 +112,13 @@ e2e_documento_abierto`.
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
 | `access.check` | 🟢 | A + E2E: informe | V |
-| `access.order` Orden de lectura | 🟡 | A: `reading_order`, `tab_order_copy` | V |
+| `access.order` Orden de lectura | 🟡 | A: `reading_order`, `tab_order_copy`; E2E2: la copia con la tabulación ajustada se abre | V |
 | `access.validate-pdfa` | 🟢 | A + E2E: validación PDF/A-2b | — |
 | `print.preview` Vista previa de salida | 🟡 | A: `outputpreview.rs` | V |
 | `print.preflight` Comprobación previa | 🟢 | A + E2E: perfil `basic` | — |
-| `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs` | W |
+| `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs`; E2E2: acción «borrar página 1» sobre un PDF abierto, salidas con una página menos | W |
 | `batch.index` Índice de búsqueda | 🟢 | A + E2E: indexa una carpeta y encuentra «Pliego» | índice de 1.000 PDF en W |
-| `batch.measure` Medir | 🟡 | A: `measure.rs` | V |
+| `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer | V |
 | `batch.portfolio` Carteras | 🟢 | A + E2E: crear, listar y extraer | — |
 
 ### Asistente y actualizaciones
@@ -126,10 +127,27 @@ e2e_documento_abierto`.
 | `assistant.panel` descarga del modelo | 🟡 | A: `pliego-assistant` (huella y reanudación); TLS del sistema (#198) | **W**: repetir la descarga en acr12 |
 | Actualizaciones (Ajustes) | 🟡 | A: `pliego-update` (ya usaba TLS del sistema) | W (ya probado en W22) |
 
+## Documentos con contraseña (2026-11-05)
+
+El panel no guardaba la contraseña: abrir un PDF protegido pedía la clave, pero Comprimir, Convertir, Sellos, Numerar,
+Comprobaciones, Portafolio, Medir… la mandaban vacía y fallaban. Ahora la interfaz recuerda la contraseña **solo en
+memoria** (`app/src/state/passwords.ts`, se olvida al cerrar el documento) y la añade a los trabajos y consultas sobre
+ese mismo archivo (`runToolJob` y las consultas directas). Probado con vitest (`passwords.test.ts`), Playwright
+(`app-smoke.spec.ts`: abrir con contraseña y comprimir manda `password`) y en Rust (`e2e_herramientas.rs`: comprobar,
+analizar, comprimir, numerar y Bates sobre un PDF cifrado; las copias **siguen protegidas**).
+
+Bug encontrado por esa prueba y arreglado: Comprimir un PDF cifrado con la contraseña correcta fallaba al final con
+«contraseña necesaria» porque la comprobación del resultado no usaba la contraseña (`pliego-optimize`).
+
+No cubierto todavía con contraseña: OCR (la CLI `pliego ocr` no tiene opción de contraseña), Comparar con el segundo
+archivo cifrado, Combinar con entradas cifradas y las ediciones que escriben encima del propio PDF (comentar, rellenar,
+editar texto, diseñar campos, medir).
+
 ## Cómo repetirlo
 
 ```
-cargo test -p pliego-app-service --test e2e_documento_abierto   # Linux y Windows (acr12: por turno)
+cargo test -p pliego-app-service --test e2e_documento_abierto --test e2e_herramientas   # Linux y Windows (acr12: por turno)
+cd app && npx playwright test tests/visual/app-smoke.spec.ts --project=claro
 cargo test -p pliego-engine -p pliego-core -p pliego-net
 cargo test -p pliego-app-service --lib -- ocr:: compare::   # OCR con CLI simulada y Comparar
 cd app && npm test
@@ -138,4 +156,5 @@ cd app && npm test
 ## Pendiente (siguientes PRs)
 
 1. Repetir en acr12 las pruebas marcadas **W** y pasar a Ander las **V** (`gestion/revision-manual-ander.md`).
-2. Documentos con contraseña en los paneles que lanzan trabajos (el panel no la guarda).
+2. Contraseña en OCR, Comparar (archivo B), Combinar y las ediciones sobre el propio PDF (ver arriba).
+3. Pantalla lado a lado de Comparar.

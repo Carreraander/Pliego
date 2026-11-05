@@ -1,3 +1,4 @@
+import { withPassword } from "../../state/passwords";
 import "./checks.css";
 import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
@@ -15,7 +16,7 @@ export default function OrderPanel(p: { onClose: () => void }) {
   createEffect(on(() => activeDoc()?.path, async (path) => {
     setItems(undefined); setError(null);
     if (!path) return;
-    try { setItems(await invoke<ReadingItem[] | null>("reading_order", { path })); }
+    try { setItems(await invoke<ReadingItem[] | null>("reading_order", withPassword({ path }))); }
     catch (e) { setError(ct("checks.failed", { error: errorText(e) })); }
   }));
 

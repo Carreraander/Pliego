@@ -7,8 +7,8 @@ import { expect, test, type Page } from "@playwright/test";
  */
 const DOC = "C:\\Docs\\escaneo.pdf";
 
-async function installBackend(page: Page) {
-  await page.addInitScript((doc: string) => {
+async function installBackend(page: Page, opts: { protectedDoc?: boolean } = {}) {
+  await page.addInitScript(([doc, protectedDoc]: [string, boolean]) => {
     const calls: { cmd: string; args: unknown }[] = [];
     const responses: Record<string, unknown> = {
       startup_files: [doc],
@@ -20,6 +20,8 @@ async function installBackend(page: Page) {
       ocr_languages: { installed: ["eng", "osd", "spa"], downloadable: ["eng", "fra", "osd", "spa"] },
       pick_pdf_files: ["C:\\Docs\\version-2.pdf"],
       ocr_pdf: 11,
+      compress_pdf: 14,
+      analyze_pdf: null,
       compare_pdfs: 12,
       ocr_download_language: 13,
     };
@@ -34,12 +36,16 @@ async function installBackend(page: Page) {
       convertFileSrc: (p: string) => p,
       invoke: async (cmd: string, args: unknown) => {
         calls.push({ cmd, args });
+        // Documento con contraseña «abre»: sin ella (o con otra) el motor responde «password», como el servicio real.
+        if (cmd === "open_document" && protectedDoc && (args as { password?: string }).password !== "abre") {
+          throw { code: "password", message: "hace falta la contraseña" };
+        }
         if (cmd === "plugin:event|listen") return nextId++;
         if (cmd.startsWith("plugin:")) return null;
         return cmd in responses ? responses[cmd] : null;
       },
     };
-  }, DOC);
+  }, [DOC, opts.protectedDoc ?? false] as [string, boolean]);
 }
 
 const calls = (page: Page, cmd: string) =>
@@ -92,5 +98,24 @@ test.describe("humo de la app (backend simulado)", () => {
     expect((await calls(page, "compare_pdfs"))[0]?.args).toEqual({
       path: DOC, other: "C:\\Docs\\version-2.pdf", passwordA: null, passwordB: null, text: true, visual: true, label: "comparación",
     });
+  });
+});
+
+test.describe("documento con contraseña (backend simulado)", () => {
+  test.use({ locale: "en-US" });
+
+  test("los trabajos sobre un PDF protegido reutilizan la contraseña que se escribió al abrirlo", async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page, { protectedDoc: true });
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await page.getByLabel("Contraseña").fill("abre");
+    await page.getByRole("button", { name: "Abrir", exact: true }).click();
+    await expect.poll(async () => (await calls(page, "open_document")).length).toBe(2);
+    expect((await calls(page, "open_document"))[1]?.args).toMatchObject({ path: DOC, password: "abre" });
+
+    await openTool(page, "comprimir", /^Comprimir/);
+    await page.getByRole("button", { name: /Guardar copia/ }).click();
+    expect((await calls(page, "compress_pdf"))[0]?.args).toMatchObject({ path: DOC, password: "abre" });
   });
 });

@@ -12,10 +12,13 @@ mupdf.workspace = true
 # Motor propio del modelo de objetos y del guardado (ola 5, W36). Solo `pliego-pdf` lo usa para esto.
 lopdf = { version = "0.46", default-features = false }
 md-5 = "0.11"
-getrandom = "0.4"
-# Imágenes de mapa de bits a PDF sin MuPDF (W40): `image` para PNG/WebP/GIF/BMP y respaldo de JPEG, `tiff` para las
-# páginas de un TIFF. Solo decodifican (sin codificadores): el JPEG se incrusta tal cual.
+# Fuentes e imágenes del motor propio (ola 5, W39). `ttf-parser` mide y da contornos; `flate2` comprime los flujos;
+# `image` decodifica PNG y JPEG (W39) y, para la conversión de imágenes a PDF (W40), también WebP, GIF y BMP.
+ttf-parser = { version = "0.25", default-features = false, features = ["std"] }
+flate2 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+getrandom = "0.4"
+# `tiff` lee las páginas de un TIFF (W40). Solo decodifica: el JPEG se incrusta tal cual.
 tiff = "0.11"
 serde.workspace = true
 pdfium-render = { workspace = true, optional = true }

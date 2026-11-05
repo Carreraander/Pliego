@@ -83,6 +83,11 @@ cambio es sustituir esa exportación por `pub use native::*` cuando W37 aporte l
 Un `Object` nativo es una **ruta** (documento + objeto raíz + pasos), no un puntero: lo que `dict_put` inserta se
 copia. Detalle, límites y pruebas en `docs/handoff/flujos/w36.md`.
 
+W39 completa `native` por partes (estado y límites en `docs/handoff/flujos/w39.md`): **anotaciones** (`annot.rs`, con sus
+apariencias en `appearance.rs`, escritas desde la especificación PDF y no desde MuPDF), **campos de formulario y aplanado**
+(`widget.rs`, `formap.rs`, `flatten.rs`; sin JavaScript), **fuentes** (`font.rs`, las 14 estándar con Liberation/OFL en
+`crates/pliego-pdf/fonts/liberation/`) e **imágenes** (`image.rs`, solo PNG y JPEG). Una anotación solo regenera su apariencia si algo la cambió (`State::annot_dirty`).
+
 ### Cifrado (W40)
 El cifrado de lectura (RC4-40, RC4-128, AES-128, AES-256 R5/R6; contraseñas de usuario y de propietario; permisos) y
 de escritura (los mismos, con AES-256 R6 por defecto) vive en `pliego_pdf::native` y está probado con PDF de qpdf

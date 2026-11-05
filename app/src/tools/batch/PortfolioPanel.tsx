@@ -1,3 +1,4 @@
+import { withPassword } from "../../state/passwords";
 import "./batch.css";
 import { createEffect, createSignal, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
@@ -18,7 +19,7 @@ export default function PortfolioPanel(p: { onClose: () => void }) {
     const doc = activeDoc();
     setListing(null);
     if (!doc) return;
-    invoke<PortfolioListing>("portfolio_list", { path: doc.path })
+    invoke<PortfolioListing>("portfolio_list", withPassword({ path: doc.path }))
       .then(setListing)
       .catch((e) => setError(bt("batch.portfolio.listFailed", { error: errorText(e) })));
   });

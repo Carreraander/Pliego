@@ -1,3 +1,4 @@
+import { withPassword } from "../../state/passwords";
 import { invoke } from "@tauri-apps/api/core";
 import { createResource } from "solid-js";
 import { activeDoc } from "../../state/documents";
@@ -9,5 +10,5 @@ export interface SpaceUsage {
 
 /** Análisis del tamaño del documento activo (en segundo plano; falla en silencio si el archivo está cifrado). */
 export function createUsage() {
-  return createResource(() => activeDoc()?.path ?? null, (path) => invoke<SpaceUsage>("analyze_pdf", { path, password: null }));
+  return createResource(() => activeDoc()?.path ?? null, (path) => invoke<SpaceUsage>("analyze_pdf", withPassword({ path, password: null })));
 }

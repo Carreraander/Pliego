@@ -1,3 +1,4 @@
+import { withPassword } from "../../state/passwords";
 import { createEffect, createSignal, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { activeDoc } from "../../state/documents";
@@ -15,7 +16,7 @@ export default function AttachmentsPanel(p: { onClose: () => void }) {
     const doc = activeDoc();
     setEntries(null); setError(null);
     if (!doc) return;
-    invoke<PortfolioListing>("portfolio_list", { path: doc.path })
+    invoke<PortfolioListing>("portfolio_list", withPassword({ path: doc.path }))
       .then((l) => setEntries(l.entries))
       .catch((e) => setError(vt("view.att.failed", { error: errorText(e) })));
   });

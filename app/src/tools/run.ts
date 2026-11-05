@@ -4,6 +4,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { trackJob } from "../jobs";
+import { withPassword } from "../state/passwords";
 import { toast } from "../ui";
 
 export { formatBytes } from "./format";
@@ -20,7 +21,7 @@ export interface RunToolJob {
 /** Lanza el trabajo y devuelve su id. Si el comando falla antes de empezar (ruta no válida…) lo muestra en un toast. */
 export async function runToolJob(job: RunToolJob): Promise<number | null> {
   try {
-    const id = await invoke<number>(job.command, job.args);
+    const id = await invoke<number>(job.command, withPassword(job.args));
     trackJob(id, { title: job.title, retry: () => void runToolJob(job) });
     toast({ tone: "info", text: job.started });
     return id;

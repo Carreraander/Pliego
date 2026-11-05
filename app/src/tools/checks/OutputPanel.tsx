@@ -1,3 +1,4 @@
+import { withPassword } from "../../state/passwords";
 import "./checks.css";
 import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
@@ -21,7 +22,7 @@ export default function OutputPanel(p: { onClose: () => void }) {
     setData(null); setError(null);
     if (!doc) return;
     setBusy(true);
-    try { setData(await invoke<OutputPreview>("output_preview", { path: doc.path, page: currentPageIndex(), dpi: DPI })); }
+    try { setData(await invoke<OutputPreview>("output_preview", withPassword({ path: doc.path, page: currentPageIndex(), dpi: DPI }))); }
     catch (e) { setError(ct("checks.failed", { error: errorText(e) })); }
     finally { setBusy(false); }
   };

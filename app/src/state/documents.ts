@@ -1,3 +1,4 @@
+import { forgetPassword, rememberPassword } from "./passwords";
 import { createSignal } from "solid-js";
 import { api, events, isApiError, type DocId, type PageSize } from "../api";
 import { fitWidthZoom, type Rotation } from "../viewer/layout";
@@ -31,6 +32,7 @@ export async function openPath(path: string, viewportWidth: number, password?: s
   }
   try {
     const id = await api.openDocument(path, password);
+    if (password) rememberPassword(path, password); // para los trabajos que se lancen luego sobre este archivo
     const [info, sizes] = await Promise.all([api.documentInfo(id), api.pageSizes(id)]);
     const doc: OpenDoc = { id, path, title: info.title || fileName(path), sizes, revision: 0 };
     setDocs((d) => [...d, doc]);
@@ -46,6 +48,8 @@ export async function openPath(path: string, viewportWidth: number, password?: s
 }
 
 export async function closeDoc(id: DocId): Promise<void> {
+  const path = docs().find((d) => d.id === id)?.path;
+  if (path) forgetPassword(path);
   await api.closeDocument(id).catch(() => undefined);
   const rest = docs().filter((d) => d.id !== id);
   setDocs(rest);

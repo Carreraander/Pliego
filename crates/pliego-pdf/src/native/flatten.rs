@@ -11,6 +11,7 @@ use pliego_core::Result;
 
 use super::appearance::n;
 use super::document::PdfDocument;
+use super::formjs::{self, JsMessage};
 use super::pdf_err;
 use super::{State, tree};
 
@@ -231,21 +232,32 @@ impl PdfDocument {
         Ok(())
     }
 
-    /// El modelo nativo no tiene motor de JavaScript.
+    /// Habilita el JavaScript de formularios (motor `pliego-formjs`): `PdfWidget::set_value` y `calculate_form` pasan a
+    /// ejecutar tecleo, validación, cálculo y formato. Ejecuta también los scripts de documento (`/Names /JavaScript`).
     pub fn enable_js(&mut self) -> Result<()> {
-        Ok(())
+        self.guard()?;
+        formjs::enable(&self.st)
     }
 
     pub fn disable_js(&mut self) -> Result<()> {
+        formjs::disable(&self.st);
         Ok(())
     }
 
     pub fn is_js_supported(&self) -> Result<bool> {
-        Ok(false)
+        Ok(true)
     }
 
-    /// Recalcula los campos calculados. Sin JavaScript no hay nada que ejecutar: no hace nada.
+    /// Recalcula los campos con acción de cálculo, en el orden de `/CO`, y da formato a los que cambian. Sin
+    /// `enable_js` no hace nada.
     pub fn calculate_form(&mut self) -> Result<()> {
-        Ok(())
+        self.guard()?;
+        formjs::calculate(&self.st)
+    }
+
+    /// Avisos de los scripts desde la última llamada: `app.alert`, `console.println`, acciones bloqueadas (enviar el
+    /// formulario, abrir una URL...) y errores de script. La interfaz decide qué mostrar.
+    pub fn take_js_messages(&mut self) -> Vec<JsMessage> {
+        std::mem::take(&mut self.st.borrow_mut().js.log)
     }
 }

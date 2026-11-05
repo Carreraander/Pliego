@@ -1,6 +1,6 @@
-use mupdf::{Colorspace, Matrix};
 use pliego_a11y::{AutotagOptions, IssueCode, autotag_file, check_file};
 use pliego_core::{Error, JobContext};
+use pliego_pdf::{Colorspace, Matrix};
 
 fn build_untagged() -> Vec<u8> {
     pdf_from_content(CONTENT)
@@ -52,10 +52,10 @@ fn pdf_from_content(content: &str) -> Vec<u8> {
 }
 
 fn ink(p: &std::path::Path) -> usize {
-    let doc = mupdf::Document::open(p.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::Document::open(p.to_str().unwrap()).unwrap();
     let page = doc.load_page(0).unwrap();
     let pix = page
-        .to_pixmap(&Matrix::IDENTITY, &Colorspace::device_gray(), false, false)
+        .to_pixmap(&Matrix::IDENTITY, Colorspace::Gray, false, false)
         .unwrap();
     pix.samples().iter().filter(|&&b| b < 200).count()
 }
@@ -100,11 +100,11 @@ fn tags_headings_lists_paragraphs_and_figures() {
     // el texto y el aspecto se conservan
     let (a, b) = (ink(&input), ink(&out));
     assert_eq!(a, b, "el dibujo de la página ha cambiado");
-    let doc = mupdf::Document::open(out.to_str().unwrap()).unwrap();
+    let doc = pliego_pdf::Document::open(out.to_str().unwrap()).unwrap();
     let text = doc
         .load_page(0)
         .unwrap()
-        .to_text_page(mupdf::TextPageFlags::empty())
+        .to_text_page(pliego_pdf::TextFlags::empty())
         .unwrap()
         .to_text()
         .unwrap();

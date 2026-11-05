@@ -9,14 +9,13 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
-use mupdf::Buffer;
-use mupdf::pdf::{PdfDocument, PdfObject, PdfWriteOptions};
 use pliego_core::{Error, JobContext, Report, Result};
+use pliego_pdf::{Object, PdfDocument, WriteOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::content::{SegKind, Segment, TextInfo, segment, tokenize};
 use crate::edit::{set_language, set_tab_order, set_title};
-use crate::io::{name_of, open_pdf, pdf_err, save_atomic, xref_of};
+use crate::io::{name_of, open_pdf, save_atomic, xref_of};
 
 const MAX_CONTENT_BYTES: usize = 64 * 1024 * 1024;
 
@@ -59,18 +58,18 @@ struct Item {
 }
 
 struct PageData {
-    page: PdfObject,
+    page: Object,
     bytes: Vec<u8>,
     items: Vec<Item>,
 }
 
-pub(crate) fn read_contents(page: &PdfObject) -> Result<Vec<u8>> {
+pub(crate) fn read_contents(page: &Object) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    let Some(c) = page.get_dict("Contents").map_err(pdf_err)? else {
+    let Some(c) = page.get_dict("Contents")? else {
         return Ok(out);
     };
     let streams = if c.is_array().unwrap_or(false) {
-        (0..c.len().map_err(pdf_err)?)
+        (0..c.len()?)
             .filter_map(|i| c.get_array(i as i32).ok().flatten())
             .collect()
     } else {
@@ -78,7 +77,7 @@ pub(crate) fn read_contents(page: &PdfObject) -> Result<Vec<u8>> {
     };
     for s in streams {
         if s.is_stream().unwrap_or(false) {
-            out.extend(s.read_stream().map_err(pdf_err)?);
+            out.extend(s.read_stream()?);
             out.push(b'\n');
         }
         if out.len() > MAX_CONTENT_BYTES {
@@ -115,7 +114,7 @@ fn starts_with_label(s: &[u8]) -> bool {
     }
 }
 
-fn font_is_bold(page_res: &Option<PdfObject>, name: &str) -> bool {
+fn font_is_bold(page_res: &Option<Object>, name: &str) -> bool {
     let base = page_res
         .as_ref()
         .and_then(|r| r.get_dict("Font").ok().flatten())
@@ -126,7 +125,7 @@ fn font_is_bold(page_res: &Option<PdfObject>, name: &str) -> bool {
     base.contains("bold") || base.contains("black") || base.contains("heavy")
 }
 
-fn form_class(x: &PdfObject) -> Class {
+fn form_class(x: &Object) -> Class {
     let data = x.read_stream().unwrap_or_default();
     let has = |needle: &[u8]| data.windows(needle.len()).any(|w| w == needle);
     if has(b"BT") {
@@ -143,15 +142,15 @@ fn round_half(v: f32) -> f32 {
 }
 
 fn analyze(doc: &PdfDocument, ctx: &JobContext) -> Result<Vec<PageData>> {
-    let pages = doc.page_count().map_err(pdf_err)?.max(0) as usize;
+    let pages = doc.page_count()?.max(0) as usize;
     let mut out = Vec::with_capacity(pages);
     for p in 0..pages {
         ctx.step(p as u64, pages as u64 * 2, "Analizando páginas")?;
-        let page = doc.find_page(p as i32).map_err(pdf_err)?;
+        let page = doc.find_page(p as i32)?;
         let bytes = read_contents(&page)?;
         let toks = tokenize(&bytes);
         let segs = segment(&bytes, &toks);
-        let res = page.get_dict_inheritable("Resources").map_err(pdf_err)?;
+        let res = page.get_dict_inheritable("Resources")?;
         let xobjects = res.as_ref().and_then(|r| r.get_dict("XObject").ok().flatten());
         let mut items = Vec::with_capacity(segs.len());
         for seg in segs {
@@ -419,62 +418,51 @@ fn build_blocks(page: &PageData) -> Vec<Block> {
     blocks
 }
 
-fn new_name(s: &str) -> Result<PdfObject> {
-    PdfObject::new_name(s).map_err(pdf_err)
+fn new_name(s: &str) -> Result<Object> {
+    Object::new_name(s)
 }
 
-fn new_int(v: i32) -> Result<PdfObject> {
-    PdfObject::new_int(v).map_err(pdf_err)
+fn new_int(v: i32) -> Result<Object> {
+    Object::new_int(v)
 }
 
 fn make_elem(
     doc: &mut PdfDocument,
     role: &str,
-    parent: &PdfObject,
-    page: &PdfObject,
-    kids: Option<PdfObject>,
-) -> Result<PdfObject> {
-    let mut d = doc.new_dict().map_err(pdf_err)?;
-    d.dict_put("Type", new_name("StructElem")?).map_err(pdf_err)?;
-    d.dict_put("S", new_name(role)?).map_err(pdf_err)?;
-    d.dict_put("P", parent.try_clone().map_err(pdf_err)?).map_err(pdf_err)?;
+    parent: &Object,
+    page: &Object,
+    kids: Option<Object>,
+) -> Result<Object> {
+    let mut d = doc.new_dict()?;
+    d.dict_put("Type", new_name("StructElem")?)?;
+    d.dict_put("S", new_name(role)?)?;
+    d.dict_put("P", parent.try_clone()?)?;
     if !page.is_null().unwrap_or(true) {
-        d.dict_put("Pg", page.try_clone().map_err(pdf_err)?).map_err(pdf_err)?;
+        d.dict_put("Pg", page.try_clone()?)?;
     }
     if let Some(k) = kids {
-        d.dict_put("K", k).map_err(pdf_err)?;
+        d.dict_put("K", k)?;
     }
-    doc.add_object(&d).map_err(pdf_err)
+    doc.add_object(&d)
 }
 
-fn push_kid(elem: &mut PdfObject, kid: PdfObject) -> Result<()> {
-    let mut kids = match elem.get_dict("K").map_err(pdf_err)? {
+fn push_kid(doc: &PdfDocument, elem: &mut Object, kid: Object) -> Result<()> {
+    let mut kids = match elem.get_dict("K")? {
         Some(k) if k.is_array().unwrap_or(false) => k,
         _ => {
-            let a = elem
-                .document()
-                .ok_or_else(|| Error::Pdf("objeto sin documento".into()))?
-                .new_array()
-                .map_err(pdf_err)?;
-            elem.dict_put("K", a).map_err(pdf_err)?;
-            elem.get_dict("K")
-                .map_err(pdf_err)?
+            let a = doc.new_array()?;
+            elem.dict_put("K", a)?;
+            elem.get_dict("K")?
                 .ok_or_else(|| Error::Pdf("no se pudo crear K".into()))?
         }
     };
-    kids.array_push(kid).map_err(pdf_err)
-}
-
-fn bytes_buffer(data: &[u8]) -> Result<Buffer> {
-    let mut b = Buffer::with_capacity(data.len());
-    std::io::Write::write_all(&mut b, data)?;
-    Ok(b)
+    kids.array_push(kid)
 }
 
 /// Etiqueta un documento abierto. Falla si ya tiene estructura.
 pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -> Result<AutotagSummary> {
-    let mut catalog = doc.catalog().map_err(pdf_err)?;
-    if catalog.get_dict("StructTreeRoot").map_err(pdf_err)?.is_some() {
+    let mut catalog = doc.catalog()?;
+    if catalog.get_dict("StructTreeRoot")?.is_some() {
         return Err(Error::InvalidInput(
             "el documento ya tiene estructura de etiquetas; autoetiquetar la sustituiría".into(),
         ));
@@ -483,7 +471,7 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
     // Negrita por (página, nombre de recurso de fuente).
     let mut bold = HashMap::new();
     for (pi, p) in pages.iter().enumerate() {
-        let res = p.page.get_dict_inheritable("Resources").map_err(pdf_err)?;
+        let res = p.page.get_dict_inheritable("Resources")?;
         for it in &p.items {
             if let Some(f) = text_info(it).and_then(|t| t.font.clone()) {
                 bold.entry((pi, f.clone())).or_insert_with(|| font_is_bold(&res, &f));
@@ -493,14 +481,14 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
     classify(&mut pages, &bold);
 
     // Raíz y elemento Document (el padre de los Document se fija tras crear la raíz).
-    let mut root = doc.new_dict().map_err(pdf_err)?;
-    root.dict_put("Type", new_name("StructTreeRoot")?).map_err(pdf_err)?;
-    let root = doc.add_object(&root).map_err(pdf_err)?;
-    let null = PdfObject::new_null();
+    let mut root = doc.new_dict()?;
+    root.dict_put("Type", new_name("StructTreeRoot")?)?;
+    let root = doc.add_object(&root)?;
+    let null = Object::new_null();
     let mut document = make_elem(doc, "Document", &root, &null, None)?;
 
     let mut summary = AutotagSummary::default();
-    let mut nums = doc.new_array().map_err(pdf_err)?;
+    let mut nums = doc.new_array()?;
     let total = pages.len() as u64 * 2;
     for (pi, pd) in pages.iter_mut().enumerate() {
         ctx.step(pages_len_done(pi, total), total, "Etiquetando")?;
@@ -573,19 +561,17 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
             cursor = it.seg.end;
         }
         out.extend(&pd.bytes[cursor..]);
-        let stream = doc.add_stream(&bytes_buffer(&out)?, None, false).map_err(pdf_err)?;
-        pd.page.dict_put("Contents", stream).map_err(pdf_err)?;
-        pd.page
-            .dict_put("StructParents", new_int(pi as i32)?)
-            .map_err(pdf_err)?;
+        let stream = doc.add_stream(&out, None, false)?;
+        pd.page.dict_put("Contents", stream)?;
+        pd.page.dict_put("StructParents", new_int(pi as i32)?)?;
 
         // 2) Elementos de estructura y árbol de padres.
-        let mut parents: Vec<Option<PdfObject>> = vec![None; tagged.len()];
-        let page_ref = pd.page.try_clone().map_err(pdf_err)?;
+        let mut parents: Vec<Option<Object>> = vec![None; tagged.len()];
+        let page_ref = pd.page.try_clone()?;
         if xref_of(&page_ref) == 0 {
             return Err(Error::Pdf("no se pudo referenciar una página".into()));
         }
-        let mut open_list: Option<PdfObject> = None;
+        let mut open_list: Option<Object> = None;
         for b in &blocks {
             if !matches!(b, Block::ListItem { .. }) {
                 open_list = None;
@@ -594,12 +580,12 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
                 Block::Heading(l, v) => {
                     let role = ["H1", "H2", "H3", "H4", "H5", "H6"][(*l as usize - 1).min(5)];
                     let e = leaf(doc, role, &document, &page_ref, v, &mcid_of, &mut parents)?;
-                    push_kid(&mut document, e)?;
+                    push_kid(doc, &mut document, e)?;
                     summary.headings += 1;
                 }
                 Block::Para(v) => {
                     let e = leaf(doc, "P", &document, &page_ref, v, &mcid_of, &mut parents)?;
-                    push_kid(&mut document, e)?;
+                    push_kid(doc, &mut document, e)?;
                     summary.paragraphs += 1;
                 }
                 Block::Table(rows) => {
@@ -616,16 +602,16 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
                                 &mcid_of,
                                 &mut parents,
                             )?;
-                            push_kid(&mut tr, e)?;
+                            push_kid(doc, &mut tr, e)?;
                         }
-                        push_kid(&mut table, tr)?;
+                        push_kid(doc, &mut table, tr)?;
                     }
-                    push_kid(&mut document, table)?;
+                    push_kid(doc, &mut document, table)?;
                     summary.tables += 1;
                 }
                 Block::Figure(i) => {
                     let e = leaf(doc, "Figure", &document, &page_ref, &[*i], &mcid_of, &mut parents)?;
-                    push_kid(&mut document, e)?;
+                    push_kid(doc, &mut document, e)?;
                     summary.figures += 1;
                 }
                 Block::ListItem { label, body } => {
@@ -633,7 +619,7 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
                         Some(l) => l,
                         None => {
                             let l = make_elem(doc, "L", &document, &page_ref, None)?;
-                            push_kid(&mut document, l.try_clone().map_err(pdf_err)?)?;
+                            push_kid(doc, &mut document, l.try_clone()?)?;
                             summary.lists += 1;
                             l
                         }
@@ -641,22 +627,22 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
                     let mut li = make_elem(doc, "LI", &list, &page_ref, None)?;
                     if let Some(l) = label {
                         let e = leaf(doc, "Lbl", &li, &page_ref, &[*l], &mcid_of, &mut parents)?;
-                        push_kid(&mut li, e)?;
+                        push_kid(doc, &mut li, e)?;
                     }
                     let e = leaf(doc, "LBody", &li, &page_ref, body, &mcid_of, &mut parents)?;
-                    push_kid(&mut li, e)?;
-                    push_kid(&mut list, li)?;
+                    push_kid(doc, &mut li, e)?;
+                    push_kid(doc, &mut list, li)?;
                     summary.list_items += 1;
                     open_list = Some(list);
                 }
             }
         }
-        let mut arr = doc.new_array().map_err(pdf_err)?;
+        let mut arr = doc.new_array()?;
         for p in parents {
-            arr.array_push(p.unwrap_or_else(PdfObject::new_null)).map_err(pdf_err)?;
+            arr.array_push(p.unwrap_or_else(Object::new_null))?;
         }
-        nums.array_push(new_int(pi as i32)?).map_err(pdf_err)?;
-        nums.array_push(arr).map_err(pdf_err)?;
+        nums.array_push(new_int(pi as i32)?)?;
+        nums.array_push(arr)?;
     }
     summary.artifacts = pages
         .iter()
@@ -665,18 +651,17 @@ pub fn autotag(doc: &mut PdfDocument, opts: &AutotagOptions, ctx: &JobContext) -
         .count();
 
     let mut root = root;
-    let mut kids = doc.new_array().map_err(pdf_err)?;
-    kids.array_push(document).map_err(pdf_err)?;
-    root.dict_put("K", kids).map_err(pdf_err)?;
-    let mut pt = doc.new_dict().map_err(pdf_err)?;
-    pt.dict_put("Nums", nums).map_err(pdf_err)?;
-    root.dict_put("ParentTree", pt).map_err(pdf_err)?;
-    root.dict_put("ParentTreeNextKey", new_int(pages.len() as i32)?)
-        .map_err(pdf_err)?;
-    catalog.dict_put("StructTreeRoot", root).map_err(pdf_err)?;
-    let mut mark = doc.new_dict().map_err(pdf_err)?;
-    mark.dict_put("Marked", doc.new_bool(true)).map_err(pdf_err)?;
-    catalog.dict_put("MarkInfo", mark).map_err(pdf_err)?;
+    let mut kids = doc.new_array()?;
+    kids.array_push(document)?;
+    root.dict_put("K", kids)?;
+    let mut pt = doc.new_dict()?;
+    pt.dict_put("Nums", nums)?;
+    root.dict_put("ParentTree", pt)?;
+    root.dict_put("ParentTreeNextKey", new_int(pages.len() as i32)?)?;
+    catalog.dict_put("StructTreeRoot", root)?;
+    let mut mark = doc.new_dict()?;
+    mark.dict_put("Marked", doc.new_bool(true))?;
+    catalog.dict_put("MarkInfo", mark)?;
     set_tab_order(doc)?;
     if let Some(l) = &opts.language {
         set_language(doc, l)?;
@@ -695,25 +680,25 @@ fn pages_len_done(pi: usize, total: u64) -> u64 {
 fn leaf(
     doc: &mut PdfDocument,
     role: &str,
-    parent: &PdfObject,
-    page: &PdfObject,
+    parent: &Object,
+    page: &Object,
     items: &[usize],
     mcid_of: &HashMap<usize, usize>,
-    parents: &mut [Option<PdfObject>],
-) -> Result<PdfObject> {
+    parents: &mut [Option<Object>],
+) -> Result<Object> {
     let mcids: Vec<usize> = items.iter().filter_map(|i| mcid_of.get(i).copied()).collect();
     let k = if mcids.len() == 1 {
         new_int(mcids[0] as i32)?
     } else {
-        let mut a = doc.new_array().map_err(pdf_err)?;
+        let mut a = doc.new_array()?;
         for m in &mcids {
-            a.array_push(new_int(*m as i32)?).map_err(pdf_err)?;
+            a.array_push(new_int(*m as i32)?)?;
         }
         a
     };
     let e = make_elem(doc, role, parent, page, Some(k))?;
     for m in mcids {
-        parents[m] = Some(e.try_clone().map_err(pdf_err)?);
+        parents[m] = Some(e.try_clone()?);
     }
     Ok(e)
 }
@@ -722,7 +707,7 @@ fn leaf(
 pub fn autotag_file(input: &Path, output: &Path, opts: &AutotagOptions, ctx: &JobContext) -> Result<Report> {
     let mut doc = open_pdf(input, None)?;
     let s = autotag(&mut doc, opts, ctx)?;
-    let mut options = PdfWriteOptions::default();
+    let mut options = WriteOptions::default();
     options.set_garbage_level(1);
     options.set_compress(true);
     save_atomic(&doc, input, output, options)?;

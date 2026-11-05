@@ -56,10 +56,20 @@ pub async fn edit_text_replace(
     block: usize,
     text: String,
     style: Style,
+    flow: Option<bool>,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::replace(&editor.0, &path, page, block, &text, &style, &suffix)?;
+    let edited = pageedit::replace(
+        &editor.0,
+        &path,
+        page,
+        block,
+        &text,
+        &style,
+        flow.unwrap_or(true),
+        &suffix,
+    )?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 

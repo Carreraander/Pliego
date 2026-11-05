@@ -10,7 +10,7 @@ use std::path::Path;
 use pliego_core::{Error, Report, Result};
 use pliego_document::Document;
 
-pub use pliego_edit::{Align, FontFamily, RectPts, Style, TextBlock};
+pub use pliego_edit::{Align, FlowOptions, FontFamily, RectPts, Style, TextBlock};
 
 use crate::annot::Editor;
 
@@ -43,7 +43,9 @@ fn run(
     })
 }
 
-/// Sustituye el texto del bloque `block` (id de [`blocks`]) de la página `page`.
+/// Sustituye el texto del bloque `block` (id de [`blocks`]) de la página `page`. Con `flow`, lo que hay debajo
+/// sube o baja según cambie el número de líneas y lo que no cabe pasa a la página siguiente (W43).
+#[allow(clippy::too_many_arguments)]
 pub fn replace(
     editor: &Editor,
     path: &Path,
@@ -51,10 +53,16 @@ pub fn replace(
     block: usize,
     text: &str,
     style: &Style,
+    flow: bool,
     backup_suffix: &str,
 ) -> Result<Edited> {
+    let opts = if flow {
+        FlowOptions::default()
+    } else {
+        FlowOptions::NONE
+    };
     run(editor, path, backup_suffix, |doc| {
-        pliego_edit::replace_text(doc, page, block, text, style)
+        pliego_edit::replace_text_flow(doc, page, block, text, style, &opts)
     })
 }
 
@@ -111,6 +119,7 @@ mod tests {
             0,
             "Texto nuevo del bloque",
             &Style::default(),
+            true,
             "copia de seguridad",
         )
         .unwrap();
@@ -144,7 +153,7 @@ mod tests {
         assert!(texts.iter().any(|t| t.contains("Añadido")), "{texts:?}");
         let before = std::fs::read(&p).unwrap();
         assert!(insert(&ed, &p, 0, [0.0, 0.0, 10.0, 10.0], "  ", &Style::default(), "c").is_err());
-        assert!(replace(&ed, &p, 0, 99, "x", &Style::default(), "c").is_err());
+        assert!(replace(&ed, &p, 0, 99, "x", &Style::default(), true, "c").is_err());
         assert_eq!(std::fs::read(&p).unwrap(), before);
         assert_eq!(ed.undo_depth(&p), 1);
     }

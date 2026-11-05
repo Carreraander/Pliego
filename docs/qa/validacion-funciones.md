@@ -1,0 +1,141 @@
+# Validación de funciones de la app (matriz)
+
+Creada el 2026-11-05 tras la prueba de Ander en acr12 («no funciona ninguna funcionalidad»). Dice, herramienta por
+herramienta (los `id` de `app/src/tools/base.ts`), **qué está comprobado, cómo y qué falta**. Se actualiza en cada PR.
+
+## Qué se encontró (2026-11-05)
+
+| Síntoma visto en acr12 | Causa | Arreglo |
+| --- | --- | --- |
+| Comentar, resaltar y «Añadir texto» sacan una y otra vez «error de E/S en Some("C:\\…\\x.pdf"): Access is denied. (os error 5)» | El worker abría el PDF **por ruta** y MuPDF lo dejaba abierto; en Windows no se puede renombrar encima de un archivo abierto, y el guardado atómico de la app (temporal + renombrado) falla. Afectaba a todo lo que escribe encima del PDF abierto: comentar, rellenar, editar texto, diseñar formularios | `pliego-engine` abre los `.pdf` de hasta 256 MB desde memoria (#198) |
+| El mensaje salía con `Some(...)` y barras duplicadas, y se repetía | `Error::Io` formateaba `Option<PathBuf>` con `{:?}`; los avisos de error no se cierran solos y se apilaban | Mensaje legible con pista de «acceso denegado»; el mismo aviso ya no se apila |
+| Asistente: «no se pudo descargar el modelo: io: invalid peer certificate: UnknownIssuer» | `ureq` con rustls y las raíces de Mozilla: no ve la CA de empresa/inspección TLS ni el almacén de Windows | Crate `pliego-net`: TLS del sistema (SChannel) y proxy de Windows para OCR, asistente y firma (#198) |
+| Toda la interfaz en inglés (Read, Comment…) | El valor por defecto era «Automático» (el idioma de Windows, inglés en acr12) | Español por defecto (ajustes v2); «Automático» sigue disponible (#198) |
+| «Reconocer texto (OCR)», «Enderezar y limpiar», «Idiomas de OCR» y «Comparar» siguen como «próximamente» | W24 dejó OCR y Comparar sin subir (el hilo se paró) | Ver «Pendiente» más abajo |
+
+Por qué no lo cazó nadie antes: las pruebas del servicio abrían el documento **y** guardaban en otro archivo, nunca
+guardaban encima del documento abierto en el worker; en Linux además se puede renombrar encima de un archivo abierto,
+así que la CI de Linux no lo distingue. La prueba nueva
+[`app/service/tests/e2e_documento_abierto.rs`](../../app/service/tests/e2e_documento_abierto.rs) hace ese recorrido y
+**debe ejecutarse en Windows** (acr12, por turno) para que tenga valor: `cargo test -p pliego-app-service --test
+e2e_documento_abierto`.
+
+## Leyenda
+
+- **A** = automatizado y en verde en Linux (CI). **E2E** = `e2e_documento_abierto.rs` (documento abierto en el worker).
+- **W** = falta repetirlo en Windows (acr12, turno de gestión): `cargo test -p pliego-app-service --test e2e_documento_abierto`
+  y el resto de pruebas del servicio.
+- **V** = revisión visual de Ander (`gestion/revision-manual-ander.md`; el control de pantalla en acr12 se deniega solo).
+- 🟢 comprobado de punta a punta (salvo lo marcado W/V) · 🟡 conectado y con pruebas, pero falta Windows/visual ·
+  🔴 sin conectar a la app.
+
+## Matriz
+
+### Ver
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto | V: pantalla completa |
+| `viewer.layers` Capas | 🟡 | A: `layers`/`set_layer_visible` en `app/service/src/tests.rs` (sin capas); `pliego-engine` con capas | V; probar un PDF con capas en W |
+| `viewer.attachments` Adjuntos | 🟡 | A: `attachments.test.ts`; E2E: cartera (crear, listar, extraer) | V |
+| `viewer.properties` Propiedades | 🟡 | A: `properties.test.ts`, `document_info` | V |
+| Abrir, desplazarse, zoom, miniaturas, marcadores, búsqueda | 🟡 | A+E2E: abrir/teselas/búsqueda/esquema en `app/service/src/tests.rs`; ahora se abre desde memoria | W: abrir un PDF de 100+ páginas y guardar encima |
+
+### Comentar
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `annotate.comment` resaltar, subrayar, nota, texto libre, dibujo | 🟡 | E2E: resaltar (por búsqueda), nota, texto libre, deshacer ×3 y copia de seguridad idéntica con el documento abierto; borrar | **W** (aquí estaba el error 5); V |
+| `annotate.xfdf` Importar/exportar | 🟡 | A: `import_xfdf_copy`/`export_xfdf_copy` en `annot.rs` | W, V |
+| `annotate.summary` Resumen | 🟡 | A+E2E: `summary_of` tras anotar | V |
+| `stamp.stamps` Sellos | 🟡 | A: `tests/stamps.rs`, `stamp_annot_copy` | V (Reader) |
+
+### Rellenar y firmar
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor | W; V |
+| `sign.digital` Firma digital | 🟡 | A: `sign.rs` (firma una copia con PFX de prueba y la valida) | W: certificado del almacén de Windows (CNG), DNIe sin lector; V |
+| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar | W |
+| `sign.workflow` Flujo de firmas | 🟡 | A: `signflow_runs_in_order_and_keeps_an_audit_log` | W, V |
+
+### Organizar
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `pages.organize` (miniaturas, girar, borrar, reordenar, extraer) | 🟡 | A: `pages_copy` (reordenar, girar, borrar, duplicar) | V: arrastrar y soltar |
+| `pages.merge` Combinar | 🟢 | A + E2E: combina dos PDF abiertos y cuenta páginas | — |
+| `pages.split` Dividir | 🟢 | A + E2E | — |
+| `pages.insert` Insertar | 🟡 | A: `insert_copy` (en blanco y de otro PDF) | — |
+| `pages.number` Numerar | 🟢 | A + E2E: el número «Página 1 de N» aparece en el texto de la hoja | V (Reader) |
+
+### Editar y estampar
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `edit.content` editar texto / añadir texto | 🟡 | E2E: añadir y sustituir texto con el documento abierto, texto visible tras recargar | **W**; V (la recolocación tipo Acrobat no existe) |
+| `edit.watermark` Marca de agua | 🟢 | A + E2E: «CONFIDENCIAL» aparece en el texto | V (Reader) |
+| `edit.headerfooter`, `edit.background`, `edit.bates` | 🟡 | A: `tests/stamp.rs` | V |
+
+### Formularios
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `forms.design` Diseñar | 🟡 | E2E: añadir, cambiar y borrar un campo con el documento abierto | **W**; V |
+| `forms.detect` Detectar campos | 🟡 | A: `tests/formdetect.rs` | — |
+
+### OCR
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `ocr.recognize` Reconocer texto | 🔴 | CLI `pliego ocr` funciona (crate con pruebas); descarga de modelos con TLS del sistema | Conectar a la app (proceso hijo, ver `docs/handoff/flujos/w24.md`) |
+| `ocr.clean` Enderezar y limpiar | 🔴 | Opciones `--deskew --binarize --denoise` de la CLI | Igual |
+| `ocr.languages` Idiomas | 🔴 | `--list-languages`, `--download` | Igual |
+
+### Proteger
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `protect.protect` Contraseña y permisos | 🟢 | A + E2E: cifra, el visor pide contraseña y con ella abre | V (Reader, aprobado en W07) |
+| `protect.redact` Redactar | 🟢 | A + E2E: buscar correos, redactar y comprobar que el texto ya no se extrae | V (Reader) |
+| `protect.sanitize` Sanear | 🟡 | A: `sanitize_deja_informe` | V |
+
+### Convertir
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `convert.create` Crear PDF | 🟢 | A + E2E: de `.txt` a PDF y se abre en el visor | imágenes y HTML en W |
+| `convert.export` imágenes/texto | 🟢 | A + E2E: PNG y TXT | — |
+| `convert.office` Word/Excel/PowerPoint | 🟡 | A: `office_formats_save_a_copy` | W (Office real), V |
+| `convert.pdfa` PDF/A | 🟡 | A: nivel desconocido rechazado, copia nueva | W |
+
+### Comparar y optimizar
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `compare.compare` Comparar | 🔴 | CLI `pliego compare` | Conectar a la app (pantalla) |
+| `optimize.compress` Comprimir | 🟢 | A + E2E: copia con el mismo número de páginas | Documentos con contraseña (el panel no la guarda) |
+| `optimize.advanced` Optimizar avanzado | 🟡 | A: `analyze` | — |
+
+### Accesibilidad, impresión, lote
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `access.check` | 🟢 | A + E2E: informe | V |
+| `access.order` Orden de lectura | 🟡 | A: `reading_order`, `tab_order_copy` | V |
+| `access.validate-pdfa` | 🟢 | A + E2E: validación PDF/A-2b | — |
+| `print.preview` Vista previa de salida | 🟡 | A: `outputpreview.rs` | V |
+| `print.preflight` Comprobación previa | 🟢 | A + E2E: perfil `basic` | — |
+| `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs` | W |
+| `batch.index` Índice de búsqueda | 🟢 | A + E2E: indexa una carpeta y encuentra «Pliego» | índice de 1.000 PDF en W |
+| `batch.measure` Medir | 🟡 | A: `measure.rs` | V |
+| `batch.portfolio` Carteras | 🟢 | A + E2E: crear, listar y extraer | — |
+
+### Asistente y actualizaciones
+| Herramienta | Estado | Evidencia | Falta |
+| --- | --- | --- | --- |
+| `assistant.panel` descarga del modelo | 🟡 | A: `pliego-assistant` (huella y reanudación); TLS del sistema (#198) | **W**: repetir la descarga en acr12 |
+| Actualizaciones (Ajustes) | 🟡 | A: `pliego-update` (ya usaba TLS del sistema) | W (ya probado en W22) |
+
+## Cómo repetirlo
+
+```
+cargo test -p pliego-app-service --test e2e_documento_abierto   # Linux y Windows (acr12: por turno)
+cargo test -p pliego-engine -p pliego-core -p pliego-net
+cd app && npm test
+```
+
+## Pendiente (siguientes PRs)
+
+1. Conectar OCR (reconocer, limpiar, idiomas) y Comparar: lo que quedó sin subir de W24.
+2. Repetir en acr12 las pruebas marcadas **W** y pasar a Ander las **V** (`gestion/revision-manual-ander.md`).
+3. Documentos con contraseña en los paneles que lanzan trabajos (el panel no la guarda).

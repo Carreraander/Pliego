@@ -11,7 +11,7 @@ use pliego_core::Result;
 
 use super::appearance::n;
 use super::document::PdfDocument;
-use super::formjs::{self, JsMessage};
+use super::formjs::{self, JsDocEvent, JsMessage};
 use super::pdf_err;
 use super::{State, tree};
 
@@ -253,6 +253,14 @@ impl PdfDocument {
     pub fn calculate_form(&mut self) -> Result<()> {
         self.guard()?;
         formjs::calculate(&self.st)
+    }
+
+    /// Ejecuta el script de un evento de documento o de página (`/OpenAction`, `/AA` del catálogo o de una página).
+    /// Devuelve `false` si el JavaScript no está habilitado o el evento no tiene script. La aplicación decide cuándo
+    /// llamarlo: al abrir, antes y después de guardar o imprimir, al mostrar una página.
+    pub fn run_document_event(&mut self, event: JsDocEvent) -> Result<bool> {
+        self.guard()?;
+        formjs::run_document_event(&self.st, event)
     }
 
     /// Avisos de los scripts desde la última llamada: `app.alert`, `console.println`, acciones bloqueadas (enviar el

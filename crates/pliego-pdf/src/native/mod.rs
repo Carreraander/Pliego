@@ -63,7 +63,7 @@ mod widget_tests;
 pub use annot::PdfAnnotation;
 pub use document::PdfDocument;
 pub use font::Font;
-pub use formjs::JsMessage;
+pub use formjs::{JsDocEvent, JsMessage};
 pub use graft::GraftMap;
 pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageOptions, PageImageInfo};
 pub use object::Object;

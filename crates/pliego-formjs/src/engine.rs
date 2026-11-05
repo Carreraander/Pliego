@@ -1136,13 +1136,26 @@ impl Engine {
         self.finish(Outcome::accepted(), &[])
     }
 
-    /// Ejecuta una acción del campo (`U` ratón arriba, `D`, `E`, `X`, `Fo`, `Bl`, `A` del botón...).
+    /// Ejecuta una acción del campo (`U` ratón arriba, `D`, `E`, `X`, `Fo`, `Bl`). La acción del botón (`A`) cuenta
+    /// como `U`, y al revés. Sin acción, no hace nada.
     pub fn run_trigger(&mut self, field: &str, trigger: &str) -> Outcome {
+        let alt = match trigger {
+            "U" => "A",
+            "A" => "U",
+            other => other,
+        };
         let key = if trigger == "A" { "U" } else { trigger };
-        let code = self.script_of(field, trigger).or_else(|| self.script_of(field, key));
+        let code = self.script_of(field, trigger).or_else(|| self.script_of(field, alt));
         if let Some(code) = code {
             self.run(&code, Some(field), key, &Ev::default());
         }
+        self.finish(Outcome::accepted(), &[])
+    }
+
+    /// Ejecuta un script de documento o de página (`/OpenAction`, `/AA` del catálogo o de una página): `event.type` es
+    /// «Doc» y no hay campo de destino. `trigger` solo da nombre al evento (`Open`, `WillSave`, `PageOpen`...).
+    pub fn run_document_script(&mut self, code: &str, trigger: &str) -> Outcome {
+        self.run(code, None, trigger, &Ev::default());
         self.finish(Outcome::accepted(), &[])
     }
 

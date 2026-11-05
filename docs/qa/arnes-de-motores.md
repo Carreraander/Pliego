@@ -92,5 +92,5 @@ Cuando el motor nuevo de render esté enchufado en `engines::by_name`, `engine-c
 - `cargo test -p pliego-redact`: las 9 pruebas de integración corren con los dos motores (`RedactEngine::Mupdf` y `Native`).
 - `cargo test -p pliego-qa --test harness oraculo`: el oráculo (texto de MuPDF, `pdftotext`, bytes, flujos descomprimidos y
   literales) acepta el resultado del motor propio sobre `tests/corpus/redact/datos.pdf` con los siete patrones.
-- Manual: `PLIEGO_REDACT_ENGINE=native pliego redact ... --apply -o salida.pdf` y luego
+- Manual: `pliego redact ... --apply -o salida.pdf` y luego
   `redaction-oracle salida.pdf --needle ...`.

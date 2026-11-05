@@ -1,9 +1,13 @@
 //! `pliego-pdf`: la **única** capa de Pliego que habla con el motor PDF.
 //!
-//! Hoy el motor es MuPDF; la decisión del 2026-11-04 es sustituirlo por PDFium (render y texto) + lopdf
-//! (objetos y guardado) detrás de esta misma API. Ningún otro crate del workspace debe importar `mupdf`,
-//! `pdfium-render` ni `lopdf` para leer, dibujar o modificar un PDF (una prueba de CI lo comprobará al terminar
-//! la fase A de la ola 5; `pliego-sign` ya usa `lopdf` para firmar y se revisará aparte).
+//! El motor son lopdf (modelo de objetos, guardado, cifrado, anotaciones, formularios, fuentes, imágenes y redacción;
+//! módulo [`native`]) y PDFium (dibujo, texto y búsqueda). MuPDF ya no está (W41). Ningún otro crate del workspace
+//! debe importar `pdfium-render` ni `lopdf` para leer, dibujar o modificar un PDF (`pliego-sign` usa `lopdf` para
+//! firmar y se revisa aparte).
+//!
+//! **PDFium** se carga en tiempo de ejecución: pon `pdfium.dll` (`libpdfium.so`) junto al ejecutable o define
+//! `PLIEGO_PDFIUM_DLL` con su ruta absoluta (véase [`pdfium_init_from_environment`]). Sin la biblioteca, dibujar,
+//! extraer texto y buscar dan error; el resto funciona.
 //!
 //! Reglas de la API (contrato; solo se **añade**, no se cambia):
 //! - Errores: [`pliego_core::Error`]; los mensajes del motor entran como `Error::Pdf(String)`.
@@ -15,58 +19,51 @@
 //!
 //! Estructura: [`Document`]/[`PdfDocument`] (apertura, páginas, objetos, guardado), [`Page`]/[`PdfPage`]
 //! (dibujo, texto, enlaces, contenido), [`Object`] (modelo de objetos), [`TextPage`] (texto estructurado),
-//! [`Pixmap`] (imágenes de salida).
+//! [`Pixmap`] (imágenes de salida). [`Document`] envuelve a [`PdfDocument`] y [`Page`] es otro nombre de [`PdfPage`].
 
 mod annot;
-mod backend;
 mod document;
 mod engine;
 mod font;
-mod fonts;
 mod geom;
-mod image;
 mod links;
 pub mod native;
 mod object;
 mod options;
-mod outline;
-mod page;
-#[cfg(feature = "pdfium")]
 mod pdfium;
 mod pixmap;
 mod text;
 mod widget;
-mod writer;
 
 pub use annot::{
     AnnotationBorderStyle, AnnotationColor, AnnotationDefaultAppearance, AnnotationFlags, AnnotationTextAlign,
-    LineEndingStyle, PdfAnnotation, PdfAnnotationType, RedactImageMethod, RedactLineArtMethod, RedactOptions,
-    RedactTextMethod,
+    LineEndingStyle, PdfAnnotationType, RedactImageMethod, RedactLineArtMethod, RedactOptions, RedactTextMethod,
 };
-pub use document::{Document, GraftMap, PdfDocument};
+pub use document::Document;
 pub use engine::{
-    CryptoBackend, RenderBackend, configure_from_environment, crypto_backend, default_render_backend, pdfium_available,
-    pdfium_default_path, pdfium_fallback, pdfium_init, pdfium_init_from_environment, pdfium_library_name,
-    set_crypto_backend, set_default_render_backend, set_pdfium_fallback,
+    configure_from_environment, pdfium_available, pdfium_default_path, pdfium_init, pdfium_init_from_environment,
+    pdfium_library_name,
 };
-pub use font::{Font, PathWalker, SimpleFontEncoding};
-pub use fonts::{SystemFonts, init_fonts};
+pub use font::{PathWalker, SimpleFontEncoding};
 pub use geom::{IRect, Matrix, Point, Quad, Rect, Size};
-pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageOptions, PageImageInfo};
 pub use links::{DestinationKind, Link, LinkDestination, LinkTarget, NewLink};
-pub use object::{Object, Value};
+pub use native::{
+    ExtractedImage, Font, GraftMap, Image, ImagePlacement, ImageSource, InsertImageOptions, Object, PageImageInfo,
+    PdfAnnotation, PdfDocument, PdfPage, PdfWidget,
+};
+pub use object::Value;
 pub use options::{
     EmbeddedFileInfo, EmbeddedFileOptions, Encryption, InsertPdfOptions, InsertPdfResult, InsertPosition, MetadataName,
     OptionalContentGroup, Outline, PageLabelRule, PageLabelStyle, PageRange, PageSelection, Permission, WriteOptions,
 };
-pub use page::{Page, PdfPage};
 pub use pixmap::{Colorspace, ImageFormat, Pixmap};
 pub use text::{
     CharFlags, CharFont, TextBlock, TextBlockKind, TextChar, TextFlags, TextLine, TextPage, TextWord, WriteMode,
 };
+pub use widget::{FieldFlags, WidgetType};
 
-pub use widget::{FieldFlags, PdfWidget, WidgetType};
-pub use writer::PdfWriter;
+/// Página de un documento. Es otro nombre de [`PdfPage`] (la capa solo abre PDF).
+pub type Page = PdfPage;
 
 #[cfg(test)]
 mod tests;

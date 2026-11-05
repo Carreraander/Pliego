@@ -19,14 +19,7 @@ pliego-a11y = { path = "crates/pliego-a11y" }
 pliego-pdfa = { path = "crates/pliego-pdfa" }
 pliego-print = { path = "crates/pliego-print" }
 pliego-stamp = { path = "crates/pliego-stamp" }
-# Sin la característica `tesseract` de MuPDF: incluye su propio Tesseract/Leptonica estático y choca por símbolos
-# con el Tesseract que enlaza `pliego-ocr` (provoca SIGSEGV al iniciar el OCR). El resto son las de por defecto,
-# salvo `system-fonts` (font-kit): en Windows enumera todas las fuentes en cada búsqueda y `to_text_page` cuesta
-# ~1,3 s por documento (medido en acr12). Las fuentes del sistema las aporta `pliego_engine::init_fonts`.
-mupdf = { version = "0.8", default-features = false, features = [
-  "js", "xps", "svg", "cbz", "img", "html", "epub", "brotli", "docx-output", "base14-fonts",
-] }
-# PDFium (render, texto y búsqueda; W37). Solo con la característica `pdfium` de pliego-pdf. Sin `image_*` (no
+# PDFium (render, texto y búsqueda; W37). Lo usa `pliego-pdf`. Sin `image_*` (no
 # queremos la crate `image`), con `thread_safe` (serializa todas las llamadas a la DLL con un cerrojo global) y la API
 # de `pdfium_8125`, la más alta que conoce la crate; la DLL fijada (chromium/8138) es posterior y compatible.
 pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }

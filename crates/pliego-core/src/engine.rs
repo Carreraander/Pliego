@@ -1,6 +1,6 @@
 //! Abstracción del motor de render. La implementación por defecto es `pliego-engine`.
 //!
-//! Los documentos del motor NO son `Send` (MuPDF usa contextos por hilo): la app abre cada
+//! Los documentos del motor NO son `Send` (el modelo de objetos y PDFium viven en un solo hilo): la app abre cada
 //! documento en un hilo dedicado y le envía peticiones por canal.
 
 use std::path::Path;

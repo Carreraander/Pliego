@@ -1,6 +1,7 @@
-//! Traspaso de anotaciones al combinar: `insert_pdf` de MuPDF solo copia el contenido de las páginas, así
-//! que enlaces, comentarios y campos de formulario se llevan aparte, con un mapa de injerto común para que
-//! los campos que comparten padre sigan compartiéndolo.
+//! Traspaso de anotaciones al combinar: enlaces, comentarios y campos de formulario se llevan aparte, con un
+//! mapa de injerto común para que los campos que comparten padre sigan compartiéndolo y con nombres únicos.
+//! `insert_pdf` del modelo propio ya copia anotaciones y registra sus campos en `/AcroForm /Fields`; aquí se
+//! deshace ese registro (véase [`fields_len`] y [`trim_fields`]) para que lo rehaga este módulo con renombrado.
 
 use std::collections::{HashMap, HashSet};
 
@@ -20,6 +21,34 @@ impl FormState {
     pub(crate) fn renamed(&self) -> usize {
         self.renamed
     }
+}
+
+/// Número de campos raíz que tiene registrados el destino (0 si no hay formulario).
+pub(crate) fn fields_len(dest: &PdfDocument) -> Result<usize> {
+    let Some(acro) = dest.catalog()?.get_dict("AcroForm")? else {
+        return Ok(0);
+    };
+    match acro.get_dict("Fields")? {
+        Some(f) if f.is_array()? => Ok(f.len()?),
+        _ => Ok(0),
+    }
+}
+
+/// Quita de `/AcroForm /Fields` los campos añadidos desde que había `keep`.
+pub(crate) fn trim_fields(dest: &PdfDocument, keep: usize) -> Result<()> {
+    let Some(acro) = dest.catalog()?.get_dict("AcroForm")? else {
+        return Ok(());
+    };
+    let Some(mut fields) = acro.get_dict("Fields")? else {
+        return Ok(());
+    };
+    if !fields.is_array()? {
+        return Ok(());
+    }
+    for i in (keep..fields.len()?).rev() {
+        fields.array_delete(i as i32)?;
+    }
+    Ok(())
 }
 
 fn subtype(obj: &Object) -> Result<String> {

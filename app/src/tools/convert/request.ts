@@ -1,6 +1,6 @@
 /** Argumentos de los comandos de Convertir (puro, con pruebas). */
 
-export type ExportFormat = "png" | "jpg" | "tiff" | "svg" | "images" | "txt" | "html";
+export type ExportFormat = "png" | "jpg" | "tiff" | "images" | "txt" | "html";
 export type OfficeFormat = "docx" | "xlsx" | "pptx";
 
 export const IMAGE_FORMATS: ExportFormat[] = ["png", "jpg", "tiff"];

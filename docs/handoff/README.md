@@ -85,6 +85,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W21](flujos/w21.md) | Instalador y lanzador | Fusionado | Mica, escalas 100/150/200 %, Narrador, sin WebView2, por máquina (UAC) |
 | [W22](flujos/w22.md) | Autoactualizaciones | Fusionado (parcial) | Comandos Tauri, directiva HKLM, UI en Ajustes y prueba de extremo a extremo en acr12 |
 | [W25](flujos/w25.md) | Conectar Proteger y Redactar | Fusionado | Falta prueba en acr12 y revisión visual (revision-manual-ander.md) |
+| [W42](flujos/w42.md) | Motor de JavaScript de formularios (Boa) | En curso | Conectarlo a `pliego_pdf::native` y a la app |
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)
 

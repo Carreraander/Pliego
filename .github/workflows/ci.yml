@@ -53,21 +53,9 @@ jobs:
       - name: Formato
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all --check
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Tests
-        run: cargo test --workspace
-      # Cifrado con el motor propio (W40): MuPDF serializa sin cifrar y lo cifra lopdf (`PLIEGO_CRYPTO=native`). Las
-      # pruebas de protect y de cifrado de la capa deben pasar igual con los dos. En Linux qpdf valida los archivos.
-      - name: Pruebas con el cifrado del motor propio
-        env:
-          PLIEGO_CRYPTO: native
-        run: |
-          cargo test -p pliego-protect
-          cargo test -p pliego-pdf --test crypto_layer
-      # Motor PDFium de pliego-pdf (W37): se descarga la versión fijada en tools/pdfium/pdfium.lock.json (hash verificado)
-      # y las pruebas del motor la cargan por ruta absoluta con PLIEGO_PDFIUM_DLL. Solo este paso la define: el resto
-      # de pruebas (worker, app) siguen con MuPDF, que es el motor por defecto sin la DLL.
+      # PDFium (dibujo, texto y búsqueda; W37/W41): se descarga la versión fijada en tools/pdfium/pdfium.lock.json
+      # (hash verificado) y las pruebas la cargan por ruta absoluta con PLIEGO_PDFIUM_DLL. Va antes de clippy y de
+      # los tests para que todos la vean.
       - name: PDFium (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -82,8 +70,10 @@ jobs:
         run: |
           ./tools/pdfium/fetch-pdfium.ps1 -OutDir "$env:RUNNER_TEMP\pdfium"
           "PLIEGO_PDFIUM_DLL=$env:RUNNER_TEMP\pdfium\pdfium.dll" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-      - name: Pruebas del motor PDFium
-        run: cargo test -p pliego-pdf --features pdfium --test pdfium -- --nocapture
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --workspace
 
   licenses:
     name: Licencias de dependencias

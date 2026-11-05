@@ -1,0 +1,17 @@
+[package]
+name = "pliego-formjs"
+description = "Motor de JavaScript de formularios PDF (modelo de objetos de Acrobat sobre Boa), sin dependencias de PDF"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# Boa 0.22 pide Rust 1.91.
+rust-version = "1.91"
+
+[dependencies]
+# Intérprete de ECMAScript en Rust puro (MIT o Unlicense). Sin Temporal ni Intl (pesan megas y los formularios no los
+# usan); `annex-b` da `escape`, `substr`, etc., que usan los scripts antiguos de Acrobat.
+boa_engine = { version = "0.22", default-features = false, features = ["annex-b"] }
+
+[lints]
+workspace = true

@@ -67,6 +67,10 @@ impl PdfDocument {
             locked: false,
             pages_cache: None,
             annot_dirty: BTreeSet::new(),
+            js: Default::default(),
+            generation: 0,
+            password: None,
+            view: Default::default(),
         };
         let mut pages = Dictionary::new();
         pages.set("Type", L::Name(b"Pages".to_vec()));
@@ -78,8 +82,8 @@ impl PdfDocument {
         cat.set("Pages", L::Reference(pages_id));
         let cat_id = state.add(L::Dictionary(cat));
         state.doc.trailer.set("Root", L::Reference(cat_id));
-        // Como en MuPDF, un documento nuevo cuenta como «con cambios sin guardar».
-        state.unsaved = true;
+        // Un documento nuevo cuenta como «con cambios sin guardar».
+        state.mark_changed();
         Self::from_state(state)
     }
 
@@ -104,7 +108,7 @@ impl PdfDocument {
     fn from_vec(bytes: Vec<u8>, password: Option<&str>, require_unlocked: bool) -> Result<PdfDocument> {
         let bytes = indirect_encrypt(bytes);
         let (doc, locked) = load(&bytes, None)?;
-        let mut state = new_state(bytes, doc, locked);
+        let mut state = new_state(bytes, doc, locked, None);
         if locked && let Some(pw) = password {
             // Segunda oportunidad con la contraseña indicada.
             let loaded = match load(&state.base.as_ref().expect("base").bytes, Some(pw)) {
@@ -114,7 +118,7 @@ impl PdfDocument {
             };
             if let Some((doc, false)) = loaded {
                 let bytes = state.base.take().map(|b| b.bytes).unwrap_or_default();
-                state = new_state(bytes, doc, false);
+                state = new_state(bytes, doc, false, Some(pw.to_owned()));
             }
         }
         if require_unlocked && state.locked {
@@ -144,7 +148,7 @@ impl PdfDocument {
         if still {
             return Ok(false);
         }
-        *self.st.borrow_mut() = new_state(bytes, doc, false);
+        *self.st.borrow_mut() = new_state(bytes, doc, false, Some(password.to_owned()));
         Ok(true)
     }
 
@@ -538,7 +542,7 @@ impl PdfDocument {
         if st.doc.objects.remove(&(n, 0)).is_some() {
             st.dirty.remove(&(n, 0));
             st.deleted.insert((n, 0));
-            st.unsaved = true;
+            st.mark_changed();
             st.invalidate_pages();
         }
         Ok(())
@@ -944,7 +948,7 @@ fn load(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)>
     Ok((doc, locked))
 }
 
-fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool) -> State {
+fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool, password: Option<String>) -> State {
     let base = Base {
         trailer: doc.trailer.clone(),
         xref_start: doc.xref_start,
@@ -965,6 +969,10 @@ fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool) -> State {
         locked,
         pages_cache: None,
         annot_dirty: BTreeSet::new(),
+        js: Default::default(),
+        generation: 0,
+        password,
+        view: Default::default(),
     }
 }
 

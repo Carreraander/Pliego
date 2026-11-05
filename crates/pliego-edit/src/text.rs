@@ -300,7 +300,7 @@ fn rect_of(r: RectPts) -> Rect {
 pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &str, style: &Style) -> Result<Report> {
     let mut report = Report::default();
     doc.with_pdf_mut(|pdf| {
-        let mut p = load_page(pdf, page)?;
+        let p = load_page(pdf, page)?;
         let raw = extract(&p, page)?
             .into_iter()
             .find(|r| r.block.id == block)
@@ -331,14 +331,13 @@ pub fn replace_text(doc: &mut Document, page: usize, block: usize, new_text: &st
             b.bbox[2] - 0.5,
             b.bbox[3] - inset_y,
         ]);
-        p.add_redact_annotation(area)?;
         let opts = RedactOptions {
             black_boxes: false,
             image_method: RedactImageMethod::None,
             line_art: RedactLineArtMethod::None,
             text: RedactTextMethod::Remove,
         };
-        p.redact(opts)?;
+        pdf.redact_areas(&[(page as i32, area)], opts)?;
         let mut p = load_page(pdf, page)?;
 
         let max_width = (b.bbox[2] - raw.first_origin.0).max(res.size);

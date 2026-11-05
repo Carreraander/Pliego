@@ -1129,7 +1129,7 @@ fn finish(st: &mut State) {
         }
     }
     st.no_incremental = true;
-    st.unsaved = true;
+    st.mark_changed();
 }
 
 // --- API pública ---

@@ -1,6 +1,6 @@
 [package]
 name = "pliego-pdf"
-description = "Capa propia de acceso a PDF: tipos y operaciones de Pliego sobre el motor (hoy MuPDF; mañana PDFium + lopdf)"
+description = "Capa propia de acceso a PDF: tipos y operaciones de Pliego sobre lopdf (objetos y guardado) y PDFium (render y texto)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,8 @@ repository.workspace = true
 
 [dependencies]
 pliego-core.workspace = true
-mupdf.workspace = true
+# Motor de JavaScript de formularios (W42). Solo `native::formjs` lo usa.
+pliego-formjs = { path = "../pliego-formjs" }
 # Motor propio del modelo de objetos y del guardado (ola 5, W36). Solo `pliego-pdf` lo usa para esto.
 lopdf = { version = "0.46", default-features = false }
 md-5 = "0.11"
@@ -24,13 +25,7 @@ jpeg-encoder = "0.6"
 # `tiff` lee las páginas de un TIFF (W40). Solo decodifica: el JPEG se incrusta tal cual.
 tiff = "0.11"
 serde.workspace = true
-pdfium-render = { workspace = true, optional = true }
-
-[features]
-default = []
-# Render, texto y búsqueda con PDFium (carga `pdfium.dll` por ruta absoluta, véase `pdfium_init`). MuPDF sigue siendo el
-# motor por defecto y el único para el modelo de objetos hasta W36/W41.
-pdfium = ["dep:pdfium-render"]
+pdfium-render.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -4,9 +4,6 @@ use std::io::Write;
 
 use pliego_core::{Error, Result};
 
-use crate::backend::{err, irect_to};
-use crate::geom::IRect;
-
 /// Espacio de color de un mapa de bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Colorspace {
@@ -36,28 +33,6 @@ impl Colorspace {
             Self::Gray => 1,
             Self::Rgb | Self::Bgr => 3,
             Self::Cmyk => 4,
-        }
-    }
-
-    pub(crate) fn to_backend(self) -> mupdf::Colorspace {
-        match self {
-            Self::Gray => mupdf::Colorspace::device_gray(),
-            Self::Rgb => mupdf::Colorspace::device_rgb(),
-            Self::Bgr => mupdf::Colorspace::device_bgr(),
-            Self::Cmyk => mupdf::Colorspace::device_cmyk(),
-        }
-    }
-
-    pub(crate) fn from_backend(cs: Option<&mupdf::Colorspace>, n: u8, alpha: bool) -> Self {
-        match cs {
-            Some(c) if c.is_gray() => Self::Gray,
-            Some(c) if c.is_cmyk() => Self::Cmyk,
-            Some(c) if c.is_rgb() => Self::Rgb,
-            _ => match n - u8::from(alpha) {
-                1 => Self::Gray,
-                4 => Self::Cmyk,
-                _ => Self::Rgb,
-            },
         }
     }
 }
@@ -186,46 +161,58 @@ impl Pixmap {
         Ok(bytes.len() as u64)
     }
 
-    /// PNG en memoria.
+    /// PNG en memoria. Los espacios de color que PNG no tiene (BGR, CMYK) se pasan a RGB.
     pub fn encode_png(&self) -> Result<Vec<u8>> {
-        let pix = self.to_backend()?;
+        use image::{ExtendedColorType, ImageEncoder, codecs::png::PngEncoder};
+        let (cs, n) = (self.colorspace, usize::from(self.alpha));
+        let comps = cs.n() as usize;
+        let (kind, data): (ExtendedColorType, Vec<u8>) = match (cs, self.alpha) {
+            (Colorspace::Gray, false) => (ExtendedColorType::L8, self.samples.clone()),
+            (Colorspace::Gray, true) => (ExtendedColorType::La8, self.samples.clone()),
+            (Colorspace::Rgb, false) => (ExtendedColorType::Rgb8, self.samples.clone()),
+            (Colorspace::Rgb, true) => (ExtendedColorType::Rgba8, self.samples.clone()),
+            (Colorspace::Bgr, alpha) => {
+                let mut v = Vec::with_capacity(self.samples.len());
+                for px in self.samples.chunks_exact(comps + n) {
+                    v.extend_from_slice(&[px[2], px[1], px[0]]);
+                    if alpha {
+                        v.push(px[3]);
+                    }
+                }
+                (
+                    if alpha {
+                        ExtendedColorType::Rgba8
+                    } else {
+                        ExtendedColorType::Rgb8
+                    },
+                    v,
+                )
+            }
+            (Colorspace::Cmyk, alpha) => {
+                let mut v = Vec::with_capacity(self.samples.len());
+                for px in self.samples.chunks_exact(comps + n) {
+                    let k = 255 - u32::from(px[3]);
+                    let ch = |c: u8| ((255 - u32::from(c)) * k / 255) as u8;
+                    v.extend_from_slice(&[ch(px[0]), ch(px[1]), ch(px[2])]);
+                    if alpha {
+                        v.push(px[4]);
+                    }
+                }
+                (
+                    if alpha {
+                        ExtendedColorType::Rgba8
+                    } else {
+                        ExtendedColorType::Rgb8
+                    },
+                    v,
+                )
+            }
+        };
         let mut out = Vec::new();
-        pix.write_to(&mut out, mupdf::ImageFormat::PNG).map_err(err)?;
+        PngEncoder::new(&mut out)
+            .write_image(&data, self.width, self.height, kind)
+            .map_err(|e| Error::Other(format!("no se pudo codificar el PNG: {e}")))?;
         Ok(out)
-    }
-
-    /// Copia un `mupdf::Pixmap` (quitando el relleno de filas) a un [`Pixmap`] propio.
-    pub(crate) fn from_backend(pix: &mupdf::Pixmap) -> Self {
-        let (w, h) = (pix.width() as usize, pix.height() as usize);
-        let n = pix.n() as usize;
-        let alpha = pix.alpha();
-        let stride = pix.stride() as usize;
-        let src = pix.samples();
-        let mut samples = Vec::with_capacity(w * h * n);
-        for y in 0..h {
-            samples.extend_from_slice(&src[y * stride..y * stride + w * n]);
-        }
-        Self {
-            width: w as u32,
-            height: h as u32,
-            colorspace: Colorspace::from_backend(pix.color_space().as_ref(), n as u8, alpha),
-            alpha,
-            samples,
-        }
-    }
-
-    /// Pasa a un `mupdf::Pixmap` (para codificar o construir una `Image` de MuPDF).
-    pub(crate) fn to_backend(&self) -> Result<mupdf::Pixmap> {
-        let rect = IRect::new(0, 0, self.width as i32, self.height as i32);
-        let mut pix =
-            mupdf::Pixmap::new_with_rect(&self.colorspace.to_backend(), irect_to(rect), self.alpha).map_err(err)?;
-        let stride = pix.stride() as usize;
-        let row = self.stride();
-        let dst = pix.samples_mut();
-        for y in 0..self.height as usize {
-            dst[y * stride..y * stride + row].copy_from_slice(&self.samples[y * row..(y + 1) * row]);
-        }
-        Ok(pix)
     }
 }
 

@@ -1,4 +1,4 @@
-//! Pruebas de los campos nativos: se comparan con la capa sobre MuPDF (mismo guion) y MuPDF dibuja el resultado.
+//! Pruebas de los campos: lectura, escritura de valores, restablecer, aplanado y dibujo (PDFium dibuja el resultado).
 
 use super::PdfDocument as Native;
 use super::form_fixture::form_doc;
@@ -13,45 +13,12 @@ fn bytes_of(doc: &Native) -> Vec<u8> {
     out
 }
 
-fn mupdf_of(doc: &Native) -> crate::PdfDocument {
-    crate::PdfDocument::from_bytes(&doc.to_bytes(&WriteOptions::new()).unwrap()).unwrap()
-}
-
 /// Lo observable de cada campo: tipo, nombre, indicadores, valor, etiqueta, solo lectura, firmado y estado `/AS`.
-fn describe_native(doc: &Native) -> Vec<String> {
+fn describe(doc: &Native) -> Vec<String> {
     let page = doc.load_pdf_page(0).unwrap();
     page.widgets()
         .map(|w| {
             let a = w.annotation().object().get_dict("AS").unwrap();
-            let state = a.map(|a| String::from_utf8_lossy(&a.as_name().unwrap()).into_owned());
-            format!(
-                "{:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
-                w.r#type().unwrap(),
-                w.name().unwrap(),
-                w.field_type_name().unwrap(),
-                w.field_flags().unwrap(),
-                w.value().unwrap(),
-                w.label().unwrap(),
-                w.is_readonly().unwrap(),
-                w.is_signed().unwrap(),
-                state
-            )
-        })
-        .collect()
-}
-
-fn describe_mupdf(doc: &crate::PdfDocument) -> Vec<String> {
-    let page = doc.load_pdf_page(0).unwrap();
-    page.widgets()
-        .map(|w| {
-            let a = w
-                .annotation()
-                .object()
-                .resolve()
-                .unwrap()
-                .unwrap()
-                .get_dict("AS")
-                .unwrap();
             let state = a.map(|a| String::from_utf8_lossy(&a.as_name().unwrap()).into_owned());
             format!(
                 "{:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
@@ -82,10 +49,11 @@ const SCRIPT: [(&str, &str); 9] = [
 ];
 
 #[test]
-fn reading_fields_matches_mupdf() {
+fn reading_fields() {
     let doc = form_doc();
-    let m = mupdf_of(&doc);
-    assert_eq!(describe_native(&doc), describe_mupdf(&m));
+    // Leer el mismo archivo guardado y reabierto da lo mismo.
+    let again = Native::from_bytes(&bytes_of(&doc)).unwrap();
+    assert_eq!(describe(&doc), describe(&again));
     let types: Vec<_> = doc
         .load_pdf_page(0)
         .unwrap()
@@ -108,55 +76,39 @@ fn reading_fields_matches_mupdf() {
 }
 
 #[test]
-fn set_value_and_reset_match_mupdf() {
-    let mut native = form_doc();
-    let mut mupdf = mupdf_of(&native);
-    for (name, value) in SCRIPT {
-        let page = native.load_pdf_page(0).unwrap();
-        for mut w in page.widgets().filter(|w| w.name().unwrap().as_deref() == Some(name)) {
-            assert!(w.set_value(&mut native, value, true).unwrap(), "{name}={value}");
-        }
-        let page = mupdf.load_pdf_page(0).unwrap();
-        for mut w in page.widgets().filter(|w| w.name().unwrap().as_deref() == Some(name)) {
-            assert!(w.set_value(&mut mupdf, value, true).unwrap());
-        }
-        assert_eq!(describe_native(&native), describe_mupdf(&mupdf), "tras {name}={value}");
-    }
-    // Restablecer todos.
-    let page = native.load_pdf_page(0).unwrap();
-    for mut w in page.widgets() {
-        w.reset(&mut native).unwrap();
-    }
-    let page = mupdf.load_pdf_page(0).unwrap();
-    for mut w in page.widgets() {
-        w.reset(&mut mupdf).unwrap();
-    }
-    // Diferencia deliberada: MuPDF no borra el `/V` de un grupo de radios al restablecer (deja «verde» aunque ningún
-    // botón esté marcado); el modelo nativo sí.
-    let (n, m) = (describe_native(&native), describe_mupdf(&mupdf));
-    for (i, (a, b)) in n.iter().zip(&m).enumerate() {
-        if i == 2 || i == 3 {
-            assert!(
-                a.contains("Some(\"\") Some(\"color\")") && b.contains("Some(\"verde\")"),
-                "{a}\n{b}"
-            );
-        } else {
-            assert_eq!(a, b, "tras restablecer");
-        }
-    }
-    // El valor por defecto del texto vuelve.
-    assert_eq!(
-        native
-            .load_pdf_page(0)
+fn set_value_and_reset() {
+    let mut doc = form_doc();
+    let value_of = |doc: &Native, name: &str| {
+        doc.load_pdf_page(0)
             .unwrap()
             .widgets()
-            .next()
+            .find(|w| w.name().unwrap().as_deref() == Some(name))
             .unwrap()
             .value()
             .unwrap()
-            .as_deref(),
-        Some("inicial")
-    );
+    };
+    for (name, value) in SCRIPT {
+        let page = doc.load_pdf_page(0).unwrap();
+        for mut w in page.widgets().filter(|w| w.name().unwrap().as_deref() == Some(name)) {
+            assert!(w.set_value(&mut doc, value, true).unwrap(), "{name}={value}");
+        }
+        assert_eq!(value_of(&doc, name).as_deref(), Some(value), "tras {name}={value}");
+        // Lo escrito sobrevive a guardar y reabrir.
+        let again = Native::from_bytes(&bytes_of(&doc)).unwrap();
+        assert_eq!(describe(&doc), describe(&again), "tras {name}={value}");
+    }
+    // Restablecer todos.
+    let page = doc.load_pdf_page(0).unwrap();
+    for mut w in page.widgets() {
+        w.reset(&mut doc).unwrap();
+    }
+    // Un grupo de radios sin botón marcado queda sin valor (`/V` borrado).
+    let d = describe(&doc);
+    for i in [2, 3] {
+        assert!(d[i].contains("Some(\"\") Some(\"color\")"), "{}", d[i]);
+    }
+    // El valor por defecto del texto vuelve.
+    assert_eq!(value_of(&doc, "nombre").as_deref(), Some("inicial"));
 }
 
 #[test]
@@ -228,8 +180,8 @@ fn filled_fields_are_drawn() {
             assert!(w.set_value(&mut doc, value, true).unwrap());
         }
     }
-    // El botón de acción no tiene apariencia en el archivo: se genera aquí con el motor nativo (si no, sería MuPDF
-    // quien lo dibujara al abrir y el resultado dependería de la plataforma y de sus fuentes del sistema).
+    // El botón de acción no tiene apariencia en el archivo: se genera aquí (si no, sería el dibujante quien lo
+    // improvisara al abrir y el resultado dependería de la plataforma y de sus fuentes del sistema).
     let page = doc.load_pdf_page(0).unwrap();
     for mut w in page
         .widgets()
@@ -271,7 +223,7 @@ fn filled_fields_are_drawn() {
         < 170
         && g > 170
         && b > 200));
-    // Botón de acción con su rótulo y fondo gris (0,8 → ~204; MuPDF lo reparte con ±1 entre canales).
+    // Botón de acción con su rótulo y fondo gris (0,8 → ~204; el dibujante lo reparte con ±1 entre canales).
     assert!(color_in(&after, Rect::new(52.0, 402.0, 148.0, 428.0), |r, g, b| (r
         > 190
         && r < 215)
@@ -389,9 +341,6 @@ fn delete_widget_and_add_signature_field() {
         names.contains(&"firma1".to_string()) && !names.contains(&"pais".to_string()),
         "{names:?}"
     );
-    // MuPDF lo ve igual.
-    let m = crate::PdfDocument::from_bytes(&bytes).unwrap();
-    assert_eq!(describe_mupdf(&m).len(), names.len());
 }
 
 #[test]
@@ -423,6 +372,6 @@ fn fields_survive_page_copy_and_toggle_without_appearance_gets_one() {
     let bytes = bytes_of(&doc);
     let s = px(&bytes);
     assert!(ink(&s, Rect::new(102.0, 102.0, 118.0, 118.0)) > 8);
-    let m = crate::PdfDocument::from_bytes(&bytes).unwrap();
-    assert!(describe_mupdf(&m)[0].contains("\"Yes\""), "{:?}", describe_mupdf(&m));
+    let again = Native::from_bytes(&bytes).unwrap();
+    assert!(describe(&again)[0].contains("\"Yes\""), "{:?}", describe(&again));
 }

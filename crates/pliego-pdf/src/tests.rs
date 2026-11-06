@@ -733,3 +733,36 @@ fn view_only_and_lean_read_objects_stored_in_object_streams() {
         }
     }
 }
+
+#[test]
+fn lean_append_writes_in_place_and_matches_the_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("grande.pdf");
+    scan_pdf(&path, 3, 200_000);
+    let original = std::fs::read(&path).unwrap();
+    let lean = PdfDocument::open_lean(&path, None).unwrap();
+    set_page_mode(&lean);
+    let copy = dir.path().join("copia.pdf");
+    lean.save_lean(&copy).unwrap();
+
+    let append = lean.prepare_lean_append().unwrap();
+    assert_eq!(append.before_len(), original.len() as u64);
+    let after = append.after_len();
+    // Preparar no escribe nada.
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    append.write().unwrap();
+    let written = std::fs::read(&path).unwrap();
+    assert_eq!(written.len() as u64, after);
+    assert_eq!(written, std::fs::read(&copy).unwrap(), "lo mismo que copiar y añadir");
+    assert!(written.starts_with(&original));
+
+    // Si otro programa cambió el archivo entre preparar y escribir, no se escribe.
+    let lean = PdfDocument::open_lean(&path, None).unwrap();
+    set_page_mode(&lean);
+    let append = lean.prepare_lean_append().unwrap();
+    let mut other = std::fs::read(&path).unwrap();
+    other.extend(b"\n% otro\n");
+    std::fs::write(&path, &other).unwrap();
+    assert!(matches!(append.write(), Err(pliego_core::Error::Unsupported(_))));
+    assert_eq!(std::fs::read(&path).unwrap(), other);
+}

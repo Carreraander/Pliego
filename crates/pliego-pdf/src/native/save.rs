@@ -89,35 +89,7 @@ impl PdfDocument {
     pub fn save_lean(&self, out: impl AsRef<Path>) -> Result<()> {
         let out = out.as_ref();
         let st = self.st.borrow();
-        let lean = st
-            .lean
-            .as_ref()
-            .ok_or_else(|| Error::Unsupported("el documento no está abierto en modo ligero".into()))?;
-        let meta = std::fs::metadata(&lean.path).map_err(|e| Error::io_at(&lean.path, e))?;
-        if meta.len() != lean.len || meta.modified().ok() != lean.modified {
-            return Err(Error::Unsupported(
-                "el archivo cambió mientras se editaba; vuelve a abrirlo".into(),
-            ));
-        }
-        // Un flujo omitido al cargar (sin contenido ni posición en el archivo) no puede volver a escribirse.
-        let touches_skipped = st.dirty.iter().any(|id| {
-            matches!(st.doc.objects.get(id), Some(L::Stream(s)) if s.content.is_empty() && s.start_position.is_none())
-        });
-        if touches_skipped {
-            return Err(Error::Unsupported(
-                "el cambio afecta a un flujo grande que no está cargado".into(),
-            ));
-        }
-        let mut options = WriteOptions::default();
-        options.set_incremental(true);
-        let section = incremental(
-            &st,
-            &options,
-            Prefix::Absent {
-                len: lean.len as usize,
-                last: lean.last_byte,
-            },
-        )?;
+        let (lean, section) = lean_section(&st)?;
         let written = std::fs::copy(&lean.path, out)
             .map_err(|e| Error::io_at(out, e))
             .and_then(|n| {
@@ -139,6 +111,20 @@ impl PdfDocument {
         drop(st);
         self.st.borrow_mut().unsaved = false;
         Ok(())
+    }
+
+    /// Calcula, sin escribir nada, lo que un documento abierto con [`PdfDocument::open_lean`] añade al final de su archivo
+    /// de origen. Los mismos errores que [`PdfDocument::save_lean`]; con el resultado, [`LeanAppend::write`] lo escribe
+    /// **en el propio archivo**: no se copia el original, así que cuesta lo que pesa el cambio y no el PDF.
+    pub fn prepare_lean_append(&self) -> Result<LeanAppend> {
+        let st = self.st.borrow();
+        let (lean, section) = lean_section(&st)?;
+        Ok(LeanAppend {
+            path: lean.path.clone(),
+            before: lean.len,
+            modified: lean.modified,
+            section,
+        })
     }
 
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
@@ -214,6 +200,80 @@ fn io_err(e: std::io::Error) -> Error {
 }
 
 // --- Guardado incremental ---
+
+/// Valida un documento en modo ligero y calcula lo que se añade al final de su archivo.
+fn lean_section(st: &State) -> Result<(&super::Lean, Vec<u8>)> {
+    let lean = st
+        .lean
+        .as_ref()
+        .ok_or_else(|| Error::Unsupported("el documento no está abierto en modo ligero".into()))?;
+    let meta = std::fs::metadata(&lean.path).map_err(|e| Error::io_at(&lean.path, e))?;
+    if meta.len() != lean.len || meta.modified().ok() != lean.modified {
+        return Err(Error::Unsupported(
+            "el archivo cambió mientras se editaba; vuelve a abrirlo".into(),
+        ));
+    }
+    // Un flujo omitido al cargar (sin contenido ni posición en el archivo) no puede volver a escribirse.
+    let touches_skipped = st.dirty.iter().any(
+        |id| matches!(st.doc.objects.get(id), Some(L::Stream(s)) if s.content.is_empty() && s.start_position.is_none()),
+    );
+    if touches_skipped {
+        return Err(Error::Unsupported(
+            "el cambio afecta a un flujo grande que no está cargado".into(),
+        ));
+    }
+    let mut options = WriteOptions::default();
+    options.set_incremental(true);
+    let section = incremental(
+        st,
+        &options,
+        Prefix::Absent {
+            len: lean.len as usize,
+            last: lean.last_byte,
+        },
+    )?;
+    Ok((lean, section))
+}
+
+/// Lo que un guardado ligero añade al final del archivo de origen (véase [`PdfDocument::prepare_lean_append`]).
+pub struct LeanAppend {
+    path: std::path::PathBuf,
+    before: u64,
+    modified: Option<std::time::SystemTime>,
+    section: Vec<u8>,
+}
+
+impl LeanAppend {
+    /// Tamaño del archivo antes de añadir.
+    pub fn before_len(&self) -> u64 {
+        self.before
+    }
+
+    /// Tamaño del archivo después de añadir.
+    pub fn after_len(&self) -> u64 {
+        self.before + self.section.len() as u64
+    }
+
+    /// Añade los cambios al final del archivo. Si algo falla a mitad, lo vuelve a dejar con su tamaño anterior.
+    /// [`Error::Unsupported`] si otro programa lo cambió desde que se abrió.
+    pub fn write(self) -> Result<()> {
+        let path = &self.path;
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(path)
+            .map_err(|e| Error::io_at(path, e))?;
+        let meta = f.metadata().map_err(|e| Error::io_at(path, e))?;
+        if meta.len() != self.before || meta.modified().ok() != self.modified {
+            return Err(Error::Unsupported("el archivo cambió mientras se editaba".into()));
+        }
+        let written = f.write_all(&self.section).and_then(|()| f.sync_all());
+        if let Err(e) = written {
+            let _ = f.set_len(self.before);
+            return Err(Error::io_at(path, e));
+        }
+        Ok(())
+    }
+}
 
 /// De dónde salen los bytes del archivo original que el guardado incremental deja delante de lo añadido.
 enum Prefix {

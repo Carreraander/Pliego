@@ -45,6 +45,11 @@ impl Default for Limits {
 enum Store {
     Mem(Vec<u8>),
     Disk(tempfile::TempPath),
+    /// El cambio solo añadió bytes al final: el contenido anterior es el principio del archivo (sin copia).
+    Tail {
+        before: u64,
+        after: u64,
+    },
 }
 
 /// Contenido anterior de un archivo, listo para apilar ([`History::capture`]).
@@ -52,6 +57,12 @@ pub enum Previous {
     Mem(Vec<u8>),
     /// Copia ya hecha en un temporal junto al documento.
     Disk(tempfile::TempPath, u64),
+    /// El cambio solo añade al final del archivo (guardado incremental): el contenido anterior son sus primeros
+    /// `before` bytes y el archivo mide `after` tras el cambio. No ocupa memoria ni disco.
+    Tail {
+        before: u64,
+        after: u64,
+    },
     /// No se pudo conservar: al apilarlo se vacía el historial del archivo.
     Lost,
 }
@@ -60,6 +71,11 @@ pub enum Previous {
 pub enum Popped {
     Mem(Vec<u8>),
     Disk(tempfile::TempPath),
+    /// Basta con cortar el archivo en `before` bytes (ahora debe medir `after`).
+    Tail {
+        before: u64,
+        after: u64,
+    },
 }
 
 struct Step {
@@ -83,6 +99,7 @@ impl Inner {
         match step.store {
             Store::Mem(_) => self.mem -= step.size as usize,
             Store::Disk(_) => self.disk -= step.size,
+            Store::Tail { .. } => {}
         }
     }
 
@@ -158,7 +175,7 @@ impl History {
         let size = match &previous {
             Previous::Mem(b) => b.len() as u64,
             Previous::Disk(_, n) => *n,
-            Previous::Lost => 0,
+            Previous::Tail { .. } | Previous::Lost => 0,
         };
         let mut g = self.lock();
         g.stacks.entry(path.to_path_buf()).or_default();
@@ -167,6 +184,7 @@ impl History {
             return;
         }
         let store = match previous {
+            Previous::Tail { before, after } => Store::Tail { before, after },
             Previous::Mem(bytes)
                 if bytes.len() <= self.limits.mem_step && g.mem + bytes.len() <= self.limits.mem_total =>
             {
@@ -192,7 +210,7 @@ impl History {
                             return;
                         }
                     },
-                    Previous::Lost => unreachable!("tratado arriba"),
+                    Previous::Lost | Previous::Tail { .. } => unreachable!("tratado arriba"),
                 }
             }
         };
@@ -205,6 +223,7 @@ impl History {
         match step.store {
             Store::Mem(_) => g.mem += size as usize,
             Store::Disk(_) => g.disk += size,
+            Store::Tail { .. } => {}
         }
         let stack = g.stacks.get_mut(path).expect("la pila existe");
         stack.push_back(step);
@@ -227,6 +246,7 @@ impl History {
         Ok(Some(match step.store {
             Store::Mem(bytes) => Popped::Mem(bytes),
             Store::Disk(tmp) => Popped::Disk(tmp),
+            Store::Tail { before, after } => Popped::Tail { before, after },
         }))
     }
 
@@ -277,6 +297,7 @@ mod tests {
         match p {
             Popped::Mem(b) => b,
             Popped::Disk(t) => std::fs::read(&t).unwrap(),
+            Popped::Tail { .. } => unreachable!("estas pruebas no apilan cortes"),
         }
     }
 
@@ -401,5 +422,23 @@ mod tests {
         assert_eq!(h.depth(&p), 0, "no se puede deshacer saltándose una versión");
         assert!(h.tracks(&p));
         assert_eq!(h.usage(), (0, 0));
+    }
+
+    #[test]
+    fn tail_steps_cost_nothing_and_come_back_in_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let (h, p) = (History::new(limits()), doc(&dir));
+        h.push(&p, Previous::Tail { before: 10, after: 15 });
+        h.push(&p, Previous::Tail { before: 15, after: 21 });
+        assert_eq!((h.depth(&p), h.usage()), (2, (0, 0)));
+        assert!(matches!(
+            h.pop(&p).unwrap(),
+            Some(Popped::Tail { before: 15, after: 21 })
+        ));
+        assert!(matches!(
+            h.pop(&p).unwrap(),
+            Some(Popped::Tail { before: 10, after: 15 })
+        ));
+        assert!(h.pop(&p).unwrap().is_none());
     }
 }

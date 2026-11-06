@@ -9,7 +9,7 @@ use std::path::Path;
 use pliego_core::{Error, Result};
 use pliego_pdf::{Document, PdfDocument, WriteOptions};
 
-use crate::history::{History, Popped};
+use crate::history::{History, Popped, Previous};
 use pliego_appdata::copyjob::unique_sibling;
 use pliego_core::Report;
 
@@ -309,6 +309,10 @@ impl Editor {
                 copy_over(&tmp, path)?;
                 std::fs::read(path).map(Some).map_err(|e| Error::io_at(path, e))
             }
+            Popped::Tail { before, after } => {
+                cut_tail(path, before, after)?;
+                std::fs::read(path).map(Some).map_err(|e| Error::io_at(path, e))
+            }
         }
     }
 
@@ -324,6 +328,10 @@ impl Editor {
             }
             Popped::Disk(tmp) => {
                 copy_over(&tmp, path)?;
+                saved_of(path).map(Some)
+            }
+            Popped::Tail { before, after } => {
+                cut_tail(path, before, after)?;
                 saved_of(path).map(Some)
             }
         }
@@ -434,16 +442,17 @@ impl Editor {
     ) -> Result<()> {
         let mut doc = PdfDocument::open_lean(path, password)?;
         op(&mut doc)?;
-        // Primero el resultado en un temporal: si no se puede (flujo grande afectado...) no se ha tocado nada.
-        let tmp = temp_beside(path)?;
-        doc.save_lean(&tmp)?;
+        // Primero se calcula lo que se añade, sin escribir: si no se puede (flujo grande afectado...) no se ha tocado nada.
+        let append = doc.prepare_lean_append()?;
         drop(doc);
         if !self.undo.tracks(path) {
             copy_file(path, &unique_sibling(path, backup_suffix, "pdf"))?;
         }
-        let previous = self.undo.capture(path)?;
-        persist_with_retry(tmp, path)?;
-        self.undo.push(path, previous);
+        // El cambio solo añade al final: el contenido anterior son los primeros `before` bytes. Deshacer corta el
+        // archivo ahí, sin guardar una copia de 1 GB por paso ni reescribirlo.
+        let (before, after) = (append.before_len(), append.after_len());
+        append.write()?;
+        self.undo.push(path, Previous::Tail { before, after });
         Ok(())
     }
 }
@@ -461,6 +470,23 @@ fn saved_of(path: &Path) -> Result<Saved> {
     } else {
         read_result(path).map(Saved::Bytes)
     }
+}
+
+/// Deshace un cambio que solo añadió bytes al final: corta `path` en `before` bytes. `after` es lo que medía justo
+/// tras el cambio; si no coincide, el archivo cambió por otro lado y no se toca.
+fn cut_tail(path: &Path, before: u64, after: u64) -> Result<()> {
+    let f = std::fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .map_err(|e| Error::io_at(path, e))?;
+    let len = f.metadata().map_err(|e| Error::io_at(path, e))?.len();
+    if len != after {
+        return Err(Error::InvalidInput(format!(
+            "{} cambió desde el último comentario; no se puede deshacer",
+            path.display()
+        )));
+    }
+    f.set_len(before).map_err(|e| Error::io_at(path, e))
 }
 
 /// Sustituye `to` por una copia de `from` (temporal junto a `to` y renombrado), sin pasar el contenido por memoria.

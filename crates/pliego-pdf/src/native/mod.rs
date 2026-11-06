@@ -72,6 +72,7 @@ pub use object::Object;
 pub use page::PdfPage;
 pub use raster::Raster;
 pub use redact::{ContentMove, CutContent, MoveReport, RedactReport};
+pub use save::LeanAppend;
 pub use widget::PdfWidget;
 
 use std::cell::RefCell;

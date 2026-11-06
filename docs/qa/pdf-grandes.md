@@ -99,7 +99,10 @@ Comentar y deshacer sobre el de 1 GB (`pdf_grande`, 399 s en total; el pico del 
 
 La app en reposo tras editar queda en 2 MB y tras deshacer en 3 MB: no crece con el archivo (criterio cumplido). Ojo con los **tiempos**: en
 acr12 (disco D: y antivirus) un comentario sobre 1 GB tarda 27-76 s y cada «deshacer» 36-38 s, frente a 3,9-6,9 s en Linux; casi todo es copiar
-el archivo de 1 GB (copia de seguridad, paso de deshacer y resultado). Para Ander puede ser lento; conviene vigilarlo.
+el archivo de 1 GB (copia de seguridad, paso de deshacer y resultado). **Arreglado después de esta pasada:** el comentario se añade al final
+del propio archivo (sin copiarlo a un temporal) y el paso de deshacer es solo «cortar el archivo en N bytes» (`Previous::Tail`), así que
+de las copias de 1 GB por cambio solo queda la copia de seguridad del primero. Lo que sigue costando es leer el archivo una vez para abrirlo
+en modo ligero y otra para recargar el visor. **Pendiente de medir en acr12** (`bench-pdf-grandes.ps1`) para confirmar la mejora.
 
 Nota de la pasada: el script compilaba con `cargo build --release -p pliego-qa --bin big-bench -p pliego-worker`, que no construye `pliego-worker.exe`
 (`--bin` filtra todos los paquetes) y `big-bench` fallaba con «no se pudo iniciar el proceso del motor»; ahora son dos compilaciones.
@@ -110,7 +113,7 @@ Nota de la pasada: el script compilaba con `cargo build --release -p pliego-qa -
   unos segundos (≈ tamaño del archivo). Por eso el máximo es 1,7 GB (`VIEW_ONLY_MAX_BYTES`, bajo el límite de 2 GB del worker); PDFium no abre
   archivos de 4 GiB o más en Windows.
 - **Comentar en un PDF grande (≥ 64 MiB)** usa el modo ligero (`PdfDocument::open_lean` / `save_lean`): el modelo se carga sin los
-  flujos grandes y los cambios se añaden al final del archivo. El pico es leer el archivo una vez (≈ su tamaño). Si el cambio tocara un
+  flujos grandes y los cambios se añaden al final del propio archivo (el deshacer corta el archivo en el tamaño anterior; no hay copias). El pico es leer el archivo una vez (≈ su tamaño). Si el cambio tocara un
   flujo que no se cargó, o el PDF está cifrado o reparado, se usa el camino de siempre, que **reescribe el PDF entero** (lopdf): pico de
   ~3 GB durante segundos. Las demás herramientas que editan (formularios, texto, medir, páginas) siguen por ese camino.
 - **Capas en PDF grandes:** mostrar u ocultar una capa necesita el documento entero; solo se admite hasta 256 MB (`LAYER_EDIT_MAX_BYTES`).

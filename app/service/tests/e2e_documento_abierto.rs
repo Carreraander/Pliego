@@ -574,10 +574,27 @@ fn pdf_grande_comentar_en_modo_ligero_no_reescribe_el_archivo() {
     );
     assert_eq!(summary_of(&path, None).unwrap().total, 1);
     assert_eq!(ed.undo_depth(&path), 1);
-
+    // Segundo comentario encima del primero y dos «deshacer» seguidos: cada uno solo corta lo que añadió su paso.
+    let first_len = after.len();
+    let saved = ed.add_saved(&path, None, &s, "copia de seguridad").unwrap();
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert!(std::fs::read(&path).unwrap().starts_with(&after));
+    assert_eq!(summary_of(&path, None).unwrap().total, 2);
+    let saved = ed.undo_saved(&path).unwrap().unwrap();
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert_eq!(std::fs::metadata(&path).unwrap().len() as usize, first_len);
+    assert_eq!(summary_of(&path, None).unwrap().total, 1);
     let rev = svc.revision(id).unwrap();
     let saved = ed.undo_saved(&path).unwrap().unwrap();
     svc.reload_saved(id, &path, &saved).unwrap();
     assert_repaints(&svc, id, rev);
     assert_eq!(std::fs::read(&path).unwrap(), original);
+
+    // Otro programa añade algo al archivo: deshacer ya no sabe dónde cortar y lo deja como está.
+    ed.add_saved(&path, None, &s, "copia de seguridad").unwrap();
+    let mut changed = std::fs::read(&path).unwrap();
+    changed.extend(b"\n% otro programa\n");
+    std::fs::write(&path, &changed).unwrap();
+    assert!(ed.undo_saved(&path).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), changed);
 }

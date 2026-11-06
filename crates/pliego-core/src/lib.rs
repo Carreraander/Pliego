@@ -12,7 +12,9 @@ pub mod job;
 pub mod log;
 pub mod pages;
 
-pub use engine::{DocInfo, EngineDocument, Layer, OutlineItem, PageSize, PdfEngine, RgbaImage, SearchHit, TileRequest};
+pub use engine::{
+    DocInfo, EngineDocument, Layer, OutlineItem, PageSize, PageWord, PdfEngine, RgbaImage, SearchHit, TileRequest,
+};
 pub use error::{Error, Result};
 pub use job::{CancelToken, JobContext, NoProgress, Progress, Report};
 pub use pages::PageRange;

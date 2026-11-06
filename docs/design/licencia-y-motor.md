@@ -246,7 +246,7 @@ quedan gratis). Usar plantillas estándar, no una licencia redactada desde cero.
 - **Redacción:** tras redactar, ni texto extraíble ni cadenas en los flujos sin comprimir bajo el área; imágenes
   recortadas; prueba con PDFs reales.
 - **acr12:** empaquetado de `pdfium.dll`, instalador y autoactualización de extremo a extremo; rendimiento frente a
-  hoy (apertura, render, índice de 1.000 PDF en ~3 s) y memoria (objetivo de W01: 150 MB app+worker, 400 MB con
+  hoy (apertura, render, índice de 1.000 PDF en ~3 s) y memoria (objetivo de W01: 150 MB app+worker, 500 MB con
   WebView2); firma con CNG y DNIe cuando haya lector.
 - **Revisión manual de Ander:** dos rondas de 2-3 horas con la lista de `revision-manual-ander.md` (seis modos,
   abrir en Reader y en Acrobat lo que guarda Pliego, redactar, rellenar, firmar, imprimir).

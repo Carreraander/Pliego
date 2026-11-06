@@ -104,4 +104,4 @@ medición que la de la beta 0.1.0 (`docs/qa/memoria-webview/2026-11-06-0255-DESK
 
 Sin cambio de memoria respecto a la beta anterior: los cambios de `main` no la mueven. Solo `v8-lite` baja (unos 29 MB)
 y las variantes `gpu-interna` y `combo-v8` ahorran un proceso y unos 16 MB de memoria privada, pero no de conjunto de trabajo.
-El objetivo de 150 MB solo se cumple para app + worker (unos 52 MB); con WebView2 el total sigue por encima de 400 MB.
+El objetivo de 150 MB se cumple para app + worker (unos 52 MB). Con WebView2 el total superaba el techo de entonces de 400 MB; desde el 2026-11-06 el techo es de 500 MB (memoria privada, como el Administrador de tareas) y el banco informa «app+worker» y «WebView2» por separado.

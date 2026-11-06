@@ -22,7 +22,7 @@ describe("argumentos de Convertir", () => {
     expect(exportArgs("a.pdf", "png", "all", 200, 80, "imágenes")).toMatchObject({ dpi: 200, jpegQuality: null });
     expect(exportArgs("a.pdf", "jpg", "all", 200, 80, "imágenes")).toMatchObject({ dpi: 200, jpegQuality: 80 });
     expect(exportArgs("a.pdf", "html", "all", 200, 80, "texto")).toMatchObject({ dpi: null, jpegQuality: null });
-    expect(officeArgs("a.pdf", "docx", "1-2", true, "Word")).toEqual({ path: "a.pdf", format: "docx", pages: "1-2", imageDpi: null, failOnScanned: true, password: null, label: "Word" });
+    expect(officeArgs("a.pdf", "docx", "1-2", true, "Word")).toEqual({ path: "a.pdf", format: "docx", pages: "1-2", imageDpi: null, failOnScanned: true, password: null, label: "Word", lang: "es" });
   });
   it("los textos están en español e inglés", () => {
     expect(Object.keys(convertStrings.en).sort()).toEqual(Object.keys(convertStrings.es).sort());

@@ -440,7 +440,7 @@ fn convertir_comprobar_y_buscar_desde_un_pdf_abierto() {
     // Cartera: crear con dos archivos, listar y extraer.
     let other = dir.path().join("otro.pdf");
     std::fs::copy(corpus("organize/b.pdf"), &other).unwrap();
-    let port = portfolio::create_portfolio(&[path.clone(), other], "cartera", &ctx).unwrap();
+    let port = portfolio::create_portfolio(&[path.clone(), other], "cartera", Default::default(), &ctx).unwrap();
     let listing = portfolio::list(&port.outputs[0], None).unwrap();
     assert!(listing.entries.len() >= 2, "{listing:?}");
     let extracted = portfolio::extract_copy(&port.outputs[0], &[], None, "adjuntos", &ctx).unwrap();

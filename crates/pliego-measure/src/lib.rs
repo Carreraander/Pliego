@@ -9,10 +9,10 @@ mod pdf;
 use std::fmt;
 use std::str::FromStr;
 
-use pliego_core::{Error, Result};
+use pliego_core::{Error, Lang, Result};
 use serde::{Deserialize, Serialize};
 
-pub use pdf::{MeasuredAnnot, add_measurement, list_measurements, page_scale, set_scale};
+pub use pdf::{MeasuredAnnot, add_measurement, add_measurement_in, list_measurements, page_scale, set_scale};
 
 pub type Pt = [f32; 2];
 
@@ -149,12 +149,23 @@ fn seg(a: Pt, b: Pt) -> f64 {
     dx.hypot(dy)
 }
 
-fn fmt_value(v: f64) -> String {
-    format!("{v:.2}").replace('.', ",")
+/// Número con dos decimales: coma en español, punto en inglés.
+fn fmt_value(v: f64, lang: Lang) -> String {
+    let s = format!("{v:.2}");
+    match lang {
+        Lang::Es => s.replace('.', ","),
+        Lang::En => s,
+    }
 }
 
-/// Mide una figura. `closed` = polígono (perímetro y área); si no, 2 puntos = distancia y más = línea quebrada.
+/// Mide una figura con el texto en español. `closed` = polígono (perímetro y área); si no, 2 puntos = distancia y más
+/// = línea quebrada.
 pub fn measure(scale: &Scale, points: &[Pt], closed: bool) -> Result<Measurement> {
+    measure_in(scale, points, closed, Lang::Es)
+}
+
+/// Como [`measure`], con el texto de la medida (`Measurement::text`) en `lang`.
+pub fn measure_in(scale: &Scale, points: &[Pt], closed: bool, lang: Lang) -> Result<Measurement> {
     let min = if closed { 3 } else { 2 };
     if points.len() < min {
         return Err(Error::InvalidInput(format!(
@@ -177,7 +188,7 @@ pub fn measure(scale: &Scale, points: &[Pt], closed: bool) -> Result<Measurement
             length,
             area: None,
             unit,
-            text: format!("{} {unit}", fmt_value(length)),
+            text: format!("{} {unit}", fmt_value(length, lang)),
         });
     }
     len_pt += seg(points[points.len() - 1], points[0]);
@@ -194,11 +205,18 @@ pub fn measure(scale: &Scale, points: &[Pt], closed: bool) -> Result<Measurement
         length,
         area: Some(area),
         unit,
-        text: format!(
-            "Área {} {unit}² · Perímetro {} {unit}",
-            fmt_value(area),
-            fmt_value(length)
-        ),
+        text: match lang {
+            Lang::Es => format!(
+                "Área {} {unit}² · Perímetro {} {unit}",
+                fmt_value(area, lang),
+                fmt_value(length, lang)
+            ),
+            Lang::En => format!(
+                "Area {} {unit}² · Perimeter {} {unit}",
+                fmt_value(area, lang),
+                fmt_value(length, lang)
+            ),
+        },
     })
 }
 
@@ -234,5 +252,20 @@ mod tests {
         assert!(measure(&s, &[[0.0, 0.0]], false).is_err());
         assert!(measure(&s, &[[0.0, 0.0], [1.0, 1.0]], true).is_err());
         assert!("furlong".parse::<Unit>().is_err());
+    }
+
+    #[test]
+    fn the_text_follows_the_language() {
+        let s = Scale::calibrate(100.0, 5.0, Unit::M).unwrap();
+        let sq = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0]];
+        assert_eq!(
+            measure_in(&s, &sq, true, Lang::Es).unwrap().text,
+            "Área 25,00 m² · Perímetro 20,00 m"
+        );
+        assert_eq!(
+            measure_in(&s, &sq, true, Lang::En).unwrap().text,
+            "Area 25.00 m² · Perimeter 20.00 m"
+        );
+        assert_eq!(measure_in(&s, &sq[..2], false, Lang::En).unwrap().text, "5.00 m");
     }
 }

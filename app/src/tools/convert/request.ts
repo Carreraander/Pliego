@@ -25,8 +25,8 @@ export function exportArgs(path: string, format: ExportFormat, pages: string, dp
   return { path, format, pages, dpi: usesDpi(format) ? dpi : null, jpegQuality: format === "jpg" ? jpegQuality : null, password: null, label };
 }
 
-export function officeArgs(path: string, format: OfficeFormat, pages: string, failOnScanned: boolean, label: string) {
-  return { path, format, pages, imageDpi: null, failOnScanned, password: null, label };
+export function officeArgs(path: string, format: OfficeFormat, pages: string, failOnScanned: boolean, label: string, lang: "es" | "en" = "es") {
+  return { path, format, pages, imageDpi: null, failOnScanned, password: null, label, lang };
 }
 
 export type CreateSize = "fit" | "a4" | "a3" | "a5" | "letter" | "legal";

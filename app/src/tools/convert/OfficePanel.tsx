@@ -1,4 +1,5 @@
 import { createSignal, Show } from "solid-js";
+import { locale } from "../../i18n";
 import { activeDoc } from "../../state/documents";
 import { Checkbox, Field, Notice, Radio, RadioGroup, TaskPanel, TextInput } from "../../ui";
 import { fileName, runToolJob } from "../run";
@@ -20,7 +21,7 @@ export default function OfficePanel(p: { onClose: () => void }) {
     setError(null);
     const id = await runToolJob({
       command: "office_export_pdf",
-      args: officeArgs(d.path, format(), range, fail(), ct("convert.office.label")),
+      args: officeArgs(d.path, format(), range, fail(), ct("convert.office.label"), locale()),
       title: ct("convert.office.job", { name: fileName(d.path) }),
       started: ct("convert.office.started"),
     });

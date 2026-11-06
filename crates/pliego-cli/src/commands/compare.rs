@@ -49,7 +49,7 @@ pub fn compare(a: CompareArgs, json: bool) -> anyhow::Result<()> {
             std::fs::write(out, serde_json::to_string_pretty(&result)?)
                 .with_context(|| format!("no se pudo escribir {}", out.display()))?;
         } else {
-            pliego_compare::write_report(&result, out)
+            pliego_compare::write_report_in(&result, out, &ctx, pliego_core::Lang::from_env())
                 .with_context(|| format!("no se pudo escribir el informe {}", out.display()))?;
         }
     }

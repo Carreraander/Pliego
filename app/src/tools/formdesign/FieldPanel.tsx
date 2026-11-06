@@ -1,4 +1,5 @@
 import { createSignal, Show } from "solid-js";
+import { locale } from "../../i18n";
 import { Checkbox, Field, Notice, TaskPanel, TextInput } from "../../ui";
 import { addField, deleteField, updateField } from "./edit";
 import { freeName, nameError, newSpec, parseOptions, patchOf, type FieldInfo, type FieldKind } from "./geometry";
@@ -11,7 +12,7 @@ export default function FieldPanel(props: { editing: Editing; onClose: () => voi
   const cur: FieldInfo | null = p.mode === "edit" ? p.field : null;
   const kind: FieldKind = p.mode === "edit" ? p.field.kind : p.kind;
   const names = () => fieldList().map((f) => f.name);
-  const [name, setName] = createSignal(cur?.name ?? freeName(kind, names()));
+  const [name, setName] = createSignal(cur?.name ?? freeName(kind, names(), locale()));
   const [tooltip, setTooltip] = createSignal(cur?.tooltip ?? "");
   const [required, setRequired] = createSignal(cur?.required ?? false);
   const [readOnly, setReadOnly] = createSignal(cur?.read_only ?? false);
@@ -30,7 +31,7 @@ export default function FieldPanel(props: { editing: Editing; onClose: () => voi
         required: required(), read_only: readOnly(), tooltip: tooltip() || null, value: value() || null,
         ...(hasOptions ? { options: parseOptions(options()) } : {}),
         ...(kind === "radio_button" && exportValue() ? { export_value: exportValue() } : {}),
-      }))
+      }, locale()))
       : await updateField(p.doc, p.field.name, patchOf(p.field, { name: name().trim(), required: required(), read_only: readOnly(), tooltip: tooltip(), options: parseOptions(options()), value: value() }));
     if (ok) done();
   };

@@ -27,7 +27,7 @@ export default function ProtectPanel(p: { onClose?: () => void }) {
     if (!built.ok) { setError(pt(built.error)); return; }
     setError(null);
     const id = await runToolJob({
-      command: "protect_encrypt", args: { request: built.request },
+      command: "protect_encrypt", args: { request: { ...built.request, suffix: pt("protect.suffix") } },
       title: pt("protect.job", { name: baseName(doc.path) }), started: pt("protect.started"),
     });
     if (id !== null) p.onClose?.();
@@ -39,7 +39,7 @@ export default function ProtectPanel(p: { onClose?: () => void }) {
     if (!current()) { setError(pt("protect.err.current")); return; }
     setError(null);
     const id = await runToolJob({
-      command: "protect_remove", args: { path: doc.path, password: current() },
+      command: "protect_remove", args: { path: doc.path, password: current(), suffix: pt("protect.suffix.remove") },
       title: pt("protect.job.remove", { name: baseName(doc.path) }), started: pt("protect.started"),
     });
     if (id !== null) p.onClose?.();

@@ -61,6 +61,65 @@ fn page_words_have_boxes_inside_the_page() {
 }
 
 #[test]
+fn page_links_give_pages_with_their_position_and_addresses() {
+    use pliego_pdf::{DestinationKind, LinkTarget, NewLink, Rect, Size, WriteOptions};
+    let mut pdf = PdfDocument::new();
+    for _ in 0..2 {
+        pdf.new_page(Size::A4).unwrap();
+    }
+    let mut p = pdf.load_page(0).unwrap();
+    let links = [
+        NewLink {
+            bounds: Rect::new(50.0, 50.0, 150.0, 80.0),
+            target: LinkTarget::Uri("https://pdfpliego.com/".into()),
+        },
+        NewLink {
+            bounds: Rect::new(50.0, 100.0, 150.0, 130.0),
+            target: LinkTarget::Page {
+                page: 1,
+                kind: DestinationKind::XYZ {
+                    left: None,
+                    top: Some(700.0),
+                    zoom: None,
+                },
+            },
+        },
+        NewLink {
+            bounds: Rect::new(50.0, 150.0, 150.0, 180.0),
+            target: LinkTarget::Page {
+                page: 1,
+                kind: DestinationKind::Fit,
+            },
+        },
+    ];
+    p.add_links(&mut pdf, &links).unwrap();
+    let d = DefaultEngine
+        .open_bytes(&pdf.to_bytes(&WriteOptions::new()).unwrap(), None)
+        .unwrap();
+    let got = d.page_links(0).unwrap();
+    assert_eq!(got.len(), 3);
+    assert_eq!(
+        got[0].target,
+        PageLinkTarget::Uri {
+            uri: "https://pdfpliego.com/".into()
+        }
+    );
+    assert!(
+        (got[0].rect[0] - 50.0).abs() < 0.01 && (got[0].rect[3] - 80.0).abs() < 0.01,
+        "{:?}",
+        got[0].rect
+    );
+    // Un destino XYZ a 700 pt del borde inferior de una A4 (842 pt) queda a 142 pt del borde superior.
+    match &got[1].target {
+        PageLinkTarget::Page { page: 1, y: Some(y) } => assert!((y - 142.0).abs() < 0.5, "y = {y}"),
+        other => panic!("destino inesperado: {other:?}"),
+    }
+    assert_eq!(got[2].target, PageLinkTarget::Page { page: 1, y: None });
+    assert!(d.page_links(1).unwrap().is_empty());
+    assert!(d.page_links(9).is_err());
+}
+
+#[test]
 fn render_and_tiles_match() {
     let d = open();
     let full = d.render_page(0, 0.5).unwrap();

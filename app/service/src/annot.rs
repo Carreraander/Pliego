@@ -59,6 +59,18 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
     persist_with_retry(tmp, out)
 }
 
+/// Guardado que no toca lo que ya había: incremental si se puede, completo si no.
+fn save_preserving(doc: &PdfDocument, out: &Path) -> Result<()> {
+    if doc.can_be_saved_incrementally() {
+        let mut opts = WriteOptions::default();
+        opts.set_incremental(true);
+        if let Ok(bytes) = doc.to_bytes(&opts) {
+            return write_bytes(out, &bytes);
+        }
+    }
+    save(doc, out)
+}
+
 fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
     // En Windows un antivirus o el indexador pueden tener el archivo recién escrito unos milisegundos.
     let mut tmp = tmp;
@@ -220,6 +232,18 @@ impl Editor {
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
         self.edit_with(path, backup_suffix, PdfDocument::from_bytes, op, save)
+    }
+
+    /// Como [`Editor::edit_pdf`] pero conservando los bytes originales: añade los cambios al final del archivo
+    /// (guardado incremental), sin recomprimir ni reordenar nada. Si el documento no lo admite (reparado,
+    /// cifrado nuevo...) cae al guardado completo de siempre.
+    pub fn edit_pdf_preserving(
+        &self,
+        path: &Path,
+        backup_suffix: &str,
+        op: impl FnOnce(&mut PdfDocument) -> Result<()>,
+    ) -> Result<Vec<u8>> {
+        self.edit_with(path, backup_suffix, PdfDocument::from_bytes, op, save_preserving)
     }
 
     /// Igual que [`Editor::edit_pdf`] pero sobre un `pliego_document::Document` (lo que piden `pliego-edit`).

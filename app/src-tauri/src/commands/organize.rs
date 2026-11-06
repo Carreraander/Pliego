@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use pliego_app_service::isolated::JobSpec;
-use pliego_app_service::organize::{InsertSource, MergeOptions, NumberRequest, PageEdit, SplitRule};
+use pliego_app_service::organize::{self, InsertSource, MergeOptions, NumberRequest, PageEdit, SplitRule};
 use pliego_appdata::jobs::JobId;
 use tauri::State;
 

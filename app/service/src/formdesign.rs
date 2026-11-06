@@ -55,8 +55,14 @@ pub fn fields(path: &Path, password: Option<&str>) -> Result<Vec<FieldSpec>> {
 }
 
 /// Añade un campo (`spec.rect` en espacio de página) al propio PDF y devuelve el contenido nuevo.
-pub fn add(editor: &Editor, path: &Path, spec: &FieldSpec, backup_suffix: &str) -> Result<Vec<u8>> {
-    editor.edit_pdf(path, backup_suffix, |doc| {
+pub fn add(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    spec: &FieldSpec,
+    backup_suffix: &str,
+) -> Result<Vec<u8>> {
+    editor.edit_pdf(path, password, backup_suffix, |doc| {
         let mut spec = spec.clone();
         spec.rect = page_to_user(doc, spec.page, spec.rect)?;
         pliego_formdesign::add_field(doc, &spec)
@@ -64,8 +70,15 @@ pub fn add(editor: &Editor, path: &Path, spec: &FieldSpec, backup_suffix: &str) 
 }
 
 /// Cambia propiedades de un campo; `patch.rect`, si viene, está en espacio de página.
-pub fn update(editor: &Editor, path: &Path, name: &str, patch: &FieldPatch, backup_suffix: &str) -> Result<Vec<u8>> {
-    editor.edit_pdf(path, backup_suffix, |doc| {
+pub fn update(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    name: &str,
+    patch: &FieldPatch,
+    backup_suffix: &str,
+) -> Result<Vec<u8>> {
+    editor.edit_pdf(path, password, backup_suffix, |doc| {
         let mut patch = patch.clone();
         if let Some(r) = patch.rect {
             let page = pliego_formdesign::list_fields(doc)?
@@ -80,8 +93,16 @@ pub fn update(editor: &Editor, path: &Path, name: &str, patch: &FieldPatch, back
 }
 
 /// Borra un campo.
-pub fn delete(editor: &Editor, path: &Path, name: &str, backup_suffix: &str) -> Result<Vec<u8>> {
-    editor.edit_pdf(path, backup_suffix, |doc| pliego_formdesign::delete_field(doc, name))
+pub fn delete(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    name: &str,
+    backup_suffix: &str,
+) -> Result<Vec<u8>> {
+    editor.edit_pdf(path, password, backup_suffix, |doc| {
+        pliego_formdesign::delete_field(doc, name)
+    })
 }
 
 /// Detecta campos en todas las páginas de `path` y, si encuentra alguno, guarda una copia
@@ -149,6 +170,7 @@ mod tests {
         add(
             &ed,
             &p,
+            None,
             &text_field("nombre", [50.0, 100.0, 250.0, 120.0]),
             "copia de seguridad",
         )
@@ -172,13 +194,13 @@ mod tests {
         let p = dir.path().join("f.pdf");
         blank(&p);
         let ed = Editor::default();
-        add(&ed, &p, &text_field("a", [10.0, 10.0, 110.0, 30.0]), "c").unwrap();
+        add(&ed, &p, None, &text_field("a", [10.0, 10.0, 110.0, 30.0]), "c").unwrap();
         let patch = FieldPatch {
             required: Some(true),
             rect: Some([20.0, 40.0, 140.0, 60.0]),
             ..Default::default()
         };
-        update(&ed, &p, "a", &patch, "c").unwrap();
+        update(&ed, &p, None, "a", &patch, "c").unwrap();
         let f = &fields(&p, None).unwrap()[0];
         assert!(f.required);
         assert!(
@@ -186,7 +208,7 @@ mod tests {
             "{:?}",
             f.rect
         );
-        delete(&ed, &p, "a", "c").unwrap();
+        delete(&ed, &p, None, "a", "c").unwrap();
         assert!(fields(&p, None).unwrap().is_empty());
         assert_eq!(ed.undo_depth(&p), 3);
         ed.undo(&p).unwrap().unwrap();
@@ -200,11 +222,12 @@ mod tests {
         blank(&p);
         let before = std::fs::read(&p).unwrap();
         let ed = Editor::default();
-        assert!(delete(&ed, &p, "no-existe", "c").is_err());
+        assert!(delete(&ed, &p, None, "no-existe", "c").is_err());
         assert!(
             update(
                 &ed,
                 &p,
+                None,
                 "no-existe",
                 &FieldPatch {
                     rect: Some([0.0, 0.0, 9.0, 9.0]),

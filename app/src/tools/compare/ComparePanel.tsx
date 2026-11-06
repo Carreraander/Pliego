@@ -1,6 +1,7 @@
 import { createSignal, Show } from "solid-js";
 import { api } from "../../api";
 import { activeDoc } from "../../state/documents";
+import { unlockFile } from "../../state/unlock";
 import { Button, Checkbox, Field, Notice, TaskPanel, toast } from "../../ui";
 import { openSideBySide } from "./open";
 import { errorText, fileName, runToolJob } from "../run";
@@ -11,10 +12,19 @@ import { cmt } from "./strings";
 export default function ComparePanel(p: { onClose: () => void }) {
   const doc = activeDoc;
   const [other, setOther] = createSignal<string | null>(null);
+  const [passwordB, setPasswordB] = createSignal<string | null>(null);
   const [text, setText] = createSignal(true);
   const [visual, setVisual] = createSignal(true);
-  const pick = async () => { const f = await api.pickPdfFiles(cmt("compare.other")); if (f[0]) setOther(f[0]); };
-  const args = () => compareArgs({ path: doc()?.path ?? "", other: other(), text: text(), visual: visual(), label: cmt("compare.suffix") });
+  const pick = async () => {
+    const f = (await api.pickPdfFiles(cmt("compare.other")))[0];
+    if (!f) return;
+    // Si el otro PDF está protegido se pide su contraseña ahora, no cuando el trabajo ya ha empezado.
+    const u = await unlockFile(f);
+    if (!u.ok) { if (u.reason === "error") toast({ tone: "danger", text: u.message ?? "" }); return; }
+    setOther(f);
+    setPasswordB(u.password);
+  };
+  const args = () => compareArgs({ path: doc()?.path ?? "", other: other(), passwordB: passwordB(), text: text(), visual: visual(), label: cmt("compare.suffix") });
   const same = () => !!doc() && !!other() && sameFile(doc()!.path, other()!);
   const run = async () => {
     const a = args();
@@ -29,7 +39,7 @@ export default function ComparePanel(p: { onClose: () => void }) {
     if (!d || !other() || busy() || (!text() && !visual()) || same()) return;
     setBusy(true);
     try {
-      await openSideBySide({ doc: d, other: other()!, text: text(), visual: visual() });
+      await openSideBySide({ doc: d, other: other()!, passwordB: passwordB(), text: text(), visual: visual() });
       p.onClose();
     } catch (e) {
       toast({ tone: "danger", text: `${cmt("view.failed")}: ${errorText(e)}` });

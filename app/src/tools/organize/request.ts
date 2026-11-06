@@ -2,7 +2,7 @@ import { parsePageList } from "./ranges";
 
 const int = (s: string): number | null => { const n = Number(s); return s.trim() !== "" && Number.isInteger(n) ? n : null; };
 
-export interface InsertForm { path: string; total: number; kind: "blank" | "file"; count: string; source: string | null; pages: string; where: string; suffix: string }
+export interface InsertForm { path: string; total: number; kind: "blank" | "file"; count: string; source: string | null; sourcePassword?: string | null; pages: string; where: string; suffix: string }
 
 /** Argumentos de `insert_pages`, o `null` si el formulario no es válido. `where` es la página (desde 1) antes de la cual se inserta. */
 export function insertArgs(f: InsertForm): Record<string, unknown> | null {
@@ -14,7 +14,14 @@ export function insertArgs(f: InsertForm): Record<string, unknown> | null {
     return n !== null && n >= 1 && n <= 1000 ? { ...base, blank: n } : null;
   }
   const pages = parsePageList(f.pages);
-  return f.source && pages ? { ...base, sourcePath: f.source, pages } : null;
+  return f.source && pages ? { ...base, sourcePath: f.source, sourcePassword: f.sourcePassword ?? null, pages } : null;
+}
+
+/** Opciones de `merge_pdfs`: marcadores y la contraseña de cada archivo protegido (solo los que van en la lista). */
+export function mergeOptions(paths: string[], bookmarkPerFile: boolean, passwords: Record<string, string>): Record<string, unknown> {
+  const file_passwords: Record<string, string> = {};
+  for (const p of paths) if (passwords[p]) file_passwords[p] = passwords[p]!;
+  return { keep_bookmarks: true, bookmark_per_file: bookmarkPerFile, file_passwords };
 }
 
 export type NumberFormat = "number" | "of" | "word";

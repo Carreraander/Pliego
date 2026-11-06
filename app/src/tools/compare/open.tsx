@@ -10,7 +10,8 @@ import type { Comparison } from "./view";
 
 export const COMPARE_SCREEN = "compare.view";
 
-export interface SideBySideRequest { doc: OpenDoc; other: string; text: boolean; visual: boolean }
+/** `passwordB`: la del segundo archivo si está protegido (la pidió el panel al elegirlo). */
+export interface SideBySideRequest { doc: OpenDoc; other: string; passwordB?: string | null; text: boolean; visual: boolean }
 
 /** Pantalla de la vista lado a lado. Al cerrarse (por cualquier camino) suelta el segundo documento. */
 function Host(p: { comparison: Comparison; a: OpenDoc; b: SideDoc }) {
@@ -26,7 +27,7 @@ function Host(p: { comparison: Comparison; a: OpenDoc; b: SideDoc }) {
  */
 export async function openSideBySide(r: SideBySideRequest): Promise<void> {
   const passwordA = passwordFor(r.doc.path);
-  const passwordB = passwordFor(r.other);
+  const passwordB = r.passwordB ?? passwordFor(r.other);
   const comparison = await invoke<Comparison>("compare_view", { path: r.doc.path, other: r.other, passwordA, passwordB, text: r.text, visual: r.visual });
   const b = await openSideDoc(r.other, passwordB);
   openScreen({ id: COMPARE_SCREEN, title: () => cmt("view.tab"), component: () => <Host comparison={comparison} a={r.doc} b={b} /> });

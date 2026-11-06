@@ -28,4 +28,4 @@ mod xmp;
 pub use convert::convert;
 pub use icc::srgb_profile;
 pub use level::Level;
-pub use validate::{PdfaIssue, Rule, Validation, validate, validate_doc};
+pub use validate::{PdfaIssue, Rule, Validation, validate, validate_doc, validate_with_password};

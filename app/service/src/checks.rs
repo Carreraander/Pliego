@@ -17,8 +17,8 @@ pub fn accessibility(path: &Path, password: Option<&str>) -> Result<A11yReport> 
 }
 
 /// Validación PDF/A al `level` indicado.
-pub fn pdfa(path: &Path, level: Level) -> Result<Validation> {
-    pliego_pdfa::validate(path, level)
+pub fn pdfa(path: &Path, level: Level, password: Option<&str>) -> Result<Validation> {
+    pliego_pdfa::validate_with_password(path, level, password)
 }
 
 /// Comprobación previa con el perfil `basic`, `print` o `pdfx`.
@@ -59,7 +59,7 @@ mod tests {
     fn missing_file_is_an_error_in_all_checks() {
         let p = Path::new("no-existe.pdf");
         assert!(accessibility(p, None).is_err());
-        assert!(pdfa(p, Level::A2b).is_err());
+        assert!(pdfa(p, Level::A2b, None).is_err());
         assert!(preflight(p, "basic", None).is_err());
     }
 

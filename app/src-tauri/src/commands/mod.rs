@@ -44,6 +44,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         dialog::pick_image_file,
         dialog::pick_source_files,
         document::open_document,
+        document::password_status,
         document::close_document,
         document::document_info,
         document::page_sizes,

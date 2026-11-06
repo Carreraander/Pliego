@@ -3,6 +3,8 @@
 export interface CompareForm {
   path: string;
   other: string | null;
+  /** Contraseña del segundo archivo, si está protegido (la del abierto la añade `withPassword`). */
+  passwordB?: string | null;
   text: boolean;
   visual: boolean;
   label: string;
@@ -11,7 +13,7 @@ export interface CompareForm {
 /** Argumentos del comando, o `null` si falta el segundo documento, es el mismo que el abierto o no se compara nada. */
 export function compareArgs(f: CompareForm): Record<string, unknown> | null {
   if (!f.path || !f.other || sameFile(f.path, f.other) || (!f.text && !f.visual)) return null;
-  return { path: f.path, other: f.other, passwordA: null, passwordB: null, text: f.text, visual: f.visual, label: f.label };
+  return { path: f.path, other: f.other, passwordA: null, passwordB: f.passwordB ?? null, text: f.text, visual: f.visual, label: f.label };
 }
 
 const norm = (p: string): string => p.replace(/\\/g, "/").toLowerCase();

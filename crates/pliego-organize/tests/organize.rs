@@ -298,3 +298,62 @@ fn crop_margins_on_rotated_page_use_user_space() {
     // Visualmente girada: ancho y alto intercambiados.
     assert_eq!((b.width(), b.height()), (742.0, 495.0));
 }
+
+/// Cifra un PDF de prueba con AES-256 y `user` como contraseña de apertura.
+fn write_encrypted(dir: &std::path::Path, name: &str, label: &str, pages: usize, user: &str) -> std::path::PathBuf {
+    use pliego_pdf::{Encryption, PdfDocument, WriteOptions};
+    let doc = PdfDocument::from_bytes(&build_pdf(label, pages)).unwrap();
+    let mut o = WriteOptions::new();
+    o.set_encryption(Encryption::Aes256)
+        .set_user_password(user)
+        .set_owner_password("dueño");
+    let path = dir.join(name);
+    std::fs::write(&path, doc.to_bytes(&o).unwrap()).unwrap();
+    path
+}
+
+#[test]
+fn merge_uses_the_password_of_each_protected_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = write_encrypted(dir.path(), "a.pdf", "A", 2, "clave-a");
+    let b = write_encrypted(dir.path(), "b.pdf", "B", 1, "clave-b");
+    let c = write_pdf(dir.path(), "c.pdf", "C", 1);
+    let out = dir.path().join("m.pdf");
+    let ctx = JobContext::silent();
+    let inputs = [a.clone(), b.clone(), c];
+
+    // Sin contraseñas, o con una común que sirve solo a uno de los dos, no se puede.
+    assert!(matches!(
+        merge(&inputs, &out, &MergeOptions::default(), &ctx),
+        Err(pliego_core::Error::Password)
+    ));
+    let common = MergeOptions {
+        password: Some("clave-a".into()),
+        ..Default::default()
+    };
+    assert!(matches!(
+        merge(&inputs, &out, &common, &ctx),
+        Err(pliego_core::Error::Password)
+    ));
+    assert!(!out.exists());
+
+    // Una por archivo; la común sigue valiendo de reserva para los que no tienen la suya.
+    let each = MergeOptions {
+        password: Some("clave-b".into()),
+        file_passwords: [(a, "clave-a".to_string())].into(),
+        ..Default::default()
+    };
+    merge(&inputs, &out, &each, &ctx).unwrap();
+    assert_eq!(texts(&open_pdf(&out)), ["A p1", "A p2", "B p1", "C p1"]);
+}
+
+#[test]
+fn merge_options_read_the_per_file_passwords_from_json() {
+    let o: MergeOptions = serde_json::from_str(
+        r#"{"keep_bookmarks":true,"file_passwords":{"/tmp/a b.pdf":"uno","C:\\Docs\\b.pdf":"dos"}}"#,
+    )
+    .unwrap();
+    assert_eq!(o.file_passwords.len(), 2);
+    assert_eq!(o.file_passwords[std::path::Path::new("/tmp/a b.pdf")], "uno");
+    assert!(MergeOptions::default().file_passwords.is_empty());
+}

@@ -7,6 +7,7 @@ import { errorText, runToolJob } from "../run";
 import { baseName, buildRedactRequest, patternNames, REDACT_PATTERNS, type RedactForm } from "./request";
 import { areasOf, clearAreas, marking, matchesOf, setMarking, setMatches, type FoundMatch } from "./redactState";
 import { pt } from "./strings";
+import { withPassword } from "../../state/passwords";
 
 export default function RedactPanel(p: { onClose?: () => void }) {
   const [form, setForm] = createStore<RedactForm>({
@@ -30,7 +31,7 @@ export default function RedactPanel(p: { onClose?: () => void }) {
     if (form.useRegex && !form.regex.trim()) { setError(pt("redact.err.regex")); return; }
     setError(null); setBusy(true);
     try {
-      setMatches(d.id, await invoke<FoundMatch[]>("redact_find", { path: d.path, password: form.current || null, patterns: names }));
+      setMatches(d.id, await invoke<FoundMatch[]>("redact_find", withPassword({ path: d.path, password: form.current || null, patterns: names })));
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
 

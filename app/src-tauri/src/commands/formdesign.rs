@@ -15,10 +15,11 @@ use crate::commands::annot::AnnotEditState;
 
 /// Campos del formulario del PDF de `path`.
 #[tauri::command]
-pub async fn form_fields(path: String) -> ApiResult<Vec<FieldSpec>> {
-    let joined = tauri::async_runtime::spawn_blocking(move || formdesign::fields(&PathBuf::from(path), None))
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
+pub async fn form_fields(path: String, password: Option<String>) -> ApiResult<Vec<FieldSpec>> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || formdesign::fields(&PathBuf::from(path), password.as_deref()))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
     Ok(joined?)
 }
 
@@ -29,28 +30,31 @@ pub async fn form_add_field(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     spec: FieldSpec,
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = formdesign::add(&editor.0, &path, &spec, &suffix)?;
+    let bytes = formdesign::add(&editor.0, &path, password.as_deref(), &spec, &suffix)?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(editor.0.undo_depth(&path))
 }
 
 /// Cambia propiedades de un campo.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn form_update_field(
     state: State<'_, AppState>,
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     name: String,
     patch: FieldPatch,
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = formdesign::update(&editor.0, &path, &name, &patch, &suffix)?;
+    let bytes = formdesign::update(&editor.0, &path, password.as_deref(), &name, &patch, &suffix)?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(editor.0.undo_depth(&path))
 }
@@ -62,11 +66,12 @@ pub async fn form_delete_field(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     name: String,
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = formdesign::delete(&editor.0, &path, &name, &suffix)?;
+    let bytes = formdesign::delete(&editor.0, &path, password.as_deref(), &name, &suffix)?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(editor.0.undo_depth(&path))
 }

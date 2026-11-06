@@ -50,11 +50,12 @@ pub struct Edited {
 fn run(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     backup_suffix: &str,
     op: impl FnOnce(&mut Document) -> Result<Report>,
 ) -> Result<Edited> {
     let mut report = None;
-    let bytes = editor.edit_document(path, backup_suffix, |doc| {
+    let bytes = editor.edit_document(path, password, backup_suffix, |doc| {
         report = Some(op(doc)?);
         Ok(())
     })?;
@@ -70,6 +71,7 @@ fn run(
 pub fn replace(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     block: usize,
     text: &str,
@@ -82,15 +84,17 @@ pub fn replace(
     } else {
         FlowOptions::NONE
     };
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::replace_text_flow(doc, page, block, text, style, &opts)
     })
 }
 
 /// Añade texto nuevo dentro de `rect`.
+#[allow(clippy::too_many_arguments)]
 pub fn insert(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     rect: RectPts,
     text: &str,
@@ -100,7 +104,7 @@ pub fn insert(
     if text.trim().is_empty() {
         return Err(Error::InvalidInput("escribe el texto que quieres añadir".into()));
     }
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::insert_text(doc, page, rect, text, style)
     })
 }
@@ -117,45 +121,51 @@ fn read_image(image: &Path) -> Result<Vec<u8>> {
 }
 
 /// Inserta la imagen `image` ocupando `rect` de la página.
+#[allow(clippy::too_many_arguments)]
 pub fn image_insert(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     rect: RectPts,
     image: &Path,
     backup_suffix: &str,
 ) -> Result<Edited> {
     let data = read_image(image)?;
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::insert_image(doc, page, rect, &data)
     })
 }
 
 /// Sustituye la imagen `id` por `image` conservando su posición y tamaño.
+#[allow(clippy::too_many_arguments)]
 pub fn image_replace(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     id: usize,
     image: &Path,
     backup_suffix: &str,
 ) -> Result<Edited> {
     let data = read_image(image)?;
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::replace_image(doc, page, id, &data)
     })
 }
 
 /// Recorta la imagen `id` a `rect` (espacio de página).
+#[allow(clippy::too_many_arguments)]
 pub fn image_crop(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     id: usize,
     rect: RectPts,
     backup_suffix: &str,
 ) -> Result<Edited> {
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::crop_image(doc, page, id, rect)
     })
 }
@@ -169,67 +179,83 @@ pub enum ObjectKind {
 }
 
 /// Mueve, redimensiona y/o gira una imagen o un objeto vectorial.
+#[allow(clippy::too_many_arguments)]
 pub fn object_transform(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     kind: ObjectKind,
     id: usize,
     t: &Transform,
     backup_suffix: &str,
 ) -> Result<Edited> {
-    run(editor, path, backup_suffix, |doc| match kind {
+    run(editor, path, password, backup_suffix, |doc| match kind {
         ObjectKind::Image => pliego_edit::transform_object(doc, page, id, t),
         ObjectKind::Vector => pliego_edit::transform_vector(doc, page, id, t),
     })
 }
 
 /// Borra una imagen o un objeto vectorial.
+#[allow(clippy::too_many_arguments)]
 pub fn object_delete(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     kind: ObjectKind,
     id: usize,
     backup_suffix: &str,
 ) -> Result<Edited> {
-    run(editor, path, backup_suffix, |doc| match kind {
+    run(editor, path, password, backup_suffix, |doc| match kind {
         ObjectKind::Image => pliego_edit::delete_object(doc, page, id),
         ObjectKind::Vector => pliego_edit::delete_vector(doc, page, id),
     })
 }
 
 /// Crea un enlace en `rect`.
+#[allow(clippy::too_many_arguments)]
 pub fn link_add(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     rect: RectPts,
     target: &LinkTarget,
     backup_suffix: &str,
 ) -> Result<Edited> {
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::add_link(doc, page, rect, target)
     })
 }
 
 /// Cambia el destino del enlace `id`.
+#[allow(clippy::too_many_arguments)]
 pub fn link_update(
     editor: &Editor,
     path: &Path,
+    password: Option<&str>,
     page: usize,
     id: usize,
     target: &LinkTarget,
     backup_suffix: &str,
 ) -> Result<Edited> {
-    run(editor, path, backup_suffix, |doc| {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::update_link(doc, page, id, target)
     })
 }
 
 /// Borra el enlace `id`.
-pub fn link_delete(editor: &Editor, path: &Path, page: usize, id: usize, backup_suffix: &str) -> Result<Edited> {
-    run(editor, path, backup_suffix, |doc| {
+#[allow(clippy::too_many_arguments)]
+pub fn link_delete(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    page: usize,
+    id: usize,
+    backup_suffix: &str,
+) -> Result<Edited> {
+    run(editor, path, password, backup_suffix, |doc| {
         pliego_edit::delete_link(doc, page, id)
     })
 }
@@ -265,6 +291,7 @@ mod tests {
         let out = replace(
             &ed,
             &p,
+            None,
             0,
             0,
             "Texto nuevo del bloque",
@@ -292,6 +319,7 @@ mod tests {
         insert(
             &ed,
             &p,
+            None,
             0,
             [60.0, 600.0, 300.0, 640.0],
             "Añadido aquí",
@@ -302,8 +330,8 @@ mod tests {
         let texts: Vec<_> = blocks(&p, 0, None).unwrap().into_iter().map(|b| b.text).collect();
         assert!(texts.iter().any(|t| t.contains("Añadido")), "{texts:?}");
         let before = std::fs::read(&p).unwrap();
-        assert!(insert(&ed, &p, 0, [0.0, 0.0, 10.0, 10.0], "  ", &Style::default(), "c").is_err());
-        assert!(replace(&ed, &p, 0, 99, "x", &Style::default(), true, "c").is_err());
+        assert!(insert(&ed, &p, None, 0, [0.0, 0.0, 10.0, 10.0], "  ", &Style::default(), "c").is_err());
+        assert!(replace(&ed, &p, None, 0, 99, "x", &Style::default(), true, "c").is_err());
         assert_eq!(std::fs::read(&p).unwrap(), before);
         assert_eq!(ed.undo_depth(&p), 1);
     }
@@ -321,7 +349,7 @@ mod tests {
         let ed = Editor::default();
         let original = std::fs::read(&p).unwrap();
 
-        image_insert(&ed, &p, 0, [60.0, 400.0, 160.0, 460.0], &png, "c").unwrap();
+        image_insert(&ed, &p, None, 0, [60.0, 400.0, 160.0, 460.0], &png, "c").unwrap();
         let imgs = images(&p, 0, None).unwrap();
         assert_eq!(imgs.len(), 1, "{imgs:?}");
         let t = Transform {
@@ -329,29 +357,40 @@ mod tests {
             dy: 10.0,
             ..Transform::default()
         };
-        object_transform(&ed, &p, 0, ObjectKind::Image, imgs[0].id, &t, "c").unwrap();
+        object_transform(&ed, &p, None, 0, ObjectKind::Image, imgs[0].id, &t, "c").unwrap();
         let moved = &images(&p, 0, None).unwrap()[0];
         assert!((moved.bbox[0] - imgs[0].bbox[0] - 20.0).abs() < 0.1);
-        object_delete(&ed, &p, 0, ObjectKind::Image, moved.id, "c").unwrap();
+        object_delete(&ed, &p, None, 0, ObjectKind::Image, moved.id, "c").unwrap();
         assert!(images(&p, 0, None).unwrap().is_empty());
 
         let target = LinkTarget::Uri {
             uri: "https://pdfpliego.com".into(),
         };
-        link_add(&ed, &p, 0, [10.0, 10.0, 100.0, 30.0], &target, "c").unwrap();
+        link_add(&ed, &p, None, 0, [10.0, 10.0, 100.0, 30.0], &target, "c").unwrap();
         let l = links(&p, 0, None).unwrap();
         assert_eq!(l.len(), 1);
-        link_update(&ed, &p, 0, l[0].id, &LinkTarget::Page { page: 0 }, "c").unwrap();
+        link_update(&ed, &p, None, 0, l[0].id, &LinkTarget::Page { page: 0 }, "c").unwrap();
         assert_eq!(
             links(&p, 0, None).unwrap()[0].target,
             Some(LinkTarget::Page { page: 0 })
         );
-        link_delete(&ed, &p, 0, links(&p, 0, None).unwrap()[0].id, "c").unwrap();
+        link_delete(&ed, &p, None, 0, links(&p, 0, None).unwrap()[0].id, "c").unwrap();
         assert!(links(&p, 0, None).unwrap().is_empty());
 
         // Todo se deshace hasta el original.
         while ed.undo(&p).unwrap().is_some() {}
         assert_eq!(std::fs::read(&p).unwrap(), original);
-        assert!(image_insert(&ed, &p, 0, [0.0, 0.0, 10.0, 10.0], &dir.path().join("no.png"), "c").is_err());
+        assert!(
+            image_insert(
+                &ed,
+                &p,
+                None,
+                0,
+                [0.0, 0.0, 10.0, 10.0],
+                &dir.path().join("no.png"),
+                "c"
+            )
+            .is_err()
+        );
     }
 }

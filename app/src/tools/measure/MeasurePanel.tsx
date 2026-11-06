@@ -62,9 +62,9 @@ export default function MeasurePanel(p: { onClose: () => void }) {
     if (!doc || !scale || !ready()) return;
     setError(null);
     try {
-      const r = await invoke<{ measurement: Measurement; undo_depth: number }>("measure_save", {
+      const r = await invoke<{ measurement: Measurement; undo_depth: number }>("measure_save", withPassword({
         docId: doc.id, path: doc.path, page: marks().page, scale, points: marks().points, closed: closed(), suffix: mt("measure.backupSuffix"),
-      });
+      }));
       setUndoDepth(r.undo_depth);
       toast({ tone: "ok", text: mt("measure.saved", { text: r.measurement.text }) });
       setMarks({ page: marks().page, points: [] });

@@ -6,6 +6,7 @@ import { errorText } from "../run";
 import { api } from "../../api";
 import type { Box, ImageObj, LinkItem, LinkTarget, ObjectKind, TextBlock, TextStyle, Transform, VectorObj } from "./geometry";
 import { et } from "./text";
+import { withPassword } from "../../state/passwords";
 
 interface Outcome { undo_depth: number; warnings: string[] }
 
@@ -16,7 +17,7 @@ export function loadBlocks(doc: OpenDoc, page: number): Promise<TextBlock[]> {
   let hit = cache.get(key);
   if (!hit) {
     if (cache.size > 40) cache.clear();
-    hit = invoke<TextBlock[]>("edit_text_blocks", { path: doc.path, page }).catch((e) => { cache.delete(key); toast({ tone: "danger", text: errorText(e) }); return []; });
+    hit = invoke<TextBlock[]>("edit_text_blocks", withPassword({ path: doc.path, page })).catch((e) => { cache.delete(key); toast({ tone: "danger", text: errorText(e) }); return []; });
     cache.set(key, hit);
   }
   return hit;
@@ -30,7 +31,7 @@ function cached<T>(command: string) {
     let hit = cache.get(key);
     if (!hit) {
       if (cache.size > 40) cache.clear();
-      hit = invoke<T[]>(command, { path: doc.path, page }).catch((e) => { cache.delete(key); toast({ tone: "danger", text: errorText(e) }); return []; });
+      hit = invoke<T[]>(command, withPassword({ path: doc.path, page })).catch((e) => { cache.delete(key); toast({ tone: "danger", text: errorText(e) }); return []; });
       cache.set(key, hit);
     }
     return hit;
@@ -43,7 +44,7 @@ export const loadLinks = cached<LinkItem>("edit_links");
 async function run(command: string, args: Record<string, unknown>): Promise<boolean> {
   try {
     // El servicio guarda la copia de seguridad la primera vez y recarga el visor; la revisión nueva invalida la caché.
-    const out = await invoke<Outcome>(command, { ...args, suffix: et("edit.backupSuffix") });
+    const out = await invoke<Outcome>(command, withPassword({ ...args, suffix: et("edit.backupSuffix") }));
     setUndoDepth(out.undo_depth);
     toast({ tone: "ok", text: et("edit.done") });
     for (const w of out.warnings) toast({ tone: "warn", text: et("edit.warning", { text: w }) });

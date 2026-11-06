@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { createSignal } from "solid-js";
 import { activeDoc, type OpenDoc } from "../../state/documents";
 import { loadSignature, type Signature } from "./signature";
+import { withPassword } from "../../state/passwords";
 
 /** Reflejo de `pliego_forms::FieldInfo` (lo que se usa). */
 export interface FormField {
@@ -18,7 +19,7 @@ export interface FormField {
 /** Campos del documento activo; se vuelven a leer cuando cambia su revisión (cada relleno recarga el visor). */
 export const [fields, { refetch: refetchFields }] = createResource(
   () => { const d = activeDoc(); return d ? ({ path: d.path, rev: d.revision } satisfies { path: string; rev: number }) : null; },
-  (k) => invoke<FormField[]>("forms_fields", { path: k.path }).catch(() => [] as FormField[]),
+  (k) => invoke<FormField[]>("forms_fields", withPassword({ path: k.path })).catch(() => [] as FormField[]),
 );
 
 export const fieldsOnPage = (doc: OpenDoc, page: number): FormField[] =>

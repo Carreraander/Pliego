@@ -47,6 +47,7 @@ async function installBackend(page: Page) {
           case "document_info": return { page_count: 2, title: "Contrato", author: null, is_pdf: true };
           case "page_sizes": return Array.from({ length: args.docId === 1 ? 2 : 3 }, () => size);
           case "pick_pdf_files": return [other];
+          case "password_status": return "open";
           case "compare_view": return comparison;
           case "plugin:event|listen": return nextId++;
           case "outline": case "recents_list": return [];

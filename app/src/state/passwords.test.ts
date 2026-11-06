@@ -33,6 +33,13 @@ describe("contraseñas de documentos abiertos", () => {
     expect(a.passwordB).toBeNull();
   });
 
+  it("completa los comandos de edición sobre el propio PDF (comentar, rellenar, diseñar, medir, editar texto)", () => {
+    rememberPassword("C:\\docs\\a.pdf", "abre");
+    for (const extra of [{ spec: {} }, { values: {} }, { name: "campo", patch: {} }, { page: 0, scale: {}, points: [] }, { page: 0, block: 1, text: "x" }]) {
+      expect(withPassword({ docId: 1, path: "C:\\docs\\a.pdf", ...extra }).password).toBe("abre");
+    }
+  });
+
   it("no añade claves ajenas a comandos que no las tienen", () => {
     rememberPassword("C:\\docs\\a.pdf", "abre");
     expect("passwordA" in withPassword({ path: "C:\\docs\\a.pdf" })).toBe(false);

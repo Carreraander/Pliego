@@ -32,6 +32,9 @@ pub struct OcrRequest {
     pub dpi: u32,
     /// Etiqueta del nombre de la copia, ya traducida («OCR»).
     pub suffix: String,
+    /// Contraseña del PDF si está protegido. Va al proceso hijo por la variable de entorno `PLIEGO_PASSWORD`, nunca
+    /// por la línea de órdenes (que otros procesos pueden leer). La copia conserva la protección.
+    pub password: Option<String>,
 }
 
 impl Default for OcrRequest {
@@ -47,6 +50,7 @@ impl Default for OcrRequest {
             denoise: false,
             dpi: 300,
             suffix: "OCR".into(),
+            password: None,
         }
     }
 }
@@ -125,12 +129,21 @@ pub fn parse_progress(line: &str) -> Option<(u64, u64, &str)> {
     Some((done.trim().parse().ok()?, total.trim().parse().ok()?, message.trim()))
 }
 
-fn command(cli: &Path, args: &[OsString]) -> Command {
+/// Variable de entorno por la que la CLI recibe la contraseña del PDF.
+pub const PASSWORD_ENV: &str = "PLIEGO_PASSWORD";
+
+fn command(cli: &Path, args: &[OsString], password: Option<&str>) -> Command {
     let mut c = Command::new(cli);
     c.args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    c.env_remove("RUST_BACKTRACE"); // las trazas de la CLI no son un mensaje para la persona
+    // Siempre se fija o se quita, para que una variable del entorno de la persona no cambie el resultado.
+    match password.filter(|p| !p.is_empty()) {
+        Some(p) => c.env(PASSWORD_ENV, p),
+        None => c.env_remove(PASSWORD_ENV),
+    };
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -141,7 +154,17 @@ fn command(cli: &Path, args: &[OsString]) -> Command {
 
 /// Ejecuta la CLI, reenvía su progreso a `ctx` y devuelve su salida estándar. Si `ctx` cancela, mata al hijo.
 pub fn run_cli(cli: &Path, args: &[OsString], ctx: &JobContext) -> Result<String> {
-    let mut child: Child = command(cli, args).spawn().map_err(|e| Error::io_at(cli, e))?;
+    run_cli_with_password(cli, args, None, ctx)
+}
+
+/// Como [`run_cli`], con la contraseña del PDF en `PLIEGO_PASSWORD` del proceso hijo.
+pub fn run_cli_with_password(
+    cli: &Path,
+    args: &[OsString],
+    password: Option<&str>,
+    ctx: &JobContext,
+) -> Result<String> {
+    let mut child: Child = command(cli, args, password).spawn().map_err(|e| Error::io_at(cli, e))?;
     let mut stdout = child.stdout.take().expect("stdout canalizada");
     let stderr = child.stderr.take().expect("stderr canalizada");
     let reader = std::thread::spawn(move || {
@@ -159,7 +182,8 @@ pub fn run_cli(cli: &Path, args: &[OsString], ctx: &JobContext) -> Result<String
                 let _ = child.wait();
                 return Err(e);
             }
-        } else if !line.trim().is_empty() {
+        } else if !line.trim().is_empty() && !last_error.starts_with("Error:") {
+            // El mensaje es la línea «Error: …»; lo que venga después (trazas) no lo sustituye.
             last_error = line;
         }
     }
@@ -186,7 +210,7 @@ pub fn run_cli(cli: &Path, args: &[OsString], ctx: &JobContext) -> Result<String
 pub fn ocr_copy(cli: &Path, req: &OcrRequest, ctx: &JobContext) -> Result<Report> {
     let out = unique_sibling(&req.path, &req.suffix, "pdf");
     let args = ocr_args(req, &out)?;
-    let result = run_cli(cli, &args, ctx);
+    let result = run_cli_with_password(cli, &args, req.password.as_deref(), ctx);
     match result {
         Ok(stdout) => {
             let mut report: Report = serde_json::from_str(stdout.trim())
@@ -328,6 +352,38 @@ mod tests {
         let e = ocr_copy(&cli, &r, &JobContext::silent()).unwrap_err();
         assert!(e.to_string().contains("no hay modelos de idioma"), "{e}");
         assert!(!dir.path().join("scan (OCR).pdf").exists());
+    }
+
+    #[test]
+    fn the_password_goes_in_the_environment_not_in_the_arguments() {
+        let _serial = crate::test_support::serial(); // escribir y ejecutar un script a la vez (ETXTBSY)
+        let dir = tempfile::tempdir().unwrap();
+        // Informa de lo que recibió: el entorno (PLIEGO_PASSWORD) y si algún argumento lleva la contraseña.
+        let cli = fake_cli(
+            dir.path(),
+            r#"case "$*" in *s3creta*) leak=si;; *) leak=no;; esac
+echo "{\"outputs\":[],\"warnings\":[],\"summary\":\"pw=$PLIEGO_PASSWORD fuga=$leak\"}""#,
+        );
+        let mut r = req(dir.path());
+        r.password = Some("s3creta".into());
+        let out = ocr_copy(&cli, &r, &JobContext::silent()).unwrap();
+        assert_eq!(out.summary, "pw=s3creta fuga=no");
+        // Sin contraseña se quita la variable del hijo: no hereda una del entorno de la persona.
+        let c = command(&cli, &[], None);
+        let envs: Vec<_> = c.get_envs().filter(|(k, _)| *k == PASSWORD_ENV).collect();
+        assert_eq!(envs, [(std::ffi::OsStr::new(PASSWORD_ENV), None)]);
+    }
+
+    #[test]
+    fn the_error_message_is_the_error_line_not_the_trace() {
+        let _serial = crate::test_support::serial(); // escribir y ejecutar un script a la vez (ETXTBSY)
+        let dir = tempfile::tempdir().unwrap();
+        let cli = fake_cli(
+            dir.path(),
+            r#"echo "Error: el documento necesita contraseña" >&2; echo "Stack backtrace:" >&2; echo "  20: _start" >&2; exit 1"#,
+        );
+        let e = ocr_copy(&cli, &req(dir.path()), &JobContext::silent()).unwrap_err();
+        assert_eq!(e.to_string(), "el documento necesita contraseña");
     }
 
     #[test]

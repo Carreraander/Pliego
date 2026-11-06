@@ -54,6 +54,7 @@ pub async fn edit_text_replace(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     block: usize,
     text: String,
@@ -65,6 +66,7 @@ pub async fn edit_text_replace(
     let edited = pageedit::replace(
         &editor.0,
         &path,
+        password.as_deref(),
         page,
         block,
         &text,
@@ -83,6 +85,7 @@ pub async fn edit_text_insert(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     rect: RectPts,
     text: String,
@@ -90,34 +93,47 @@ pub async fn edit_text_insert(
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::insert(&editor.0, &path, page, rect, &text, &style, &suffix)?;
+    let edited = pageedit::insert(
+        &editor.0,
+        &path,
+        password.as_deref(),
+        page,
+        rect,
+        &text,
+        &style,
+        &suffix,
+    )?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
 /// Imágenes colocadas en la página `page` (desde 0).
 #[tauri::command]
-pub async fn edit_images(path: String, page: usize) -> ApiResult<Vec<ImageObject>> {
-    let joined = tauri::async_runtime::spawn_blocking(move || pageedit::images(&PathBuf::from(path), page, None))
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
+pub async fn edit_images(path: String, page: usize, password: Option<String>) -> ApiResult<Vec<ImageObject>> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || pageedit::images(&PathBuf::from(path), page, password.as_deref()))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
     Ok(joined?)
 }
 
 /// Objetos vectoriales de la página `page` (desde 0).
 #[tauri::command]
-pub async fn edit_vectors(path: String, page: usize) -> ApiResult<Vec<VectorObject>> {
-    let joined = tauri::async_runtime::spawn_blocking(move || pageedit::vectors(&PathBuf::from(path), page, None))
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
+pub async fn edit_vectors(path: String, page: usize, password: Option<String>) -> ApiResult<Vec<VectorObject>> {
+    let joined = tauri::async_runtime::spawn_blocking(move || {
+        pageedit::vectors(&PathBuf::from(path), page, password.as_deref())
+    })
+    .await
+    .map_err(|e| Error::Other(e.to_string()))?;
     Ok(joined?)
 }
 
 /// Enlaces de la página `page` (desde 0).
 #[tauri::command]
-pub async fn edit_links(path: String, page: usize) -> ApiResult<Vec<LinkItem>> {
-    let joined = tauri::async_runtime::spawn_blocking(move || pageedit::links(&PathBuf::from(path), page, None))
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
+pub async fn edit_links(path: String, page: usize, password: Option<String>) -> ApiResult<Vec<LinkItem>> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || pageedit::links(&PathBuf::from(path), page, password.as_deref()))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
     Ok(joined?)
 }
 
@@ -129,13 +145,22 @@ pub async fn edit_image_insert(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     rect: RectPts,
     image: String,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::image_insert(&editor.0, &path, page, rect, &PathBuf::from(image), &suffix)?;
+    let edited = pageedit::image_insert(
+        &editor.0,
+        &path,
+        password.as_deref(),
+        page,
+        rect,
+        &PathBuf::from(image),
+        &suffix,
+    )?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -147,13 +172,22 @@ pub async fn edit_image_replace(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     id: usize,
     image: String,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::image_replace(&editor.0, &path, page, id, &PathBuf::from(image), &suffix)?;
+    let edited = pageedit::image_replace(
+        &editor.0,
+        &path,
+        password.as_deref(),
+        page,
+        id,
+        &PathBuf::from(image),
+        &suffix,
+    )?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -165,13 +199,14 @@ pub async fn edit_image_crop(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     id: usize,
     rect: RectPts,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::image_crop(&editor.0, &path, page, id, rect, &suffix)?;
+    let edited = pageedit::image_crop(&editor.0, &path, password.as_deref(), page, id, rect, &suffix)?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -183,6 +218,7 @@ pub async fn edit_object_transform(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     kind: ObjectKind,
     id: usize,
@@ -190,7 +226,16 @@ pub async fn edit_object_transform(
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::object_transform(&editor.0, &path, page, kind, id, &transform, &suffix)?;
+    let edited = pageedit::object_transform(
+        &editor.0,
+        &path,
+        password.as_deref(),
+        page,
+        kind,
+        id,
+        &transform,
+        &suffix,
+    )?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -202,13 +247,14 @@ pub async fn edit_object_delete(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     kind: ObjectKind,
     id: usize,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::object_delete(&editor.0, &path, page, kind, id, &suffix)?;
+    let edited = pageedit::object_delete(&editor.0, &path, password.as_deref(), page, kind, id, &suffix)?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -220,13 +266,14 @@ pub async fn edit_link_add(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     rect: RectPts,
     target: LinkTarget,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::link_add(&editor.0, &path, page, rect, &target, &suffix)?;
+    let edited = pageedit::link_add(&editor.0, &path, password.as_deref(), page, rect, &target, &suffix)?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -238,13 +285,14 @@ pub async fn edit_link_update(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     id: usize,
     target: LinkTarget,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::link_update(&editor.0, &path, page, id, &target, &suffix)?;
+    let edited = pageedit::link_update(&editor.0, &path, password.as_deref(), page, id, &target, &suffix)?;
     finish(&state, &editor, doc_id, &path, edited)
 }
 
@@ -256,11 +304,12 @@ pub async fn edit_link_delete(
     editor: State<'_, AnnotEditState>,
     doc_id: DocId,
     path: String,
+    password: Option<String>,
     page: usize,
     id: usize,
     suffix: String,
 ) -> ApiResult<EditOutcome> {
     let path = PathBuf::from(path);
-    let edited = pageedit::link_delete(&editor.0, &path, page, id, &suffix)?;
+    let edited = pageedit::link_delete(&editor.0, &path, password.as_deref(), page, id, &suffix)?;
     finish(&state, &editor, doc_id, &path, edited)
 }

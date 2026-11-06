@@ -1,6 +1,6 @@
 # PDF grandes: banco de memoria y rendimiento
 
-Hueco P1 #11 de la auditoría del 2026-11-06 («PDF grandes»). Flujo [W45](../handoff/flujos/w45.md). Cómo medir, qué se exige y qué cifras hay.
+Hueco P1 #11 de la auditoría del 2026-11-06 («PDF grandes»). Flujo [W46](../handoff/flujos/w46.md). Cómo medir, qué se exige y qué cifras hay.
 
 ## Qué se exige
 
@@ -29,7 +29,7 @@ PLIEGO_BIG_PDF=/tmp/big/scan-1gb.pdf MALLOC_MMAP_THRESHOLD_=1048576 MALLOC_TRIM_
 
 # acr12 / pc (Windows): todo junto, en D:, con turno
 . .\tools\acr12-env.ps1
-.\tools\acr12-turno.ps1 -Flujo w45 -- .\tools\bench-pdf-grandes.ps1
+.\tools\acr12-turno.ps1 -Flujo w46 -- .\tools\bench-pdf-grandes.ps1
 ```
 
 `big-bench run` pasa por `WorkerEngine` como la app: abrir, páginas e info, marcadores, primera tesela, 40 saltos repartidos por el documento,
@@ -77,6 +77,6 @@ Pendiente de la pasada de gestión (`bench-pdf-grandes.ps1`). Añadir aquí la t
   unos segundos (≈ tamaño del archivo). Por eso el máximo es 1,7 GB (`VIEW_ONLY_MAX_BYTES`, bajo el límite de 2 GB del worker); PDFium no abre
   archivos de 4 GiB o más en Windows.
 - **Editar un PDF de 1 GB en el propio archivo** reescribe el PDF entero (lopdf): pico de varios GB de memoria durante el guardado, de segundos.
-  La edición **incremental** (añadir solo lo cambiado) sin cargar los flujos grandes lo bajaría a decenas de MB; es la mejora natural (ver W45).
+  La edición **incremental** (añadir solo lo cambiado) sin cargar los flujos grandes lo bajaría a decenas de MB; es la mejora natural (ver W46).
 - **Capas en PDF grandes:** mostrar u ocultar una capa necesita el documento entero; solo se admite hasta 256 MB (`LAYER_EDIT_MAX_BYTES`).
 - El ejecutable `pliego` (CLI) abre los PDF enteros: sus pasos no usan el modo «solo para ver».

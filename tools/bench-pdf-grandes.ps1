@@ -14,7 +14,7 @@
 
   Uso (en acr12, todo en D: y con el turno):
       . .\tools\acr12-env.ps1
-      .\tools\acr12-turno.ps1 -Flujo w45 -- .\tools\bench-pdf-grandes.ps1
+      .\tools\acr12-turno.ps1 -Flujo w46 -- .\tools\bench-pdf-grandes.ps1
       .\tools\bench-pdf-grandes.ps1 -SinEdicion           # solo lectura (más rápido)
   Los PDF se generan en -Dir (por defecto D:\dev-cache\big; hacen falta ~3 GB libres) y se reutilizan.
   Resultados: docs\qa\pdf-grandes\<fecha>-<equipo>-<caso>.json.

@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://pdfpliego.com/</loc><lastmod>2026-11-04</lastmod></url>
-  <url><loc>https://pdfpliego.com/descargar/</loc><lastmod>2026-11-04</lastmod></url>
-  <url><loc>https://pdfpliego.com/privacidad/</loc><lastmod>2026-11-04</lastmod></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>https://pdfpliego.com/</loc><lastmod>2026-11-05</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pdfpliego.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/"/></url>
+  <url><loc>https://pdfpliego.com/es/</loc><lastmod>2026-11-05</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pdfpliego.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/"/></url>
+  <url><loc>https://pdfpliego.com/download/</loc><lastmod>2026-11-05</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pdfpliego.com/download/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/descargar/"/></url>
+  <url><loc>https://pdfpliego.com/es/descargar/</loc><lastmod>2026-11-05</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pdfpliego.com/download/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/descargar/"/></url>
+  <url><loc>https://pdfpliego.com/privacy/</loc><lastmod>2026-11-05</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pdfpliego.com/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/privacidad/"/></url>
+  <url><loc>https://pdfpliego.com/es/privacidad/</loc><lastmod>2026-11-05</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pdfpliego.com/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/privacidad/"/></url>
 </urlset>

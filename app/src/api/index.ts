@@ -36,6 +36,13 @@ export interface SearchHit {
   /** Cuadriláteros [ulx, uly, urx, ury, llx, lly, lrx, lry] en puntos PDF. */
   quads: number[][];
 }
+/** Palabra de una página con su caja `[x0, y0, x1, y1]` en puntos de página (origen arriba a la izquierda), en orden de lectura. */
+export interface PageWord {
+  text: string;
+  rect: [number, number, number, number];
+  block: number;
+  line: number;
+}
 export interface DocumentChanged {
   doc_id: DocId;
   revision: number;
@@ -48,6 +55,8 @@ export const api = {
   pageSizes: (docId: DocId) => invoke<PageSize[]>("page_sizes", { docId }),
   outline: (docId: DocId) => invoke<OutlineItem[]>("outline", { docId }),
   pageText: (docId: DocId, page: number) => invoke<string>("page_text", { docId, page }),
+  /** Palabras con caja de una página (capa de texto del visor). */
+  pageWords: (docId: DocId, page: number) => invoke<PageWord[]>("page_words", { docId, page }),
   search: (docId: DocId, query: string, maxResults?: number) =>
     invoke<SearchHit[]>("search", { docId, query, maxResults }),
   startupFiles: () => invoke<string[]>("startup_files"),

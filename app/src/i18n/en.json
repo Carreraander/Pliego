@@ -37,5 +37,14 @@
   "dialog.filter.image": "Image",
   "dialog.filter.source": "Images, books, text and Office",
   "dialog.filter.key": "Certificate",
-  "dialog.filter.action": "Action"
+  "dialog.filter.action": "Action",
+  "text.copy": "Copy",
+  "text.selectAll": "Select all",
+  "text.copied": "Text copied",
+  "text.copyFailed": "Could not copy to the clipboard",
+  "text.nothingSelected": "No text selected",
+  "text.menu": "Document text",
+  "viewer.label": "Document: {title}",
+  "viewer.page": "Page {page} of {total}",
+  "viewer.pageNoText": "Page {page} of {total}. No text to read or select; if it is a scan, OCR adds it."
 }

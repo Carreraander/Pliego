@@ -29,8 +29,11 @@ use std::path::Path;
 
 pub use devices::{Paper, PrinterCaps, PrinterEntry};
 pub use job::{JobSummary, PrintTarget, run_job};
-pub use layout::{CopiesPlan, Placement, SheetMetrics, choose_landscape, place, plan_copies};
-pub use options::{Duplex, Orientation, PrintOptions, ScaleMode, Subset};
+pub use layout::{
+    CopiesPlan, Placement, SheetMetrics, SheetPlan, Slot, choose_landscape, place, plan_copies, plan_copies_for,
+    plan_sheets, sheet_groups,
+};
+pub use options::{Booklet, Duplex, NupOrder, Orientation, PrintOptions, ScaleMode, Subset};
 
 use pliego_core::{JobContext, Report, Result};
 

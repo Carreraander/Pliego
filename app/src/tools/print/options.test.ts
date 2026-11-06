@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  defaultOptions, landscapeSheet, loadRemembered, pagesExpression, paperSizeMm, rangeError, remember, selectedPages, thumbZoom,
+  defaultOptions, isMultiUp, landscapeSheet, loadRemembered, pagesExpression, paperSizeMm, rangeError, remember, selectedPages,
+  sheetLayout, thumbZoom, withSheetLayout,
 } from "./options";
 
 describe("imprimir: páginas", () => {
@@ -65,7 +66,7 @@ describe("imprimir: lo recordado", () => {
     remember({ ...defaultOptions(), printer: "HP", scale: "actual", copies: 5, pages: "1-2", grayscale: true }, s);
     expect(loadRemembered(s)).toEqual({
       printer: "HP", orientation: "auto", autoRotate: true, scale: "actual", scalePercent: 100, duplex: "off", grayscale: true,
-      comments: true, collate: true,
+      comments: true, collate: true, nupOrder: "horizontal", borders: false,
     });
   });
 
@@ -73,5 +74,25 @@ describe("imprimir: lo recordado", () => {
     expect(loadRemembered({ getItem: () => "{no es json" })).toEqual({});
     expect(loadRemembered({ getItem: () => { throw new Error("bloqueado"); } })).toEqual({});
     expect(() => remember(defaultOptions(), { setItem: () => { throw new Error("lleno"); } })).not.toThrow();
+  });
+});
+
+describe("imprimir: reparto en las hojas", () => {
+  it("traduce el reparto elegido a opciones y vuelta", () => {
+    const base = defaultOptions();
+    expect(sheetLayout(base)).toBe("1");
+    const four = { ...base, ...withSheetLayout("4") };
+    expect(four).toMatchObject({ pagesPerSheet: 4, booklet: "off" });
+    expect(sheetLayout(four)).toBe("4");
+    const booklet = { ...four, subset: "odd" as const, ...withSheetLayout("booklet") };
+    expect(booklet).toMatchObject({ pagesPerSheet: 1, booklet: "both", subset: "all" });
+    expect(sheetLayout(booklet)).toBe("booklet");
+    expect(withSheetLayout("booklet", "frontOnly").booklet).toBe("frontOnly");
+  });
+
+  it("solo con varias por hoja o folleto se deja de elegir la escala", () => {
+    expect(isMultiUp(defaultOptions())).toBe(false);
+    expect(isMultiUp({ ...defaultOptions(), pagesPerSheet: 2 })).toBe(true);
+    expect(isMultiUp({ ...defaultOptions(), booklet: "backOnly" })).toBe(true);
   });
 });

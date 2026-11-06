@@ -1,10 +1,11 @@
 /** Lógica pura del panel Imprimir: valores por defecto, texto de páginas y cuentas del pie. Sin DOM, para probarla. */
-import type { Orientation, PrintOptions } from "./api";
+import type { Booklet, Orientation, PrintOptions } from "./api";
 
 export function defaultOptions(): PrintOptions {
   return {
     printer: null, pages: "all", subset: "all", reverse: false, copies: 1, collate: true, orientation: "auto",
     autoRotate: true, scale: "fit", scalePercent: 100, duplex: "off", grayscale: false, comments: true, paper: null, output: null,
+    pagesPerSheet: 1, nupOrder: "horizontal", borders: false, booklet: "off", bookletRtl: false,
   };
 }
 
@@ -51,6 +52,26 @@ export function selectedPages(expression: string, subset: PrintOptions["subset"]
   return reverse ? pages.reverse() : pages;
 }
 
+/** Cómo se reparte el documento en las hojas: una página por hoja, varias o folleto. */
+export type SheetLayout = "1" | "2" | "4" | "6" | "9" | "16" | "booklet";
+
+export const SHEET_LAYOUTS: SheetLayout[] = ["1", "2", "4", "6", "9", "16", "booklet"];
+
+export function sheetLayout(o: Pick<PrintOptions, "pagesPerSheet" | "booklet">): SheetLayout {
+  return o.booklet !== "off" ? "booklet" : (String(o.pagesPerSheet) as SheetLayout);
+}
+
+/** Opciones que cambian al elegir un reparto. El folleto empieza a doble cara y no combina con pares/impares. */
+export function withSheetLayout(layout: SheetLayout, booklet: Booklet = "both"): Partial<PrintOptions> {
+  if (layout === "booklet") return { pagesPerSheet: 1, booklet, subset: "all" };
+  return { pagesPerSheet: Number(layout), booklet: "off" };
+}
+
+/** Con varias páginas por hoja (o folleto) la escala no se elige: cada página se ajusta a su celda. */
+export function isMultiUp(o: Pick<PrintOptions, "pagesPerSheet" | "booklet">): boolean {
+  return o.pagesPerSheet > 1 || o.booklet !== "off";
+}
+
 /** La hoja de la vista previa es apaisada: la elegida, o la de la primera página que sale (igual que al imprimir). */
 export function landscapeSheet(orientation: Orientation, first: { width: number; height: number } | undefined): boolean {
   if (orientation === "portrait") return false;
@@ -77,7 +98,7 @@ export function loadRemembered(storage: Pick<Storage, "getItem"> | undefined = s
     const raw = storage?.getItem(KEY);
     if (!raw) return {};
     const v = JSON.parse(raw) as Partial<PrintOptions>;
-    const keep: (keyof PrintOptions)[] = ["printer", "orientation", "autoRotate", "scale", "scalePercent", "duplex", "grayscale", "comments", "collate"];
+    const keep: (keyof PrintOptions)[] = ["printer", "orientation", "autoRotate", "scale", "scalePercent", "duplex", "grayscale", "comments", "collate", "nupOrder", "borders"];
     return Object.fromEntries(Object.entries(v).filter(([k]) => keep.includes(k as keyof PrintOptions))) as Partial<PrintOptions>;
   } catch {
     return {};

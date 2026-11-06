@@ -119,7 +119,7 @@ e2e_documento_abierto`.
 | `access.validate-pdfa` | 🟢 | A + E2E: validación PDF/A-2b | — |
 | `print.preview` Vista previa de salida | 🟡 | A: `outputpreview.rs` | V |
 | `print.preflight` Comprobación previa | 🟢 | A + E2E: perfil `basic` | — |
-| `print.document` Imprimir (Ctrl+P) | 🟡 | A: opciones, páginas, maquetación, copias, bucle, CLI y servicio (`pliego-printer`, `print::`); compila para Windows | W: `tools\validar-impresion.ps1` (Microsoft Print to PDF) · V: vista previa del panel y papel real (`gestion/revision-manual-ander.md`) |
+| `print.document` Imprimir (Ctrl+P) | 🟡 | A: opciones, páginas, varias por hoja y folleto, maquetación, copias, bucle, CLI y servicio (`pliego-printer`, `print::`); compila para Windows | W: `tools\validar-impresion.ps1` (Microsoft Print to PDF) · V: vista previa del panel y papel real (`gestion/revision-manual-ander.md`) |
 | `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs`; E2E2: acción «borrar página 1» sobre un PDF abierto, salidas con una página menos | W |
 | `batch.index` Índice de búsqueda | 🟢 | A + E2E: indexa una carpeta y encuentra «Pliego» | índice de 1.000 PDF en W |
 | `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer; Playwright `medir-presentacion.spec.ts`: calibrar (200 px = 10 m), distancia (400 px → 20 m), área (100 m²) y `1:100`, con la geometría real del zoom y capturas | **Windows (pc, app real):** calibrar con 2 clics y 10 m → `1 pt = 0,09375 m`, distancia de 400 px = 20,00 m, área 200×200 px = 100,00 m² (perímetro 40,00 m); «Guardar medida» deja `line` y `polygon` en el PDF (`pliego annot list`) y la copia «(antes de medir)» idéntica | V |

@@ -4,7 +4,7 @@
  */
 import { createEffect, createRoot, on } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { setRecoverable, type Recoverable } from "../home";
+import { setRecoverable, type Recoverable } from "../home/recovery";
 import { activeId, currentPageIndex, docs } from "./documents";
 import { goToPage } from "./navigation";
 

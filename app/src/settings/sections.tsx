@@ -1,5 +1,6 @@
 import { createSignal, type JSX } from "solid-js";
-import { Select, Switch, ToggleGroup } from "../ui";
+import { invoke } from "@tauri-apps/api/core";
+import { Button, Select, Switch, ToggleGroup, toast } from "../ui";
 import { settings, updateSettings, type Settings } from "./store";
 import { st } from "./strings";
 
@@ -53,6 +54,11 @@ export const generalRows: SettingRow[] = [
     { value: "comfortable", label: () => st("opt.comfortable") }, { value: "compact", label: () => st("opt.compact") }, { value: "touch", label: () => st("opt.touch") }]), ["densidad", "compacta", "táctil"]),
   row("general.reopenTabs", "row.general.reopenTabs", null, toggle("general", "reopenTabs"), ["pestañas", "reabrir", "sesión"]),
   row("general.greeting", "row.general.greeting", null, toggle("general", "greeting"), ["saludo", "inicio"]),
+  row("general.defaultApp", "row.general.defaultApp", "row.general.defaultApp.hint", () => (
+    <Button onClick={() => void invoke("open_default_apps").catch((e: unknown) => toast({ tone: "danger", text: String(e) }))}>
+      {st("row.general.defaultApp.button")}
+    </Button>
+  ), ["predeterminada", "abrir pdf", "asociar", "default app"]),
 ];
 
 export const viewerRows: SettingRow[] = [

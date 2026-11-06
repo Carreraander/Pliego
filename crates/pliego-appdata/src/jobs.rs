@@ -2,7 +2,9 @@
 //! `JobId`; la interfaz sigue el progreso con los eventos `job-progress` y `job-finished` y puede cancelar con
 //! `cancel_job`. El registro no conoce Tauri: emite [`JobEvent`] a un receptor que la capa Tauri traduce a eventos.
 
+use std::any::Any;
 use std::collections::HashMap;
+use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -67,6 +69,18 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Texto de un pánico para el aviso del trabajo.
+fn panic_message(payload: &(dyn Any + Send)) -> String {
+    let detail = payload
+        .downcast_ref::<&str>()
+        .map(|s| (*s).to_owned())
+        .or_else(|| payload.downcast_ref::<String>().cloned());
+    match detail {
+        Some(d) => format!("fallo interno de la herramienta: {d}"),
+        None => "fallo interno de la herramienta".to_owned(),
+    }
+}
+
 struct EventProgress {
     job_id: JobId,
     sink: Sink,
@@ -107,7 +121,10 @@ impl JobRegistry {
                 sink: registry.sink.clone(),
             };
             let ctx = JobContext::new(&progress, token);
-            let outcome = work(&ctx);
+            // Un pánico dentro de la herramienta no debe dejar el trabajo «en curso» para siempre: se convierte en un
+            // error normal (el gancho de pánico ya lo dejó en el log con su lugar).
+            let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| work(&ctx)))
+                .unwrap_or_else(|payload| Err(Error::Other(panic_message(payload.as_ref()))));
             lock(&registry.inner.tokens).remove(&id);
             let event = match outcome {
                 Ok(report) => JobEvent::Finished {
@@ -214,6 +231,29 @@ mod tests {
         }
         assert!(!reg.cancel(id), "ya terminó");
         assert_eq!(reg.running(), 0);
+    }
+
+    #[test]
+    fn panic_finishes_the_job_with_an_error() {
+        let (reg, rx) = registry();
+        let id = reg.spawn(|_| panic!("índice fuera de rango"));
+        match finished(&rx) {
+            JobEvent::Finished {
+                job_id,
+                error: Some(e),
+                result: None,
+            } => {
+                assert_eq!(job_id, id);
+                assert!(!e.cancelled);
+                assert!(e.message.contains("fallo interno"), "{}", e.message);
+                assert!(e.message.contains("índice fuera de rango"), "{}", e.message);
+            }
+            other => panic!("inesperado: {other:?}"),
+        }
+        assert_eq!(reg.running(), 0, "el trabajo ya no cuenta como en curso");
+        // El registro sigue sirviendo después del pánico.
+        reg.spawn(|_| Ok(Report::default()));
+        assert!(matches!(finished(&rx), JobEvent::Finished { error: None, .. }));
     }
 
     #[test]

@@ -197,7 +197,7 @@ pub(crate) fn create(doc: &mut PdfDocument, page: &mut PdfPage, geometry: &Geome
             let mut fs = doc.new_dict()?;
             fs.dict_put("Type", name("Filespec")?)?;
             fs.dict_put("F", Object::new_string(&file_name)?)?;
-            fs.dict_put("UF", Object::new_string(&file_name)?)?;
+            fs.dict_put("UF", doc.new_text_string(&file_name)?)?;
             fs.dict_put("EF", ef)?;
             let fs = doc.add_object(&fs)?;
             let mut a = page.create_annotation(PdfAnnotationType::FileAttachment)?;

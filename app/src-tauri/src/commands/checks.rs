@@ -48,3 +48,20 @@ pub fn tab_order_copy(jobs: State<'_, JobsState>, path: String, password: Option
     let path = PathBuf::from(path);
     jobs.spawn_tool(JobSpec::TabOrder { path, password, suffix })
 }
+
+/// «Hacer accesible»: copia etiquetada con título, idioma, textos alternativos y tabulación.
+#[tauri::command]
+pub fn make_accessible(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    options: checks::FixOptions,
+    suffix: String,
+) -> JobId {
+    jobs.spawn_tool(JobSpec::MakeAccessible {
+        path: PathBuf::from(path),
+        password,
+        options,
+        suffix,
+    })
+}

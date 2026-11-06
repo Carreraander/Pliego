@@ -33,6 +33,7 @@ const rows: Row[] = [
   ["pages.split", "organize", "task", "scissors", ["Dividir", "Separa el documento en varios archivos"], ["Split", "Split the document into several files"], ["separar", "split", "partir"], D],
   ["pages.insert", "organize", "task", "file-plus", ["Insertar páginas", "Añade páginas de otro archivo o en blanco"], ["Insert pages", "Add pages from a file or blank"], ["insertar", "añadir"], D],
   ["pages.number", "organize", "task", "hash", ["Numerar páginas", "Pone número de página y encabezados"], ["Number pages", "Add page numbers"], ["numeración", "paginar"], D],
+  ["pages.crop", "organize", "task", "crop", ["Recortar páginas", "Quita márgenes de las páginas"], ["Crop pages", "Trim the page margins"], ["recortar", "crop", "márgenes"], D],
   // Editar (W11, W04)
   ["edit.content", "edit", "mode", "type", ["Editar", "Cambia texto e imágenes del documento"], ["Edit", "Change the document text and images"], ["texto", "imagen", "editar"], D, "E"],
   ["edit.watermark", "edit", "task", "droplet", ["Marca de agua", "Añade una marca de agua a las páginas"], ["Watermark", "Add a watermark to pages"], ["watermark"], D],
@@ -61,6 +62,7 @@ const rows: Row[] = [
   ["optimize.advanced", "compare-optimize", "task", "sliders-horizontal", ["Optimizar avanzado", "Controla imágenes, fuentes y estructura"], ["Advanced optimize", "Control images, fonts and structure"], ["optimizar", "subconjunto", "fuentes"], D],
   // Estándares y accesibilidad (W12)
   ["access.check", "standards", "mode", "accessibility", ["Comprobar accesibilidad", "Revisa etiquetas y estructura"], ["Check accessibility", "Review tags and structure"], ["accesibilidad", "pdf/ua", "etiquetas"], D],
+  ["access.fix", "standards", "task", "wand", ["Hacer accesible", "Etiqueta y pone título, idioma y textos alternativos"], ["Make accessible", "Tag and set title, language and alt text"], ["accesibilidad", "etiquetar", "texto alternativo"], D],
   ["access.order", "standards", "mode", "list-ordered", ["Orden de lectura", "Define el orden en que se lee el documento"], ["Reading order", "Set the order the document is read in"], ["lectura", "orden"], D],
   ["access.validate-pdfa", "standards", "task", "shield-check", ["Validar PDF/A", "Comprueba la conformidad con PDF/A"], ["Validate PDF/A", "Check PDF/A conformance"], ["pdf/a", "validar"], { document: true, pdfa: true }],
   // Impresión (W16)

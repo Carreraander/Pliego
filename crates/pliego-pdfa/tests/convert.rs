@@ -214,3 +214,46 @@ fn page_additional_actions_entry_is_removed_for_pdfa2_and_3() {
         assert!(page.get_dict("AA").unwrap().is_none(), "{level:?}");
     }
 }
+
+#[test]
+fn editing_properties_keeps_pdfa_valid_and_xmp_in_sync() {
+    let (out, _r, dir) = convert_to(&corpus("basic/hola.pdf"), Level::A2b);
+    let mut doc = pliego_pdf::PdfDocument::open(out.to_str().unwrap()).unwrap();
+    let edit = pliego_pdfa::InfoEdit {
+        title: Some("Informe de año".into()),
+        author: Some("Ana Muñoz".into()),
+        keywords: Some(String::new()),
+        ..Default::default()
+    };
+    assert_eq!(
+        pliego_pdfa::update_info(&mut doc, &edit).unwrap(),
+        pliego_pdfa::XmpSync::Rebuilt
+    );
+    let edited = dir.path().join("editado.pdf");
+    doc.save(&edited).unwrap();
+
+    let v = validate(&edited, Level::A2b).unwrap();
+    assert!(v.conforms(), "{:?}", v.issues);
+    let doc = pliego_pdf::PdfDocument::open(edited.to_str().unwrap()).unwrap();
+    assert_eq!(doc.metadata(pliego_pdf::MetadataName::Title).unwrap(), "Informe de año");
+    assert_eq!(doc.metadata(pliego_pdf::MetadataName::Author).unwrap(), "Ana Muñoz");
+    assert_eq!(doc.metadata(pliego_pdf::MetadataName::Keywords).unwrap(), "");
+    let xmp = String::from_utf8(
+        doc.catalog()
+            .unwrap()
+            .get_dict("Metadata")
+            .unwrap()
+            .unwrap()
+            .read_stream()
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(xmp.contains("Informe de año") && xmp.contains("Ana Muñoz"), "{xmp}");
+
+    // Sin XMP: solo /Info.
+    let mut plain = pliego_pdf::PdfDocument::open(corpus("basic/hola.pdf").to_str().unwrap()).unwrap();
+    assert_eq!(
+        pliego_pdfa::update_info(&mut plain, &edit).unwrap(),
+        pliego_pdfa::XmpSync::None
+    );
+}

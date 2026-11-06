@@ -102,9 +102,4 @@ export const SYSTEM_RULES: readonly Rule[] = [
   ["paso desconocido «{}». Disponibles: {}", "unknown step “{1}”. Available: {2}"], ["el paso {} ({}) no produjo ningún archivo", "step {1} ({2}) produced no file"],
   ["la salida de {} coincidiría con el original; elige otra carpeta de salida", "the output of {} would match the original; choose another output folder"],
   ["la acción ha cambiado desde el lote anterior: se empieza de cero", "the action changed since the previous batch: starting from scratch"],
-  // ── Enlaces del PDF (weblink.rs, #240) ──
-  ["El enlace está vacío.", "The link is empty."], ["La dirección del enlace es demasiado larga.", "The link address is too long."],
-  ["La dirección del enlace tiene caracteres que no se admiten.", "The link address contains unsupported characters."],
-  ["El enlace no es una dirección web.", "The link is not a web address."],
-  ["Pliego no abre enlaces de tipo «{}»; solo web (http, https) y correo (mailto).", "Pliego does not open links of type “{}”; only web (http, https) and email (mailto)."],
 ];

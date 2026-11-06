@@ -117,6 +117,7 @@ fn handle(
                 Request::SearchPage { page, needle, max_hits } => {
                     (Response::Hit(d.search_page(page, &needle, max_hits)?), None)
                 }
+                Request::PageWords { page } => (Response::Words(d.page_words(page)?), None),
                 Request::Outline => (Response::Outline(d.outline()?), None),
                 Request::Layers => (Response::Layers(d.layers()?), None),
                 _ => return Err(Error::InvalidInput("petición no válida".into())),

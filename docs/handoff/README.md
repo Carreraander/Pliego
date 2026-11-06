@@ -9,6 +9,7 @@ hacerlo leyendo solo este directorio, `CLAUDE.md`, `docs/CONVENTIONS.md`, `docs/
 | Archivo | Qué contiene |
 | --- | --- |
 | `README.md` (este) | Estado global, PRs abiertos, decisiones y tareas de Ander |
+| [`huecos-1.0.md`](huecos-1.0.md) | **Lo que falta para la 1.0** (auditoría del 2026-11-06), con prioridad y reparto |
 | [`reglas-operativas.md`](reglas-operativas.md) | Organización de hilos, modelos, autonomía, fusión de PRs, ramas y acr12 |
 | [`memoria.md`](memoria.md) | Hechos para reconstruir la memoria del proyecto nuevo, uno por archivo |
 | [`lecciones-tecnicas.md`](lecciones-tecnicas.md) | Trampas ya descubiertas (Windows, mupdf-rs, Cargo.lock, CI) |
@@ -87,7 +88,8 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W25](flujos/w25.md) | Conectar Proteger y Redactar | Fusionado | Falta prueba en acr12 y revisión visual (revision-manual-ander.md) |
 | [W42](flujos/w42.md) | Motor de JavaScript de formularios (Boa) | En curso | Conectarlo a `pliego_pdf::native` y a la app |
 | [W43](flujos/w43.md) | Edición tipo Acrobat (recolocar texto; imágenes, vectores y enlaces) | En curso | PR 1: motor de movimiento y recolocación; falta la interfaz y validar en acr12/pc |
-| [W44](flujos/w44.md) | PDF grandes (banco de memoria y rendimiento) | En curso | Medido en Linux; falta la pasada en acr12/pc con `tools/bench-pdf-grandes.ps1` |
+| [W44](flujos/w44.md) | Texto seleccionable y enlaces en Leer; Narrador | En curso | PR 1 (texto y copiar) en revisión; faltan enlaces del PDF y Narrador |
+| [W45](flujos/w45.md) | PDF grandes (banco de memoria y rendimiento) | En curso | Medido en Linux; falta la pasada en acr12/pc con `tools/bench-pdf-grandes.ps1` |
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)
 

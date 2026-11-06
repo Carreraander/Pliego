@@ -48,7 +48,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pliego_core::{
-    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
+    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PageWord, PdfEngine, Result, RgbaImage, SearchHit,
+    TileRequest,
 };
 use pliego_worker::{WorkerConfig, WorkerDocument, WorkerEngine};
 use serde::{Deserialize, Serialize};
@@ -155,6 +156,11 @@ impl DocumentService {
 
     pub fn page_text(&self, doc: DocId, page: u32) -> Result<String> {
         self.doc(doc)?.page_text(page)
+    }
+
+    /// Palabras de la página con su caja (capa de texto del visor: seleccionar, copiar y lectores de pantalla).
+    pub fn page_words(&self, doc: DocId, page: u32) -> Result<Vec<PageWord>> {
+        self.doc(doc)?.page_words(page)
     }
 
     /// Busca `needle` en todo el documento. Devuelve solo páginas con coincidencias y se detiene en `max_total`.

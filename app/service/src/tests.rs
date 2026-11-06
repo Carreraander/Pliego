@@ -161,6 +161,21 @@ fn search_text_and_outline() {
 }
 
 #[test]
+fn page_words_come_with_boxes() {
+    let _serial = crate::test_support::serial();
+    let svc = service();
+    let doc = svc.open_document(&corpus(), None).unwrap();
+    let words = svc.page_words(doc, 0).unwrap();
+    assert!(!words.is_empty());
+    assert!(
+        words
+            .iter()
+            .all(|w| !w.text.is_empty() && w.rect[0] < w.rect[2] && w.rect[1] < w.rect[3])
+    );
+    assert!(svc.page_words(doc, 999).is_err());
+}
+
+#[test]
 fn layers_of_a_plain_document_are_empty_and_unknown_layers_fail() {
     let _serial = crate::test_support::serial();
     let svc = service();

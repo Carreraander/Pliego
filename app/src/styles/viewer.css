@@ -31,3 +31,18 @@
 .searchbox button:hover:not(:disabled) { background: var(--pl-hover); }
 .searchbox button:disabled { opacity: 0.4; }
 .searchbox .muted { padding: 0; }
+
+/* Capa de texto (selección, copia y lectores de pantalla). Las páginas son imágenes: el texto sale del motor. */
+.viewer:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: -2px; }
+.viewer.is-reading[data-over-text] { cursor: text; }
+.pl-sel { position: absolute; background: var(--pl-selection); mix-blend-mode: multiply; pointer-events: none; border-radius: 1px; }
+:root[data-theme="dark"] .pl-sel { mix-blend-mode: screen; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pl-sel { mix-blend-mode: screen; } }
+/* Fuera de la vista pero presente para el Narrador y otros lectores. */
+.pl-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.pl-sr-only p { margin: 0; white-space: normal; }
+@media (forced-colors: active) {
+  .viewer:focus-visible { outline-color: Highlight; }
+  .pl-sel { background: Highlight; mix-blend-mode: normal; opacity: 0.45; forced-color-adjust: none; }
+  .hit { background: Mark; forced-color-adjust: none; opacity: 0.5; }
+}

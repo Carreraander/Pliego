@@ -55,7 +55,7 @@ Trampas que costó descubrir. Consultar antes de tocar lo relacionado.
 - PDFium no soporta el filtro Brotli de PDF 2.0, y alguna página mal formada da `FormatError` donde MuPDF la repara: de ahí el respaldo a MuPDF del worker.
 
 
-## PDF grandes (hueco P1 #11, W44)
+## PDF grandes (hueco P1 #11, W45)
 
 - **lopdf guarda los flujos enteros en memoria**, además del `Vec<u8>` del archivo: un PDF de 1 GB ocupaba 2 GB al abrirse y, con la copia que
   PDFium pedía al dibujar, 3 GB; al buscar en todas las páginas subía a 4 GB (en Windows el job object del worker, 2 GB, lo mataba).

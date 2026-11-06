@@ -9,7 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use pliego_core::{
-    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
+    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PageWord, PdfEngine, Result, RgbaImage, SearchHit,
+    TileRequest,
 };
 
 use crate::cache::{TileCache, TileKey};
@@ -551,6 +552,13 @@ impl EngineDocument for WorkerDocument {
             .0
         {
             Response::Hit(h) => Ok(h),
+            _ => unexpected(),
+        }
+    }
+
+    fn page_words(&self, page: u32) -> Result<Vec<PageWord>> {
+        match self.call(Request::PageWords { page })?.0 {
+            Response::Words(w) => Ok(w),
             _ => unexpected(),
         }
     }

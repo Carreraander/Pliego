@@ -626,6 +626,8 @@ pub struct MoveReport {
     pub objects_moved: usize,
     /// Tramos de texto que cayeron en una zona pero no se pudieron medir (no se movieron).
     pub opaque_skipped: usize,
+    /// Enlaces (anotaciones) que acompañaron al contenido.
+    pub links_moved: usize,
 }
 
 /// Contenido cortado de una página, listo para pegar en otra con [`PdfDocument::paste_content`].
@@ -637,6 +639,8 @@ pub struct CutContent {
     /// Caja del contenido cortado en el espacio de página de origen.
     pub bounds: Rect,
     pub report: MoveReport,
+    /// Enlaces que estaban sobre lo cortado: su diccionario y su caja en espacio de usuario de la página de origen.
+    links: Vec<(Dictionary, R)>,
 }
 
 /// Zona con su acción, en espacio de usuario.
@@ -816,6 +820,170 @@ struct Cut {
     bbox: R,
 }
 
+// --- Enlaces (anotaciones /Link) que acompañan al contenido ---
+
+fn rect_of_dict(d: &Dictionary) -> Option<R> {
+    let a = d.get(b"Rect").ok()?.as_array().ok()?;
+    let v: Vec<f64> = a
+        .iter()
+        .filter_map(|o| match o {
+            L::Integer(i) => Some(*i as f64),
+            L::Real(r) => Some(f64::from(*r)),
+            _ => None,
+        })
+        .collect();
+    if v.len() != 4 {
+        return None;
+    }
+    Some(R::new(v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])))
+}
+
+fn rect_obj(r: &R) -> L {
+    L::Array(vec![
+        L::Real(r.x0 as f32),
+        L::Real(r.y0 as f32),
+        L::Real(r.x1 as f32),
+        L::Real(r.y1 as f32),
+    ])
+}
+
+/// Enlaces de la página: (id del objeto, caja en espacio de usuario). Solo los que son objetos indirectos.
+fn page_links(st: &State, page_id: ObjectId) -> Vec<(ObjectId, R)> {
+    let Some(page) = st.get(page_id).and_then(|o| st.dict_of(o)) else {
+        return Vec::new();
+    };
+    let Some(L::Array(annots)) = page.get(b"Annots").ok().and_then(|o| st.deref(o)) else {
+        return Vec::new();
+    };
+    annots
+        .iter()
+        .filter_map(|o| {
+            let L::Reference(id) = o else { return None };
+            let d = st.dict_of(st.get(*id)?)?;
+            if d.get(b"Subtype").ok().and_then(|o| o.as_name().ok()) != Some(b"Link".as_slice()) {
+                return None;
+            }
+            Some((*id, rect_of_dict(d)?))
+        })
+        .collect()
+}
+
+fn link_hit(r: &R, regions: &[Region]) -> Option<Dest> {
+    let (cx, cy) = ((r.x0 + r.x1) / 2.0, (r.y0 + r.y1) / 2.0);
+    regions.iter().find(|(z, _)| z.contains(cx, cy)).map(|(_, d)| *d)
+}
+
+/// Traslada los enlaces cuyo centro cae en una zona de movimiento. Devuelve cuántos.
+fn move_links(st: &mut State, page_id: ObjectId, regions: &[Region]) -> usize {
+    let mut n = 0;
+    for (id, r) in page_links(st, page_id) {
+        let Some(Dest::Move(dx, dy)) = link_hit(&r, regions) else {
+            continue;
+        };
+        let moved = R::new(r.x0 + dx, r.y0 + dy, r.x1 + dx, r.y1 + dy);
+        if let Some(d) = crate::native::document::dict_of_mut(st, id) {
+            d.set("Rect", rect_obj(&moved));
+            // Los cuadriláteros (si los hay) se desplazan igual.
+            if let Ok(L::Array(q)) = d.get_mut(b"QuadPoints") {
+                for (i, o) in q.iter_mut().enumerate() {
+                    let v = match o {
+                        L::Integer(v) => *v as f64,
+                        L::Real(v) => f64::from(*v),
+                        _ => continue,
+                    };
+                    *o = L::Real((v + if i % 2 == 0 { dx } else { dy }) as f32);
+                }
+            }
+            st.touch(id);
+            n += 1;
+        }
+    }
+    n
+}
+
+/// Quita de la página los enlaces cuyo centro cae en `zone` y devuelve sus diccionarios con su caja.
+fn take_links(st: &mut State, page_id: ObjectId, zone: &R) -> Vec<(Dictionary, R)> {
+    let hits: Vec<(ObjectId, R)> = page_links(st, page_id)
+        .into_iter()
+        .filter(|(_, r)| zone.contains((r.x0 + r.x1) / 2.0, (r.y0 + r.y1) / 2.0))
+        .collect();
+    if hits.is_empty() {
+        return Vec::new();
+    }
+    let out: Vec<(Dictionary, R)> = hits
+        .iter()
+        .filter_map(|(id, r)| Some((st.dict_of(st.get(*id)?)?.clone(), *r)))
+        .collect();
+    let gone: Vec<ObjectId> = hits.iter().map(|(id, _)| *id).collect();
+    // /Annots puede ser un array directo o una referencia a uno.
+    let holder = match st
+        .get(page_id)
+        .and_then(|o| st.dict_of(o))
+        .and_then(|d| d.get(b"Annots").ok())
+    {
+        Some(L::Reference(a)) => Some(*a),
+        _ => None,
+    };
+    let keep = |o: &L| !matches!(o, L::Reference(id) if gone.contains(id));
+    match holder {
+        Some(a) => {
+            if let Some(L::Array(v)) = st.doc.objects.get_mut(&a) {
+                v.retain(keep);
+            }
+            st.touch(a);
+        }
+        None => {
+            if let Some(L::Array(v)) =
+                crate::native::document::dict_of_mut(st, page_id).and_then(|d| d.get_mut(b"Annots").ok())
+            {
+                v.retain(keep);
+            }
+            st.touch(page_id);
+        }
+    }
+    out
+}
+
+/// Añade a la página los enlaces cortados, con la caja ya en su espacio de usuario.
+fn add_links(st: &mut State, page_id: ObjectId, links: Vec<(Dictionary, R)>) {
+    if links.is_empty() {
+        return;
+    }
+    let mut ids = Vec::new();
+    for (mut d, r) in links {
+        d.set("Rect", rect_obj(&r));
+        d.remove(b"QuadPoints");
+        d.set("P", L::Reference(page_id));
+        ids.push(st.add(L::Dictionary(d)));
+    }
+    let holder = match st
+        .get(page_id)
+        .and_then(|o| st.dict_of(o))
+        .and_then(|d| d.get(b"Annots").ok())
+    {
+        Some(L::Reference(a)) => Some(*a),
+        _ => None,
+    };
+    let refs = ids.into_iter().map(L::Reference);
+    match holder {
+        Some(a) => {
+            if let Some(L::Array(v)) = st.doc.objects.get_mut(&a) {
+                v.extend(refs);
+            }
+            st.touch(a);
+        }
+        None => {
+            if let Some(d) = crate::native::document::dict_of_mut(st, page_id) {
+                match d.get_mut(b"Annots") {
+                    Ok(L::Array(v)) => v.extend(refs),
+                    _ => d.set("Annots", L::Array(refs.collect())),
+                }
+            }
+            st.touch(page_id);
+        }
+    }
+}
+
 fn page_index(doc: &PdfDocument, page: i32) -> Result<ObjectId> {
     let ids = doc.page_ids();
     usize::try_from(page)
@@ -877,8 +1045,10 @@ impl PdfDocument {
             return Ok(MoveReport::default());
         }
         let mut st = self.st.borrow_mut();
-        let out = split_page(&mut st, id, &regions)?;
-        if out.changed {
+        let mut out = split_page(&mut st, id, &regions)?;
+        // Los enlaces sobre lo movido se van con ello (aunque la página no tuviera contenido que mover).
+        out.report.links_moved = move_links(&mut st, id, &regions);
+        if out.changed || out.report.links_moved > 0 {
             finish(&mut st);
         }
         Ok(out.report)
@@ -892,13 +1062,16 @@ impl PdfDocument {
         let inv = ctm
             .invert()
             .ok_or_else(|| pdf_err("la matriz de la página no es invertible"))?;
-        let regions: Vec<Region> = vec![(rect_to_user(&m_of(&inv), area), Dest::Cut)];
+        let zone = rect_to_user(&m_of(&inv), area);
+        let regions: Vec<Region> = vec![(zone, Dest::Cut)];
         let mut st = self.st.borrow_mut();
         let out = split_page(&mut st, id, &regions)?;
         // Sin `finish`: el formulario cortado no cuelga de nada hasta que se pega y la poda lo borraría.
-        let (report, Some(cut)) = (out.report, out.cut) else {
+        let (mut report, Some(cut)) = (out.report, out.cut) else {
             return Ok(None);
         };
+        let links = take_links(&mut st, id, &zone);
+        report.links_moved = links.len();
         let c = m_of(&ctm);
         let bounds = cut.bbox.transform(&c);
         Ok(Some(CutContent {
@@ -906,6 +1079,7 @@ impl PdfDocument {
             src_ctm: [c.a, c.b, c.c, c.d, c.e, c.f],
             bounds: Rect::new(bounds.x0 as f32, bounds.y0 as f32, bounds.x1 as f32, bounds.y1 as f32),
             report,
+            links,
         }))
     }
 
@@ -960,7 +1134,11 @@ impl PdfDocument {
         write_name(&mut c, name.as_bytes());
         c.extend_from_slice(b" Do\nQ\n");
         pg.insert_contents(self, &c, true)?;
-        finish(&mut self.st.borrow_mut());
+        let page_id = page_index(self, page)?;
+        let links = cut.links.iter().map(|(d, r)| (d.clone(), r.transform(&m))).collect();
+        let mut st = self.st.borrow_mut();
+        add_links(&mut st, page_id, links);
+        finish(&mut st);
         Ok(())
     }
 }

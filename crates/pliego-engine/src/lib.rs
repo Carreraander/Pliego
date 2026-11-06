@@ -8,7 +8,8 @@ pub use pliego_pdf::configure_from_environment;
 use pliego_pdf::{Colorspace, IRect, Matrix, MetadataName, Outline, PdfDocument, Pixmap};
 
 use pliego_core::{
-    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PdfEngine, Result, RgbaImage, SearchHit, TileRequest,
+    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PageWord, PdfEngine, Result, RgbaImage, SearchHit,
+    TileRequest,
 };
 
 /// Límite de seguridad para no reservar mapas de bits enormes por error (≈ 400 MB RGBA).
@@ -257,6 +258,20 @@ impl EngineDocument for DefaultDocument {
                 .map(|q| [q.ul.x, q.ul.y, q.ur.x, q.ur.y, q.ll.x, q.ll.y, q.lr.x, q.lr.y])
                 .collect(),
         })
+    }
+
+    fn page_words(&self, page: u32) -> Result<Vec<PageWord>> {
+        Ok(self
+            .check_page(page)?
+            .words()?
+            .into_iter()
+            .map(|w| PageWord {
+                text: w.text,
+                rect: [w.bounds.x0, w.bounds.y0, w.bounds.x1, w.bounds.y1],
+                block: w.block as u32,
+                line: w.line as u32,
+            })
+            .collect())
     }
 
     fn layers(&self) -> Result<Vec<Layer>> {

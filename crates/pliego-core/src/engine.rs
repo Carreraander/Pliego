@@ -49,6 +49,19 @@ pub struct SearchHit {
     pub quads: Vec<[f32; 8]>,
 }
 
+/// Palabra de una página con su caja, para la capa de texto del visor (selección, copia y lectores de pantalla).
+///
+/// `rect` = `[x0, y0, x1, y1]` en puntos del espacio de página: origen arriba a la izquierda y con la rotación de la
+/// página aplicada (el mismo sistema que [`SearchHit::quads`] y [`PageSize`]). Las palabras salen en orden de lectura;
+/// `block` y `line` (esta, dentro del bloque) sirven para volver a formar líneas y párrafos al copiar.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PageWord {
+    pub text: String,
+    pub rect: [f32; 4],
+    pub block: u32,
+    pub line: u32,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DocInfo {
     pub page_count: u32,
@@ -90,6 +103,11 @@ pub trait EngineDocument {
     fn render_tile(&self, req: TileRequest) -> Result<RgbaImage>;
     fn page_text(&self, page: u32) -> Result<String>;
     fn search_page(&self, page: u32, needle: &str, max_hits: u32) -> Result<SearchHit>;
+    /// Palabras de la página con su caja, en orden de lectura (vacío si el motor no las da o la página no tiene
+    /// texto). Añadido sin romper el contrato anterior.
+    fn page_words(&self, _page: u32) -> Result<Vec<PageWord>> {
+        Ok(Vec::new())
+    }
     fn outline(&self) -> Result<Vec<OutlineItem>>;
     /// Capas del documento (vacío si no tiene o el motor no las soporta). Añadido sin romper el contrato anterior.
     fn layers(&self) -> Result<Vec<Layer>> {

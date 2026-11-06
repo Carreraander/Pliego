@@ -38,6 +38,8 @@ fn matches_in_process_engine() {
     assert_eq!(w.render_page(0, 0.5).unwrap(), m.render_page(0, 0.5).unwrap());
     assert_eq!(w.render_tile(tile()).unwrap(), m.render_tile(tile()).unwrap());
     assert_eq!(w.outline().unwrap(), m.outline().unwrap());
+    assert_eq!(w.page_words(0).unwrap(), m.page_words(0).unwrap());
+    assert!(!w.page_words(0).unwrap().is_empty());
     assert_eq!(
         w.search_page(1, "Pliego", 5).unwrap(),
         m.search_page(1, "Pliego", 5).unwrap()

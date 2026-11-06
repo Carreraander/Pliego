@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  clampZoom, computeLayout, currentPage, fitPageZoom, fitWidthZoom, lowResZoom, pageBox, rotate, stepZoom, tilesFor,
-  unrotateRect, visiblePages,
+  clampZoom, computeLayout, currentPage, fitPageZoom, fitWidthZoom, lowResZoom, pageBox, pointToPage, rotate, rotatePoint,
+  stepZoom, tilesFor, unrotatePoint, unrotateRect, visiblePages, type Rotation,
 } from "./layout";
 
 const a4 = { width: 595, height: 842 };
@@ -60,5 +60,41 @@ describe("layout", () => {
     expect(unrotateRect(r, page, 90)).toEqual({ left: 0, right: 20, top: 190, bottom: 200 });
     expect(unrotateRect(r, page, 180)).toEqual({ left: 90, right: 100, top: 180, bottom: 200 });
     expect(unrotateRect(r, page, 270)).toEqual({ left: 80, right: 100, top: 0, bottom: 10 });
+  });
+});
+
+describe("puntos y rotación", () => {
+  const page = { width: 200, height: 100 };
+  it("rotar y des-rotar un punto son operaciones inversas", () => {
+    for (const r of [0, 90, 180, 270] as Rotation[]) {
+      const p = { x: 30, y: 70 };
+      const back = unrotatePoint(rotatePoint(p, page, r), page, r);
+      expect(back).toEqual(p);
+    }
+  });
+  it("coincide con la transformación CSS en las esquinas", () => {
+    // 90° horario: la esquina superior izquierda de la página pasa a la superior derecha de la caja girada.
+    expect(rotatePoint({ x: 0, y: 0 }, page, 90)).toEqual({ x: 100, y: 0 });
+    expect(rotatePoint({ x: 200, y: 0 }, page, 90)).toEqual({ x: 100, y: 200 });
+    expect(rotatePoint({ x: 0, y: 0 }, page, 270)).toEqual({ x: 0, y: 200 });
+    expect(rotatePoint({ x: 0, y: 0 }, page, 180)).toEqual({ x: 200, y: 100 });
+  });
+  it("encuentra la página y el punto bajo el cursor, también girada y con zoom", () => {
+    const sizes = [page, page];
+    const l = computeLayout(sizes, 2, 0, 12);
+    // Contenido de 500 px: la página (400 px) queda centrada, a 50 px del borde.
+    expect(pointToPage(l, sizes, 2, 0, 500, 50 + 40, 12 + 20)).toEqual({ page: 0, x: 20, y: 10 });
+    expect(pointToPage(l, sizes, 2, 0, 500, 60, l.tops[1]! + 100)).toEqual({ page: 1, x: 5, y: 50 });
+    const lr = computeLayout(sizes, 1, 90, 12);
+    // Girada 90°: la caja mide 100 x 200; el punto (X, Y) de la caja es el (x, y) = (Y, 100 - X) de la página.
+    expect(pointToPage(lr, sizes, 1, 90, 100, 10, 12 + 40)).toEqual({ page: 0, x: 40, y: 90 });
+  });
+  it("entre páginas o fuera del documento elige la más cercana", () => {
+    const sizes = [page, page, page];
+    const l = computeLayout(sizes, 1, 0, 12);
+    expect(pointToPage(l, sizes, 1, 0, 300, 100, -50)?.page).toBe(0);
+    expect(pointToPage(l, sizes, 1, 0, 300, 100, 1e6)?.page).toBe(2);
+    expect(pointToPage(l, sizes, 1, 0, 300, 100, l.tops[1]! - 3)?.page).toBe(1);
+    expect(pointToPage(computeLayout([], 1, 0), [], 1, 0, 300, 0, 0)).toBeNull();
   });
 });

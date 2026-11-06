@@ -159,3 +159,62 @@ export function rotationTransform(page: Size, rotation: Rotation): string {
       return `translate(0, ${page.width}px) rotate(270deg)`;
   }
 }
+
+export interface Pt {
+  x: number;
+  y: number;
+}
+
+/**
+ * Inversa de [`rotationTransform`] para un punto: pasa de la caja girada de la página (píxeles) a la página sin girar
+ * (píxeles). `page` es el tamaño SIN girar en píxeles.
+ */
+export function unrotatePoint(p: Pt, page: Size, rotation: Rotation): Pt {
+  const { width: w, height: h } = page;
+  switch (rotation) {
+    case 0:
+      return p;
+    case 90:
+      return { x: p.y, y: h - p.x };
+    case 180:
+      return { x: w - p.x, y: h - p.y };
+    case 270:
+      return { x: w - p.y, y: p.x };
+  }
+}
+
+/** Lo contrario de [`unrotatePoint`]: de la página sin girar a la caja girada. */
+export function rotatePoint(p: Pt, page: Size, rotation: Rotation): Pt {
+  const { width: w, height: h } = page;
+  switch (rotation) {
+    case 0:
+      return p;
+    case 90:
+      return { x: h - p.y, y: p.x };
+    case 180:
+      return { x: w - p.x, y: h - p.y };
+    case 270:
+      return { x: p.y, y: w - p.x };
+  }
+}
+
+/**
+ * Página bajo un punto del contenido del visor (`x`, `y` en píxeles desde su esquina superior izquierda) y ese punto en
+ * puntos de página (sin girar, origen arriba a la izquierda). Entre dos páginas, o fuera del documento, devuelve la
+ * página más cercana (arrastrar la selección más allá de los bordes sigue funcionando). `null` si no hay páginas.
+ */
+export function pointToPage(
+  layout: Layout, sizes: Size[], zoom: number, rotation: Rotation, contentWidth: number, x: number, y: number,
+  gap = PAGE_GAP,
+): { page: number; x: number; y: number } | null {
+  if (!layout.tops.length || sizes.length !== layout.tops.length) return null;
+  let page = layout.tops.length - 1;
+  for (let i = 0; i < layout.tops.length; i++) {
+    if (y < layout.tops[i]! + layout.boxes[i]!.height + gap / 2) { page = i; break; }
+  }
+  const box = layout.boxes[page]!;
+  const left = (contentWidth - box.width) / 2;
+  const unrotated = { width: sizes[page]!.width * zoom, height: sizes[page]!.height * zoom };
+  const p = unrotatePoint({ x: x - left, y: y - layout.tops[page]! }, unrotated, rotation);
+  return { page, x: p.x / zoom, y: p.y / zoom };
+}

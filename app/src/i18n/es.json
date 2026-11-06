@@ -46,5 +46,20 @@
   "text.menu": "Texto del documento",
   "viewer.label": "Documento: {title}",
   "viewer.page": "Página {page} de {total}",
-  "viewer.pageNoText": "Página {page} de {total}. Sin texto que leer ni seleccionar; si es un escaneo, el OCR lo añade."
+  "viewer.pageNoText": "Página {page} de {total}. Sin texto que leer ni seleccionar; si es un escaneo, el OCR lo añade.",
+  "link.goto": "Ir a la página {page}",
+  "link.web": "Abrir enlace: {uri}",
+  "link.openTitle": "¿Abrir este enlace?",
+  "link.openBody": "El documento quiere abrir esta dirección fuera de Pliego:",
+  "link.openSite": "Sitio: {site}",
+  "link.openHint": "Ábrela solo si confías en este documento.",
+  "link.openConfirm": "Abrir",
+  "link.openCancel": "Cancelar",
+  "link.menuOpen": "Abrir enlace",
+  "link.menuCopy": "Copiar dirección del enlace",
+  "link.copied": "Dirección copiada",
+  "link.failed": "No se pudo abrir el enlace: {error}",
+  "link.badPage": "El enlace lleva a una página que no existe.",
+  "link.back": "Atrás",
+  "link.forward": "Adelante"
 }

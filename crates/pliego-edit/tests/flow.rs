@@ -362,3 +362,73 @@ fn a_paragraph_that_does_not_fit_continues_on_the_next_page() {
     assert_eq!(doc.pdf().page_count().unwrap(), 2);
     dump(&doc, "continua");
 }
+
+fn uri(u: &str) -> LinkTarget {
+    LinkTarget::Uri { uri: u.into() }
+}
+
+#[test]
+fn links_follow_the_text_they_cover_when_it_moves() {
+    let mut doc = open(&[page1()]);
+    let (p2, p3, pie) = (
+        block_with(&doc, 0, "Segundo"),
+        block_with(&doc, 0, "Tercer"),
+        block_with(&doc, 0, "Pie"),
+    );
+    add_link(&mut doc, 0, p2.bbox, &uri("https://uno.example")).unwrap();
+    add_link(&mut doc, 0, p3.bbox, &uri("https://dos.example")).unwrap();
+    add_link(&mut doc, 0, pie.bbox, &uri("https://pie.example")).unwrap();
+    let b0 = block_with(&doc, 0, "Primer");
+    replace_text_flow(&mut doc, 0, b0.id, LONG, &Style::default(), &FlowOptions::default()).unwrap();
+    let (q2, q3, qpie) = (
+        block_with(&doc, 0, "Segundo"),
+        block_with(&doc, 0, "Tercer"),
+        block_with(&doc, 0, "Pie"),
+    );
+    let l = links(&doc, 0).unwrap();
+    let find = |u: &str| {
+        l.iter()
+            .find(|x| x.target == Some(uri(u)))
+            .unwrap_or_else(|| panic!("falta {u}: {l:#?}"))
+    };
+    // Cada enlace sigue cubriendo su texto; el del pie no se mueve.
+    for (u, b) in [
+        ("https://uno.example", &q2),
+        ("https://dos.example", &q3),
+        ("https://pie.example", &qpie),
+    ] {
+        let r = find(u).rect;
+        assert!(
+            (r[1] - b.bbox[1]).abs() < 0.6 && (r[3] - b.bbox[3]).abs() < 0.6,
+            "{u}: enlace {r:?} frente al texto {:?}",
+            b.bbox
+        );
+    }
+    assert!((find("https://pie.example").rect[1] - pie.bbox[1]).abs() < 0.1);
+}
+
+#[test]
+fn links_follow_the_text_to_the_next_page() {
+    let page2 = para(72.0, 700.0, &["Pagina dos primer parrafo"]);
+    let mut doc = open(&[full_page(), page2]);
+    let ultimo = block_with(&doc, 0, "Relleno 11");
+    add_link(&mut doc, 0, ultimo.bbox, &uri("https://ultimo.example")).unwrap();
+    let b0 = block_with(&doc, 0, "Primer");
+    replace_text_flow(&mut doc, 0, b0.id, LONG, &Style::default(), &FlowOptions::default()).unwrap();
+    assert!(
+        links(&doc, 0).unwrap().is_empty(),
+        "el enlace salió de la página 1: {:?}",
+        links(&doc, 0).unwrap()
+    );
+    let moved = block_with(&doc, 1, "Relleno 11");
+    let l = links(&doc, 1).unwrap();
+    assert_eq!(l.len(), 1, "{l:#?}");
+    assert_eq!(l[0].target, Some(uri("https://ultimo.example")));
+    assert!(
+        (l[0].rect[1] - moved.bbox[1]).abs() < 0.6 && (l[0].rect[3] - moved.bbox[3]).abs() < 0.6,
+        "{:?} frente a {:?}",
+        l[0].rect,
+        moved.bbox
+    );
+    assert!((l[0].rect[0] - moved.bbox[0]).abs() < 0.6 && (l[0].rect[2] - moved.bbox[2]).abs() < 0.6);
+}

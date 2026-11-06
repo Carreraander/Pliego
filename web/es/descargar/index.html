@@ -4,8 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Descargar Pliego para Windows · Programa PDF gratis</title>
-<meta name="description" content="Descarga Pliego, el programa PDF libre y gratuito para Windows 10 y 11. Instalador por usuario, sin permisos de administrador y con actualizaciones firmadas.">
-<link rel="canonical" href="https://pdfpliego.com/descargar/">
+<meta name="description" content="Descarga Pliego, el programa PDF gratuito para Windows 10 y 11. Instalador por usuario, sin permisos de administrador y con actualizaciones firmadas con Ed25519.">
+<link rel="canonical" href="https://pdfpliego.com/es/descargar/">
+<link rel="alternate" hreflang="en" href="https://pdfpliego.com/download/">
+<link rel="alternate" hreflang="es" href="https://pdfpliego.com/es/descargar/">
+<link rel="alternate" hreflang="x-default" href="https://pdfpliego.com/download/">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#f2f3f1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b1d1c" media="(prefers-color-scheme: dark)">
@@ -16,23 +19,25 @@
 <link rel="stylesheet" href="/assets/site.css">
 </head>
 <body>
-<a class="skip" href="#contenido">Saltar al contenido</a>
+<a class="skip" href="#content">Saltar al contenido</a>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
 <symbol id="logo" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="7" fill="var(--pl-accent)"/><path d="M7.5 8l8.5 1.4v15.2L7.5 23.2z" fill="var(--pl-surface-raised)"/><path d="M16 9.4L24.5 8v15.2L16 24.6z" fill="var(--pl-accent-soft)"/></symbol>
 <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
 <symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/></symbol>
+<symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5h12v5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5zM16.5 11h1.5a2.5 2.5 0 0 1 0 5h-1.8M8 3.5c-.8 1 .8 2 0 3M11.5 3.5c-.8 1 .8 2 0 3"/></symbol>
 </defs></svg>
 <header class="site-header">
   <div class="sheet">
-    <a class="brand" href="/" aria-label="Pliego, inicio"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
-    <nav class="site-nav" aria-label="Secciones"><a href="/#modos">Funciones</a><a href="/#privacidad">Privacidad</a><a href="/#libre">Software libre</a><a href="/#preguntas">Preguntas</a></nav>
-    <a class="btn btn-primary" href="/descargar/"><svg aria-hidden="true"><use href="#i-down"/></svg>Descargar</a>
+    <a class="brand" href="/es/" aria-label="Pliego, inicio"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
+    <nav class="site-nav" aria-label="Secciones"><a href="/es/#funciones">Funciones</a><a href="/es/#precio">Precio</a><a href="/es/#privacidad">Privacidad</a><a href="/es/#preguntas">Preguntas</a><a href="/download/" hreflang="en" lang="en">English</a></nav>
+    <a class="btn btn-coffee btn-sm hide-xs" href="/es/#apoyar"><svg aria-hidden="true"><use href="#i-coffee"/></svg>Apoyar</a>
+    <a class="btn btn-primary btn-sm" href="/es/descargar/"><svg aria-hidden="true"><use href="#i-down"/></svg>Descargar</a>
   </div>
 </header>
-<main id="contenido" class="doc"><div class="sheet"><div class="prose">
+<main id="content" class="doc"><div class="sheet"><div class="prose">
 <h1>Descargar Pliego para Windows</h1>
 <!-- PRELANZAMIENTO: sustituir este aviso por el botón de descarga cuando exista la primera versión (ver web/README.md). -->
-<div class="notice"><strong>Pliego aún está en desarrollo.</strong> La primera versión de prueba se publicará en esta página. Mientras tanto puedes seguir el proyecto o compilarlo desde el <a href="https://github.com/Carreraander/Pliego">código fuente</a>.</div>
+<div class="notice"><strong>Pliego está en prelanzamiento.</strong> La primera beta pública se publicará en esta página. Mientras tanto puedes seguir el proyecto o compilarlo desde el <a href="https://github.com/Carreraander/Pliego">código fuente</a>.</div>
 <div class="cta-row"><a class="btn btn-quiet" href="https://github.com/Carreraander/Pliego"><svg aria-hidden="true"><use href="#i-code"/></svg>Seguir el proyecto en GitHub</a></div>
 <h2>Requisitos</h2>
 <ul><li>Windows 10 o Windows 11 de 64 bits.</li><li>WebView2, que ya viene con Windows 11 y con Windows 10 actualizado. Si falta, el instalador lo descarga de Microsoft.</li><li>No hace falta ser administrador: Pliego se instala para tu usuario. Para instalarlo para todos los usuarios del equipo, elige esa opción en el instalador.</li></ul>
@@ -41,18 +46,18 @@
 <h2>Comprobar la descarga</h2>
 <p>Cada versión publica su suma SHA-256 junto al instalador. En PowerShell: <span class="mono">Get-FileHash .\Pliego-Setup.exe</span> y compara el resultado.</p>
 <h2>Actualizaciones</h2>
-<p>Pliego busca actualizaciones firmadas y te avisa antes de instalarlas. Si algo falla al arrancar una versión nueva, vuelve solo a la anterior. Puedes desactivarlas en Ajustes &gt; Actualizaciones.</p>
+<p>Pliego busca actualizaciones firmadas con Ed25519 y te avisa antes de instalarlas. Si algo falla al arrancar una versión nueva, vuelve solo a la anterior. Puedes desactivarlas en Ajustes &gt; Actualizaciones.</p>
 </div></div></main>
 <footer class="site-footer">
   <div class="sheet">
     <div class="foot-cols">
-      <a class="brand" href="/" aria-label="Pliego, inicio"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
-      <nav aria-label="Producto"><h2>Producto</h2><a href="/descargar/">Descargar</a><a href="/#modos">Funciones</a><a href="/#preguntas">Preguntas</a></nav>
-      <nav aria-label="Proyecto"><h2>Proyecto</h2><a href="https://github.com/Carreraander/Pliego">Código fuente</a><a href="https://github.com/Carreraander/Pliego/issues">Avisar de un fallo</a><a href="https://github.com/Carreraander/Pliego/blob/main/LICENSE">Licencia AGPL-3.0</a></nav>
-      <nav aria-label="Legal"><h2>Este sitio</h2><a href="/privacidad/">Privacidad</a></nav>
+      <a class="brand" href="/es/" aria-label="Pliego, inicio"><svg aria-hidden="true"><use href="#logo"/></svg>Pliego</a>
+      <nav aria-label="Producto"><h2>Producto</h2><a href="/es/descargar/">Descargar</a><a href="/es/#funciones">Funciones</a><a href="/es/#preguntas">Preguntas</a></nav>
+      <nav aria-label="Proyecto"><h2>Proyecto</h2><a href="https://github.com/Carreraander/Pliego">Código fuente</a><a href="https://github.com/Carreraander/Pliego/issues">Avisar de un fallo</a><a href="https://github.com/Carreraander/Pliego/blob/main/LICENSE">Licencia</a><a href="/es/#apoyar">Invítanos a un café</a></nav>
+      <nav aria-label="Este sitio"><h2>Este sitio</h2><a href="/es/privacidad/">Privacidad</a><a href="/download/" hreflang="en" lang="en">English</a></nav>
     </div>
     <div class="legal">
-      <p>Pliego es software libre distribuido bajo la licencia GNU AGPL-3.0-or-later. Usa MuPDF de Artifex Software.</p>
+      <p>Pliego se apoya en PDFium, lopdf, Boa y Tesseract, entre otros componentes. Consulta los <a href="https://github.com/Carreraander/Pliego/blob/main/THIRD-PARTY.md">avisos de terceros</a>.</p>
       <p>Adobe y Acrobat son marcas registradas de Adobe Inc. en Estados Unidos y otros países. Microsoft, Windows, Word, Excel y PowerPoint son marcas de Microsoft Corporation. Pliego es un proyecto independiente, sin relación con estas empresas.</p>
     </div>
   </div>

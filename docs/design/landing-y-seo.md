@@ -4,6 +4,30 @@ Estado: propuesta v1 (2026-11-04), hilo «Diseñar la landing y SEO de pdfpliego
 Código: [`web/`](../../web/) (HTML y CSS estáticos, sin compilación). No está desplegado: publicar en el VPS
 necesita el visto bueno de Ander.
 
+## 0. Versión 2 (2026-11-05): inglés, demo a la derecha y motor nuevo
+
+Pedido de Ander (2026-11-05 21:40, hilo «Redesign the Pliego landing page»): un diseño más atractivo con la demo a la
+derecha del texto, el contenido al día y el lanzamiento público (X, TikTok, YouTube, Instagram). Lo que cambia respecto
+a la v1 descrita abajo, que sigue valiendo para todo lo demás:
+
+- **Idiomas:** inglés en `/` (`/download/`, `/privacy/`) y español en `/es/` (`/es/descargar/`, `/es/privacidad/`),
+  con `hreflang` recíproco y `x-default` a inglés. Las rutas antiguas `/descargar/` y `/privacidad/` redirigen con
+  301 (`web/Caddyfile.propuesta`). `assets/demo.js` toma el idioma de `<html lang>`.
+- **Portada:** dos columnas desde 1100 px: texto a la izquierda, la ventana interactiva a la derecha dentro de sus
+  marcas de corte, sobre una «plancha de corte» cuadriculada con un halo del color de acento. Por debajo, una columna.
+  La ventana usa *container queries*, así que se adapta a su columna y no a la pantalla.
+- **Mensaje:** «Every pro PDF tool. Without the subscription.» / «Todo el PDF profesional. Sin suscripción.». Acrobat
+  solo se nombra en la pregunta frecuente y en el aviso de marcas, como en la v1.
+- **Secciones nuevas:** franja técnica (PDFium + lopdf, motor de JavaScript de formularios, actualizaciones Ed25519,
+  Tesseract), rejilla «bento» de herramientas profesionales (las únicas tarjetas), precio (0 €), «Por dentro» con la
+  pila técnica, y **Apoyar** con Buy Me a Coffee para pagar el certificado de firma de código.
+- **Licencia:** la web ya no dice AGPL ni «software libre» porque la licencia va a cambiar (pendiente de abogado). Dice
+  «gratis en casa y en la empresa» y «código público», y el pie enlaza a `LICENSE` sin nombrarla.
+- **MuPDF** desaparece de la web (eliminado en #200). El pie remite a `THIRD-PARTY.md`.
+- **`og.png`** (inglés) y **`og-es.png`** (español) regenerados con Playwright desde una plantilla HTML.
+- **Pendiente de Ander:** la URL de Buy Me a Coffee (hoy `https://buymeacoffee.com/` con `data-placeholder`, buscar
+  `PENDING (Ander)` / `PENDIENTE (Ander)` en `web/`).
+
 ## 1. Objetivo y público
 
 - **Trabajo de la página:** que alguien que busca un programa PDF gratis para Windows entienda en 10 segundos qué

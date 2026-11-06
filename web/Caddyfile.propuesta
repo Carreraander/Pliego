@@ -1,4 +1,4 @@
-# pdfpliego.com · sitio estático (propuesta; NO desplegado: requiere aprobación de Ander).
+# pdfpliego.com · sitio estático (desplegado en el VPS como /etc/caddy/sites.d/pdfpliego.caddy; cambios con el visto bueno de Ander).
 # El VPS es compartido con otros sitios: este bloque NO va en el Caddyfile global. Se copia a
 # /etc/caddy/sites.d/pdfpliego.caddy (el Caddyfile global ya hace `import sites.d/*.caddy`, como deja
 # deploy/updates/setup-vps.sh) y se recarga con `systemctl reload caddy`.
@@ -17,6 +17,12 @@ pdfpliego.com {
 	encode zstd gzip
 	file_server
 	try_files {path} {path}/ {path}/index.html
+
+	# 2026-11-05: el sitio pasa a inglés en / y español en /es/. Las rutas antiguas en español redirigen.
+	redir /descargar /es/descargar/ permanent
+	redir /descargar/ /es/descargar/ permanent
+	redir /privacidad /es/privacidad/ permanent
+	redir /privacidad/ /es/privacidad/ permanent
 
 	handle_errors {
 		@404 expression {err.status_code} == 404

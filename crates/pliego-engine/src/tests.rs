@@ -36,6 +36,31 @@ fn text_search_outline() {
 }
 
 #[test]
+fn page_words_have_boxes_inside_the_page() {
+    let d = open();
+    let size = d.page_size(0).unwrap();
+    let words = d.page_words(0).unwrap();
+    let text: Vec<&str> = words.iter().map(|w| w.text.as_str()).collect();
+    assert!(text.windows(2).any(|p| p == ["Hola", "Pliego"]), "palabras: {text:?}");
+    for w in &words {
+        let [x0, y0, x1, y1] = w.rect;
+        assert!(x0 < x1 && y0 < y1, "caja vacía: {w:?}");
+        assert!(
+            x0 >= -1.0 && y0 >= -1.0 && x1 <= size.width + 1.0 && y1 <= size.height + 1.0,
+            "fuera de la página: {w:?}"
+        );
+    }
+    // Las palabras de una misma línea comparten bloque y línea, y salen de izquierda a derecha.
+    let hola = words.iter().position(|w| w.text == "Hola").unwrap();
+    assert_eq!(
+        (words[hola].block, words[hola].line),
+        (words[hola + 1].block, words[hola + 1].line)
+    );
+    assert!(words[hola].rect[2] <= words[hola + 1].rect[0] + 0.5);
+    assert!(d.page_words(9).is_err());
+}
+
+#[test]
 fn render_and_tiles_match() {
     let d = open();
     let full = d.render_page(0, 0.5).unwrap();

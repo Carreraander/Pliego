@@ -357,6 +357,17 @@ fn replace_impl(
         } else {
             b.bbox[2]
         };
+        // Columna que se recoloca: todo el cuerpo en una página de una columna, o la del párrafo si hay varias.
+        let col = if flowing {
+            flow::flow_column(pdf, page, b.bbox, right)?
+        } else {
+            (b.bbox[0], right)
+        };
+        let gap_after = if flowing {
+            flow::gap_below(pdf, page, col, b.bbox[3], raw.leading.unwrap_or(res.size * 1.2))?
+        } else {
+            0.0
+        };
 
         // Retirar el texto original. El recuadro se encoge un poco para no arrastrar líneas vecinas.
         let inset_y = (b.font_size * 0.15).min((b.bbox[3] - b.bbox[1]) / 4.0);
@@ -378,7 +389,6 @@ fn replace_impl(
         let lines = wrap(new_text, &face, res.size, Some(max_width));
         let leading = raw.leading.unwrap_or(res.size * 1.2);
         let old_lines = raw.block.lines.len();
-        let col = (b.bbox[0], right);
 
         // Cuántas líneas caben en esta página (por encima del pie o del margen inferior). El resto pasa a la siguiente.
         let mut fit = lines.len();
@@ -398,22 +408,23 @@ fn replace_impl(
         // Recolocación: lo de debajo sube o baja según cambie el número de líneas.
         let delta = leading * (fit as f32 - old_lines as f32);
         let mut moved = false;
-        let mut next_top = None;
+        let mut placements = Vec::new();
         if !rest.is_empty() {
-            next_top = Some(flow::make_room_on_next_page(
+            placements = flow::make_room_on_next_pages(
                 pdf,
                 page,
                 col,
                 b.bbox[3],
                 delta.max(0.0),
                 leading,
-                leading * rest.len() as f32,
+                rest.len(),
+                gap_after,
                 flow,
                 &mut report,
-            )?);
+            )?;
             moved = true;
         } else if flowing && delta.abs() > 0.01 {
-            flow::push_below(pdf, page, b.bbox, leading, delta, flow, &mut report)?;
+            flow::push_below(pdf, page, col, b.bbox[3], leading, delta, flow, &mut report)?;
             moved = true;
         }
         let mut p = load_page(pdf, page)?;
@@ -429,17 +440,17 @@ fn replace_impl(
             &face,
             label(&loaded),
         )?;
-        if let Some(top) = next_top {
-            // El resto del párrafo continúa en lo alto del cuerpo de la página siguiente.
-            let mut np = load_page(pdf, page + 1)?;
+        for pl in placements {
+            // El resto del párrafo continúa en lo alto del cuerpo de las páginas siguientes.
+            let mut np = load_page(pdf, pl.page)?;
             draw(
                 &mut np,
                 pdf,
                 &res,
-                rest,
+                &rest[pl.lines],
                 raw.first_origin.0,
                 right,
-                top + (raw.first_origin.1 - b.bbox[1]),
+                pl.top + (raw.first_origin.1 - b.bbox[1]),
                 leading,
                 &face,
                 label(&loaded),

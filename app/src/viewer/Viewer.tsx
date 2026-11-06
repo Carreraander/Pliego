@@ -13,6 +13,10 @@ import {
 /** Redondea el zoom para que las teselas se reutilicen (la caché del servidor usa el zoom en la clave). */
 const q = (z: number) => Math.round(z * 1000) / 1000;
 
+/** Última posición de desplazamiento de cada documento: el visor se vuelve a montar al cambiar la revisión (tras
+ *  una edición) y debe quedarse donde estaba, no saltar al principio de la página. */
+const lastScroll = new Map<number, { top: number; left: number }>();
+
 export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }) {
   let box!: HTMLDivElement;
   const [scrollTop, setScrollTop] = createSignal(0);
@@ -21,8 +25,12 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
   const layout = createMemo(() => computeLayout(props.doc.sizes, props.zoom, props.rotation));
   const visible = createMemo(() => visiblePages(layout(), scrollTop(), size().height));
 
+  // Mientras se restaura la posición (el navegador puede recortarla hasta que el contenido tenga su alto) no se
+  // guarda lo que lea el visor: sobrescribiría la posición buscada.
+  let restoring = false;
   const update = () => {
     setScrollTop(box.scrollTop);
+    if (!restoring) lastScroll.set(props.doc.id, { top: box.scrollTop, left: box.scrollLeft });
     setCurrentPageIndex(currentPage(layout(), box.scrollTop, size().height));
   };
   onMount(() => {
@@ -30,7 +38,16 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
     ro.observe(box);
     onCleanup(() => ro.disconnect());
     // Al volver a esta pestaña o cambiar la página desde fuera, mantiene la posición.
-    box.scrollTop = layout().tops[currentPageIndex()] ?? 0;
+    const saved = lastScroll.get(props.doc.id);
+    if (!saved) {
+      box.scrollTop = layout().tops[currentPageIndex()] ?? 0;
+      return;
+    }
+    restoring = true;
+    const apply = () => { box.scrollTop = saved.top; box.scrollLeft = saved.left; };
+    apply();
+    // Se repite tras dos fotogramas, cuando el diseño ya tiene el alto completo.
+    requestAnimationFrame(() => { apply(); requestAnimationFrame(() => { apply(); restoring = false; update(); }); });
   });
 
   // Atiende "ir a página" (miniaturas, marcadores, búsqueda).

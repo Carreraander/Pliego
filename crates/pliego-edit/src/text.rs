@@ -349,6 +349,15 @@ fn replace_impl(
             None => make_face(&res, &loaded)?,
         };
 
+        // Ancho de composición: el del bloque, o el de la columna de texto si el bloque era más estrecho (una línea
+        // corta no debe dejar una columna estrecha). Solo con alineación a la izquierda y recolocación activa.
+        let flowing = flow.push_below;
+        let right = if flowing && matches!(res.align, Align::Left) {
+            flow::column_right(pdf, page, b.id, b.bbox)?
+        } else {
+            b.bbox[2]
+        };
+
         // Retirar el texto original. El recuadro se encoge un poco para no arrastrar líneas vecinas.
         let inset_y = (b.font_size * 0.15).min((b.bbox[3] - b.bbox[1]) / 4.0);
         let area = rect_of([
@@ -365,14 +374,45 @@ fn replace_impl(
         };
         pdf.redact_areas(&[(page as i32, area)], opts)?;
 
-        let max_width = (b.bbox[2] - raw.first_origin.0).max(res.size);
+        let max_width = (right - raw.first_origin.0).max(res.size);
         let lines = wrap(new_text, &face, res.size, Some(max_width));
         let leading = raw.leading.unwrap_or(res.size * 1.2);
+        let old_lines = raw.block.lines.len();
+        let col = (b.bbox[0], right);
+
+        // Cuántas líneas caben en esta página (por encima del pie o del margen inferior). El resto pasa a la siguiente.
+        let mut fit = lines.len();
+        if flowing && flow.overflow_to_next_page {
+            let limit = flow::bottom_limit(pdf, page, col, leading)?.max(b.bbox[3]);
+            let descent = res.size * 0.25;
+            let room = ((limit - descent - raw.first_origin.1) / leading).floor();
+            let room = if room.is_finite() && room >= 0.0 {
+                room as usize + 1
+            } else {
+                1
+            };
+            fit = lines.len().min(room.max(old_lines.min(lines.len())).max(1));
+        }
+        let (here, rest) = lines.split_at(fit);
 
         // Recolocación: lo de debajo sube o baja según cambie el número de líneas.
-        let delta = leading * (lines.len() as f32 - raw.block.lines.len() as f32);
+        let delta = leading * (fit as f32 - old_lines as f32);
         let mut moved = false;
-        if flow.push_below && delta.abs() > 0.01 {
+        let mut next_top = None;
+        if !rest.is_empty() {
+            next_top = Some(flow::make_room_on_next_page(
+                pdf,
+                page,
+                col,
+                b.bbox[3],
+                delta.max(0.0),
+                leading,
+                leading * rest.len() as f32,
+                flow,
+                &mut report,
+            )?);
+            moved = true;
+        } else if flowing && delta.abs() > 0.01 {
             flow::push_below(pdf, page, b.bbox, leading, delta, flow, &mut report)?;
             moved = true;
         }
@@ -381,14 +421,30 @@ fn replace_impl(
             &mut p,
             pdf,
             &res,
-            &lines,
+            here,
             raw.first_origin.0,
-            b.bbox[2],
+            right,
             raw.first_origin.1,
             leading,
             &face,
             label(&loaded),
         )?;
+        if let Some(top) = next_top {
+            // El resto del párrafo continúa en lo alto del cuerpo de la página siguiente.
+            let mut np = load_page(pdf, page + 1)?;
+            draw(
+                &mut np,
+                pdf,
+                &res,
+                rest,
+                raw.first_origin.0,
+                right,
+                top + (raw.first_origin.1 - b.bbox[1]),
+                leading,
+                &face,
+                label(&loaded),
+            )?;
+        }
 
         let new_bottom = raw.first_origin.1 + leading * (lines.len().saturating_sub(1)) as f32;
         if new_bottom > b.bbox[3] + 0.5 && !moved {

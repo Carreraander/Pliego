@@ -3,6 +3,7 @@ import type { OpenDoc } from "../../state/documents";
 import { IconButton } from "../../ui";
 import { cropImage, deleteObject, insertImage, loadImages, loadVectors, replaceImage, transformObject } from "./edit";
 import { addBox, changed, clampBox, dragBox, HANDLES, rotateTransform, transformBetween, type Box, type Handle, type ImageObj, type ObjectKind, type Pt, type VectorObj } from "./geometry";
+import { Ghost } from "./Ghost";
 import { et } from "./text";
 
 type Item = ImageObj | VectorObj;
@@ -93,6 +94,9 @@ export function ObjectLayer(p: { doc: OpenDoc; index: number; zoom: number; kind
         <div class="pl-edit-object" classList={{ "is-selected": selected() === it.id }} style={px(shown(it))} tabindex="0" role="button"
           aria-label={et(p.kind === "image" ? "edit.image.item" : "edit.object.item", { n: it.id + 1 })} aria-pressed={selected() === it.id}
           onPointerDown={(e) => begin(e, it, "move")} onFocus={() => setSelected(it.id)}>
+          <Show when={gesture() && selected() === it.id && !cropping() && changed(it.bbox, shown(it))}>
+            <Ghost doc={p.doc} index={p.index} zoom={p.zoom} from={it.bbox} to={shown(it)} />
+          </Show>
           <Show when={selected() === it.id && !cropping()}>
             <For each={HANDLES}>{(h) => <span class={`pl-edit-handle pl-edit-handle--${h}`} onPointerDown={(e) => begin(e, it, h)} />}</For>
           </Show>

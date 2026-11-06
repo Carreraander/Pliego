@@ -6,7 +6,7 @@
 
 use std::io::{self, Read, Write};
 
-use pliego_core::{DocInfo, Error, Layer, OutlineItem, PageSize, SearchHit, TileRequest};
+use pliego_core::{DocInfo, Error, Layer, OutlineItem, PageSize, PageWord, SearchHit, TileRequest};
 use serde::{Deserialize, Serialize};
 
 /// Máximo de un marco JSON.
@@ -43,6 +43,10 @@ pub enum Request {
         max_hits: u32,
     },
     Outline,
+    /// Palabras de la página con su caja (capa de texto del visor).
+    PageWords {
+        page: u32,
+    },
     /// Capas del documento (añadido; no cambia las peticiones anteriores).
     Layers,
     SetLayer {
@@ -70,6 +74,7 @@ pub enum Response {
     Text(String),
     Hit(SearchHit),
     Outline(Vec<OutlineItem>),
+    Words(Vec<PageWord>),
     Layers(Vec<Layer>),
     Err(WireError),
 }

@@ -340,7 +340,7 @@ test.describe("atajos del visor y del navegador (backend simulado)", () => {
   test("Fin, Inicio, Ctrl+1 y Ctrl+W/Ctrl+Mayús+T hacen lo que dice la hoja de atajos", async ({ page }) => {
     await page.locator(".viewer").click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("End");
-    await expect(page.getByText("Página 3 de 3")).toBeVisible();
+    await expect(page.getByText("Página 3 de 3").first()).toBeVisible();
     await page.keyboard.press("Home");
     await expect(page.getByText("Página 1 de 3")).toBeVisible();
     await page.keyboard.press("Control+1");
@@ -405,7 +405,7 @@ test.describe("recuperación tras un cierre inesperado (backend simulado)", () =
     await expect(banner).toContainText("1 documento abierto");
     await expect(banner.getByRole("button", { name: "Copiar informe" })).toBeVisible();
     await banner.getByRole("button", { name: "Reabrir" }).click();
-    await expect(page.getByText("Página 3 de 3")).toBeVisible();
+    await expect(page.getByText("Página 3 de 3").first()).toBeVisible();
     expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
     await expect.poll(async () => (await calls(page, "session_save")).at(-1)?.args).toMatchObject({ docs: [{ path: DOC, page: 2 }] });
   });
@@ -417,7 +417,7 @@ test.describe("reabrir las pestañas al iniciar (backend simulado)", () => {
     await installBackend(page, { reopen: true });
     await page.goto("/");
     await page.waitForSelector(".pl-window", { timeout: 45_000 });
-    await expect(page.getByText("Página 3 de 3")).toBeVisible();
+    await expect(page.getByText("Página 3 de 3").first()).toBeVisible();
     expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
     await expect(page.getByText("se cerró de forma inesperada")).toHaveCount(0);
   });

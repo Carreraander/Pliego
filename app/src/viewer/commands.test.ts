@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cycleTab, targetPage, zoomKeyDirection } from "./commands";
+import { cycleTab, suggestedName, targetPage, zoomKeyDirection } from "./commands";
 
 describe("cycleTab", () => {
   it("recorre las pestañas con vuelta", () => {
@@ -31,5 +31,13 @@ describe("zoomKeyDirection", () => {
     expect(zoomKeyDirection("+")).toBe(1);
     expect(zoomKeyDirection("_")).toBe(-1);
     expect(zoomKeyDirection("a")).toBe(0);
+  });
+});
+
+describe("suggestedName", () => {
+  it("propone el nombre del archivo abierto", () => {
+    expect(suggestedName("C:\\Docs\\contrato final.pdf")).toBe("contrato final.pdf");
+    expect(suggestedName("/home/ana/a.pdf")).toBe("a.pdf");
+    expect(suggestedName("")).toBe("documento.pdf");
   });
 });

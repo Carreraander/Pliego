@@ -25,6 +25,7 @@
   "password.wrong": "La contraseña no es correcta",
   "password.fileTitle": "Archivo protegido",
   "password.fileHint": "«{name}» está protegido. Escribe su contraseña para usarlo aquí.",
+  "menu.saveAs": "Guardar como…",
   "menu.home": "Inicio",
   "menu.settings": "Ajustes",
   "menu.shortcuts": "Atajos de teclado",

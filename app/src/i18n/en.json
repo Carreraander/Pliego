@@ -25,6 +25,7 @@
   "password.wrong": "The password is not correct",
   "password.fileTitle": "Protected file",
   "password.fileHint": "“{name}” is protected. Enter its password to use it here.",
+  "menu.saveAs": "Save as…",
   "menu.home": "Home",
   "menu.settings": "Settings",
   "menu.shortcuts": "Keyboard shortcuts",

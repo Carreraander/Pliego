@@ -195,6 +195,11 @@ lo que el navegador haría solo y su menú contextual (salvo en los campos de te
 desarrollo). Pruebas: `browserGuard.test.ts`, `viewer/commands.test.ts` y tres casos de `app-smoke.spec.ts`. **W**: en la
 app instalada, F5, Ctrl+R, Ctrl+P, Alt+← y el clic derecho no deben recargar, imprimir ni sacar el menú de Edge.
 
+**Guardar como** (Ctrl+Mayús+S y menú de la app): copia el archivo abierto a la ruta elegida (temporal y renombrado,
+`app/service/src/saveas.rs`), abre la copia con la misma contraseña y cierra la pestaña anterior. Ctrl+S solo avisa de
+que los cambios ya están en el archivo (las herramientas guardan al aplicar). Pruebas: `saveas::tests` y
+`app-smoke.spec.ts`. **W**: guardar como sobre un PDF cifrado y en otra unidad.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

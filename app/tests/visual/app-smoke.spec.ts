@@ -20,6 +20,8 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       recents_list: [],
       ocr_languages: { installed: ["eng", "osd", "spa"], downloadable: ["eng", "fra", "osd", "spa"] },
       pick_pdf_files: ["C:\\Docs\\version-2.pdf"],
+      pick_save_pdf: "C:\\Copias\\escaneo revisado",
+      save_document_as: "C:\\Copias\\escaneo revisado.pdf",
       ocr_pdf: 11,
       compress_pdf: 14,
       analyze_pdf: null,
@@ -284,6 +286,18 @@ test.describe("atajos del visor y del navegador (backend simulado)", () => {
     await page.keyboard.press("Control+p");
     await expect(page.getByText("La impresión llegará en una próxima versión.")).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __printed?: boolean }).__printed)).toBeUndefined();
+  });
+
+  test("Ctrl+Mayús+S guarda una copia y pasa a trabajar con ella; Ctrl+S confirma que ya está guardado", async ({ page }) => {
+    await page.keyboard.press("Control+s");
+    await expect(page.getByText("Los cambios ya están guardados en el archivo.")).toBeVisible();
+    await page.keyboard.press("Control+Shift+S");
+    await expect(page.getByText("Guardado como escaneo revisado.pdf")).toBeVisible();
+    expect((await calls(page, "pick_save_pdf"))[0]?.args).toMatchObject({ defaultName: "escaneo.pdf" });
+    expect((await calls(page, "save_document_as"))[0]?.args).toMatchObject({ path: DOC, target: "C:\\Copias\\escaneo revisado" });
+    const opened = await calls(page, "open_document");
+    expect(opened.at(-1)?.args).toMatchObject({ path: "C:\\Copias\\escaneo revisado.pdf" });
+    expect(await calls(page, "close_document")).toHaveLength(1);
   });
 
   test("F5, Ctrl+R y el menú contextual del navegador quedan bloqueados", async ({ page }) => {

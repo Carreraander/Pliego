@@ -3,6 +3,7 @@
  * reabrir pestañas, cambiar de pestaña, zoom, girar, ir a la primera/última/anterior/siguiente página y buscar.
  * Se registran con el mismo `id` que la fila de referencia, así que sustituyen a la fila «solo listada».
  */
+import { api, isApiError } from "../api";
 import { locale } from "../i18n";
 import { registerShortcut, type ShortcutDef } from "../navigation/shortcuts";
 import { activeMode, setMode } from "../shell/slots";
@@ -11,12 +12,13 @@ import {
 } from "../state/documents";
 import { goToPage } from "../state/navigation";
 import { matches, nextMatch } from "../state/search";
+import { passwordFor } from "../state/passwords";
 import { toast } from "../ui/toastStore";
 import { fitPageZoom, fitWidthZoom, rotate, stepZoom, type Size } from "./layout";
 
 export interface ViewerCommandHost {
-  /** Abre un archivo (con el diálogo de contraseña si hace falta). */
-  open: (path: string) => void;
+  /** Abre un archivo (con el diálogo de contraseña si hace falta); con `password`, la prueba primero. */
+  open: (path: string, password?: string) => Promise<void> | void;
   /** Muestra el selector de archivos y abre lo elegido. */
   pickAndOpen: () => void;
   /** Tamaño del lienzo, para los zooms de ajuste. */
@@ -54,6 +56,29 @@ function viewerHasFocus(): boolean {
 
 const es = () => locale() === "es";
 
+/** Nombre que se propone en «Guardar como»: el del archivo abierto. Pura, para probarla. */
+export function suggestedName(path: string): string {
+  return path.split(/[\\/]/).pop() || "documento.pdf";
+}
+
+/** «Guardar como»: copia el archivo abierto donde diga la persona y pasa a trabajar con la copia, como en otros editores. */
+export async function saveAs(host: ViewerCommandHost): Promise<void> {
+  const doc = activeDoc();
+  if (!doc) return;
+  const target = await api.pickSavePdf(es() ? "Guardar como" : "Save as", suggestedName(doc.path));
+  if (!target) return;
+  try {
+    const saved = await api.saveDocumentAs(doc.path, target);
+    const password = passwordFor(doc.path) ?? undefined;
+    await host.open(saved, password);
+    await closeDoc(doc.id);
+    toast({ tone: "ok", text: es() ? `Guardado como ${suggestedName(saved)}` : `Saved as ${suggestedName(saved)}` });
+  } catch (e) {
+    const msg = isApiError(e) ? e.message : String(e);
+    toast({ tone: "danger", text: `${es() ? "No se pudo guardar" : "Could not save"}: ${msg}` });
+  }
+}
+
 export function installViewerCommands(host: ViewerCommandHost): () => void {
   const hasDoc = () => activeDoc() !== null;
   const first = () => activeDoc()?.sizes[currentPageIndex()] ?? activeDoc()?.sizes[0];
@@ -75,6 +100,12 @@ export function installViewerCommands(host: ViewerCommandHost): () => void {
       id: "file.reopenTab", section: "file", keys: "Ctrl+Shift+T", title: () => (es() ? "Reabrir pestaña cerrada" : "Reopen closed tab"),
       run: () => { const p = popClosedPath(); if (p) host.open(p); },
     },
+    {
+      // Las herramientas ya guardan en el archivo al aplicar cada cambio: Ctrl+S solo lo confirma.
+      id: "file.save", section: "file", keys: "Ctrl+S", title: () => (es() ? "Guardar" : "Save"), when: hasDoc,
+      run: () => { toast({ tone: "info", text: es() ? "Los cambios ya están guardados en el archivo." : "Changes are already saved to the file." }); },
+    },
+    { id: "file.saveAs", section: "file", keys: "Ctrl+Shift+S", title: () => (es() ? "Guardar como" : "Save as"), when: hasDoc, run: () => void saveAs(host) },
     {
       // Hasta que llegue la impresión (docs/handoff/huecos-1.0.md, P0 #1), Ctrl+P no debe imprimir la interfaz.
       id: "file.print", section: "file", keys: "Ctrl+P", title: () => (es() ? "Imprimir" : "Print"),

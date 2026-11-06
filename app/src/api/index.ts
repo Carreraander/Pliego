@@ -62,6 +62,10 @@ export const api = {
   pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title }),
   /** Selector nativo de imágenes, texto y documentos de Office para «Crear PDF». */
   pickSourceFiles: (title?: string) => invoke<string[]>("pick_source_files", { title }),
+  /** Diálogo «Guardar como» de un PDF; `null` si se cancela. */
+  pickSavePdf: (title?: string, defaultName?: string) => invoke<string | null>("pick_save_pdf", { title, defaultName }),
+  /** Copia el archivo del documento a `target`; devuelve la ruta final (con `.pdf`). */
+  saveDocumentAs: (path: string, target: string) => invoke<string>("save_document_as", { path, target }),
 };
 
 export const events = {

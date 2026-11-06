@@ -41,10 +41,53 @@ pub struct VisibleSignature {
     pub rect: [f32; 4],
 }
 
+/// Idioma del texto que la firma deja en el documento (apariencia visible y nombre del campo). Es el de la interfaz
+/// de la app; por defecto, español.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SignLang {
+    #[default]
+    Es,
+    En,
+}
+
+impl SignLang {
+    /// Líneas de la apariencia visible: quién firma, cuándo y, si se indican, el motivo y el lugar.
+    pub fn appearance_lines(
+        self,
+        signer: &str,
+        when: i64,
+        reason: Option<&str>,
+        location: Option<&str>,
+    ) -> Vec<String> {
+        let (signed_by, date, reason_label, location_label) = match self {
+            SignLang::Es => ("Firmado digitalmente por", "Fecha", "Motivo", "Lugar"),
+            SignLang::En => ("Digitally signed by", "Date", "Reason", "Location"),
+        };
+        let mut lines = vec![
+            format!("{signed_by} {signer}"),
+            format!("{date}: {}", pdf_date_human(when)),
+        ];
+        lines.extend(reason.map(|r| format!("{reason_label}: {r}")));
+        lines.extend(location.map(|l| format!("{location_label}: {l}")));
+        lines
+    }
+
+    /// Nombre del campo de firma cuando no se indica uno (`Firma12` / `Signature12`).
+    pub fn field_name(self, n: u32) -> String {
+        match self {
+            SignLang::Es => format!("Firma{n}"),
+            SignLang::En => format!("Signature{n}"),
+        }
+    }
+}
+
 /// Opciones de firma. Se pueden guardar en acciones en lote.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SignOptions {
+    /// Idioma de la apariencia visible de la firma.
+    pub lang: SignLang,
     pub digest: DigestAlg,
     pub level: PadesLevel,
     /// Servidor de sellado de tiempo (http) para los niveles B-T o superiores.
@@ -71,6 +114,7 @@ pub struct SignOptions {
 impl Default for SignOptions {
     fn default() -> Self {
         Self {
+            lang: SignLang::default(),
             digest: DigestAlg::Sha256,
             level: PadesLevel::BB,
             timestamp_url: None,
@@ -468,12 +512,12 @@ pub fn sign_bytes_with(
     };
 
     let sig_lines = |w: f32, h: f32| {
-        let mut lines = vec![
-            format!("Firmado digitalmente por {}", subject_name(leaf)),
-            format!("Fecha: {}", pdf_date_human(when)),
-        ];
-        lines.extend(opts.reason.iter().map(|r| format!("Motivo: {r}")));
-        lines.extend(opts.location.iter().map(|l| format!("Lugar: {l}")));
+        let lines = opts.lang.appearance_lines(
+            &subject_name(leaf),
+            when,
+            opts.reason.as_deref(),
+            opts.location.as_deref(),
+        );
         crate::appearance::build(w, h, &lines)
     };
     let existing = match opts.field_name.as_deref() {
@@ -492,7 +536,7 @@ pub fn sign_bytes_with(
         }
         set_sig_flags(&mut ch, root_id)?;
     } else {
-        let field_name = opts.field_name.clone().unwrap_or_else(|| format!("Firma{}", size));
+        let field_name = opts.field_name.clone().unwrap_or_else(|| opts.lang.field_name(size));
         let mut field = dictionary! {
             "Type" => "Annot",
             "Subtype" => "Widget",

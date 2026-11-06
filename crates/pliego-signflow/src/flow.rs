@@ -67,8 +67,16 @@ pub fn sign_next(doc: &[u8], signer: &dyn Signer, mut opts: SignOptions) -> Resu
     }
     opts.field_name = Some(pending.field_name.clone());
     if opts.reason.is_none() {
+        let label = match opts.lang {
+            pliego_sign::SignLang::Es => "Firma",
+            pliego_sign::SignLang::En => "Signature",
+        };
+        let of = match opts.lang {
+            pliego_sign::SignLang::Es => "de",
+            pliego_sign::SignLang::En => "of",
+        };
         opts.reason = Some(format!(
-            "Firma {} de {}: {}",
+            "{label} {} {of} {}: {}",
             pending.index + 1,
             pending.total,
             pending.spec.name

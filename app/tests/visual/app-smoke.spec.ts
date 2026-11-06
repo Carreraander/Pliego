@@ -8,8 +8,8 @@ import { expect, test, type Page } from "@playwright/test";
 const DOC = "C:\\Docs\\escaneo.pdf";
 
 /** `locked`: otros archivos protegidos (ruta → contraseña) que `password_status` reconoce, como el servicio real. */
-async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string> } = {}) {
-  await page.addInitScript(([doc, protectedDoc, locked]: [string, boolean, Record<string, string>]) => {
+async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string>; english?: boolean; signed?: boolean } = {}) {
+  await page.addInitScript(([doc, protectedDoc, locked, english, signed]: [string, boolean, Record<string, string>, boolean, boolean]) => {
     const calls: { cmd: string; args: unknown }[] = [];
     const responses: Record<string, unknown> = {
       startup_files: [doc],
@@ -27,6 +27,18 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       ocr_download_language: 13,
       merge_pdfs: 15,
       insert_pages: 16,
+      sign_pdf: 17,
+      sign_list_certificates: [{ thumbprint: "AB12", subject: "Ana Prueba", issuer: "CA de prueba", not_after: "2027-01-01T00:00:00Z", has_private_key: true }],
+      sign_validate: signed
+        ? [{
+            field: "Firma1", signer: "Ana Prueba", subject: "CN=Ana Prueba", signing_time: "2026-11-05T10:00:00Z", reason: null, location: null,
+            integrity: true, covers_whole_document: true, modifications_allowed: true, has_dss: false, certification: null, level: "b-b",
+            chain: "incomplete", has_timestamp: true, document_timestamp: null,
+            problems: ["el sello de tiempo es ilegible", "la cadena de certificados está incompleta"], problem_keys: ["timestamp-unreadable", "chain-incomplete"],
+          }]
+        : [],
+      // Ajustes guardados: con `english` la persona eligió «English» en Ajustes (el valor por defecto es español).
+      get_settings: english ? { version: 2, general: { language: "en" } } : null,
     };
     let nextId = 1;
     const w = window as unknown as Record<string, unknown>;
@@ -54,7 +66,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
         return cmd in responses ? responses[cmd] : null;
       },
     };
-  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}] as [string, boolean, Record<string, string>]);
+  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}, opts.english ?? false, opts.signed ?? false] as [string, boolean, Record<string, string>, boolean, boolean]);
 }
 
 const calls = (page: Page, cmd: string) =>
@@ -62,7 +74,7 @@ const calls = (page: Page, cmd: string) =>
 
 async function openTool(page: Page, query: string, option: RegExp) {
   await page.keyboard.press("Control+k");
-  const box = page.getByRole("combobox", { name: "Paleta de órdenes" });
+  const box = page.getByRole("combobox", { name: /Paleta de órdenes|Command palette/ });
   await box.fill(query);
   await page.getByRole("option", { name: option }).first().click();
 }
@@ -197,3 +209,31 @@ test.describe("otros archivos protegidos (backend simulado)", () => {
   });
 });
 
+test.describe("firmas con la app en inglés (backend simulado)", () => {
+  test.use({ locale: "en-US" });
+
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page, { english: true, signed: true });
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+  });
+
+  test("«Validar firmas» no deja texto fijo en español", async ({ page }) => {
+    await page.getByRole("button", { name: /View signatures/ }).click();
+    await expect(page.getByText("The timestamp cannot be read")).toBeVisible();
+    await expect(page.getByText("Trusted certificate chain").or(page.getByText("Intermediate certificates are missing"))).toBeVisible();
+    // Nada de lo que muestra el panel puede llevar los textos en español del motor.
+    const panel = await page.locator(".pl-sign-panel").innerText();
+    expect(panel).not.toMatch(/sello de tiempo|cadena de certificados|ilegible/i);
+  });
+
+  test("firmar manda el idioma de la app y el sufijo de la copia en inglés", async ({ page }) => {
+    await openTool(page, "digital signature", /Digital signature/);
+    await page.getByRole("combobox", { name: "Certificate" }).selectOption("AB12");
+    await page.getByRole("button", { name: "Sign and save a copy" }).click();
+    const sent = (await calls(page, "sign_pdf"))[0]?.args as { options: Record<string, unknown>; suffix: string };
+    expect(sent.options).toMatchObject({ lang: "en" });
+    expect(sent.suffix).toBe("signed");
+  });
+});

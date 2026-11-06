@@ -3,7 +3,7 @@ import { createResource, For, Show } from "solid-js";
 import { Button, Chip, EmptyState } from "../../ui";
 import { docs } from "../../state/documents";
 import { validateDoc } from "./facts";
-import { levelLabel, verdict, verdictTone, type SignatureReport } from "./status";
+import { levelLabel, problemLines, verdict, verdictTone, type SignatureReport } from "./status";
 import { st } from "./text";
 
 function Card(p: { r: SignatureReport }) {
@@ -20,7 +20,7 @@ function Card(p: { r: SignatureReport }) {
         <Show when={p.r.has_dss}><li>{st("validate.dss")}</li></Show>
         <Show when={p.r.certification}><li>{st("validate.certification", { n: p.r.certification! })}</li></Show>
         <li>{st("validate.level", { level: levelLabel(p.r.level) })}</li>
-        <For each={p.r.problems}>{(m) => <li>{m}</li>}</For>
+        <For each={problemLines(p.r, st)}>{(m) => <li>{m}</li>}</For>
       </ul>
       <Show when={p.r.signing_time}><span class="pl-muted">{st("validate.signedAt", { date: p.r.signing_time! })}</span></Show>
       <Show when={p.r.reason}><span class="pl-muted">{st("validate.reason", { text: p.r.reason! })}</span></Show>

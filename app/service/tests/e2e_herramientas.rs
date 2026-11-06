@@ -306,6 +306,7 @@ fn firmar_validar_y_flujo_de_firmas_desde_un_pdf_abierto() {
         &path,
         &prepared,
         vec![SignerSpec::new("Ana"), SignerSpec::new("Beto")],
+        pliego_sign::SignLang::Es,
         &ctx,
     )
     .unwrap();

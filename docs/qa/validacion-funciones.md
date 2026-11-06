@@ -35,7 +35,7 @@ e2e_documento_abierto`.
 ### Ver
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto; Playwright `medir-presentacion.spec.ts` (F11 oculta el armazón, la página cabe entera, flechas/Inicio/Fin, Esc vuelve). **Bug hallado y arreglado (2026-11-05):** al ocultar el armazón la cuadrícula del shell dejaba el visor a 0 px de alto → F11 mostraba una pantalla en blanco | W: pantalla completa real en Tauri (resize); V |
+| `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto; Playwright `medir-presentacion.spec.ts` (F11 oculta el armazón, la página cabe entera, flechas/Inicio/Fin, Esc vuelve). **Bug hallado y arreglado (2026-11-05):** al ocultar el armazón la cuadrícula del shell dejaba el visor a 0 px de alto → F11 mostraba una pantalla en blanco | **Windows (pc, app real, 2026-11-05):** F11 a pantalla completa 1920×1080 sin barras, la página cabe, flechas/Inicio/Fin/Esc OK; vista pequeña pendiente de arreglar: con escala 125 % asomaban ~5 px de la página siguiente y se veía la barra de desplazamiento (margen y barra ajustados en el PR siguiente) | V |
 | `viewer.layers` Capas | 🟢 | E2E2 (`e2e_herramientas.rs`): PDF con una capa, ocultar y mostrar cambia la tesela y no toca el archivo; capa inexistente da error | V (un PDF de verdad con capas) |
 | `viewer.attachments` Adjuntos | 🟡 | A: `attachments.test.ts`; E2E: cartera (crear, listar, extraer) | V |
 | `viewer.properties` Propiedades | 🟡 | A: `properties.test.ts`, `document_info` | V |
@@ -52,9 +52,9 @@ e2e_documento_abierto`.
 ### Rellenar y firmar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor | W; V |
-| `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | W: certificado del almacén de Windows (CNG), DNIe sin lector; V |
-| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo | W |
+| `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor; Playwright `rellenar-scripts.spec.ts` (backend simulado): campo con formato enseña `1.234,50 €` sin enfocar y el valor al editar, el filtro de tecleo rechaza letras y acepta cifras, `forms_fill` al confirmar y el botón con acción llama a `forms_run_action` y enseña el aviso del script | W; V |
+| `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | **Windows (pc, 2026-11-05):** firma con certificado en una **tarjeta inteligente virtual TPM** (proveedor «Microsoft Smart Card Key Storage Provider», el mismo camino que el DNIe): `pliego sign --store` firma en 4–7 s, `verify --strict` válida, un bit alterado la rompe, cancelar el PIN da `Cancelled`. El PIN lo pide una ventana de Windows (`Credential Dialog Xaml Host`) que se puede automatizar con UI Automation (`PasswordField_0` + `OkButton`). Con PIN erróneo Windows reabre el cuadro y la firma espera (no da error): cuidar que la interfaz no se quede bloqueada. DNIe real: pendiente de lector; V |
+| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo; vitest `problems.test.ts` y Playwright con la app en inglés: los avisos salen en el idioma de la app | W |
 | `sign.workflow` Flujo de firmas | 🟡 | A: `signflow_runs_in_order_and_keeps_an_audit_log`; E2E2: preparar, dos firmas en orden, auditoría de 3 entradas, cada paso se abre y se pinta | W, V |
 
 ### Organizar
@@ -118,7 +118,7 @@ e2e_documento_abierto`.
 | `print.preflight` Comprobación previa | 🟢 | A + E2E: perfil `basic` | — |
 | `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs`; E2E2: acción «borrar página 1» sobre un PDF abierto, salidas con una página menos | W |
 | `batch.index` Índice de búsqueda | 🟢 | A + E2E: indexa una carpeta y encuentra «Pliego» | índice de 1.000 PDF en W |
-| `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer; Playwright `medir-presentacion.spec.ts`: calibrar (200 px = 10 m), distancia (400 px → 20 m), área (100 m²) y `1:100`, con la geometría real del zoom y capturas | W: en la app instalada; V |
+| `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer; Playwright `medir-presentacion.spec.ts`: calibrar (200 px = 10 m), distancia (400 px → 20 m), área (100 m²) y `1:100`, con la geometría real del zoom y capturas | **Windows (pc, app real):** calibrar con 2 clics y 10 m → `1 pt = 0,09375 m`, distancia de 400 px = 20,00 m, área 200×200 px = 100,00 m² (perímetro 40,00 m); «Guardar medida» deja `line` y `polygon` en el PDF (`pliego annot list`) y la copia «(antes de medir)» idéntica | V |
 | `batch.portfolio` Carteras | 🟢 | A + E2E: crear, listar y extraer | — |
 
 ### Asistente y actualizaciones
@@ -158,6 +158,16 @@ el flujo de firmas no reciben contraseña) y las acciones en lote sobre carpetas
 Falta en Windows (acr12 / «pc»): repetir `cargo test -p pliego-app-service --test e2e_contrasena` con `PLIEGO_CLI`
 apuntando a la CLI compilada, y la comprobación visual de Ander (abrir un PDF cifrado, comentar, comprimir y combinar
 con otro cifrado).
+
+## Idioma de las firmas (2026-11-05)
+
+Con la app en inglés, la apariencia visible de la firma («Firmado digitalmente por…», «Fecha», «Motivo», «Lugar»), el
+nombre del campo («FirmaN»), la hoja y el motivo del flujo de firmas y los avisos de «Validar firmas» seguían en
+español (los textos salían del motor). Ahora `SignOptions.lang` (`es`/`en`, por defecto `es`) decide el texto que la
+firma deja en el PDF y la interfaz manda el idioma de la app; el motor da una clave estable por aviso
+(`problem_keys`) y la interfaz los traduce. Los sufijos de las copias («firmado», «para firmar») también salen de la
+interfaz. Sin cubrir: los mensajes de progreso y resumen de los trabajos que da el servicio (centro de tareas), que
+son de todas las herramientas y siguen en español, y el error libre al leer una firma corrupta (`other`).
 
 ## Cómo repetirlo
 

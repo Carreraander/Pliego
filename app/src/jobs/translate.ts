@@ -20,7 +20,7 @@ import { SYSTEM_RULES, type Rule } from "../i18n/engine/rules-system";
 const JOB_RULES: readonly Rule[] = [
   // ── Progreso (`ctx.step`) ──
   ["Ajustando páginas", "Adjusting pages"], ["Analizando la página", "Analyzing the page"], ["Analizando páginas", "Analyzing pages"],
-  ["Aplicando redacciones", "Applying redactions"], ["Añadiendo marcas", "Adding marks"], ["Añadiendo {}", "Adding {}"],
+  ["Aplicando redacciones", "Applying redactions"], ["Añadiendo marcas", "Adding marks"], ["Añadiendo una hoja en blanco", "Adding a blank sheet"], ["Añadiendo {}", "Adding {}"],
   ["Buscando imágenes", "Looking for images"], ["Buscando líneas finas", "Looking for hairlines"], ["Buscando líneas", "Looking for lines"],
   ["Buscando recuadros", "Looking for boxes"], ["Cifrando…", "Encrypting…"], ["Comparación terminada", "Comparison finished"],
   ["Comparando páginas", "Comparing pages"], ["Comprobación terminada", "Check finished"], ["Comprobando el resultado", "Checking the result"],
@@ -33,7 +33,8 @@ const JOB_RULES: readonly Rule[] = [
   ["Listo", "Done"], ["Líneas finas corregidas", "Hairlines fixed"], ["Marca de agua", "Watermark"], ["Marcas añadidas", "Marks added"],
   ["Optimizando imágenes", "Optimizing images"], ["Parte {} de {}", "Part {1} of {2}"], ["Poniendo nombre a los campos", "Naming the fields"],
   ["Preparando el documento", "Preparing the document"], ["Preparando la impresión", "Preparing to print"],
-  ["Imprimiendo la página {}", "Printing page {}"], ["Enviado a la impresora", "Sent to the printer"],
+  ["Imprimiendo la página {}", "Printing page {}"], ["Imprimiendo la hoja {}", "Printing sheet {}"],
+  ["Enviado a la impresora", "Sent to the printer"],
   ["Preparando el paquete", "Preparing the package"], ["Preparando página {}", "Preparing page {}"], ["Preparando", "Preparing"],
   ["Quitando la protección…", "Removing the protection…"], ["Recomprimiendo imágenes", "Recompressing images"],
   ["Reconociendo página {}", "Recognizing page {}"], ["Redacción aplicada", "Redaction applied"],
@@ -43,8 +44,8 @@ const JOB_RULES: readonly Rule[] = [
   ["leyendo capítulos", "reading chapters"], ["leyendo imágenes", "reading images"], ["leyendo la página {}", "reading page {}"],
   ["listo", "done"], ["maquetando", "laying out"], ["página {}", "page {}"], ["sello", "stamp"], ["fin", "end"],
   // ── Resúmenes y avisos (`Report`) ──
-  ["Se enviaron {} página(s) a «{}»", "Sent {1} page(s) to “{2}”"],
-  ["Se enviaron {} página(s) × {} copias a «{}»", "Sent {1} page(s) × {2} copies to “{3}”"],
+  ["Se enviaron {} hoja(s) a «{}»", "Sent {1} sheet(s) to “{2}”"],
+  ["Se enviaron {} hoja(s) × {} copias a «{}»", "Sent {1} sheet(s) × {2} copies to “{3}”"],
   ["«{}» no imprime a doble cara: se imprimió a una cara", "“{}” does not print two-sided: it was printed on one side"],
   ["Cartera con {} archivos.", "Portfolio with {} files."], ["Convertido a {} con la condición «{}».", "Converted to {1} with the condition “{2}”."],
   ["Corregido: {}.", "Fixed: {}."], ["Firmado. Siguiente: {} ({} de {})", "Signed. Next: {1} ({2} of {3})"], ["Firmado. Ya han firmado todos", "Signed. Everyone has signed"], ["Documento cifrado con {}.", "Document encrypted with {}."], ["Documento firmado", "Document signed"],

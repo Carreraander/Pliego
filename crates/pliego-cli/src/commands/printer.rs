@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use anyhow::bail;
 use clap::{Args, Subcommand, ValueEnum};
 use pliego_core::{CancelToken, JobContext, Progress};
-use pliego_printer::{Duplex, Orientation, PrintOptions, ScaleMode, Subset};
+use pliego_printer::{Booklet, Duplex, NupOrder, Orientation, PrintOptions, ScaleMode, Subset};
 
 #[derive(Subcommand)]
 pub enum PrinterCommand {
@@ -65,6 +65,25 @@ pub enum SubsetArg {
     Even,
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+pub enum NupOrderArg {
+    Horizontal,
+    HorizontalReversed,
+    Vertical,
+    VerticalReversed,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum BookletArg {
+    Off,
+    /// Anverso y reverso a doble cara.
+    Both,
+    /// Solo los anversos (luego se da la vuelta a las hojas).
+    Front,
+    /// Solo los reversos.
+    Back,
+}
+
 #[derive(Args)]
 pub struct SendArgs {
     /// PDF a imprimir.
@@ -107,6 +126,21 @@ pub struct SendArgs {
     /// Identificador de papel de Windows (9 = A4…). Por defecto, el de la impresora.
     #[arg(long)]
     pub paper: Option<i16>,
+    /// Páginas por hoja: 1, 2, 4, 6, 9 o 16 (con varias, la escala es siempre «ajustar»).
+    #[arg(long, default_value_t = 1)]
+    pub per_sheet: u32,
+    /// Orden de las páginas en la hoja con `--per-sheet`.
+    #[arg(long, value_enum, default_value = "horizontal")]
+    pub nup_order: NupOrderArg,
+    /// Dibuja un marco alrededor de cada página (varias por hoja y folleto).
+    #[arg(long)]
+    pub borders: bool,
+    /// Folleto: dos páginas por cara, ordenadas para doblar y grapar.
+    #[arg(long, value_enum, default_value = "off")]
+    pub booklet: BookletArg,
+    /// Folleto de derecha a izquierda (lomo a la derecha).
+    #[arg(long)]
+    pub booklet_rtl: bool,
     /// Imprime en un archivo (impresoras «a PDF»; sirve para probar sin gastar papel).
     #[arg(short, long)]
     pub output: Option<PathBuf>,
@@ -150,6 +184,21 @@ impl SendArgs {
             comments: !self.no_comments,
             paper: self.paper,
             output: self.output.clone(),
+            pages_per_sheet: self.per_sheet,
+            nup_order: match self.nup_order {
+                NupOrderArg::Horizontal => NupOrder::Horizontal,
+                NupOrderArg::HorizontalReversed => NupOrder::HorizontalReversed,
+                NupOrderArg::Vertical => NupOrder::Vertical,
+                NupOrderArg::VerticalReversed => NupOrder::VerticalReversed,
+            },
+            borders: self.borders,
+            booklet: match self.booklet {
+                BookletArg::Off => Booklet::Off,
+                BookletArg::Both => Booklet::Both,
+                BookletArg::Front => Booklet::FrontOnly,
+                BookletArg::Back => Booklet::BackOnly,
+            },
+            booklet_rtl: self.booklet_rtl,
         }
     }
 }

@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 
 use pliego_core::{Error, JobContext, Report, Result};
 pub use pliego_printer::{
-    Duplex, Orientation, Placement, PrintOptions, PrinterCaps, PrinterEntry, ScaleMode, SheetMetrics, Subset,
+    Booklet, Duplex, NupOrder, Orientation, Placement, PrintOptions, PrinterCaps, PrinterEntry, ScaleMode,
+    SheetMetrics, SheetPlan, Subset,
 };
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +98,27 @@ pub fn send_args(req: &PrintRequest) -> Result<Vec<OsString>> {
     if let Some(p) = o.paper {
         flag("--paper", p.to_string());
     }
+    flag("--per-sheet", o.pages_per_sheet.to_string());
+    flag(
+        "--nup-order",
+        match o.nup_order {
+            NupOrder::Horizontal => "horizontal",
+            NupOrder::HorizontalReversed => "horizontal-reversed",
+            NupOrder::Vertical => "vertical",
+            NupOrder::VerticalReversed => "vertical-reversed",
+        }
+        .into(),
+    );
+    flag(
+        "--booklet",
+        match o.booklet {
+            Booklet::Off => "off",
+            Booklet::Both => "both",
+            Booklet::FrontOnly => "front",
+            Booklet::BackOnly => "back",
+        }
+        .into(),
+    );
     if let Some(out) = &o.output {
         a.push("--output".into());
         a.push(out.clone().into_os_string());
@@ -107,6 +129,8 @@ pub fn send_args(req: &PrintRequest) -> Result<Vec<OsString>> {
         (!o.auto_rotate, "--no-auto-rotate"),
         (o.grayscale, "--grayscale"),
         (!o.comments, "--no-comments"),
+        (o.borders, "--borders"),
+        (o.booklet_rtl, "--booklet-rtl"),
     ] {
         if on {
             a.push(name.into());
@@ -150,15 +174,31 @@ pub fn sheet(cli: &Path, name: &str, paper: Option<i16>, landscape: bool) -> Res
     query(cli, args)
 }
 
-/// Dónde cae una página en la hoja de la vista previa (mismas cuentas que la impresión real).
-pub fn preview_placement(
-    page_width: f32,
-    page_height: f32,
-    sheet: &SheetMetrics,
-    options: &PrintOptions,
-) -> Result<Placement> {
+/// Cómo sale la primera cara en la hoja de la vista previa y cuántas caras tiene el trabajo (mismas cuentas que la
+/// impresión real).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewPlan {
+    /// Caras distintas que se imprimen (sin contar las copias).
+    pub sheets: u32,
+    pub first: SheetPlan,
+}
+
+/// Plan de la vista previa. `sizes[i]` es el tamaño en puntos de la página `i` del documento.
+pub fn preview_plan(sizes: &[(f32, f32)], sheet: &SheetMetrics, options: &PrintOptions) -> Result<PreviewPlan> {
     options.validate()?;
-    Ok(pliego_printer::place(page_width, page_height, sheet, options))
+    let mut plans = pliego_printer::plan_sheets(sizes, sheet, options)?;
+    let sheets = plans.len() as u32;
+    Ok(PreviewPlan {
+        sheets,
+        first: plans.swap_remove(0),
+    })
+}
+
+/// ¿La hoja es apaisada con estas opciones? Para pedir la hoja de la impresora en la orientación que usará el trabajo.
+pub fn preview_landscape(options: &PrintOptions, first_page: (f32, f32)) -> Result<bool> {
+    options.validate()?;
+    Ok(pliego_printer::choose_landscape(options, first_page))
 }
 
 #[cfg(all(test, unix))]
@@ -277,12 +317,12 @@ esac"#,
     #[test]
     fn preview_uses_the_same_layout_as_printing() {
         let s = SheetMetrics::plain(595.0, 842.0);
-        let p = preview_placement(842.0, 595.0, &s, &PrintOptions::default()).unwrap();
-        assert_eq!(p.rotate, 1);
+        let sizes = [(842.0, 595.0)];
+        let p = preview_plan(&sizes, &s, &PrintOptions::default()).unwrap();
+        assert_eq!((p.sheets, p.first.slots[0].placement.rotate), (1, 1));
         assert!(
-            preview_placement(
-                10.0,
-                10.0,
+            preview_plan(
+                &[(10.0, 10.0)],
                 &s,
                 &PrintOptions {
                     copies: 0,
@@ -290,6 +330,49 @@ esac"#,
                 }
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn preview_of_a_booklet_counts_sides_and_picks_landscape() {
+        let o = PrintOptions {
+            booklet: Booklet::Both,
+            ..PrintOptions::default()
+        };
+        assert!(preview_landscape(&o, (595.0, 842.0)).unwrap());
+        let s = SheetMetrics::plain(842.0, 595.0);
+        let p = preview_plan(&[(595.0, 842.0); 8], &s, &o).unwrap();
+        assert_eq!(p.sheets, 4);
+        assert_eq!(p.first.slots.len(), 2);
+    }
+
+    #[test]
+    fn sheet_layout_flags_reach_the_cli() {
+        let req = PrintRequest {
+            path: "a.pdf".into(),
+            options: PrintOptions {
+                pages_per_sheet: 4,
+                nup_order: NupOrder::VerticalReversed,
+                borders: true,
+                ..PrintOptions::default()
+            },
+            ..PrintRequest::default()
+        };
+        let a = args_of(&req);
+        let pair = |k: &str, v: &str| a.windows(2).any(|w| w[0] == k && w[1] == v);
+        assert!(pair("--per-sheet", "4") && pair("--nup-order", "vertical-reversed") && pair("--booklet", "off"));
+        assert!(a.contains(&"--borders".to_string()) && !a.contains(&"--booklet-rtl".to_string()));
+        let book = PrintRequest {
+            options: PrintOptions {
+                booklet: Booklet::BackOnly,
+                booklet_rtl: true,
+                ..PrintOptions::default()
+            },
+            ..PrintRequest::default()
+        };
+        let b = args_of(&book);
+        assert!(
+            b.windows(2).any(|w| w[0] == "--booklet" && w[1] == "back") && b.contains(&"--booklet-rtl".to_string())
         );
     }
 }

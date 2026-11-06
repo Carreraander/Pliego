@@ -5,6 +5,8 @@ export type Orientation = "auto" | "portrait" | "landscape";
 export type ScaleMode = "fit" | "shrink" | "actual" | "custom";
 export type Duplex = "off" | "longEdge" | "shortEdge";
 export type Subset = "all" | "odd" | "even";
+export type NupOrder = "horizontal" | "horizontalReversed" | "vertical" | "verticalReversed";
+export type Booklet = "off" | "both" | "frontOnly" | "backOnly";
 
 export interface PrintOptions {
   printer: string | null;
@@ -22,6 +24,11 @@ export interface PrintOptions {
   comments: boolean;
   paper: number | null;
   output: string | null;
+  pagesPerSheet: number;
+  nupOrder: NupOrder;
+  borders: boolean;
+  booklet: Booklet;
+  bookletRtl: boolean;
 }
 
 export interface PrinterEntry { name: string; isDefault: boolean }
@@ -45,11 +52,21 @@ export interface SheetMetrics {
 /** Dónde cae la página en la zona imprimible (mismas unidades que `SheetMetrics`). */
 export interface Placement { rotate: number; x: number; y: number; w: number; h: number }
 
+/** Una página colocada en la hoja y cuál es (desde 0). */
+export interface Slot { page: number; placement: Placement }
+/** Una cara del trabajo: sus páginas ya colocadas. */
+export interface SheetPlan { slots: Slot[]; borders: boolean }
+/** Primera cara del trabajo y número de caras (sin contar las copias). */
+export interface PreviewPlan { sheets: number; first: SheetPlan }
+
 export const printApi = {
   printers: () => invoke<PrinterEntry[]>("print_printers"),
   caps: (name: string) => invoke<PrinterCaps>("print_printer_caps", { name }),
   sheet: (name: string, paper: number | null, landscape: boolean) =>
     invoke<SheetMetrics>("print_sheet", { name, paper, landscape }),
-  layout: (pageWidth: number, pageHeight: number, sheet: SheetMetrics, options: PrintOptions) =>
-    invoke<Placement>("print_preview_layout", { pageWidth, pageHeight, sheet, options }),
+  /** `sizes`: `[ancho, alto]` en puntos de cada página del documento. */
+  layout: (sizes: [number, number][], sheet: SheetMetrics, options: PrintOptions) =>
+    invoke<PreviewPlan>("print_preview_layout", { sizes, sheet, options }),
+  landscape: (options: PrintOptions, firstWidth: number, firstHeight: number) =>
+    invoke<boolean>("print_preview_landscape", { options, firstWidth, firstHeight }),
 };

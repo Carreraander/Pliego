@@ -1,12 +1,12 @@
-import { createEffect, createMemo, createResource, createSignal, on, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, on, Show } from "solid-js";
 import { tileUrl } from "../../api";
 import { currentPageIndex, activeDoc } from "../../state/documents";
 import { Checkbox, Field, Notice, Radio, RadioGroup, Select, TaskPanel, TextInput } from "../../ui";
 import { errorText, fileName, runToolJob } from "../run";
-import { printApi, type Placement, type PrintOptions, type SheetMetrics } from "./api";
+import { printApi, type PrintOptions, type SheetMetrics, type SheetPlan } from "./api";
 import {
-  defaultOptions, landscapeSheet, loadRemembered, pagesExpression, paperSizeMm, rangeError, remember, selectedPages, thumbZoom,
-  type PageChoice,
+  defaultOptions, isMultiUp, landscapeSheet, loadRemembered, pagesExpression, paperSizeMm, rangeError, remember, selectedPages,
+  SHEET_LAYOUTS, sheetLayout, thumbZoom, withSheetLayout, type PageChoice, type SheetLayout,
 } from "./options";
 import { pt } from "./strings";
 import "./print.css";
@@ -44,9 +44,21 @@ export default function PrintPanel(p: { onClose: () => void }) {
 
   const expression = () => pagesExpression(choice(), currentPage(), range());
   const rangeProblem = () => (choice() === "range" ? rangeError(range(), pageCount()) : null);
-  const pages = createMemo(() => (rangeProblem() ? [] : selectedPages(expression(), options().subset, options().reverse, pageCount())));
+  const multiUp = () => isMultiUp(options());
+  // Con varias páginas por hoja o folleto, «pares/impares» e «invertir» actúan sobre las hojas: las páginas se cuentan enteras.
+  const pages = createMemo(() =>
+    rangeProblem() ? [] : selectedPages(expression(), multiUp() ? "all" : options().subset, multiUp() ? false : options().reverse, pageCount()),
+  );
   const first = () => doc()?.sizes[pages()[0] ?? 0];
-  const landscape = () => landscapeSheet(options().orientation, first());
+  // La orientación de la hoja la decide el motor (con varias por hoja depende de la cuadrícula); sin él, la de la primera página.
+  const [engineLandscape] = createResource(
+    () => {
+      const f = first();
+      return f && multiUp() && options().orientation === "auto" ? { o: options(), w: f.width, h: f.height } : null;
+    },
+    (k) => printApi.landscape(k.o, k.w, k.h).catch(() => null),
+  );
+  const landscape = () => engineLandscape() ?? landscapeSheet(options().orientation, first());
 
   // Hoja de la impresora para el papel y la orientación elegidos (si no responde, un A4 sin márgenes).
   const [sheet] = createResource(
@@ -60,16 +72,29 @@ export default function PrintPanel(p: { onClose: () => void }) {
     return { ...A4, physW: (w / 25.4) * 72, physH: (h / 25.4) * 72, areaW: (w / 25.4) * 72, areaH: (h / 25.4) * 72 };
   };
 
-  const [placement] = createResource(
+  // Cómo queda la primera cara y cuántas caras son: las mismas cuentas que la impresión real (se piden al motor).
+  const [plan] = createResource(
     () => {
-      const f = first();
-      return f && pages().length > 0 ? { w: f.width, h: f.height, sheet: sheetMetrics(), options: { ...options(), printer: printerName() } } : null;
+      const d = doc();
+      return d && pages().length > 0
+        ? { sizes: d.sizes.map((s): [number, number] => [s.width, s.height]), sheet: sheetMetrics(), options: { ...options(), printer: printerName(), pages: expression() } }
+        : null;
     },
-    (k) => printApi.layout(k.w, k.h, k.sheet, k.options).catch(() => null),
+    (k) =>
+      printApi.layout(k.sizes, k.sheet, k.options).then(
+        (value) => ({ value, error: null as string | null }),
+        (e) => ({ value: null, error: errorText(e) }),
+      ),
   );
+  const planError = () => plan()?.error ?? null;
+  const sheets = () => plan()?.value?.sheets ?? pages().length;
 
-  const summary = () => pt("print.summary", { pages: pages().length, total: pageCount(), copies: options().copies });
-  const canPrint = () => !!doc() && !!printerName() && pages().length > 0 && !rangeProblem() && options().copies >= 1 && options().copies <= 999;
+  const summary = () =>
+    multiUp()
+      ? pt("print.summarySheets", { pages: pages().length, total: pageCount(), sheets: sheets(), copies: options().copies })
+      : pt("print.summary", { pages: pages().length, total: pageCount(), copies: options().copies });
+  const canPrint = () =>
+    !!doc() && !!printerName() && pages().length > 0 && !rangeProblem() && !planError() && options().copies >= 1 && options().copies <= 999;
 
   const apply = async () => {
     const d = doc();
@@ -139,6 +164,7 @@ export default function PrintPanel(p: { onClose: () => void }) {
           <Field label={pt("print.subset")}>
             <Select
               value={options().subset}
+              disabled={options().booklet !== "off"}
               onChange={(e) => patch({ subset: e.currentTarget.value as PrintOptions["subset"] })}
               options={[
                 { value: "all", label: pt("print.subsetAll") },
@@ -158,9 +184,13 @@ export default function PrintPanel(p: { onClose: () => void }) {
       <Show when={printers() && printers()!.length === 0}><Notice tone="warn" inline>{pt("print.none")}</Notice></Show>
 
       <Preview
-        sheet={sheetMetrics()} placement={placement() ?? null} label={pt("print.preview")}
-        src={doc() && pages().length > 0 && first() ? tileUrl(doc()!.id, pages()[0] ?? 0, thumbZoom(first()!.width, first()!.height), 0, 0, doc()!.revision) : null}
-        alt={pt("print.previewAlt", { n: (pages()[0] ?? 0) + 1 })}
+        sheet={sheetMetrics()} plan={plan()?.value?.first ?? null} label={pt("print.preview")}
+        src={(page) => {
+          const d = doc();
+          const size = d?.sizes[page];
+          return d && size ? tileUrl(d.id, page, thumbZoom(size.width, size.height), 0, 0, d.revision) : null;
+        }}
+        alt={(page) => pt("print.previewAlt", { n: page + 1 })}
       />
 
       <Field label={pt("print.printer")}>
@@ -199,9 +229,53 @@ export default function PrintPanel(p: { onClose: () => void }) {
         <Checkbox label={pt("print.collate")} checked={options().collate} onChange={(e) => patch({ collate: e.currentTarget.checked })} />
       </Show>
 
-      <Field label={pt("print.scale")}>
+      <Field label={pt("print.layout")}>
+        <Select
+          value={sheetLayout(options())}
+          onChange={(e) => patch(withSheetLayout(e.currentTarget.value as SheetLayout))}
+          options={SHEET_LAYOUTS.map((l) => ({
+            value: l,
+            label: l === "1" ? pt("print.layout1") : l === "booklet" ? pt("print.layoutBooklet") : pt("print.layoutN", { n: l }),
+          }))}
+        />
+      </Field>
+      <Show when={options().pagesPerSheet > 1}>
+        <Field label={pt("print.nupOrder")}>
+          <Select
+            value={options().nupOrder}
+            onChange={(e) => patch({ nupOrder: e.currentTarget.value as PrintOptions["nupOrder"] })}
+            options={[
+              { value: "horizontal", label: pt("print.orderH") },
+              { value: "horizontalReversed", label: pt("print.orderHR") },
+              { value: "vertical", label: pt("print.orderV") },
+              { value: "verticalReversed", label: pt("print.orderVR") },
+            ]}
+          />
+        </Field>
+      </Show>
+      <Show when={options().booklet !== "off"}>
+        <Field label={pt("print.booklet")} hint={pt("print.bookletHint")}>
+          <Select
+            value={options().booklet}
+            onChange={(e) => patch(withSheetLayout("booklet", e.currentTarget.value as PrintOptions["booklet"]))}
+            options={[
+              { value: "both", label: pt("print.bookletBoth") },
+              { value: "frontOnly", label: pt("print.bookletFront") },
+              { value: "backOnly", label: pt("print.bookletBack") },
+            ]}
+          />
+        </Field>
+        <Checkbox label={pt("print.bookletRtl")} checked={options().bookletRtl} onChange={(e) => patch({ bookletRtl: e.currentTarget.checked })} />
+      </Show>
+      <Show when={multiUp()}>
+        <Checkbox label={pt("print.borders")} checked={options().borders} onChange={(e) => patch({ borders: e.currentTarget.checked })} />
+      </Show>
+      <Show when={planError()}><Notice tone="warn" inline>{planError()}</Notice></Show>
+
+      <Field label={pt("print.scale")} hint={multiUp() ? pt("print.scaleMulti") : undefined}>
         <Select
           value={options().scale}
+          disabled={multiUp()}
           onChange={(e) => patch({ scale: e.currentTarget.value as PrintOptions["scale"] })}
           options={[
             { value: "fit", label: pt("print.scaleFit") },
@@ -211,7 +285,7 @@ export default function PrintPanel(p: { onClose: () => void }) {
           ]}
         />
       </Field>
-      <Show when={options().scale === "custom"}>
+      <Show when={options().scale === "custom" && !multiUp()}>
         <Field label={pt("print.percent")}>
           <TextInput
             type="number" min={10} max={400} value={options().scalePercent}
@@ -226,37 +300,39 @@ export default function PrintPanel(p: { onClose: () => void }) {
   );
 }
 
-/** La hoja en miniatura con la página donde caerá; lo que sobresale de la zona imprimible se recorta, como en el papel. */
-function Preview(p: { sheet: SheetMetrics; placement: Placement | null; src: string | null; alt: string; label: string }) {
+/** La hoja en miniatura con las páginas donde caerán; lo que sobresale de la zona imprimible se recorta, como en el papel. */
+function Preview(p: { sheet: SheetMetrics; plan: SheetPlan | null; src: (page: number) => string | null; alt: (page: number) => string; label: string }) {
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
   const area = () => ({
     left: pct(p.sheet.offX, p.sheet.physW), top: pct(p.sheet.offY, p.sheet.physH),
     width: pct(p.sheet.areaW, p.sheet.physW), height: pct(p.sheet.areaH, p.sheet.physH),
   });
-  const rect = () => {
-    const pl = p.placement;
-    if (!pl) return null;
-    return {
-      left: pct(pl.x, p.sheet.areaW), top: pct(pl.y, p.sheet.areaH), width: pct(pl.w, p.sheet.areaW), height: pct(pl.h, p.sheet.areaH),
-    };
-  };
-  const turned = () => (p.placement?.rotate ?? 0) === 1;
   return (
     <figure class="print-preview" aria-label={p.label}>
       <div class="print-preview__sheet" style={{ "aspect-ratio": `${p.sheet.physW} / ${p.sheet.physH}` }}>
         <div class="print-preview__area" style={area()}>
-          <Show when={p.src && rect()}>
-            <div class="print-preview__page" style={rect()!}>
-              <img
-                src={p.src!} alt={p.alt} draggable={false}
-                classList={{ "print-preview__img--turned": turned() }}
-                style={turned() ? { width: `${((p.placement!.h) / p.placement!.w) * 100}%`, height: `${((p.placement!.w) / p.placement!.h) * 100}%` } : undefined}
-              />
-            </div>
-          </Show>
+          <For each={p.plan?.slots ?? []}>
+            {(slot) => {
+              const pl = slot.placement;
+              const turned = pl.rotate === 1;
+              return (
+                <Show when={p.src(slot.page)}>
+                  <div
+                    class="print-preview__page" classList={{ "print-preview__page--framed": !!p.plan?.borders }}
+                    style={{ left: pct(pl.x, p.sheet.areaW), top: pct(pl.y, p.sheet.areaH), width: pct(pl.w, p.sheet.areaW), height: pct(pl.h, p.sheet.areaH) }}
+                  >
+                    <img
+                      src={p.src(slot.page)!} alt={p.alt(slot.page)} draggable={false}
+                      classList={{ "print-preview__img--turned": turned }}
+                      style={turned ? { width: `${(pl.h / pl.w) * 100}%`, height: `${(pl.w / pl.h) * 100}%` } : undefined}
+                    />
+                  </div>
+                </Show>
+              );
+            }}
+          </For>
         </div>
       </div>
     </figure>
   );
 }
-

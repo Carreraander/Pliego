@@ -23,4 +23,7 @@ export const PRINT_RULES: readonly Rule[] = [
   ["respuesta de la impresora no válida: {}", "invalid printer response: {}"],
   ["Hoja {} × {} pt, zona imprimible {} × {} pt (margen izquierdo {}, superior {})", "Sheet {1} × {2} pt, printable area {3} × {4} pt (left margin {5}, top {6})"],
   ["{}: color {}, doble cara {}, hasta {} copias{}", "{1}: color {2}, two-sided {3}, up to {4} copies{5}"],
+  ["las páginas por hoja pueden ser 1, 2, 4, 6, 9 o 16", "pages per sheet can be 1, 2, 4, 6, 9 or 16"],
+  ["el folleto ya pone dos páginas por cara: no se combina con varias páginas por hoja", "the booklet already puts two pages per side: it cannot be combined with several pages per sheet"],
+  ["en un folleto se eligen los anversos o los reversos, no las páginas pares o impares", "in a booklet you choose fronts or backs, not odd or even pages"],
 ];

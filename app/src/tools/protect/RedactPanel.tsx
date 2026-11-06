@@ -42,7 +42,7 @@ export default function RedactPanel(p: { onClose?: () => void }) {
     if (!built.ok) { setError(pt(built.error)); return; }
     setError(null);
     const id = await runToolJob({
-      command: "redact_apply", args: { request: built.request },
+      command: "redact_apply", args: { request: { ...built.request, suffix: pt("redact.suffix") } },
       title: pt("redact.job", { name: baseName(d.path) }), started: pt("redact.started"),
     });
     if (id !== null) { setMarking(false); setMatches(d.id, []); clearAreas(d.id); p.onClose?.(); }

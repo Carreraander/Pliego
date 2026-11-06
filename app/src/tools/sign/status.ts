@@ -1,4 +1,5 @@
 /** Estado legible de cada firma (puro, con pruebas). Los tipos reflejan `pliego_sign::SignatureReport`. */
+import { engineText } from "../../i18n/engine";
 
 export type Chain = "trusted" | "untrusted-root" | "incomplete" | "invalid";
 
@@ -60,8 +61,8 @@ export function problemLines(r: SignatureReport, translate: (key: string) => str
   r.problems.forEach((message, i) => {
     const key = keys[i];
     if (key && CHAIN_KEYS.has(key)) return;
-    const text = key && key !== "other" ? translate(`problem.${key}`) : message;
-    lines.push(text === `problem.${key}` ? message : text);
+    const text = key && key !== "other" ? translate(`problem.${key}`) : engineText(message);
+    lines.push(text === `problem.${key}` ? engineText(message) : text);
   });
   return lines;
 }

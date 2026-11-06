@@ -21,6 +21,7 @@ pub fn compare_pdfs(
     text: bool,
     visual: bool,
     label: String,
+    lang: Option<String>,
 ) -> JobId {
     let req = CompareRequest {
         other: PathBuf::from(other),
@@ -29,6 +30,7 @@ pub fn compare_pdfs(
         text,
         visual,
         label,
+        lang: lang.as_deref().map(pliego_core::Lang::from_tag).unwrap_or_default(),
     };
     jobs.0
         .spawn(move |ctx| compare::compare_copy(&PathBuf::from(path), &req, ctx))
@@ -52,6 +54,7 @@ pub async fn compare_view(
         text,
         visual,
         label: String::new(),
+        lang: pliego_core::Lang::default(),
     };
     tauri::async_runtime::spawn_blocking(move || {
         compare::compare_view(&PathBuf::from(path), &req, &pliego_core::JobContext::silent())

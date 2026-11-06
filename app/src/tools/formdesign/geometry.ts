@@ -30,16 +30,19 @@ export function newBox(kind: FieldKind, a: Pt, b: Pt): Box {
   return [a[0], a[1], a[0] + w, a[1] + h];
 }
 
-const PREFIX: Record<FieldKind, string> = {
-  text: "Texto", check_box: "Casilla", radio_button: "Opcion", combo_box: "Desplegable", list_box: "Lista", push_button: "Boton", signature: "Firma",
+// El nombre del campo se guarda en el PDF (lo ve quien rellena el formulario y quien lo exporta): sigue el idioma de la app.
+const PREFIX: Record<"es" | "en", Record<FieldKind, string>> = {
+  es: { text: "Texto", check_box: "Casilla", radio_button: "Opcion", combo_box: "Desplegable", list_box: "Lista", push_button: "Boton", signature: "Firma" },
+  en: { text: "Text", check_box: "Checkbox", radio_button: "Option", combo_box: "Dropdown", list_box: "List", push_button: "Button", signature: "Signature" },
 };
 
 /** Nombre libre `Prefijo1`, `Prefijo2`… sin puntos ni espacios (los nombres de campo no admiten puntos). */
-export function freeName(kind: FieldKind, taken: Iterable<string>): string {
+export function freeName(kind: FieldKind, taken: Iterable<string>, lang: "es" | "en" = "es"): string {
   const used = new Set(taken);
+  const prefix = PREFIX[lang][kind];
   let n = 1;
-  while (used.has(`${PREFIX[kind]}${n}`)) n++;
-  return `${PREFIX[kind]}${n}`;
+  while (used.has(`${prefix}${n}`)) n++;
+  return `${prefix}${n}`;
 }
 
 /** Valida un nombre de campo; devuelve la clave de error de texto o `null`. */
@@ -61,10 +64,10 @@ export function parseOptions(text: string): string[] {
   return out;
 }
 
-export function newSpec(kind: FieldKind, page: number, rect: Box, name: string, extra: Partial<FieldInfo> = {}): Record<string, unknown> {
+export function newSpec(kind: FieldKind, page: number, rect: Box, name: string, extra: Partial<FieldInfo> = {}, lang: "es" | "en" = "es"): Record<string, unknown> {
   const spec: Record<string, unknown> = { name, kind, page, rect, ...extra };
   if (kind === "radio_button" && !spec.export_value) spec.export_value = name;
-  if ((kind === "combo_box" || kind === "list_box") && !(spec.options as string[] | undefined)?.length) spec.options = ["Opción 1", "Opción 2"];
+  if ((kind === "combo_box" || kind === "list_box") && !(spec.options as string[] | undefined)?.length) spec.options = lang === "en" ? ["Option 1", "Option 2"] : ["Opción 1", "Opción 2"];
   if (kind === "push_button" && !spec.caption) spec.caption = name;
   return spec;
 }

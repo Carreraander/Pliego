@@ -8,10 +8,14 @@
  * En español no se toca nada. `translate.test.ts` comprueba las reglas contra ejemplos reales del motor.
  */
 import type { Locale } from "../i18n";
+import { CONVERT_RULES } from "../i18n/engine/rules-convert";
+import { DOCS_RULES } from "../i18n/engine/rules-docs";
+import { EDIT_RULES } from "../i18n/engine/rules-edit";
+import { SIGN_RULES } from "../i18n/engine/rules-sign";
+import { SYSTEM_RULES, type Rule } from "../i18n/engine/rules-system";
 
-type Rule = readonly [es: string, en: string];
-
-export const RULES: readonly Rule[] = [
+/** Progreso (`ctx.step`) y resúmenes (`Report`) de los trabajos. Los errores e informes por áreas están en `i18n/engine/`. */
+const JOB_RULES: readonly Rule[] = [
   // ── Progreso (`ctx.step`) ──
   ["Ajustando páginas", "Adjusting pages"], ["Analizando la página", "Analyzing the page"], ["Analizando páginas", "Analyzing pages"],
   ["Aplicando redacciones", "Applying redactions"], ["Añadiendo marcas", "Adding marks"], ["Añadiendo {}", "Adding {}"],
@@ -41,7 +45,7 @@ export const RULES: readonly Rule[] = [
   ["Se enviaron {} página(s) × {} copias a «{}»", "Sent {1} page(s) × {2} copies to “{3}”"],
   ["«{}» no imprime a doble cara: se imprimió a una cara", "“{}” does not print two-sided: it was printed on one side"],
   ["Cartera con {} archivos.", "Portfolio with {} files."], ["Convertido a {} con la condición «{}».", "Converted to {1} with the condition “{2}”."],
-  ["Corregido: {}.", "Fixed: {}."], ["Documento cifrado con {}.", "Document encrypted with {}."], ["Documento firmado", "Document signed"],
+  ["Corregido: {}.", "Fixed: {}."], ["Firmado. Siguiente: {} ({} de {})", "Signed. Next: {1} ({2} of {3})"], ["Firmado. Ya han firmado todos", "Signed. Everyone has signed"], ["Documento cifrado con {}.", "Document encrypted with {}."], ["Documento firmado", "Document signed"],
   ["Enlace actualizado en la página {}", "Link updated on page {}"], ["Enlace añadido en la página {}", "Link added on page {}"],
   ["Enlace borrado de la página {}", "Link removed from page {}"],
   ["Etiquetado: {} encabezado(s), {} párrafo(s), {} lista(s) con {} elemento(s), {} figura(s), {} tabla(s); {} gráfico(s) marcados como decoración.",
@@ -96,16 +100,20 @@ export const RULES: readonly Rule[] = [
   ["{}: se reintenta tras archivos ya procesados; si el lote usa numeración continua puede repetir números (relanza sin --resume para renumerar todo)",
     "{}: retrying after already processed files; if the batch uses continuous numbering, numbers may repeat (rerun without --resume to renumber everything)"],
   ["«{}» no se pudo leer", "“{}” could not be read"],
-  // Prefijo genérico («archivo: mensaje»): va el último para no tapar a los demás; traduce lo que sigue.
-  ["{}: {}", "{1}: {2}"],
 ];
 
-interface Compiled { re: RegExp; en: string }
+/** Prefijo genérico («archivo: mensaje»): va el último para no tapar a los demás; traduce lo que sigue. */
+const GENERIC: Rule = ["{}: {}", "{1}: {2}"];
+
+/** Todas las reglas. Se aplican de la más específica (más texto fijo) a la más general; la genérica, la última. */
+export const RULES: readonly Rule[] = [...JOB_RULES, ...SYSTEM_RULES, ...SIGN_RULES, ...DOCS_RULES, ...EDIT_RULES, ...CONVERT_RULES, GENERIC];
+
+interface Compiled { re: RegExp; en: string; fixed: number }
 
 /** `Fila {} de {}` → `/^Fila (.+?) de (.+?)$/is`. */
 function compile([es, en]: Rule): Compiled {
   const escaped = es.replace(/[.*+?^$|()[\]\\]/g, "\\$&").replace(/\{\w*\}/g, "(.+?)");
-  return { re: new RegExp(`^${escaped}$`, "s"), en };
+  return { re: new RegExp(`^${escaped}$`, "s"), en, fixed: es.replace(/\{\w*\}/g, "").length };
 }
 
 let compiled: Compiled[] | null = null;
@@ -116,14 +124,30 @@ function fill(template: string, args: string[]): string {
   return template.replace(/\{(\d*)\}/g, (_, n: string) => args[n ? Number(n) - 1 : next++] ?? "");
 }
 
-/** Texto de un trabajo en el idioma de la app. En español, o sin regla que lo cubra, queda tal cual. */
+/** Reglas compiladas: la genérica va siempre la última; el resto, de más a menos texto fijo (el orden de escritura desempata). */
+function rules(): Compiled[] {
+  if (!compiled) {
+    const generic = compile(GENERIC);
+    const rest = RULES.filter((r) => r !== GENERIC).map(compile);
+    compiled = [...rest.map((c, i) => ({ c, i })).sort((a, b) => b.c.fixed - a.c.fixed || a.i - b.i).map((x) => x.c), generic];
+  }
+  return compiled;
+}
+
+/** Traduce un trozo capturado conservando los espacios que lo rodean (` (página 3)` sigue pegado a lo anterior). */
+function part(arg: string, locale: Locale): string {
+  const lead = /^\s*/.exec(arg)![0];
+  const tail = /\s*$/.exec(arg)![0];
+  return `${lead}${jobText(arg, locale)}${arg.trim() ? tail : ""}`;
+}
+
+/** Texto de un trabajo, error o informe del motor en el idioma de la app. En español, o sin regla que lo cubra, queda tal cual. */
 export function jobText(text: string, locale: Locale): string {
   if (locale === "es" || !text) return text;
-  compiled ??= RULES.map(compile);
   const trimmed = text.replace(/\s+/g, " ").trim();
-  for (const { re, en } of compiled) {
+  for (const { re, en } of rules()) {
     const m = re.exec(trimmed);
-    if (m) return fill(en, m.slice(1).map((a) => jobText(a, locale)));
+    if (m) return fill(en, m.slice(1).map((a) => part(a, locale)));
   }
   return text;
 }

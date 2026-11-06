@@ -5,11 +5,11 @@
 use std::path::Path;
 
 pub use pliego_pdf::configure_from_environment;
-use pliego_pdf::{Colorspace, IRect, Matrix, MetadataName, Outline, PdfDocument, Pixmap};
+use pliego_pdf::{Colorspace, DestinationKind, IRect, Matrix, MetadataName, Outline, PdfDocument, Pixmap, Rect};
 
 use pliego_core::{
-    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageSize, PageWord, PdfEngine, Result, RgbaImage, SearchHit,
-    TileRequest,
+    DocInfo, EngineDocument, Error, Layer, OutlineItem, PageLink, PageLinkTarget, PageSize, PageWord, PdfEngine,
+    Result, RgbaImage, SearchHit, TileRequest,
 };
 
 /// Límite de seguridad para no reservar mapas de bits enormes por error (≈ 400 MB RGBA).
@@ -194,6 +194,40 @@ impl EngineDocument for DefaultDocument {
                 line: w.line as u32,
             })
             .collect())
+    }
+
+    fn page_links(&self, page: u32) -> Result<Vec<PageLink>> {
+        let p = self.check_page(page)?;
+        let ctm = p.ctm()?;
+        let mut out = Vec::new();
+        for l in p.links()? {
+            let target = match l.dest {
+                Some(d) => {
+                    // La vista pide un punto en el espacio de usuario de la página: se pasa al de página (giro y recorte).
+                    let top = match d.kind {
+                        DestinationKind::XYZ {
+                            left, top: Some(top), ..
+                        } => Some((left.unwrap_or(0.0), top)),
+                        DestinationKind::FitH { top: Some(top) } | DestinationKind::FitBH { top: Some(top) } => {
+                            Some((0.0, top))
+                        }
+                        _ => None,
+                    };
+                    let y = top.map(|(x, t)| Rect::new(x, t, x, t).transform(&ctm).y0);
+                    PageLinkTarget::Page {
+                        page: d.page,
+                        y: y.filter(|y| y.is_finite()),
+                    }
+                }
+                None if !l.uri.trim().is_empty() => PageLinkTarget::Uri { uri: l.uri },
+                None => continue,
+            };
+            out.push(PageLink {
+                rect: [l.bounds.x0, l.bounds.y0, l.bounds.x1, l.bounds.y1],
+                target,
+            });
+        }
+        Ok(out)
     }
 
     fn layers(&self) -> Result<Vec<Layer>> {

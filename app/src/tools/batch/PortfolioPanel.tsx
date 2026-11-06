@@ -2,6 +2,7 @@ import { withPassword } from "../../state/passwords";
 import "./batch.css";
 import { createEffect, createSignal, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { locale } from "../../i18n";
 import { api } from "../../api";
 import { activeDoc } from "../../state/documents";
 import { Button, IconButton, Notice, TaskPanel } from "../../ui";
@@ -31,7 +32,7 @@ export default function PortfolioPanel(p: { onClose: () => void }) {
   const create = async () => {
     const paths = files();
     const id = await runToolJob({
-      command: "portfolio_create", args: { paths, suffix: bt("batch.portfolio.suffix") },
+      command: "portfolio_create", args: { paths, suffix: bt("batch.portfolio.suffix"), lang: locale() },
       title: bt("batch.portfolio.job", { n: paths.length }), started: bt("batch.portfolio.started"),
     });
     if (id !== null) p.onClose();

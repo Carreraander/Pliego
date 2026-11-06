@@ -88,7 +88,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W25](flujos/w25.md) | Conectar Proteger y Redactar | Fusionado | Falta prueba en acr12 y revisión visual (revision-manual-ander.md) |
 | [W42](flujos/w42.md) | Motor de JavaScript de formularios (Boa) | En curso | Conectarlo a `pliego_pdf::native` y a la app |
 | [W43](flujos/w43.md) | Edición tipo Acrobat (recolocar texto; imágenes, vectores y enlaces) | En curso | PR 1: motor de movimiento y recolocación; falta la interfaz y validar en acr12/pc |
-| [W44](flujos/w44.md) | Texto seleccionable y enlaces en Leer; Narrador | En curso | PR 1 (texto y copiar) en revisión; faltan enlaces del PDF y Narrador |
+| [W44](flujos/w44.md) | Texto seleccionable y enlaces en Leer; Narrador | En curso | PR 1 (texto y copiar, #236) fusionado; PR 2 (enlaces) en revisión; falta Narrador |
 | [W45](flujos/w45.md) | Imprimir documentos PDF (panel, `pliego printer`, PDFium sobre el HDC) | Hecho; falta validar | Pasar `tools\validar-impresion.ps1` en acr12 y probar una impresora de papel real |
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)

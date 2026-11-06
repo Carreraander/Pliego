@@ -71,6 +71,7 @@ fn common(a: &OfficeArgs) -> CommonOptions {
         } else {
             ScannedPolicy::Warn
         },
+        lang: pliego_core::Lang::from_env(),
     }
 }
 

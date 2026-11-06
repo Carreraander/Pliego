@@ -2,6 +2,7 @@ import { withPassword } from "../../state/passwords";
 import "./measure.css";
 import { createEffect, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { locale } from "../../i18n";
 import { activeDoc } from "../../state/documents";
 import { Button, Field, Notice, Select, TaskPanel, TextInput, ToggleGroup, toast } from "../../ui";
 import { undoComment } from "../annotate/edit";
@@ -36,7 +37,7 @@ export default function MeasurePanel(p: { onClose: () => void }) {
   const closed = () => measureMode() === "area";
   const ready = () => measureMode() !== "calibrate" && !!activeScale() && marks().points.length >= minPoints(measureMode());
   const [live] = createResource(
-    () => (ready() ? { scale: activeScale()!, points: marks().points, closed: closed() } : null),
+    () => (ready() ? { scale: activeScale()!, points: marks().points, closed: closed(), lang: locale() } : null),
     (a) => invoke<Measurement>("measure_shape", a).catch((e) => { fail(e); return null; }),
   );
 
@@ -63,7 +64,7 @@ export default function MeasurePanel(p: { onClose: () => void }) {
     setError(null);
     try {
       const r = await invoke<{ measurement: Measurement; undo_depth: number }>("measure_save", withPassword({
-        docId: doc.id, path: doc.path, page: marks().page, scale, points: marks().points, closed: closed(), suffix: mt("measure.backupSuffix"),
+        docId: doc.id, path: doc.path, page: marks().page, scale, points: marks().points, closed: closed(), suffix: mt("measure.backupSuffix"), lang: locale(),
       }));
       setUndoDepth(r.undo_depth);
       toast({ tone: "ok", text: mt("measure.saved", { text: r.measurement.text }) });

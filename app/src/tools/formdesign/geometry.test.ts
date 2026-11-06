@@ -15,6 +15,8 @@ describe("geometría del diseñador de formularios", () => {
   it("elige el primer nombre libre", () => {
     expect(freeName("text", ["Texto1", "Texto2", "otro"])).toBe("Texto3");
     expect(freeName("signature", [])).toBe("Firma1");
+    expect(freeName("text", ["Text1"], "en")).toBe("Text2");
+    expect(freeName("check_box", [], "en")).toBe("Checkbox1");
   });
   it("valida nombres: vacío, con punto y repetido", () => {
     expect(nameError("  ", [])).toBe("fdesign.err.nameEmpty");
@@ -29,6 +31,7 @@ describe("geometría del diseñador de formularios", () => {
     expect(newSpec("radio_button", 1, [0, 0, 1, 1], "g").export_value).toBe("g");
     expect((newSpec("combo_box", 0, [0, 0, 1, 1], "c").options as string[]).length).toBe(2);
     expect(newSpec("combo_box", 0, [0, 0, 1, 1], "c", { options: ["x"] }).options).toEqual(["x"]);
+    expect(newSpec("list_box", 0, [0, 0, 1, 1], "l", {}, "en").options).toEqual(["Option 1", "Option 2"]);
     expect(newSpec("push_button", 0, [0, 0, 1, 1], "Boton1").caption).toBe("Boton1");
   });
   it("el parche solo lleva lo que cambió", () => {

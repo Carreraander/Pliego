@@ -138,7 +138,7 @@ pub(crate) fn build_sheets(layout: &Layout, per_page: bool) -> (Vec<SheetData>, 
     let multi_page = layout.pages.len() > 1;
     for page in &layout.pages {
         let tables: Vec<&Table> = page.tables().collect();
-        let prefix = format!("Pág {}", page.index + 1);
+        let prefix = format!("{} {}", layout.lang.pick("Pág", "Page"), page.index + 1);
         if tables.is_empty() {
             continue;
         }
@@ -157,10 +157,10 @@ pub(crate) fn build_sheets(layout: &Layout, per_page: bool) -> (Vec<SheetData>, 
         } else {
             for (i, t) in tables.iter().enumerate() {
                 let base = match (multi_page, tables.len()) {
-                    (false, 1) => "Tabla".to_string(),
-                    (false, _) => format!("Tabla {}", i + 1),
+                    (false, 1) => layout.lang.pick("Tabla", "Table").to_string(),
+                    (false, _) => format!("{} {}", layout.lang.pick("Tabla", "Table"), i + 1),
                     (true, 1) => prefix.clone(),
-                    (true, _) => format!("{prefix} - Tabla {}", i + 1),
+                    (true, _) => format!("{prefix} - {} {}", layout.lang.pick("Tabla", "Table"), i + 1),
                 };
                 sheets.push(table_sheet(t, sheet_name(&base, &mut used)));
             }
@@ -168,7 +168,10 @@ pub(crate) fn build_sheets(layout: &Layout, per_page: bool) -> (Vec<SheetData>, 
     }
     if !any_table {
         for page in &layout.pages {
-            let name = sheet_name(&format!("Pág {}", page.index + 1), &mut used);
+            let name = sheet_name(
+                &format!("{} {}", layout.lang.pick("Pág", "Page"), page.index + 1),
+                &mut used,
+            );
             sheets.push(text_sheet(page, name));
         }
     }
@@ -263,7 +266,11 @@ pub(crate) fn write_xlsx(layout: &Layout, per_page: bool) -> Result<(Vec<u8>, us
     let mut pkg = Package::new();
     let n = sheets.len().max(1);
     let sheets = if sheets.is_empty() {
-        vec![("Hoja 1".to_string(), vec![10.0], Vec::new())]
+        vec![(
+            format!("{} 1", layout.lang.pick("Hoja", "Sheet")),
+            vec![10.0],
+            Vec::new(),
+        )]
     } else {
         sheets
     };

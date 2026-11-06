@@ -118,6 +118,11 @@ test.describe("Comparar lado a lado (backend simulado)", () => {
     // Página insertada: hueco en el original.
     await expect(view.getByTestId("compare-gap")).toBeVisible();
     await page.screenshot({ path: "test-results/compare-view/3-pagina-insertada.png" });
+    // Tras el último, F3 da la vuelta al primero; antes del primero, Mayús+F3 va al último.
+    await page.keyboard.press("F3");
+    await expect(page.getByText("1 de 5")).toBeVisible();
+    await page.keyboard.press("Shift+F3");
+    await expect(page.getByText("5 de 5")).toBeVisible();
     await page.keyboard.press("Shift+F3");
     await expect(page.getByText("4 de 5")).toBeVisible();
 

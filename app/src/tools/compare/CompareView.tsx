@@ -59,13 +59,14 @@ export default function CompareView(props: CompareViewProps) {
     requestAnimationFrame(() => go(1, true));
   });
 
-  /** Salta al cambio siguiente o anterior. Con `first`, al primero si aún no se ha movido. */
+  /** Salta al cambio siguiente o anterior; tras el último vuelve al primero y antes del primero va al último. Con `first`, al primero. */
   const go = (dir: 1 | -1, first = false) => {
+    const n = stops().length;
+    if (n === 0) return;
     const c = cursor();
-    let i: number | null;
-    if (c && !first) i = c.index + dir >= 0 && c.index + dir < stops().length ? c.index + dir : null;
-    else i = stepStop(stops(), layout().tops, zoom(), first ? -1e9 : pos(), dir);
-    if (i === null) return;
+    let i: number;
+    if (c && !first) i = (c.index + dir + n) % n;
+    else i = stepStop(stops(), layout().tops, zoom(), first ? -1e9 : pos(), dir) ?? (dir === 1 ? 0 : n - 1);
     box.scrollTop = Math.max(0, HEAD_H + stopPx(stops()[i]!, layout().tops, zoom()) - READ_OFFSET);
     setCursor({ index: i, scrollTop: box.scrollTop });
   };

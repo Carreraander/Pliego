@@ -1,7 +1,7 @@
 //! Marcadores y texto de página (selección y copia).
 
 use pliego_app_service::DocId;
-use pliego_core::{Layer, OutlineItem, PageWord};
+use pliego_core::{Layer, OutlineItem, PageLink, PageWord};
 use tauri::State;
 
 use crate::AppState;
@@ -36,4 +36,10 @@ pub fn set_layer_visible(state: State<'_, AppState>, doc_id: DocId, layer: i32, 
 #[tauri::command]
 pub fn page_words(state: State<'_, AppState>, doc_id: DocId, page: u32) -> ApiResult<Vec<PageWord>> {
     Ok(state.service.page_words(doc_id, page)?)
+}
+
+/// Enlaces de la página a otra página o a una dirección (puntos de página, origen arriba a la izquierda). `page` empieza en 0.
+#[tauri::command]
+pub fn page_links(state: State<'_, AppState>, doc_id: DocId, page: u32) -> ApiResult<Vec<PageLink>> {
+    Ok(state.service.page_links(doc_id, page)?)
 }

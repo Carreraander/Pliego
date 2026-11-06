@@ -81,7 +81,7 @@ export async function selectedText(doc: Pick<OpenDoc, "id" | "revision">): Promi
   return textOfSelection(sel, (p) => pages.get(p) ?? []);
 }
 
-async function writeClipboard(text: string): Promise<boolean> {
+export async function writeClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;

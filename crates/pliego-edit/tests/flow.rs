@@ -280,3 +280,85 @@ fn undo_restores_the_whole_flow() {
         assert!((a.bbox[1] - b.bbox[1]).abs() < 0.1);
     }
 }
+
+/// Cuerpo de texto de ancho de columna completo (líneas de unos 400 pt) con un título corto encima.
+fn page_with_short_title() -> String {
+    let mut s = para(72.0, 760.0, &["Titulo corto"]);
+    s += &para(
+        72.0,
+        700.0,
+        &[
+            "Este parrafo del cuerpo ocupa casi todo el ancho de la columna de texto de la pagina",
+            "y termina aqui en la segunda linea sin mas",
+        ],
+    );
+    s += &para(72.0, 40.0, &["Pie de pagina"]);
+    s
+}
+
+#[test]
+fn a_short_line_is_composed_at_the_width_of_its_column() {
+    let mut doc = open(&[page_with_short_title()]);
+    let title = block_with(&doc, 0, "Titulo");
+    let body = block_with(&doc, 0, "Este parrafo");
+    assert!(title.bbox[2] < body.bbox[2] - 150.0, "el título es estrecho");
+    replace_text_flow(&mut doc, 0, title.id, LONG, &Style::default(), &FlowOptions::default()).unwrap();
+    let new = block_with(&doc, 0, "Texto nuevo");
+    // Ya no queda una columna del ancho del título: llega al borde derecho del cuerpo.
+    assert!(new.bbox[2] > title.bbox[2] + 200.0, "{:?} vs {:?}", new.bbox, body.bbox);
+    assert!(new.bbox[2] <= body.bbox[2] + 0.6, "sin pasarse de la columna");
+    assert!(new.lines.len() <= 3, "{} líneas", new.lines.len());
+}
+
+#[test]
+fn a_paragraph_that_does_not_fit_continues_on_the_next_page() {
+    // Un párrafo de una línea cerca del pie, con otro texto debajo, que se alarga mucho.
+    let mut page = para(72.0, 150.0, &["Ultimo parrafo de la pagina"]);
+    page += &para(72.0, 110.0, &["Texto de debajo"]);
+    page += &para(72.0, 40.0, &["Pie de pagina"]);
+    let page2 = para(72.0, 700.0, &["Pagina dos primer parrafo"]);
+    let mut doc = open(&[page, page2]);
+    let b = block_with(&doc, 0, "Ultimo");
+    let words = format!("{LONG} {LONG} {LONG} {LONG} {LONG}");
+    let r = replace_text_flow(&mut doc, 0, b.id, &words, &Style::default(), &FlowOptions::default()).unwrap();
+    let pie = block_with(&doc, 0, "Pie");
+    // En la página 1 nada invade el pie, y el texto no se pierde: sigue en la 2, por delante de lo que había.
+    let p0 = text_blocks(&doc, 0).unwrap();
+    for blk in p0.iter().filter(|x| !x.text.contains("Pie")) {
+        assert!(blk.bbox[3] < pie.bbox[1], "{:?} invade el pie {:?}", blk.bbox, pie.bbox);
+    }
+    let p1 = text_blocks(&doc, 1).unwrap();
+    let count = |blocks: &[TextBlock]| {
+        blocks
+            .iter()
+            .filter(|x| x.text.contains("Texto nuevo") || x.text.contains("pagina"))
+            .map(|x| {
+                x.text
+                    .split_whitespace()
+                    .filter(|w| *w == "Texto" || *w == "nuevo")
+                    .count()
+            })
+            .sum::<usize>()
+    };
+    assert_eq!(count(&p0) + count(&p1), 10, "no se pierde texto: {p0:#?} {p1:#?}");
+    let tail = p1
+        .iter()
+        .find(|x| x.text.contains("nuevo"))
+        .expect("el resto sigue en la página 2");
+    let own = block_with(&doc, 1, "Pagina dos");
+    assert!(
+        tail.bbox[1] < own.bbox[1],
+        "el resto va delante de lo que ya estaba en la página 2"
+    );
+    // Lo que estaba debajo del párrafo también pasó, detrás del resto del texto.
+    let below = block_with(&doc, 1, "Texto de debajo");
+    assert!(
+        below.bbox[1] >= tail.bbox[3] - 1.0,
+        "{:?} tras {:?}",
+        below.bbox,
+        tail.bbox
+    );
+    assert!(r.warnings.iter().any(|w| w.contains("página 2")), "{:?}", r.warnings);
+    assert_eq!(doc.pdf().page_count().unwrap(), 2);
+    dump(&doc, "continua");
+}

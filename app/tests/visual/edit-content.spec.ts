@@ -29,15 +29,27 @@ async function installBackend(page: Page) {
     let nextId = 1;
     const w = window as unknown as Record<string, unknown>;
     w.__calls = calls;
+    // Eventos del backend: `__emit("document-changed", {...})` llama a lo que registró `listen`.
+    const listeners: Record<string, number> = {};
+    w.__emit = (event: string, payload: unknown) =>
+      (w[`_${listeners[event]}`] as (e: unknown) => void)({ event, id: 0, payload });
     w.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
     w.__TAURI_INTERNALS__ = {
       metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
-      transformCallback: () => nextId++,
+      transformCallback: (cb: unknown) => {
+        const id = nextId++;
+        w[`_${id}`] = cb;
+        return id;
+      },
       unregisterCallback: () => undefined,
       convertFileSrc: (p: string) => p,
       invoke: async (cmd: string, args: unknown) => {
         calls.push({ cmd, args });
-        if (cmd === "plugin:event|listen") return nextId++;
+        if (cmd === "plugin:event|listen") {
+          const a = args as { event: string; handler: number };
+          listeners[a.event] = a.handler;
+          return nextId++;
+        }
         if (cmd.startsWith("plugin:")) return null;
         return cmd in responses ? responses[cmd] : null;
       },
@@ -123,5 +135,15 @@ test.describe("modo Editar (backend simulado)", () => {
     await page.getByRole("button", { name: /Enlace a https:\/\/pdfpliego.com/ }).first().click();
     await page.getByLabel("Destino del enlace").fill("99");
     await expect(page.getByRole("button", { name: "Aplicar" })).toBeDisabled();
+  });
+
+  test("el visor conserva la posición al cambiar la revisión del documento (tras editar una imagen)", async ({ page }) => {
+    await page.getByRole("radio", { name: "Imágenes" }).check();
+    const viewer = page.getByTestId("viewer");
+    await viewer.evaluate((el) => { el.scrollTop = 300; });
+    await expect.poll(() => viewer.evaluate((el) => el.scrollTop)).toBe(300);
+    await page.evaluate(() => (window as unknown as { __emit: (e: string, p: unknown) => void }).__emit("document-changed", { doc_id: 1, revision: 5 }));
+    await page.waitForTimeout(300);
+    expect(await page.getByTestId("viewer").evaluate((el) => el.scrollTop)).toBe(300);
   });
 });

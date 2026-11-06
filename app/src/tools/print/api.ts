@@ -1,4 +1,4 @@
-/** Tipos y comandos de Imprimir (W44). Los nombres vienen en camelCase de `pliego-printer`. */
+/** Tipos y comandos de Imprimir (W45). Los nombres vienen en camelCase de `pliego-printer`. */
 import { invoke } from "@tauri-apps/api/core";
 
 export type Orientation = "auto" | "portrait" | "landscape";

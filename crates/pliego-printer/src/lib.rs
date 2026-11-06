@@ -1,4 +1,4 @@
-//! `pliego-printer`: imprimir un PDF en una impresora de Windows (W44).
+//! `pliego-printer`: imprimir un PDF en una impresora de Windows (W45).
 //!
 //! La interfaz muestra su propio diálogo (impresora, páginas, copias, ajuste a la hoja, orientación, dos caras, grises,
 //! comentarios) y el trabajo lo hace este crate: aplana los campos de formulario en una copia en memoria

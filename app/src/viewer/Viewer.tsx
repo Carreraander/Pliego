@@ -1,10 +1,16 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { tileUrl } from "../api";
+import { t } from "../i18n";
+import { activeMode } from "../shell";
 import { currentPageIndex, setCurrentPageIndex, type OpenDoc } from "../state/documents";
 import { clearGoTo, goToRequest } from "../state/navigation";
 import { matchIndex, matchesOnPage } from "../state/search";
 import { RedactLayer } from "../tools/protect/RedactLayer";
+import { ContextMenu, type MenuEntry, type Point } from "../ui";
 import { pageOverlays } from "./overlays";
+import { createSelectionController } from "./text/controller";
+import { copySelection, hasSelection, selectAll } from "./text/state";
+import { TextLayer } from "./text/TextLayer";
 import {
   computeLayout, currentPage, lowResZoom, rotationTransform, TILE_SIZE, tilesFor, unrotateRect, visiblePages,
   type Rotation,
@@ -19,11 +25,23 @@ const lastScroll = new Map<number, { top: number; left: number }>();
 
 export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }) {
   let box!: HTMLDivElement;
+  let content!: HTMLDivElement;
+  const [menuAt, setMenuAt] = createSignal<Point | null>(null);
   const [scrollTop, setScrollTop] = createSignal(0);
   const [size, setSize] = createSignal({ width: 800, height: 600 });
 
   const layout = createMemo(() => computeLayout(props.doc.sizes, props.zoom, props.rotation));
   const visible = createMemo(() => visiblePages(layout(), scrollTop(), size().height));
+
+  // Seleccionar texto, copiarlo y moverse con el teclado solo valen en el modo Leer: los demás modos tienen sus capas.
+  const reading = () => activeMode()?.id === "read";
+  const selecting = createSelectionController({
+    doc: () => props.doc, zoom: () => props.zoom, rotation: () => props.rotation, layout, box: () => box, content: () => content, active: reading,
+  });
+  const menuItems = (): MenuEntry[] => [
+    { id: "copy", label: t("text.copy"), icon: "copy", shortcut: "Ctrl+C", disabled: !hasSelection(props.doc), onSelect: () => void copySelection(props.doc) },
+    { id: "all", label: t("text.selectAll"), shortcut: "Ctrl+A", onSelect: () => selectAll(props.doc) },
+  ];
 
   // Mientras se restaura la posición (el navegador puede recortarla hasta que el contenido tenga su alto) no se
   // guarda lo que lea el visor: sobrescribiría la posición buscada.
@@ -63,11 +81,22 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
   });
 
   return (
-    <div class="viewer" ref={box} onScroll={update} data-testid="viewer">
-      <div class="viewer-content" style={{ height: `${layout().totalHeight}px`, width: `${layout().maxWidth + 24}px` }}>
-        <For each={visible()}>{(i) => <PageView doc={props.doc} index={i} zoom={props.zoom} rotation={props.rotation} layout={layout()} scrollTop={scrollTop()} viewport={size()} />}</For>
+    <>
+      <div class="viewer" classList={{ "is-reading": reading() }} ref={box} onScroll={update} data-testid="viewer"
+        tabindex="0" role="region" aria-label={t("viewer.label", { title: props.doc.title })}
+        onPointerDown={selecting.onPointerDown} onPointerMove={selecting.onPointerMove} onPointerUp={selecting.onPointerUp}
+        onPointerCancel={selecting.onPointerCancel} onKeyDown={selecting.onKeyDown}
+        onContextMenu={(e) => {
+          if (!reading() || !(e.target as Element).matches(".viewer, .viewer-content, .page, .page-rot, .tile")) return;
+          e.preventDefault();
+          setMenuAt({ x: e.clientX, y: e.clientY });
+        }}>
+        <div class="viewer-content" ref={content} style={{ height: `${layout().totalHeight}px`, width: `${layout().maxWidth + 24}px` }}>
+          <For each={visible()}>{(i) => <PageView doc={props.doc} index={i} zoom={props.zoom} rotation={props.rotation} layout={layout()} scrollTop={scrollTop()} viewport={size()} />}</For>
+        </div>
       </div>
-    </div>
+      <ContextMenu point={menuAt()} onClose={() => setMenuAt(null)} items={menuItems()} label={t("text.menu")} />
+    </>
   );
 }
 
@@ -110,6 +139,7 @@ function PageView(props: {
             style={{ left: `${match.rect.left * props.zoom}px`, top: `${match.rect.top * props.zoom}px`,
               width: `${(match.rect.right - match.rect.left) * props.zoom}px`, height: `${(match.rect.bottom - match.rect.top) * props.zoom}px` }} />
         )}</For>
+        <TextLayer doc={props.doc} index={props.index} zoom={props.zoom} />
         <RedactLayer docId={props.doc.id} page={props.index} zoom={props.zoom} size={raw()} />
         <For each={pageOverlays()}>{(Overlay) => <Overlay doc={props.doc} index={props.index} zoom={props.zoom} />}</For>
       </div>

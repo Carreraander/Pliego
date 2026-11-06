@@ -1,4 +1,4 @@
-//! Imprimir (W44): `pliego printer …` como proceso hijo; la lógica está en `pliego_app_service::print`.
+//! Imprimir (W45): `pliego printer …` como proceso hijo; la lógica está en `pliego_app_service::print`.
 
 use pliego_app_service::api::{ApiError, ApiResult};
 use pliego_app_service::ocr::find_cli;

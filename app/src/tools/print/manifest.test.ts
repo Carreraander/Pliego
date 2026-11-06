@@ -4,7 +4,7 @@ import { registerBaseTools } from "../base";
 import { registerPrintTools } from "./manifest";
 import { pt } from "./strings";
 
-describe("herramienta Imprimir (W44)", () => {
+describe("herramienta Imprimir (W45)", () => {
   it("es una tarea del inspector con Ctrl+P que pide un documento", () => {
     registerBaseTools();
     registerPrintTools();

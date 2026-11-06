@@ -103,7 +103,7 @@ enum Command {
     Portfolio(commands::portfolio::PortfolioCommand),
     // [W13/W17/W12 extra]
 
-    // [libre A] → [W44 impresión]
+    // [libre A] → [W45 impresión]
     /// Imprimir un PDF en una impresora de Windows.
     #[command(subcommand)]
     Printer(commands::printer::PrinterCommand),
@@ -153,7 +153,7 @@ fn main() -> anyhow::Result<()> {
         Command::Portfolio(c) => commands::portfolio::run(c, cli.json),
         // [W13/W17/W12 extra]
 
-        // [libre A] → [W44 impresión]
+        // [libre A] → [W45 impresión]
         Command::Printer(c) => commands::printer::run(c, cli.json),
         // [libre B]
     }

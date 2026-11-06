@@ -34,7 +34,7 @@ pub mod run;
 
 // [W13/W17/W12 extra]
 
-// [libre A] → [W44 impresión]
+// [libre A] → [W45 impresión]
 pub mod printer;
 
 // [libre B]

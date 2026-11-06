@@ -152,6 +152,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         text::layers,
         text::set_layer_visible,
         text::page_text,
+        text::page_words,
         startup::startup_files,
         assistant::assistant_status,
         assistant::assistant_set_enabled,

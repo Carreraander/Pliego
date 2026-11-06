@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-  Valida la impresión de Pliego (W44) en Windows sin gastar papel: imprime con «Microsoft Print to PDF» (que viene con
+  Valida la impresión de Pliego (W45) en Windows sin gastar papel: imprime con «Microsoft Print to PDF» (que viene con
   Windows 10/11) y comprueba el PDF resultante (páginas, tamaño de hoja) y que sale legible (lo renderiza a PNG).
 
 .DESCRIPTION
   Uso (en acr12, por turno; ver docs/handoff/reglas-operativas.md):
     . .\tools\acr12-env.ps1
-    .\tools\acr12-turno.ps1 -Flujo w44 -- powershell -File .\tools\validar-impresion.ps1
+    .\tools\acr12-turno.ps1 -Flujo w45 -- powershell -File .\tools\validar-impresion.ps1
   Compila la CLI en debug si no hay `pliego.exe`; deja los resultados en <carpeta>\salida (por defecto
   $env:TEMP\pliego-imprimir) y escribe una línea OK / FALLO por caso. Código de salida 0 solo si todos pasan.
   Las comprobaciones de "qué se ve" (la página cae centrada, sin cortes) son de revisión humana: abre los PNG.

@@ -1,4 +1,4 @@
-//! Documento abierto en PDFium **para imprimir** (W44).
+//! Documento abierto en PDFium **para imprimir** (W45).
 //!
 //! La impresión no pasa por el dibujo a mapas de bits de [`crate::Page::to_pixmap`]: en Windows PDFium sabe dibujar una
 //! página directamente en el contexto de dispositivo (HDC) de una impresora (`FPDF_RenderPage`), de modo que el texto y

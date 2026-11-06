@@ -27,7 +27,7 @@ tiff = "0.11"
 serde.workspace = true
 pdfium-render.workspace = true
 
-# Impresión (W44): en Windows PDFium dibuja una página directamente en el HDC de la impresora (`FPDF_RenderPage`).
+# Impresión (W45): en Windows PDFium dibuja una página directamente en el HDC de la impresora (`FPDF_RenderPage`).
 [target.'cfg(windows)'.dependencies]
 pdfium-render = { workspace = true, features = ["pdfium_use_win32"] }
 windows = { version = "0.62", default-features = false, features = ["Win32_Graphics_Gdi"] }

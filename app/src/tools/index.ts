@@ -40,5 +40,5 @@ export function registerAppTools(): void {
   registerMeasureTools(); // W29
   registerOcrTools(); // W24
   registerCompareTools(); // W24
-  registerPrintTools(); // W44
+  registerPrintTools(); // W45
 }

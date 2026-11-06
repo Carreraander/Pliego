@@ -1,4 +1,4 @@
-//! Imprimir desde la app (W44): `pliego printer …` como **proceso hijo**, igual que el OCR.
+//! Imprimir desde la app (W45): `pliego printer …` como **proceso hijo**, igual que el OCR.
 //!
 //! La app no dibuja páginas en la impresora: lo hace la CLI `pliego` que va en su carpeta (con PDFium), de modo que un
 //! PDF que tumbe a PDFium o un controlador de impresora que se cuelgue no cierran la interfaz. Esta capa arma los

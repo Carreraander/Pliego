@@ -20,7 +20,7 @@ Documento de diseño completo: https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw
 | `pliego-core` | `Error`/`Result`, `PageRange`, `JobContext`/`CancelToken`/`Progress`/`Report`, trait `PdfEngine` + `EngineDocument` |
 | `pliego-pdf` | **Capa PDF** (W30): tipos propios (`Document`, `PdfDocument`, `Page`, `PdfPage`, `Object`, `Pixmap`, `TextPage`, anotaciones, campos, fuentes, imágenes, `WriteOptions`…) sobre el motor. Ver «Capa `pliego-pdf`» |
 | `pliego-engine` | `DefaultEngine`/`DefaultDocument` (antes `pliego-engine-mupdf`): info, tamaño de página, render de página y tesela, texto, búsqueda, marcadores, capas, `encode_png`. Solo usa `pliego-pdf` |
-| `pliego-printer` | Imprimir en impresoras de Windows (W44): opciones, selección de páginas, maquetación en la hoja, copias y envío con PDFium al HDC (`pliego_pdf::print`). Se ejecuta en `pliego printer send`, nunca en la app |
+| `pliego-printer` | Imprimir en impresoras de Windows (W45): opciones, selección de páginas, maquetación en la hoja, copias y envío con PDFium al HDC (`pliego_pdf::print`). Se ejecuta en `pliego printer send`, nunca en la app |
 | `pliego-cli` | Binario `pliego`: `info`, `render`, `text`, `search` |
 
 ## Contratos clave

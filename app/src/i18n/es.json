@@ -33,5 +33,14 @@
   "menu.settings": "Ajustes",
   "menu.shortcuts": "Atajos de teclado",
   "error.open": "No se pudo abrir el documento",
-  "mode.read": "Leer"
+  "mode.read": "Leer",
+  "text.copy": "Copiar",
+  "text.selectAll": "Seleccionar todo",
+  "text.copied": "Texto copiado",
+  "text.copyFailed": "No se pudo copiar al portapapeles",
+  "text.nothingSelected": "No hay texto seleccionado",
+  "text.menu": "Texto del documento",
+  "viewer.label": "Documento: {title}",
+  "viewer.page": "Página {page} de {total}",
+  "viewer.pageNoText": "Página {page} de {total}. Sin texto que leer ni seleccionar; si es un escaneo, el OCR lo añade."
 }

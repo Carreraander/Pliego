@@ -2,7 +2,7 @@
 
 Solo lo que necesita ojos humanos. Lo demás se valida con renders PNG y pruebas automáticas.
 
-## W44: imprimir
+## W45: imprimir
 
 Con un PDF abierto, pulsa **Ctrl+P** (o busca «Imprimir» en Ctrl+K):
 

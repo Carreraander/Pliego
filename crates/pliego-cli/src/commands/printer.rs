@@ -1,4 +1,4 @@
-//! `pliego printer`: imprimir un PDF en una impresora de Windows (W44). La app lo lanza como proceso hijo
+//! `pliego printer`: imprimir un PDF en una impresora de Windows (W45). La app lo lanza como proceso hijo
 //! (`pliego printer send`), así un PDF que tumbe PDFium no cierra la interfaz.
 
 use std::path::PathBuf;

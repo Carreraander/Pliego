@@ -16,6 +16,8 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       startup_files: crashed ? [] : [doc],
       session_previous: crashed ? { crashed: true, docs: [{ path: doc, page: 2 }] } : { crashed: false, docs: [] },
       crash_report: "Pliego 0.1.0 · windows x86_64",
+      outline_tree: [{ title: "Capítulo A", page: 0, children: [], top: 700 }, { title: "Capítulo B", page: 2, children: [] }],
+      outline_save: 1,
       open_document: 1,
       document_info: { page_count: 3, title: "Escaneo", author: null, is_pdf: true },
       page_sizes: [{ width: 595, height: 842 }, { width: 595, height: 842 }, { width: 595, height: 842 }],
@@ -338,5 +340,37 @@ test.describe("recuperación tras un cierre inesperado (backend simulado)", () =
     await expect(page.getByText("Página 3 de 3")).toBeVisible();
     expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
     await expect.poll(async () => (await calls(page, "session_save")).at(-1)?.args).toMatchObject({ docs: [{ path: DOC, page: 2 }] });
+  });
+});
+
+test.describe("marcadores editables (backend simulado)", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page);
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await page.getByRole("button", { name: "Marcadores" }).first().click();
+    await expect(page.getByRole("tree", { name: "Marcadores" })).toBeVisible();
+  });
+
+  test("mover, añadir y renombrar guardan el árbol entero sin perder la altura del destino", async ({ page }) => {
+    await page.getByRole("button", { name: "Capítulo B" }).click();
+    await page.keyboard.press("Alt+ArrowUp");
+    await expect.poll(async () => (await calls(page, "outline_save")).length).toBe(1);
+    const moved = (await calls(page, "outline_save"))[0]!.args as { nodes: { title: string; top?: number }[]; suffix: string };
+    expect(moved.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Capítulo A"]);
+    expect(moved.nodes[1]).toMatchObject({ top: 700 });
+    expect(moved.suffix).toBe("antes de los marcadores");
+
+    await page.getByRole("button", { name: "Añadir un marcador a la página actual" }).click();
+    const input = page.getByRole("textbox", { name: "Cambiar el nombre" });
+    await expect(input).toBeFocused();
+    await input.fill("Anexo");
+    await input.press("Enter");
+    await expect.poll(async () => (await calls(page, "outline_save")).length).toBe(3);
+    const last = (await calls(page, "outline_save"))[2]!.args as { nodes: { title: string; page: number }[] };
+    expect(last.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Anexo", "Capítulo A"]);
+    expect(last.nodes[1]).toMatchObject({ page: 2 }); // la página que se estaba viendo (la de «Capítulo B»)
+    await expect(page.getByRole("button", { name: "Deshacer" }).first()).toBeEnabled();
   });
 });

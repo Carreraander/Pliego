@@ -97,3 +97,34 @@ pub fn organize_pages(
     jobs.0
         .spawn(move |ctx| organize::pages_copy(&PathBuf::from(path), password.as_deref(), &edits, &suffix, ctx))
 }
+
+/// Marcadores del documento para editarlos (con altura de destino y enlaces web).
+#[tauri::command]
+pub async fn outline_tree(
+    path: String,
+    password: Option<String>,
+) -> pliego_app_service::api::ApiResult<Vec<pliego_organize::OutlineNode>> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || organize::outline_tree(&PathBuf::from(path), password.as_deref()))
+            .await
+            .map_err(|e| pliego_core::Error::Other(e.to_string()))?;
+    Ok(joined?)
+}
+
+/// Sustituye los marcadores del PDF abierto y recarga el visor. Devuelve cuántos cambios se pueden deshacer
+/// (`annot_undo` deshace, como en los demás modos que editan el archivo).
+#[tauri::command]
+pub async fn outline_save(
+    state: State<'_, crate::AppState>,
+    editor: State<'_, crate::commands::annot::AnnotEditState>,
+    doc_id: pliego_app_service::DocId,
+    path: String,
+    password: Option<String>,
+    nodes: Vec<pliego_organize::OutlineNode>,
+    suffix: String,
+) -> pliego_app_service::api::ApiResult<usize> {
+    let path = PathBuf::from(path);
+    let bytes = organize::outline_save(&editor.0, &path, password.as_deref(), &nodes, &suffix)?;
+    state.service.reload_bytes(doc_id, &bytes)?;
+    Ok(editor.0.undo_depth(&path))
+}

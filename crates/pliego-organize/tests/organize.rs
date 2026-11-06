@@ -357,3 +357,48 @@ fn merge_options_read_the_per_file_passwords_from_json() {
     assert_eq!(o.file_passwords[std::path::Path::new("/tmp/a b.pdf")], "uno");
     assert!(MergeOptions::default().file_passwords.is_empty());
 }
+
+#[test]
+fn outline_roundtrip_keeps_height_and_web_links() {
+    let (dir, mut doc) = sample(3);
+    let nodes = vec![
+        OutlineNode {
+            title: "Capítulo 1".into(),
+            page: Some(0),
+            children: vec![OutlineNode {
+                title: "Apartado 1.1".into(),
+                page: Some(1),
+                top: Some(500.0),
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
+        OutlineNode {
+            title: "Web del proyecto".into(),
+            uri: Some("https://pdfpliego.com".into()),
+            ..Default::default()
+        },
+        OutlineNode {
+            title: "Fuera de rango".into(),
+            page: Some(99),
+            ..Default::default()
+        },
+    ];
+    write_outline(&mut doc, &nodes).unwrap();
+    let out = dir.path().join("marcadores.pdf");
+    save(&doc, &out).unwrap();
+    let back = read_outline(&open_pdf(&out)).unwrap();
+    assert_eq!(back.len(), 3);
+    assert_eq!(back[0].title, "Capítulo 1");
+    assert_eq!(back[0].page, Some(0));
+    assert_eq!(back[0].top, None, "a la página entera");
+    assert_eq!(back[0].children[0].page, Some(1));
+    assert_eq!(back[0].children[0].top, Some(500.0));
+    assert_eq!(back[1].uri.as_deref(), Some("https://pdfpliego.com"));
+    assert_eq!(back[1].page, None);
+    assert_eq!(back[2].page, None, "una página que no existe se escribe sin destino");
+    // Leer y volver a escribir no pierde nada.
+    let mut again = open_pdf(&out);
+    write_outline(&mut again, &back).unwrap();
+    assert_eq!(read_outline(&again).unwrap(), back);
+}

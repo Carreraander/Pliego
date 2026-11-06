@@ -201,7 +201,9 @@ pub fn notify_assoc_changed() {
 /// buscador de Windows llegó a enseñar el icono genérico durante horas tras instalar (2026-11-04). `ie4uinit -show`
 /// existe desde Windows 10 y no necesita permisos; si falta o falla no pasa nada.
 fn refresh_icon_cache() {
-    let Some(system) = std::env::var_os("SystemRoot") else { return };
+    let Some(system) = std::env::var_os("SystemRoot") else {
+        return;
+    };
     let exe = Path::new(&system).join("System32").join("ie4uinit.exe");
     if !exe.is_file() {
         return;

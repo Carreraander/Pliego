@@ -22,6 +22,8 @@
 .outline-item { width: 100%; text-align: left; padding: var(--pl-space-2) var(--pl-space-3); border: 0; border-radius: var(--pl-radius-sm); background: transparent; }
 .outline-item:hover:not(:disabled) { background: var(--pl-hover); }
 .outline-item:disabled { color: var(--pl-text-3); }
+.outline-item--selected { background: var(--pl-accent-soft); color: var(--pl-accent-soft-text); }
+.outline-toolbar { margin-bottom: var(--pl-space-2); flex-wrap: wrap; }
 .muted { color: var(--pl-text-2); font-size: var(--pl-text-caption); padding: var(--pl-space-4); }
 
 .searchbox { display: flex; align-items: center; gap: var(--pl-space-3); }

@@ -207,6 +207,16 @@ marca seguía ahí, Inicio dice «Pliego se cerró de forma inesperada…» con 
 `app-smoke.spec.ts`. **W**: matar `pliego-app.exe` con el Administrador de tareas con dos PDF abiertos y volver a abrir
 Pliego; cerrar bien y comprobar que no sale el aviso.
 
+**Marcadores editables** (panel Marcadores): añadir uno de la página actual, renombrar (doble clic o F2), subir y bajar
+(Alt+↑/↓), meter dentro del anterior o sacar un nivel (Alt+→/←), borrar (Supr) y deshacer. Se guarda en el propio PDF
+con copia «(antes de los marcadores)» y la pila de deshacer de los demás modos. `OutlineNode` conserva ahora la altura del
+destino (`/XYZ`) y los marcadores que abren una web (`/URI`), así que reescribirlos (y combinar PDF) ya no los pierde.
+**Bug arreglado:** los títulos con tildes de los marcadores (también al combinar con «un marcador por archivo») salían
+como `CapÃ­tulo`: se escribían en UTF-8 sin BOM; ahora van como texto PDF (UTF-16BE). Igual para el nombre `/T` de los
+campos renombrados al combinar y el `/UF` de los adjuntos de sellos. Pruebas: `outline_roundtrip_keeps_height_and_web_links`,
+`organize::tests::outline_is_saved_in_place_with_backup_and_undo`, `outlineEdit.test.ts` y `app-smoke.spec.ts`. **V**: abrir
+en Reader los marcadores editados.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

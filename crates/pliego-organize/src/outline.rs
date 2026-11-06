@@ -3,11 +3,28 @@ use pliego_pdf::PdfDocument;
 use serde::{Deserialize, Serialize};
 
 /// Marcador (índice) con su página de destino desde 0.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct OutlineNode {
     pub title: String,
     pub page: Option<u32>,
     pub children: Vec<OutlineNode>,
+    /// Altura de destino en la página (coordenadas del PDF, origen abajo), si el marcador lleva a un punto concreto y
+    /// no a la página entera. Se conserva al reescribir los marcadores.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top: Option<f32>,
+    /// Dirección web, para los marcadores que abren un enlace en vez de ir a una página.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uri: Option<String>,
+}
+
+/// Altura del destino si el marcador apunta a un punto de la página.
+fn dest_top(kind: &pliego_pdf::DestinationKind) -> Option<f32> {
+    use pliego_pdf::DestinationKind as K;
+    match kind {
+        K::XYZ { top, .. } | K::FitH { top } | K::FitBH { top } => *top,
+        K::FitR { top, .. } => Some(*top),
+        _ => None,
+    }
 }
 
 /// Lee los marcadores de un documento.
@@ -17,7 +34,9 @@ pub fn read_outline(doc: &PdfDocument) -> Result<Vec<OutlineNode>> {
             .into_iter()
             .map(|o| OutlineNode {
                 title: o.title,
-                page: o.dest.map(|d| d.page),
+                page: o.dest.as_ref().map(|d| d.page),
+                top: o.dest.as_ref().and_then(|d| dest_top(&d.kind)),
+                uri: o.uri,
                 children: conv(o.down),
             })
             .collect()
@@ -55,14 +74,28 @@ fn build_level(
     for node in nodes {
         let dict = doc.new_dict()?;
         let mut item = doc.add_object(&dict)?;
-        item.dict_put("Title", Object::new_string(&node.title)?)?;
+        item.dict_put("Title", doc.new_text_string(&node.title)?)?;
         item.dict_put("Parent", parent.try_clone()?)?;
         if let Some(p) = node.page.filter(|&p| p < page_count) {
             let page = doc.find_page(p as i32)?;
             let mut dest = doc.new_array()?;
             dest.array_push(page)?;
-            dest.array_push(Object::new_name("Fit")?)?;
+            match node.top {
+                // [página /XYZ null alto null]: va a esa altura sin cambiar el zoom.
+                Some(top) => {
+                    dest.array_push(Object::new_name("XYZ")?)?;
+                    dest.array_push(Object::new_null())?;
+                    dest.array_push(Object::new_real(top)?)?;
+                    dest.array_push(Object::new_null())?;
+                }
+                None => dest.array_push(Object::new_name("Fit")?)?,
+            }
             item.dict_put("Dest", dest)?;
+        } else if let Some(uri) = node.uri.as_deref().filter(|u| !u.is_empty()) {
+            let mut action = doc.new_dict()?;
+            action.dict_put("S", Object::new_name("URI")?)?;
+            action.dict_put("URI", Object::new_string(uri)?)?;
+            item.dict_put("A", action)?;
         }
         let below = build_level(doc, &node.children, &item, page_count)?;
         if below > 0 {
@@ -100,16 +133,15 @@ pub(crate) fn retarget(nodes: &[OutlineNode], map: &dyn Fn(u32) -> Option<u32>) 
         match n.page {
             Some(p) => match map(p) {
                 Some(q) => out.push(OutlineNode {
-                    title: n.title.clone(),
                     page: Some(q),
                     children: kids,
+                    ..n.clone()
                 }),
                 None => out.extend(kids),
             },
             None => out.push(OutlineNode {
-                title: n.title.clone(),
-                page: None,
                 children: kids,
+                ..n.clone()
             }),
         }
     }

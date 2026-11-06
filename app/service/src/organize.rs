@@ -218,6 +218,32 @@ pub fn number_copy(
     Ok(Report::with_output(out, format!("{} páginas numeradas", pages.len())))
 }
 
+/// Marcadores de `path` con todo lo que hace falta para editarlos sin perder nada (altura de destino, enlaces web).
+pub fn outline_tree(path: &Path, password: Option<&str>) -> Result<Vec<pliego_organize::OutlineNode>> {
+    pliego_organize::read_outline(&pliego_organize::open(path, password)?)
+}
+
+/// Sustituye los marcadores del PDF abierto (copia de seguridad la primera vez y deshacer compartido con los demás
+/// modos que editan el archivo). Guardado incremental si se puede. Devuelve el contenido nuevo para recargar el visor.
+pub fn outline_save(
+    editor: &crate::annot::Editor,
+    path: &Path,
+    password: Option<&str>,
+    nodes: &[pliego_organize::OutlineNode],
+    backup_suffix: &str,
+) -> Result<Vec<u8>> {
+    if nodes.iter().any(has_empty_title) {
+        return Err(Error::InvalidInput("un marcador no puede quedarse sin nombre".into()));
+    }
+    editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
+        pliego_organize::write_outline(doc, nodes)
+    })
+}
+
+fn has_empty_title(n: &pliego_organize::OutlineNode) -> bool {
+    n.title.trim().is_empty() || n.children.iter().any(has_empty_title)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,6 +302,35 @@ mod tests {
         let n = pages(&input);
         assert!(insert_copy(&input, None, &InsertSource::Blank { count: 1 }, n + 5, "x").is_err());
         assert!(insert_copy(&input, None, &InsertSource::Blank { count: 0 }, 0, "x").is_err());
+    }
+
+    #[test]
+    fn outline_is_saved_in_place_with_backup_and_undo() {
+        let Some((dir, input)) = setup() else { return };
+        let before = std::fs::read(&input).unwrap();
+        let editor = crate::annot::Editor::default();
+        let nodes = vec![pliego_organize::OutlineNode {
+            title: "Introducción".into(),
+            page: Some(0),
+            top: Some(700.0),
+            ..Default::default()
+        }];
+        outline_save(&editor, &input, None, &nodes, "antes de los marcadores").unwrap();
+        assert_eq!(outline_tree(&input, None).unwrap(), nodes);
+        assert_eq!(
+            std::fs::read(dir.path().join("doc (antes de los marcadores).pdf")).unwrap(),
+            before
+        );
+        editor.undo(&input).unwrap();
+        assert_eq!(std::fs::read(&input).unwrap(), before);
+        let empty = vec![pliego_organize::OutlineNode {
+            title: "  ".into(),
+            ..Default::default()
+        }];
+        assert!(matches!(
+            outline_save(&editor, &input, None, &empty, "x"),
+            Err(Error::InvalidInput(_))
+        ));
     }
 
     fn number_req() -> NumberRequest {

@@ -93,6 +93,9 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
 const calls = (page: Page, cmd: string) =>
   page.evaluate((c) => ((window as unknown as { __calls: { cmd: string; args: Record<string, unknown> }[] }).__calls).filter((x) => x.cmd === c), cmd);
 
+/** Indicador de página de la barra de estado (la capa de texto también lleva «Página N de M» para el Narrador). */
+const statusPage = (page: Page, text: string) => page.getByRole("contentinfo", { name: "Barra de estado" }).getByText(text);
+
 async function openTool(page: Page, query: string, option: RegExp) {
   await page.keyboard.press("Control+k");
   const box = page.getByRole("combobox", { name: /Paleta de órdenes|Command palette/ });
@@ -334,21 +337,21 @@ test.describe("atajos del visor y del navegador (backend simulado)", () => {
     await installBackend(page);
     await page.goto("/");
     await page.waitForSelector(".pl-window", { timeout: 45_000 });
-    await expect(page.getByText("Página 1 de 3")).toBeVisible();
+    await expect(statusPage(page, "Página 1 de 3")).toBeVisible();
   });
 
   test("Fin, Inicio, Ctrl+1 y Ctrl+W/Ctrl+Mayús+T hacen lo que dice la hoja de atajos", async ({ page }) => {
     await page.locator(".viewer").click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("End");
-    await expect(page.getByText("Página 3 de 3").first()).toBeVisible();
+    await expect(statusPage(page, "Página 3 de 3")).toBeVisible();
     await page.keyboard.press("Home");
-    await expect(page.getByText("Página 1 de 3")).toBeVisible();
+    await expect(statusPage(page, "Página 1 de 3")).toBeVisible();
     await page.keyboard.press("Control+1");
     await expect(page.getByText("100 %", { exact: true })).toBeVisible();
     await page.keyboard.press("Control+w");
-    await expect(page.getByText("Página 1 de 3")).toHaveCount(0);
+    await expect(statusPage(page, "Página 1 de 3")).toHaveCount(0);
     await page.keyboard.press("Control+Shift+T");
-    await expect(page.getByText("Página 1 de 3")).toBeVisible();
+    await expect(statusPage(page, "Página 1 de 3")).toBeVisible();
     expect(await calls(page, "open_document")).toHaveLength(2);
   });
 
@@ -405,7 +408,7 @@ test.describe("recuperación tras un cierre inesperado (backend simulado)", () =
     await expect(banner).toContainText("1 documento abierto");
     await expect(banner.getByRole("button", { name: "Copiar informe" })).toBeVisible();
     await banner.getByRole("button", { name: "Reabrir" }).click();
-    await expect(page.getByText("Página 3 de 3").first()).toBeVisible();
+    await expect(statusPage(page, "Página 3 de 3")).toBeVisible();
     expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
     await expect.poll(async () => (await calls(page, "session_save")).at(-1)?.args).toMatchObject({ docs: [{ path: DOC, page: 2 }] });
   });
@@ -417,7 +420,7 @@ test.describe("reabrir las pestañas al iniciar (backend simulado)", () => {
     await installBackend(page, { reopen: true });
     await page.goto("/");
     await page.waitForSelector(".pl-window", { timeout: 45_000 });
-    await expect(page.getByText("Página 3 de 3").first()).toBeVisible();
+    await expect(statusPage(page, "Página 3 de 3")).toBeVisible();
     expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
     await expect(page.getByText("se cerró de forma inesperada")).toHaveCount(0);
   });

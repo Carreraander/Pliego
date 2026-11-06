@@ -56,7 +56,8 @@ pliego-portfolio = { path = "../pliego-portfolio" }
 
 # [W13/W17/W12 extra]
 
-# [libre A]
+# [libre A] → [W44 impresión]
+pliego-printer = { path = "../pliego-printer" }
 
 # [libre B]
 

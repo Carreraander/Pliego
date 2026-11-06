@@ -44,7 +44,7 @@ export function installNavigation(): () => void {
     installModes(),
     registerShortcut({ id: "help.shortcuts", section: "panels", keys: "F1", title: () => nt("nav.cmd.shortcuts"), run: openShortcutSheet }),
     registerShortcut({ id: "nav.goto", section: "navigation", keys: "Ctrl+G", title: () => (locale() === "es" ? "Ir a la página" : "Go to page"), run: () => openCommandPalette("") }),
-    registerReferenceShortcuts(new Set(["nav.goto"])),
+    registerReferenceShortcuts(new Set(["nav.goto", "file.print"])),
     installShortcuts(),
   ];
   // Atajos de las herramientas reales (los de las fantasma no hacen nada hasta que existan).

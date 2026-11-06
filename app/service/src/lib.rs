@@ -20,6 +20,7 @@ pub mod outputpreview;
 pub mod pageedit;
 pub mod passwords;
 pub mod portfolio;
+pub mod print;
 pub mod protect;
 pub mod search_index;
 pub mod sign;

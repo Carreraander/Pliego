@@ -30,7 +30,7 @@ if (-not $Exe) {
     $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path $repo 'target' }
     $Exe = Join-Path $target 'release\pliego-app.exe'
 }
-if (-not (Test-Path $Exe)) { throw "No existe $Exe: pasa -Exe con la ruta de pliego-app.exe (con pdfium.dll y el worker al lado)." }
+if (-not (Test-Path $Exe)) { throw "No existe ${Exe}: pasa -Exe con la ruta de pliego-app.exe (con pdfium.dll y el worker al lado)." }
 if (-not $Pdf) {
     $Pdf = Join-Path $repo 'tests\output\bench-100.pdf'
     if (-not (Test-Path $Pdf)) { python (Join-Path $repo 'tools\gen_bench_pdf.py') --pages 100 --out $Pdf }

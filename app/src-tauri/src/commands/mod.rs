@@ -147,6 +147,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         organize::number_pages,
         organize::organize_pages,
         organize::outline_tree,
+        organize::crop_pages,
         organize::outline_save,
         stamp::stamp_pdf,
         stamp::stamp_annot_pdf,

@@ -29,6 +29,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       save_document_as: "C:\\Copias\\escaneo revisado.pdf",
       ocr_pdf: 11,
       compress_pdf: 14,
+      crop_pages: 18,
       analyze_pdf: null,
       compare_pdfs: 12,
       ocr_download_language: 13,
@@ -95,6 +96,18 @@ test.describe("humo de la app (backend simulado)", () => {
     await installBackend(page);
     await page.goto("/");
     await page.waitForSelector(".pl-window", { timeout: 45_000 });
+  });
+
+  test("Recortar páginas manda los márgenes en puntos y las páginas elegidas", async ({ page }) => {
+    await openTool(page, "recortar", /^Recortar páginas/);
+    await page.getByLabel("Arriba").fill("20");
+    await page.getByLabel("Izquierda").fill("0");
+    await page.getByLabel(/^Páginas/).fill("2-3");
+    await page.getByRole("button", { name: /Recortar/ }).last().click();
+    await expect.poll(async () => (await calls(page, "crop_pages")).length).toBe(1);
+    expect((await calls(page, "crop_pages"))[0]?.args).toMatchObject({
+      path: DOC, pages: [1, 2], margins: { left: 0, top: 56.69, right: 28.35, bottom: 28.35 },
+    });
   });
 
   test("arranca en español aunque el sistema esté en inglés y abre el documento", async ({ page }) => {

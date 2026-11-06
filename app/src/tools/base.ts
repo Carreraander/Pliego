@@ -33,6 +33,7 @@ const rows: Row[] = [
   ["pages.split", "organize", "task", "scissors", ["Dividir", "Separa el documento en varios archivos"], ["Split", "Split the document into several files"], ["separar", "split", "partir"], D],
   ["pages.insert", "organize", "task", "file-plus", ["Insertar páginas", "Añade páginas de otro archivo o en blanco"], ["Insert pages", "Add pages from a file or blank"], ["insertar", "añadir"], D],
   ["pages.number", "organize", "task", "hash", ["Numerar páginas", "Pone número de página y encabezados"], ["Number pages", "Add page numbers"], ["numeración", "paginar"], D],
+  ["pages.crop", "organize", "task", "crop", ["Recortar páginas", "Quita márgenes de las páginas"], ["Crop pages", "Trim the page margins"], ["recortar", "crop", "márgenes"], D],
   // Editar (W11, W04)
   ["edit.content", "edit", "mode", "type", ["Editar", "Cambia texto e imágenes del documento"], ["Edit", "Change the document text and images"], ["texto", "imagen", "editar"], D, "E"],
   ["edit.watermark", "edit", "task", "droplet", ["Marca de agua", "Añade una marca de agua a las páginas"], ["Watermark", "Add a watermark to pages"], ["watermark"], D],

@@ -217,6 +217,12 @@ campos renombrados al combinar y el `/UF` de los adjuntos de sellos. Pruebas: `o
 `organize::tests::outline_is_saved_in_place_with_backup_and_undo`, `outlineEdit.test.ts` y `app-smoke.spec.ts`. **V**: abrir
 en Reader los marcadores editados.
 
+**Recortar páginas** (Organizar): márgenes arriba/abajo/izquierda/derecha en mm (10 por defecto) para todas las
+páginas o las elegidas («1-3, 5»); cambia la caja visible (`CropBox`) y guarda una copia «(recortado)» al lado. Rechaza
+márgenes negativos, todos a cero o páginas fuera del documento. Pruebas: `organize::tests::crop_saves_a_smaller_copy_and_checks_the_margins`,
+`request.test.ts` (`cropArgs`) y `app-smoke.spec.ts`. **V**: recortar 20 mm arriba un PDF y comprobar en Reader que la
+página se ve más baja y que no se ve lo recortado.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

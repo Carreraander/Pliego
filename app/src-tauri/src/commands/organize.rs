@@ -84,6 +84,21 @@ pub fn number_pages(
         .spawn(move |ctx| organize::number_copy(&PathBuf::from(path), password.as_deref(), &request, &suffix, ctx))
 }
 
+/// Recorta las páginas (`pages` desde 0; vacío = todas) quitando `margins` (puntos) y guarda una copia.
+#[tauri::command]
+pub fn crop_pages(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    pages: Vec<u32>,
+    margins: organize::CropMargins,
+    suffix: Option<String>,
+) -> JobId {
+    let suffix = suffix.unwrap_or_else(|| "recortado".into());
+    jobs.0
+        .spawn(move |ctx| organize::crop_copy(&PathBuf::from(path), password.as_deref(), &pages, margins, &suffix, ctx))
+}
+
 /// Guarda una copia con las páginas en el orden, giro y selección que dejó la persona en Organizar (también «Extraer»).
 #[tauri::command]
 pub fn organize_pages(

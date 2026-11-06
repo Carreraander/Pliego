@@ -1,4 +1,5 @@
 import { forgetPassword, rememberPassword } from "./passwords";
+import { forgetSignedChoice } from "./signedEdit";
 import { createSignal } from "solid-js";
 import { api, events, isApiError, type DocId, type PageSize } from "../api";
 import { fitWidthZoom, type Rotation } from "../viewer/layout";
@@ -64,6 +65,7 @@ export async function closeDoc(id: DocId): Promise<void> {
   const path = docs().find((d) => d.id === id)?.path;
   if (path) {
     forgetPassword(path);
+    forgetSignedChoice(path);
     closedPaths.push(path);
     if (closedPaths.length > MAX_CLOSED) closedPaths.shift();
   }

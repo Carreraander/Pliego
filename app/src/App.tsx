@@ -15,6 +15,7 @@ import { Outline } from "./panels/Outline";
 import { registerAssistantPanel } from "./panels/assistant";
 import { SearchBox } from "./components/SearchBox";
 import { PasswordPrompt } from "./components/PasswordPrompt";
+import { SignedEditPrompt } from "./components/SignedEditPrompt";
 import { closeScreen, currentScreen, installNavigation, NavigationHost, openShortcutSheet } from "./navigation";
 import { Home, installHome, openHome, openSettings, recordOpened } from "./home";
 import { installJobs } from "./jobs";
@@ -123,6 +124,7 @@ export function App() {
         </Field>
       </Dialog>
       <PasswordPrompt />
+      <SignedEditPrompt />
     </AppWindow>
   );
 }

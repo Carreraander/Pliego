@@ -41,6 +41,12 @@ pub fn links(path: &Path, page: usize, password: Option<&str>) -> Result<Vec<Lin
     pliego_edit::links(&doc, page)
 }
 
+/// ¿El documento tiene firmas digitales? Editarlo (texto, imágenes, objetos, enlaces) las invalida: la interfaz
+/// avisa antes de la primera edición.
+pub fn is_signed(path: &Path, password: Option<&str>) -> Result<bool> {
+    Ok(Document::open(path, password)?.is_signed())
+}
+
 /// Resultado de una edición: contenido nuevo del archivo (para recargar el visor) y avisos.
 pub struct Edited {
     pub bytes: Vec<u8>,
@@ -392,5 +398,13 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn signed_documents_are_reported() {
+        let signed = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/corpus/document/firmado.pdf");
+        let plain = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/corpus/basic/hola.pdf");
+        assert!(is_signed(Path::new(signed), None).unwrap());
+        assert!(!is_signed(Path::new(plain), None).unwrap());
     }
 }

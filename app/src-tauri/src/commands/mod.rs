@@ -110,6 +110,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         pageedit::edit_images,
         pageedit::edit_vectors,
         pageedit::edit_links,
+        pageedit::edit_is_signed,
         pageedit::edit_image_insert,
         pageedit::edit_image_replace,
         pageedit::edit_image_crop,

@@ -1,0 +1,74 @@
+﻿{
+    "fecha":  "2026-11-06T12:40:15",
+    "equipo":  "DESKTOP-41TJN0V",
+    "windows":  "10.0.19045",
+    "webview2":  "156.0.4314.58",
+    "exe":  "D:\\dev\\pliego-beta-validar\\dist\\stage\\app-0.1.0\\pliego-app.exe",
+    "pdf":  "D:\\dev\\pliego-gestion-w37-main\\tests\\output\\bench-100.pdf",
+    "espera_s":  25,
+    "limite_app_worker_mb":  150,
+    "limite_total_mb":  500,
+    "resultados":  [
+                       {
+                           "variante":  "base",
+                           "procesos_wv2":  6,
+                           "app_worker_ws_mb":  53.1,
+                           "app_worker_priv_mb":  23.2,
+                           "wv2_ws_mb":  405.9,
+                           "wv2_priv_mb":  174.4,
+                           "total_ws_mb":  459,
+                           "total_priv_mb":  197.6,
+                           "por_tipo":  {
+                                            "app":  {
+                                                        "n":  1,
+                                                        "ws":  41.46484375,
+                                                        "priv":  18.69921875,
+                                                        "commit":  21.3984375
+                                                    },
+                                            "navegador":  {
+                                                              "n":  1,
+                                                              "ws":  104.859375,
+                                                              "priv":  29.60546875,
+                                                              "commit":  36.87890625
+                                                          },
+                                            "crashpad":  {
+                                                             "n":  1,
+                                                             "ws":  8.3828125,
+                                                             "priv":  1.46875,
+                                                             "commit":  2.23828125
+                                                         },
+                                            "gpu":  {
+                                                        "n":  1,
+                                                        "ws":  79.90625,
+                                                        "priv":  33.12109375,
+                                                        "commit":  128.34765625
+                                                    },
+                                            "utilidad":  {
+                                                             "n":  2,
+                                                             "ws":  56.70703125,
+                                                             "priv":  10,
+                                                             "commit":  19.3984375
+                                                         },
+                                            "renderer":  {
+                                                             "n":  1,
+                                                             "ws":  156.0859375,
+                                                             "priv":  100.19921875,
+                                                             "commit":  113.97265625
+                                                         },
+                                            "worker":  {
+                                                           "n":  1,
+                                                           "ws":  11.59375,
+                                                           "priv":  4.45703125,
+                                                           "commit":  5.2265625
+                                                       }
+                                        },
+                           "args_navegador":  "\"C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\156.0.4314.58\\msedgewebview2.exe\" --embedded-browser-webview=1 --webview-exe-name=pliego-app.exe --webview-exe-version=0.1.0 --user-data-dir=\"D:\\dev-cache\\tmp\\pliego-wv2-base-a9b730de\\EBWebView\" --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --lang=en-US --mojo-named-platform-channel-pipe=25220.30244.1293950931154380322",
+                           "limite_app_worker_mb":  150,
+                           "limite_total_mb":  500,
+                           "cumple_app_worker":  true,
+                           "cumple_total":  true,
+                           "cumple_total_ws":  true,
+                           "repeticion":  1
+                       }
+                   ]
+}

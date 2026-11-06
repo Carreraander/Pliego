@@ -223,3 +223,50 @@ fn open_missing_file_reports_the_path() {
     assert!(matches!(e, Error::Io { .. }), "{e}");
     assert!(e.to_string().contains("existe.pdf"), "{e}");
 }
+
+#[test]
+fn view_only_reads_like_a_normal_open() {
+    let (v, n) = (
+        DefaultEngine.open_for_viewing(&corpus("hola.pdf"), None).unwrap(),
+        open(),
+    );
+    assert_eq!(v.info().unwrap(), n.info().unwrap());
+    assert_eq!(v.page_size(1).unwrap(), n.page_size(1).unwrap());
+    assert_eq!(v.page_text(0).unwrap(), n.page_text(0).unwrap());
+    assert_eq!(v.outline().unwrap(), n.outline().unwrap());
+    assert_eq!(v.render_page(0, 0.5).unwrap(), n.render_page(0, 0.5).unwrap());
+    assert_eq!(
+        v.search_page(1, "Pliego", 10).unwrap(),
+        n.search_page(1, "Pliego", 10).unwrap()
+    );
+}
+
+#[test]
+fn open_auto_uses_view_only_from_the_threshold_and_refuses_the_absurd() {
+    // Con el umbral predeterminado un PDF de unos KB se abre entero (y se puede guardar); el límite superior es del motor.
+    let d = DefaultEngine.open_auto(&corpus("hola.pdf"), None).unwrap();
+    assert!(d.view_only.is_none());
+    let p = Path::new("x.pdf");
+    assert!(check_view_only_size(p, VIEW_ONLY_MAX_BYTES).is_ok());
+    assert!(matches!(
+        check_view_only_size(p, VIEW_ONLY_MAX_BYTES + 1),
+        Err(Error::Unsupported(_))
+    ));
+}
+
+#[test]
+fn view_only_does_not_keep_the_file_open() {
+    // Solo para ver, PDFium lee el archivo por bloques pero no deja ningún manejador abierto entre lecturas: se puede
+    // sustituir con un renombrado (en Windows un manejador abierto lo impediría) y el documento avisa de que cambió en
+    // lugar de mezclar versiones.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("a.pdf");
+    std::fs::copy(corpus("hola.pdf"), &path).unwrap();
+    let d = DefaultEngine.open_for_viewing(&path, None).unwrap();
+    assert!(d.page_text(0).unwrap().contains("Hola Pliego"));
+    let nuevo = dir.path().join("nuevo.pdf");
+    std::fs::write(&nuevo, b"otra cosa, de otro tamano").unwrap();
+    std::fs::rename(&nuevo, &path).expect("el archivo abierto para ver debe poder sustituirse");
+    // Lo que PDFium ya tenía leído sigue sirviendo; si necesita leer más del archivo nuevo, falla limpio.
+    let _ = d.page_text(1);
+}

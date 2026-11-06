@@ -59,6 +59,14 @@ fn service() -> DocumentService {
     DocumentService::new(c)
 }
 
+/// Servicio cuyo worker abre todo «solo para ver» (así abre la app los PDF grandes).
+fn view_only_service() -> DocumentService {
+    let mut c = WorkerConfig::new(worker_exe());
+    c.timeout = std::time::Duration::from_secs(120);
+    c.view_only_mb = Some(0);
+    DocumentService::new(c)
+}
+
 /// Copia un PDF del corpus a una carpeta temporal y lo abre en el worker, como hace la app al abrir un archivo.
 fn open(rel: &str) -> (tempfile::TempDir, PathBuf, DocumentService, DocId) {
     let dir = tempfile::tempdir().unwrap();
@@ -490,4 +498,103 @@ fn ocr_con_la_cli_real_desde_un_pdf_abierto() {
         !svc.page_text(rid, 0).unwrap().trim().is_empty(),
         "el PDF resultante tiene texto"
     );
+}
+
+/// PDF grande: el worker lo lee del archivo (sin manejador abierto), el historial de deshacer va a disco y cada edición
+/// puede sustituir el archivo con el documento abierto. Es el recorrido que no podía fallar en Windows.
+#[test]
+fn pdf_grande_editar_y_deshacer_sin_memoria_ni_archivos_abiertos() {
+    use pliego_app_service::history::Limits;
+    let _s = serial();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hola.pdf");
+    std::fs::copy(corpus("basic/hola.pdf"), &path).unwrap();
+    let original = std::fs::read(&path).unwrap();
+    let svc = view_only_service();
+    let id = svc.open_document(&path, None).unwrap();
+    // `mem_step: 0` manda todos los pasos a disco, como harían los de un PDF de cientos de MB.
+    let ed = Editor::with_history_limits(Limits {
+        mem_step: 0,
+        ..Limits::default()
+    });
+    let spilled = || {
+        std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".pliego-deshacer-")
+            })
+            .count()
+    };
+
+    for _ in 0..2 {
+        let mut s = AnnotSpec::new(0, pliego_annot::Geometry::Note { at: [100.0, 100.0] });
+        s.contents = Some("nota".into());
+        let rev = svc.revision(id).unwrap();
+        let b = ed.add(&path, None, &s, "copia de seguridad").unwrap();
+        svc.reload_bytes(id, &b).unwrap();
+        assert_repaints(&svc, id, rev);
+    }
+    assert_eq!(ed.undo_depth(&path), 2);
+    assert_eq!(spilled(), 2, "cada paso es un temporal junto al documento, no memoria");
+    for _ in 0..2 {
+        let b = ed.undo(&path).unwrap().unwrap();
+        svc.reload_bytes(id, &b).unwrap();
+    }
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    assert_eq!(spilled(), 0);
+}
+
+#[test]
+fn pdf_grande_comentar_en_modo_ligero_no_reescribe_el_archivo() {
+    use pliego_app_service::annot::{Saved, summary_of};
+    let _s = serial();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hola.pdf");
+    std::fs::copy(corpus("basic/hola.pdf"), &path).unwrap();
+    let original = std::fs::read(&path).unwrap();
+    let svc = view_only_service();
+    let id = svc.open_document(&path, None).unwrap();
+    // `with_lean_min_bytes(0)`: todo se trata como un PDF grande.
+    let ed = Editor::default().with_lean_min_bytes(0);
+    let mut s = AnnotSpec::new(0, pliego_annot::Geometry::Note { at: [100.0, 100.0] });
+    s.contents = Some("nota grande".into());
+    let rev = svc.revision(id).unwrap();
+    let saved = ed.add_saved(&path, None, &s, "copia de seguridad").unwrap();
+    assert!(matches!(saved, Saved::File(_)), "el resultado se entrega como archivo");
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert_repaints(&svc, id, rev);
+    let after = std::fs::read(&path).unwrap();
+    assert!(
+        after.starts_with(&original),
+        "se añade al final: el original queda intacto"
+    );
+    assert_eq!(summary_of(&path, None).unwrap().total, 1);
+    assert_eq!(ed.undo_depth(&path), 1);
+    // Segundo comentario encima del primero y dos «deshacer» seguidos: cada uno solo corta lo que añadió su paso.
+    let first_len = after.len();
+    let saved = ed.add_saved(&path, None, &s, "copia de seguridad").unwrap();
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert!(std::fs::read(&path).unwrap().starts_with(&after));
+    assert_eq!(summary_of(&path, None).unwrap().total, 2);
+    let saved = ed.undo_saved(&path).unwrap().unwrap();
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert_eq!(std::fs::metadata(&path).unwrap().len() as usize, first_len);
+    assert_eq!(summary_of(&path, None).unwrap().total, 1);
+    let rev = svc.revision(id).unwrap();
+    let saved = ed.undo_saved(&path).unwrap().unwrap();
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert_repaints(&svc, id, rev);
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+
+    // Otro programa añade algo al archivo: deshacer ya no sabe dónde cortar y lo deja como está.
+    ed.add_saved(&path, None, &s, "copia de seguridad").unwrap();
+    let mut changed = std::fs::read(&path).unwrap();
+    changed.extend(b"\n% otro programa\n");
+    std::fs::write(&path, &changed).unwrap();
+    assert!(ed.undo_saved(&path).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), changed);
 }

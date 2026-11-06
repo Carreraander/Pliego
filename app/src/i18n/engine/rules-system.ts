@@ -104,6 +104,13 @@ export const SYSTEM_RULES: readonly Rule[] = [
   ["paso desconocido «{}». Disponibles: {}", "unknown step “{1}”. Available: {2}"], ["el paso {} ({}) no produjo ningún archivo", "step {1} ({2}) produced no file"],
   ["la salida de {} coincidiría con el original; elige otra carpeta de salida", "the output of {} would match the original; choose another output folder"],
   ["la acción ha cambiado desde el lote anterior: se empieza de cero", "the action changed since the previous batch: starting from scratch"],
+  // PDF grandes (modo «solo para ver» y recargas por archivo).
+  ["este PDF pesa {} MB: mostrar u ocultar capas necesita abrirlo entero y solo se admite hasta {} MB", "this PDF is {} MB: showing or hiding layers needs to open it whole and is only supported up to {} MB"],
+  ["{} pesa {} MB: Pliego no abre PDF de 4 GB o más", "{1} is {2} MB: Pliego does not open PDFs of 4 GB or more"],
+  ["el archivo cambió mientras estaba abierto en el visor", "the file changed while it was open in the viewer"],
+  ["posición antes del inicio", "position before the start"],
+  ["no se pudo preparar el documento para el visor: {}", "the document could not be prepared for the viewer: {}"],
+  ["{} cambió desde el último comentario; no se puede deshacer", "{} changed since the last comment; it cannot be undone"],
   // ── 1.0: guardar como, propiedades, adjuntos, recorte, marcadores, accesibilidad y ajustes ──
   ["el destino es el propio documento", "the destination is the document itself"],
   ["no hay ninguna propiedad que cambiar", "there is no property to change"],

@@ -1,0 +1,64 @@
+{
+  "caso": "escaneado-1gb",
+  "archivo_mb": 1044.06826877594,
+  "paginas": 300,
+  "pasos": [
+    {
+      "paso": "abrir",
+      "ms": 1981.3082,
+      "app_mb": 0.828125,
+      "worker_mb": 4.078125,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "páginas (300) e info",
+      "ms": 0.412,
+      "app_mb": 0.828125,
+      "worker_mb": 4.078125,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "marcadores (0)",
+      "ms": 0.0667,
+      "app_mb": 0.828125,
+      "worker_mb": 4.078125,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "primera tesela",
+      "ms": 283.8757,
+      "app_mb": 1.8359375,
+      "worker_mb": 10.74609375,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "40 saltos (la peor 95 ms)",
+      "ms": 2047.4687999999999,
+      "app_mb": 41.078125,
+      "worker_mb": 25.21484375,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "última página",
+      "ms": 47.6093,
+      "app_mb": 42.08203125,
+      "worker_mb": 28.51953125,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "texto de una página (22 car.)",
+      "ms": 4.253,
+      "app_mb": 42.08203125,
+      "worker_mb": 32.640625,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "buscar «contrato» en 300 págs (300 coincidencias)",
+      "ms": 2189.0589999999997,
+      "app_mb": 42.08203125,
+      "worker_mb": 29.171875,
+      "worker_pico_mb": null
+    }
+  ],
+  "max_app_mas_worker_mb": 74.72265625
+}

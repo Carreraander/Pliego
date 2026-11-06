@@ -50,7 +50,7 @@ pub use geom::{IRect, Matrix, Point, Quad, Rect, Size};
 pub use links::{DestinationKind, Link, LinkDestination, LinkTarget, NewLink};
 pub use native::{
     ContentMove, CutContent, ExtractedImage, Font, GraftMap, Image, ImagePlacement, ImageSource, InsertImageOptions,
-    MoveReport, Object, PageImageInfo, PdfAnnotation, PdfDocument, PdfPage, PdfWidget,
+    LeanAppend, MoveReport, Object, PageImageInfo, PdfAnnotation, PdfDocument, PdfPage, PdfWidget,
 };
 pub use object::Value;
 pub use options::{

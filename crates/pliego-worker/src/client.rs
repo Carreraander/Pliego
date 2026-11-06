@@ -23,12 +23,16 @@ pub struct WorkerConfig {
     pub exe: PathBuf,
     /// Tiempo máximo por petición antes de dar el worker por colgado y relanzarlo.
     pub timeout: Duration,
-    /// Memoria máxima de la caché de teselas.
+    /// Memoria máxima de la caché de teselas. Está en el proceso de la app, dentro de los 150 MB de Pliego: 64 MB
+    /// bastan para la vista y sus vecinas y volver a dibujar una tesela cuesta unos milisegundos.
     pub cache_bytes: usize,
     /// Activa las peticiones de depuración del worker (solo pruebas).
     pub debug: bool,
     /// Límite de memoria del proceso worker (solo Windows, mediante job object). `None` = sin límite.
     pub memory_limit: Option<usize>,
+    /// Tamaño (MB) desde el que el worker abre los archivos solo para verlos (menos memoria, sin editar capas hasta
+    /// cierto tamaño). `None` = el predeterminado de `pliego_engine::VIEW_ONLY_MIN_BYTES`; `Some(0)` = siempre (pruebas).
+    pub view_only_mb: Option<u64>,
 }
 
 impl WorkerConfig {
@@ -36,9 +40,10 @@ impl WorkerConfig {
         Self {
             exe: exe.into(),
             timeout: Duration::from_secs(30),
-            cache_bytes: 256 * 1024 * 1024,
+            cache_bytes: 64 * 1024 * 1024,
             debug: false,
             memory_limit: Some(2 * 1024 * 1024 * 1024),
+            view_only_mb: None,
         }
     }
 
@@ -111,14 +116,54 @@ impl PdfEngine for WorkerEngine {
     }
 
     fn open_bytes(&self, bytes: &[u8], password: Option<&str>) -> Result<WorkerDocument> {
-        self.open_source(Source::Bytes(Arc::new(bytes.to_vec())), password)
+        self.open_source(Source::from_bytes(bytes, None)?, password)
     }
 }
+
+/// Desde este tamaño, un contenido que llega en memoria (`reload_bytes`, `open_bytes`) se pasa al worker por archivo
+/// temporal: no se queda una copia entera en la app, no viaja por la tubería y no tropieza con el límite de marco.
+const BYTES_TO_FILE_MIN: usize = 16 * 1024 * 1024;
 
 #[derive(Clone)]
 enum Source {
     Path(PathBuf),
     Bytes(Arc<Vec<u8>>),
+    /// Copia temporal del contenido; se borra al soltar el último `Arc` (al recargar o cerrar el documento).
+    Temp(Arc<tempfile::TempPath>),
+}
+
+impl Source {
+    /// Guarda `bytes` donde corresponda. `beside`: archivo del documento, para dejar el temporal en su misma unidad.
+    fn from_bytes(bytes: &[u8], beside: Option<&Path>) -> Result<Source> {
+        if bytes.len() < BYTES_TO_FILE_MIN {
+            return Ok(Source::Bytes(Arc::new(bytes.to_vec())));
+        }
+        let mut b = tempfile::Builder::new();
+        b.prefix(".pliego-vista-").suffix(".pdf");
+        let write = |dir: Option<&Path>| -> io::Result<tempfile::TempPath> {
+            let mut f = match dir {
+                Some(d) => b.tempfile_in(d)?,
+                None => b.tempfile()?,
+            };
+            f.write_all(bytes)?;
+            f.flush()?;
+            Ok(f.into_temp_path())
+        };
+        let dir = beside.and_then(Path::parent).filter(|p| !p.as_os_str().is_empty());
+        let tmp = write(dir)
+            .or_else(|_| write(None))
+            .map_err(|e| Error::Other(format!("no se pudo preparar el documento para el visor: {e}")))?;
+        Ok(Source::Temp(Arc::new(tmp)))
+    }
+
+    /// Archivo de este documento, si es un archivo (el original o la copia temporal).
+    fn file(&self) -> Option<&Path> {
+        match self {
+            Source::Path(p) => Some(p),
+            Source::Temp(t) => Some(t),
+            Source::Bytes(_) => None,
+        }
+    }
 }
 
 struct Proc {
@@ -170,6 +215,9 @@ fn spawn(config: &WorkerConfig) -> io::Result<Proc> {
     cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     if config.debug {
         cmd.env("PLIEGO_WORKER_DEBUG", "1");
+    }
+    if let Some(mb) = config.view_only_mb {
+        cmd.env("PLIEGO_VIEW_ONLY_MB", mb.to_string());
     }
     #[cfg(windows)]
     {
@@ -272,11 +320,23 @@ impl WorkerDocument {
         self.cache.drop_stale(self.id, revision);
     }
 
+    /// Vuelve a abrir el documento desde `path` (el archivo que acaba de escribir una edición) con la nueva `revision`.
+    /// No pasa el contenido por memoria: con un PDF grande es lo que evita leerlo y reescribirlo en cada cambio.
+    pub fn reload_path(&self, path: &Path, revision: u64) -> Result<()> {
+        self.swap_source(Source::Path(path.to_path_buf()), revision)
+    }
+
     /// Sustituye el contenido por `bytes` (p. ej. tras una edición) con la nueva `revision`.
     pub fn reload_bytes(&self, bytes: &[u8], revision: u64) -> Result<()> {
+        let beside = self.lock().source.file().map(Path::to_path_buf);
+        let source = Source::from_bytes(bytes, beside.as_deref())?;
+        self.swap_source(source, revision)
+    }
+
+    fn swap_source(&self, source: Source, revision: u64) -> Result<()> {
         let mut st = self.lock();
         let old = (st.source.clone(), st.proc.take());
-        st.source = Source::Bytes(Arc::new(bytes.to_vec()));
+        st.source = source;
         drop(st);
         match self.with_proc(|_| Ok(())) {
             Ok(()) => {
@@ -290,6 +350,11 @@ impl WorkerDocument {
                 Err(e)
             }
         }
+    }
+
+    /// Identificador del proceso worker, si está en marcha (para medir su memoria desde fuera).
+    pub fn worker_pid(&self) -> Option<u32> {
+        self.lock().proc.as_ref().map(|p| p.child.id())
     }
 
     /// Número de veces que se relanzó el worker.
@@ -332,17 +397,20 @@ impl WorkerDocument {
         })?;
         let pw = st.password.clone();
         let (req, bin) = match &st.source {
-            Source::Path(p) => (
-                Request::OpenPath {
-                    path: p
-                        .to_str()
-                        .ok_or_else(|| Error::InvalidInput(format!("la ruta {p:?} no es UTF-8 válido")))?
-                        .to_owned(),
-                    password: pw,
-                },
-                None,
-            ),
             Source::Bytes(b) => (Request::OpenBytes { password: pw }, Some(b.clone())),
+            file => {
+                let p = file.file().expect("Path y Temp son archivos");
+                (
+                    Request::OpenPath {
+                        path: p
+                            .to_str()
+                            .ok_or_else(|| Error::InvalidInput(format!("la ruta {p:?} no es UTF-8 válido")))?
+                            .to_owned(),
+                        password: pw,
+                    },
+                    None,
+                )
+            }
         };
         match proc.call(&req, bin.as_deref().map(|b| b.as_slice()), self.config.timeout) {
             Ok(_) => {

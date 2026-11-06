@@ -2,7 +2,7 @@
 //!
 //! `DefaultDocument` no es `Send`: abrir y usar cada documento en un único hilo.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub use pliego_pdf::configure_from_environment;
 use pliego_pdf::{Colorspace, DestinationKind, IRect, Matrix, MetadataName, Outline, PdfDocument, Pixmap, Rect};
@@ -18,9 +18,26 @@ const MAX_PIXELS: u64 = 100_000_000;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DefaultEngine;
 
+/// Archivo de PDF desde el que el worker abre «solo para ver» (véase [`DefaultEngine::open_for_viewing`]).
+pub const VIEW_ONLY_MIN_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Mayor archivo que se abre solo para ver: al abrirlo hay que leerlo entero una vez para construir el modelo (el búfer se
+/// suelta después), y esa lectura cabe en el límite de memoria del worker (2 GB, `WorkerConfig::memory_limit`).
+pub const VIEW_ONLY_MAX_BYTES: u64 = 1700 * 1024 * 1024;
+
+/// Mayor archivo cuyas capas se pueden mostrar u ocultar: hay que abrirlo entero (con sus datos en memoria).
+pub const LAYER_EDIT_MAX_BYTES: u64 = 256 * 1024 * 1024;
+
 /// Documento abierto: un PDF con su modelo de objetos (se pueden recorrer sus objetos).
 pub struct DefaultDocument {
     doc: PdfDocument,
+    /// `Some` si se abrió solo para ver: de dónde (para pasar a documento completo si se cambian capas).
+    view_only: Option<ViewOnly>,
+}
+
+struct ViewOnly {
+    path: PathBuf,
+    password: Option<String>,
 }
 
 impl PdfEngine for DefaultEngine {
@@ -29,19 +46,80 @@ impl PdfEngine for DefaultEngine {
     fn open(&self, path: &Path, password: Option<&str>) -> Result<DefaultDocument> {
         Ok(DefaultDocument {
             doc: PdfDocument::open_with_password(path, password)?,
+            view_only: None,
         })
     }
 
     fn open_bytes(&self, bytes: &[u8], password: Option<&str>) -> Result<DefaultDocument> {
         Ok(DefaultDocument {
             doc: PdfDocument::from_bytes_with_password(bytes, password)?,
+            view_only: None,
         })
     }
+}
+
+impl DefaultEngine {
+    /// Abre `path` solo para verlo (leer, dibujar, buscar): el proceso no guarda el archivo ni sus imágenes en memoria,
+    /// así que un PDF de 1 GB cabe en el límite del worker. No admite cambios salvo las capas (que lo abren entero).
+    pub fn open_for_viewing(&self, path: &Path, password: Option<&str>) -> Result<DefaultDocument> {
+        let size = std::fs::metadata(path).map_err(|e| Error::io_at(path, e))?.len();
+        check_view_only_size(path, size)?;
+        Ok(DefaultDocument {
+            doc: PdfDocument::open_for_viewing(path, password)?,
+            view_only: Some(ViewOnly {
+                path: path.to_path_buf(),
+                password: password.map(str::to_owned),
+            }),
+        })
+    }
+
+    /// Como [`PdfEngine::open`], pero los archivos de [`VIEW_ONLY_MIN_BYTES`] o más se abren solo para ver.
+    pub fn open_auto(&self, path: &Path, password: Option<&str>) -> Result<DefaultDocument> {
+        let big = std::fs::metadata(path).is_ok_and(|m| m.len() >= view_only_min_bytes());
+        if big {
+            self.open_for_viewing(path, password)
+        } else {
+            self.open(path, password)
+        }
+    }
+}
+
+fn check_view_only_size(path: &Path, size: u64) -> Result<()> {
+    if size > VIEW_ONLY_MAX_BYTES {
+        return Err(Error::Unsupported(format!(
+            "{} pesa {} MB: Pliego abre PDF de hasta {} MB",
+            path.display(),
+            size / 1_048_576,
+            VIEW_ONLY_MAX_BYTES / 1_048_576
+        )));
+    }
+    Ok(())
+}
+
+/// Umbral efectivo: `PLIEGO_VIEW_ONLY_MB` (para pruebas y diagnóstico) o [`VIEW_ONLY_MIN_BYTES`].
+fn view_only_min_bytes() -> u64 {
+    std::env::var("PLIEGO_VIEW_ONLY_MB")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .map_or(VIEW_ONLY_MIN_BYTES, |mb| mb * 1024 * 1024)
 }
 
 impl DefaultDocument {
     /// Muestra u oculta una capa en memoria (el archivo no cambia).
     pub fn set_layer_visible_mut(&mut self, id: i32, visible: bool) -> Result<()> {
+        if let Some(v) = &self.view_only {
+            // Cambiar una capa modifica el modelo y PDFium debe leer una copia nueva: hace falta el documento entero.
+            let size = std::fs::metadata(&v.path).map_err(|e| Error::io_at(&v.path, e))?.len();
+            if size > LAYER_EDIT_MAX_BYTES {
+                return Err(Error::Unsupported(format!(
+                    "este PDF pesa {} MB: mostrar u ocultar capas necesita abrirlo entero y solo se admite hasta {} MB",
+                    size / 1_048_576,
+                    LAYER_EDIT_MAX_BYTES / 1_048_576
+                )));
+            }
+            self.doc = PdfDocument::open_with_password(&v.path, v.password.as_deref())?;
+            self.view_only = None;
+        }
         let known = self.doc.optional_content_groups()?.iter().any(|g| g.xref == id);
         if !known {
             return Err(Error::InvalidInput(format!("la capa {id} no existe")));

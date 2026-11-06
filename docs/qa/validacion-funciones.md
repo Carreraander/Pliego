@@ -150,8 +150,15 @@ nombre del campo («FirmaN»), la hoja y el motivo del flujo de firmas y los avi
 español (los textos salían del motor). Ahora `SignOptions.lang` (`es`/`en`, por defecto `es`) decide el texto que la
 firma deja en el PDF y la interfaz manda el idioma de la app; el motor da una clave estable por aviso
 (`problem_keys`) y la interfaz los traduce. Los sufijos de las copias («firmado», «para firmar») también salen de la
-interfaz. Sin cubrir: los mensajes de progreso y resumen de los trabajos que da el servicio (centro de tareas), que
-son de todas las herramientas y siguen en español, y el error libre al leer una firma corrupta (`other`).
+interfaz. Sin cubrir: el error libre al leer una firma corrupta (`other`).
+
+## Centro de tareas en inglés (2026-11-05)
+
+Los títulos, el progreso («Guardando…») y los resúmenes («3 páginas numeradas») de los trabajos salen de los motores
+en español (la CLI usa los mismos). La interfaz los traduce en `app/src/jobs/translate.ts` con una tabla de plantillas
+(`RULES`, es → en); un texto sin regla se muestra tal cual. `translate.test.ts` recorre los fuentes de Rust y falla si
+aparece una plantilla sin regla, así que añadir un mensaje nuevo obliga a traducirlo. Sin cubrir: los errores libres
+(`job.error`), que siguen en español.
 
 ## Cómo repetirlo
 

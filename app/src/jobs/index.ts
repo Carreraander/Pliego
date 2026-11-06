@@ -1,5 +1,7 @@
 import { registerStatusItem } from "../shell";
+import { locale } from "../i18n";
 import { jt } from "./strings";
+import { jobText } from "./translate";
 import { JobsStatus, openJobsCenter, setResultOpener } from "./JobsCenter";
 import { listenJobs, onJobFinished } from "./state";
 
@@ -20,7 +22,7 @@ export async function installJobs(openPdf: (path: string) => void): Promise<() =
   setResultOpener(openPdf);
   const offs = [
     registerStatusItem({ id: "jobs.status", slot: "center", order: 10, component: JobsStatus, onClick: openJobsCenter, label: jt("jobs.title"), tone: undefined }),
-    onJobFinished((job) => { if (job.status === "done" || job.status === "error") notifyFinished(job.title, job.status === "done", job.report?.summary ?? job.error ?? ""); }),
+    onJobFinished((job) => { if (job.status === "done" || job.status === "error") notifyFinished(jobText(job.title, locale()), job.status === "done", jobText(job.report?.summary ?? job.error ?? "", locale())); }),
     await listenJobs(),
   ];
   return () => { offs.forEach((off) => off()); setResultOpener(null); };

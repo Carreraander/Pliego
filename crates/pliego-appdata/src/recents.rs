@@ -142,9 +142,27 @@ pub fn reveal_command(path: &str) -> (&'static str, Vec<String>) {
     }
 }
 
+/// Orden del sistema para abrir una carpeta en el explorador.
+pub fn open_folder_command(folder: &str) -> (&'static str, Vec<String>) {
+    if cfg!(windows) {
+        ("explorer.exe", vec![folder.to_owned()])
+    } else if cfg!(target_os = "macos") {
+        ("open", vec![folder.to_owned()])
+    } else {
+        ("xdg-open", vec![folder.to_owned()])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn open_folder_passes_the_folder_alone() {
+        let (program, args) = open_folder_command("C:\\Datos\\logs");
+        assert!(!program.is_empty());
+        assert_eq!(args, ["C:\\Datos\\logs"]);
+    }
 
     #[test]
     fn reveal_selects_the_file() {

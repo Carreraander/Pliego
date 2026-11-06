@@ -203,10 +203,18 @@ impl<S: Stager> UpdateService<S> {
         let now = OffsetDateTime::now_utc();
         match self.check() {
             Ok(CheckOutcome::Available(verdict)) => {
+                pliego_core::log::info(
+                    "updates",
+                    format!(
+                        "versión {} disponible (obligatoria: {})",
+                        verdict.release.version, verdict.mandatory
+                    ),
+                );
                 self.last_attempt = Some(Attempt { at: now, ok: true });
                 self.on_available(verdict, metered, ctx);
             }
             Ok(_) => {
+                pliego_core::log::info("updates", "comprobación hecha: sin versión nueva");
                 self.last_attempt = Some(Attempt { at: now, ok: true });
                 self.phase = Phase::UpToDate;
             }
@@ -262,6 +270,7 @@ impl<S: Stager> UpdateService<S> {
     fn download_and_stage(&mut self, verdict: &Verdict, ctx: &JobContext) {
         let version = verdict.release.version.clone();
         let total = verdict.package.size;
+        pliego_core::log::info("updates", format!("descargando la versión {version} ({total} bytes)"));
         self.phase = Phase::Downloading { done: 0, total };
         let result = UpdateClient::new(self.config.clone())
             .and_then(|c| c.download(&verdict.package, &self.downloads, ctx))
@@ -275,6 +284,7 @@ impl<S: Stager> UpdateService<S> {
             });
         match result {
             Ok(()) => {
+                pliego_core::log::info("updates", format!("versión {version} preparada para instalar"));
                 let pending = PendingUpdate {
                     version,
                     notes: verdict.release.notes_for("es").map(str::to_owned),
@@ -293,6 +303,9 @@ impl<S: Stager> UpdateService<S> {
     fn fail(&mut self, e: UpdateError, now: OffsetDateTime) {
         self.last_attempt = Some(Attempt { at: now, ok: false });
         let retry = now + schedule::MIN_GAP;
+        if !matches!(e, UpdateError::Cancelled) {
+            pliego_core::log::error("updates", format!("fallo: {e}"));
+        }
         self.phase = match e {
             UpdateError::Cancelled => Phase::UpToDate,
             e => Phase::Failed {

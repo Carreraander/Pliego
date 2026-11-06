@@ -32,7 +32,8 @@ pub fn measure(scale: &Scale, points: &[Pt], closed: bool) -> Result<Measurement
     pliego_measure::measure(scale, points, closed)
 }
 
-/// Guarda la escala de la página y una anotación de medida en el propio PDF. Devuelve el contenido nuevo y la medida.
+/// Guarda la escala de la página y una anotación de medida en el propio PDF, añadiendo los cambios al final
+/// del archivo (no se recomprime ni se reordena el contenido original). Devuelve el contenido nuevo y la medida.
 #[allow(clippy::too_many_arguments)]
 pub fn save(
     editor: &Editor,
@@ -45,7 +46,7 @@ pub fn save(
     closed: bool,
 ) -> Result<(Vec<u8>, Measurement)> {
     let mut measured = None;
-    let bytes = editor.edit_pdf(path, password, backup_suffix, |doc| {
+    let bytes = editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
         pliego_measure::set_scale(doc, page, scale)?;
         measured = Some(pliego_measure::add_measurement(doc, page, scale, points, closed)?.0);
         Ok(())
@@ -111,5 +112,41 @@ mod tests {
         assert_eq!(editor.undo_depth(&path), 1);
         assert!(save(&editor, &path, None, "copia", 0, &scale, &[[0.0, 0.0]], false).is_err());
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn saving_appends_to_the_file_without_rewriting_its_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("plano.pdf");
+        let src = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/corpus/office/articulo-3.pdf");
+        std::fs::copy(src, &path).unwrap();
+        let original = std::fs::read(&path).unwrap();
+
+        let scale = calibrate(100.0, 5.0, Unit::M).unwrap();
+        let editor = Editor::default();
+        let (bytes, _) = save(
+            &editor,
+            &path,
+            None,
+            "copia",
+            0,
+            &scale,
+            &[[10.0, 10.0], [110.0, 10.0]],
+            false,
+        )
+        .unwrap();
+
+        // El contenido original queda intacto al principio y solo crece lo añadido.
+        assert_eq!(&bytes[..original.len()], &original[..]);
+        assert!(
+            bytes.len() - original.len() < 4096,
+            "creció {} bytes",
+            bytes.len() - original.len()
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        // Se puede volver a medir sobre lo guardado y deshacer hasta el original.
+        assert!(page_scale(&path, None, 0).unwrap().is_some());
+        editor.undo(&path).unwrap().unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), original);
     }
 }

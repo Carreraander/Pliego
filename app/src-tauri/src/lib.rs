@@ -52,11 +52,14 @@ pub fn run() {
         })
         .setup(|app| {
             let handle = app.handle().clone();
-            // El worker (PDFium y lopdf, aislados) va junto al ejecutable; en desarrollo, PLIEGO_WORKER.
-            let service = DocumentService::discover()?.on_document_changed(move |ev| {
-                let _ = handle.emit("document-changed", ev);
-            });
             let data_dir = pliego_appdata::data_dir();
+            commands::logs::start(&data_dir);
+            // El worker (PDFium y lopdf, aislados) va junto al ejecutable; en desarrollo, PLIEGO_WORKER.
+            let service = DocumentService::discover()
+                .inspect_err(|e| pliego_core::log::error("arranque", format!("no se encontró el worker: {e}")))?
+                .on_document_changed(move |ev| {
+                    let _ = handle.emit("document-changed", ev);
+                });
             let settings = pliego_appdata::settings::SettingsStore::new(&data_dir);
             app.manage(commands::updates::start(app.handle(), &settings));
             app.manage(commands::settings::SettingsState(settings));
@@ -74,5 +77,8 @@ pub fn run() {
         })
         .invoke_handler(commands::handler())
         .run(tauri::generate_context!())
-        .expect("no se pudo iniciar Pliego");
+        .unwrap_or_else(|e| {
+            pliego_core::log::error("arranque", format!("no se pudo iniciar Pliego: {e}"));
+            panic!("no se pudo iniciar Pliego: {e}");
+        });
 }

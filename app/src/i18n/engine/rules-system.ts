@@ -110,6 +110,7 @@ export const SYSTEM_RULES: readonly Rule[] = [
   ["el archivo cambió mientras estaba abierto en el visor", "the file changed while it was open in the viewer"],
   ["posición antes del inicio", "position before the start"],
   ["no se pudo preparar el documento para el visor: {}", "the document could not be prepared for the viewer: {}"],
+  ["{} cambió desde el último comentario; no se puede deshacer", "{} changed since the last comment; it cannot be undone"],
   // ── 1.0: guardar como, propiedades, adjuntos, recorte, marcadores, accesibilidad y ajustes ──
   ["el destino es el propio documento", "the destination is the document itself"],
   ["no hay ninguna propiedad que cambiar", "there is no property to change"],

@@ -178,6 +178,7 @@
   ["PDFium no pudo abrir el documento para imprimir (código {})","PDFium could not open the document for printing (code {})"],
   ["no se pudo conectar con el servidor de actualizaciones: {}","could not connect to the update server: {}"],
   ["el servidor de actualizaciones respondió con un error ({})","the update server responded with an error ({})"],
+  ["{} cambió desde el último comentario; no se puede deshacer","{} changed since the last comment; it cannot be undone"],
   ["solo la primera firma de un documento puede certificarlo","only the first signature of a document can certify it"],
   ["el archivo no contiene una clave privada con certificado","the file does not contain a private key with a certificate"],
   ["no se pudo abrir el almacén de certificados de Windows: {}","the Windows certificate store could not be opened: {}"],

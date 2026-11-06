@@ -178,6 +178,16 @@ trackJob(id, { title: "Comprimir contrato.pdf", retry: apply }); // import { tra
   «Reintentar» (si pasaste `retry`). Con la ventana en segundo plano al terminar, lanza una notificación de Windows.
 - Si la operación modifica el documento abierto, llama a `bump_revision(docId)` al terminar (ver «Documentos»).
 
+## Registro de diagnóstico
+
+`pliego_core::log` (`info`, `warn`, `error`) escribe en `%APPDATA%\Pliego\logs\pliego.log` solo si la app lo activó
+(la CLI y las pruebas no escriben nada). Rota a 512 KiB y conserva 5 archivos (2,5 MiB como máximo). Qué se anota:
+arranque (versión, sistema, carpeta de datos), fallos del worker (caída, tiempo agotado, relanzado), documentos que no se
+abren, trabajos que fallan (no los cancelados), pánicos y todo el ciclo de actualizaciones. **Nunca** contenidos de
+documentos ni contraseñas: solo mensajes de error del motor; la carpeta personal se sustituye por `~`. Si añades un
+`log::…` nuevo, pasa un mensaje de error o un evento, no datos del usuario. Ajustes > Avanzado tiene «Abrir carpeta de
+registros» (`open_logs_folder`).
+
 ## Ajustes, recientes e Inicio
 - `settings()` / `updateSettings("sección", { campo: valor })` (`app/src/settings/store.ts`): esquema versionado con
   efecto inmediato; en Windows se guarda en `%APPDATA%\Pliego\settings.json` (`get_settings`/`set_settings`). Tu flujo

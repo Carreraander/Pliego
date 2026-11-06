@@ -160,6 +160,14 @@ en español (la CLI usa los mismos). La interfaz los traduce en `app/src/jobs/tr
 aparece una plantilla sin regla, así que añadir un mensaje nuevo obliga a traducirlo. Sin cubrir: los errores libres
 (`job.error`), que siguen en español.
 
+## Registro de diagnóstico (2026-11-06)
+
+Un fallo en el equipo de una persona no dejaba rastro. Ahora hay un log con rotación (`pliego_core::log`; ver
+`docs/app-integration.md`): arranque, worker, documentos que no abren, trabajos fallidos, pánicos y actualizaciones, sin
+contenidos ni contraseñas. Pruebas: unitarias de rotación y saneado, `crates/pliego-appdata/tests/log_trabajos.rs` y el
+botón de Ajustes en `app-smoke.spec.ts`. **W** pendiente en Windows: arrancar la app, provocar un fallo (abrir un PDF
+dañado), comprobar `%APPDATA%\Pliego\logs\pliego.log` y que «Abrir carpeta de registros» abre el Explorador.
+
 ## Cómo repetirlo
 
 ```

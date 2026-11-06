@@ -79,6 +79,7 @@ function UpdatesSection() {
 }
 
 function AdvancedSection() {
+  const [logsError, setLogsError] = createSignal("");
   return (
     <>
       <div class="pl-card">
@@ -87,6 +88,11 @@ function AdvancedSection() {
         <div class="pl-row"><div><span class="pl-row__label">{st("advanced.reset")}</span><span class="pl-row__hint">{st("advanced.reset.hint")}</span></div>
           <Button variant="danger" onClick={resetSettings}>{st("advanced.reset.button")}</Button></div>
       </div>
+      <Show when={isTauri()}>
+        <div class="pl-card"><div class="pl-row"><div><span class="pl-row__label">{st("advanced.logs")}</span><span class="pl-row__hint">{st("advanced.logs.hint")}</span></div>
+          <Button icon="folder-open" onClick={() => void invoke("open_logs_folder").catch((e) => setLogsError(String(e)))}>{st("advanced.logs.open")}</Button></div></div>
+        <Show when={logsError()}><Notice tone="warn">{logsError()}</Notice></Show>
+      </Show>
       <p class="pl-row__hint">{st("advanced.dataDir")}</p>
     </>
   );

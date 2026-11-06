@@ -4182,7 +4182,7 @@ dependencies = [
  "chrono",
  "console_error_panic_hook",
  "console_log",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "js-sys",
  "libloading 0.8.9",
  "log",
@@ -4193,6 +4193,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "windows",
 ]
 
 [[package]]
@@ -4514,6 +4515,7 @@ dependencies = [
  "pliego-pdfa",
  "pliego-portfolio",
  "pliego-print",
+ "pliego-printer",
  "pliego-protect",
  "pliego-redact",
  "pliego-sign",
@@ -4562,6 +4564,7 @@ dependencies = [
  "pliego-a11y",
  "pliego-actions",
  "pliego-annot",
+ "pliego-app-service",
  "pliego-assistant",
  "pliego-compare",
  "pliego-convert",
@@ -4581,6 +4584,7 @@ dependencies = [
  "pliego-pdfa",
  "pliego-portfolio",
  "pliego-print",
+ "pliego-printer",
  "pliego-protect",
  "pliego-redact",
  "pliego-sign",
@@ -4588,8 +4592,10 @@ dependencies = [
  "pliego-stamp",
  "pliego-steps",
  "rcgen",
+ "regex",
  "serde",
  "serde_json",
+ "sys-locale",
  "tempfile",
 ]
 
@@ -4812,6 +4818,7 @@ dependencies = [
  "tempfile",
  "tiff",
  "ttf-parser",
+ "windows",
  "zune-jpeg",
 ]
 
@@ -4846,6 +4853,18 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "pliego-printer"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "pliego-pdf",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6411,6 +6430,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

@@ -2,7 +2,8 @@
 
 use std::path::PathBuf;
 
-use pliego_app_service::convert::{self, CreateRequest, ExportRequest, OfficeRequest};
+use pliego_app_service::convert::{CreateRequest, ExportRequest, OfficeRequest};
+use pliego_app_service::isolated::JobSpec;
 use pliego_appdata::jobs::JobId;
 use tauri::State;
 
@@ -29,8 +30,10 @@ pub fn export_pdf(
         password,
         label,
     };
-    jobs.0
-        .spawn(move |ctx| convert::export_copy(&PathBuf::from(path), &req, ctx))
+    jobs.spawn_tool(JobSpec::Export {
+        path: PathBuf::from(path),
+        req,
+    })
 }
 
 /// Exporta `path` a Word, Excel o PowerPoint junto al original.
@@ -56,8 +59,10 @@ pub fn office_export_pdf(
         label,
         lang: lang.as_deref().map(pliego_core::Lang::from_tag).unwrap_or_default(),
     };
-    jobs.0
-        .spawn(move |ctx| convert::office_copy(&PathBuf::from(path), &req, ctx))
+    jobs.spawn_tool(JobSpec::Office {
+        path: PathBuf::from(path),
+        req,
+    })
 }
 
 /// Crea un PDF a partir de imágenes, texto, Markdown, HTML o un documento de Office (`<primero> (PDF).pdf`).
@@ -79,12 +84,15 @@ pub fn create_pdf(
         upscale,
         label,
     };
-    jobs.0.spawn(move |ctx| convert::create_copy(&inputs, &req, ctx))
+    jobs.spawn_tool(JobSpec::Create { inputs, req })
 }
 
 /// Guarda una copia PDF/A (`1b`, `2b`, `2u` o `3b`) junto al original.
 #[tauri::command]
 pub fn pdfa_convert(jobs: State<'_, JobsState>, path: String, level: String, label: String) -> JobId {
-    jobs.0
-        .spawn(move |ctx| convert::pdfa_copy(&PathBuf::from(path), &level, &label, ctx))
+    jobs.spawn_tool(JobSpec::Pdfa {
+        path: PathBuf::from(path),
+        level,
+        label,
+    })
 }

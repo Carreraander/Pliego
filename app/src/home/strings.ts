@@ -12,7 +12,7 @@ export const ht = scoped<string>({
     "recent.pin": "Fijar arriba", "recent.unpin": "Quitar de fijados", "recent.reveal": "Abrir ubicación", "recent.remove": "Quitar de la lista", "recent.missing": "No se encuentra", "recent.find": "Buscar",
     "recent.pinned": "Fijado", "recent.today": "hoy, {time}", "recent.yesterday": "ayer", "recent.open": "Abrir {name}", "recent.actions": "Más acciones de {name}",
     "news.title": "Novedades de Pliego {version}", "news.close": "Cerrar novedades",
-    "recover.text": "Pliego se cerró sin guardar {n} documentos.", "recover.one": "Pliego se cerró sin guardar 1 documento.", "recover.restore": "Recuperar", "recover.discard": "Descartar",
+    "recover.text": "Pliego se cerró de forma inesperada con {n} documentos abiertos. Los cambios aplicados ya estaban guardados.", "recover.one": "Pliego se cerró de forma inesperada con 1 documento abierto. Los cambios aplicados ya estaban guardados.", "recover.restore": "Reabrir", "recover.discard": "Descartar", "recover.report": "Copiar informe", "recover.copied": "Informe copiado. Pégalo donde nos cuentes el fallo; no incluye el contenido de tus documentos.",
     "home.footer": "Pliego {version} · Software libre · AGPL-3.0",
   },
   en: {
@@ -26,7 +26,7 @@ export const ht = scoped<string>({
     "recent.pin": "Pin to top", "recent.unpin": "Unpin", "recent.reveal": "Open location", "recent.remove": "Remove from list", "recent.missing": "Not found", "recent.find": "Find",
     "recent.pinned": "Pinned", "recent.today": "today, {time}", "recent.yesterday": "yesterday", "recent.open": "Open {name}", "recent.actions": "More actions for {name}",
     "news.title": "What’s new in Pliego {version}", "news.close": "Close news",
-    "recover.text": "Pliego closed without saving {n} documents.", "recover.one": "Pliego closed without saving 1 document.", "recover.restore": "Recover", "recover.discard": "Discard",
+    "recover.text": "Pliego closed unexpectedly with {n} documents open. Applied changes were already saved.", "recover.one": "Pliego closed unexpectedly with 1 document open. Applied changes were already saved.", "recover.restore": "Reopen", "recover.discard": "Discard", "recover.report": "Copy report", "recover.copied": "Report copied. Paste it wherever you tell us about the problem; it does not include your documents' content.",
     "home.footer": "Pliego {version} · Free software · AGPL-3.0",
   },
 });

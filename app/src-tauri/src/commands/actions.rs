@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use pliego_app_service::actions::{self, Action, BatchRequest};
 use pliego_app_service::api::{ApiError, ApiResult};
+use pliego_app_service::isolated::JobSpec;
 use pliego_appdata::jobs::JobId;
 use tauri::State;
 
@@ -32,5 +33,5 @@ pub fn actions_run(
         resume,
         suffix,
     };
-    jobs.0.spawn(move |ctx| actions::run_batch(&req, ctx))
+    jobs.spawn_tool(JobSpec::Actions { req })
 }

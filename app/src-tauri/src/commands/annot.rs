@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use pliego_app_service::DocId;
 use pliego_app_service::annot::{self, AnnotId, AnnotSpec, CommentSummary, Editor, FieldInfo, FieldValues};
 use pliego_app_service::api::ApiResult;
+use pliego_app_service::isolated::JobSpec;
 use pliego_appdata::jobs::JobId;
 use pliego_core::Error;
 use tauri::State;
@@ -37,8 +38,11 @@ pub fn export_comments_xfdf(
     password: Option<String>,
     suffix: String,
 ) -> JobId {
-    jobs.0
-        .spawn(move |_ctx| annot::export_xfdf_copy(&PathBuf::from(path), password.as_deref(), &suffix))
+    jobs.spawn_tool(JobSpec::ExportXfdf {
+        path: PathBuf::from(path),
+        password,
+        suffix,
+    })
 }
 
 /// Importa un XFDF en una copia `<nombre> (<suffix>).pdf`.
@@ -50,8 +54,11 @@ pub fn import_comments_xfdf(
     xfdf: String,
     suffix: String,
 ) -> JobId {
-    jobs.0.spawn(move |_ctx| {
-        annot::import_xfdf_copy(&PathBuf::from(path), password.as_deref(), &PathBuf::from(xfdf), &suffix)
+    jobs.spawn_tool(JobSpec::ImportXfdf {
+        path: PathBuf::from(path),
+        password,
+        xfdf: PathBuf::from(xfdf),
+        suffix,
     })
 }
 

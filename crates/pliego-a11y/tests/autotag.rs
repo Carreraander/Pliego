@@ -128,6 +128,7 @@ fn alt_text_completes_the_flow() {
         language: Some("es".into()),
         title: Some("T".into()),
         alt_texts: vec![(fig.xref.unwrap(), "Logotipo".into())],
+        autotag: false,
         tab_order: true,
     };
     pliego_a11y::fix_file(&out, &fixed, &opts, None).unwrap();
@@ -145,6 +146,42 @@ fn refuses_already_tagged_documents_and_overwrite() {
     let input = dir.path().join("sin.pdf");
     std::fs::write(&input, build_untagged()).unwrap();
     assert!(autotag_file(&input, &input, &AutotagOptions::default(), &JobContext::silent()).is_err());
+}
+
+#[test]
+fn fix_can_autotag_set_title_and_language_in_one_go() {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("sin.pdf");
+    std::fs::write(&input, build_untagged()).unwrap();
+    let out = dir.path().join("accesible.pdf");
+    let opts = pliego_a11y::FixOptions {
+        autotag: true,
+        language: Some("es-ES".into()),
+        title: Some("Informe anual".into()),
+        tab_order: true,
+        ..Default::default()
+    };
+    let rep = pliego_a11y::fix_file_with(&input, &out, &opts, None, &JobContext::silent()).unwrap();
+    assert!(rep.summary.contains("etiquetas"), "{}", rep.summary);
+    assert!(
+        rep.warnings.iter().any(|w| w.contains("texto alternativo")),
+        "{:?}",
+        rep.warnings
+    );
+    let r = check_file(&out, None).unwrap();
+    assert!(r.tagged);
+    assert_eq!(r.language.as_deref(), Some("es-ES"));
+    assert_eq!(r.title.as_deref(), Some("Informe anual"));
+    assert!(!r.has(IssueCode::NoStructureTree) && !r.has(IssueCode::NoTitle) && !r.has(IssueCode::NoLanguage));
+
+    // Sobre un documento ya etiquetado no rehace las etiquetas: avisa y aplica lo demás.
+    let again = dir.path().join("otra.pdf");
+    let rep = pliego_a11y::fix_file_with(&out, &again, &opts, None, &JobContext::silent()).unwrap();
+    assert!(
+        rep.warnings.iter().any(|w| w.contains("ya estaba etiquetado")),
+        "{:?}",
+        rep.warnings
+    );
 }
 
 fn tag_summary(content: &str) -> String {

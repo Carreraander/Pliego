@@ -100,6 +100,7 @@ pub fn run(cmd: A11yCommand, json: bool) -> anyhow::Result<()> {
                 language: a.lang,
                 title: a.title,
                 alt_texts,
+                autotag: false,
                 tab_order: a.tab_order,
             };
             let rep = pliego_a11y::fix_file(&a.input, &a.output, &opts, a.password.as_deref())?;
@@ -136,7 +137,16 @@ fn check(input: &Path, password: Option<&str>, json: bool) -> anyhow::Result<()>
                 (None, Some(x)) => format!(" (objeto {x})"),
                 (None, None) => String::new(),
             };
-            println!("[{tag}]{place} {}\n    Cómo arreglarlo: {}", i.message, i.suggestion);
+            // Etiqueta, lugar, mensaje y consejo se traducen por separado: el mensaje y el consejo son frases del motor.
+            let tr = crate::i18n::tr;
+            std::println!(
+                "[{}]{} {}\n    {} {}",
+                tr(tag),
+                tr(&place),
+                tr(&i.message),
+                tr("Cómo arreglarlo:"),
+                tr(&i.suggestion)
+            );
         }
         println!("{} error(es), {} aviso(s).", rep.errors(), rep.warnings());
     }

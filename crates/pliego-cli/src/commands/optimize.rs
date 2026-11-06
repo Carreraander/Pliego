@@ -41,8 +41,10 @@ fn print_usage(label: &str, u: &SpaceUsage) {
         ("Otros flujos", u.other_streams_bytes),
         ("Estructura", u.structure_bytes),
     ] {
-        println!(
-            "  {name:<22} {:>10}  {:>5.1} %",
+        // La etiqueta se traduce antes de alinear la tabla.
+        std::println!(
+            "  {:<22} {:>10}  {:>5.1} %",
+            crate::i18n::tr(name),
             human(b),
             b as f64 * 100.0 / u.total_bytes.max(1) as f64
         );
@@ -64,7 +66,9 @@ pub fn optimize(a: OptimizeArgs, json: bool) -> anyhow::Result<()> {
                     i.xref,
                     i.width,
                     i.height,
-                    i.filter.as_deref().unwrap_or("sin filtro"),
+                    i.filter
+                        .as_deref()
+                        .map_or_else(|| crate::i18n::tr("sin filtro"), str::to_string),
                     human(i.bytes)
                 );
             }

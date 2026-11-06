@@ -244,7 +244,7 @@ pub(crate) fn carry_annotations(
             candidate = format!("{original}_{n}");
         }
         if candidate != original {
-            root.dict_put("T", Object::new_string(&candidate)?)?;
+            root.dict_put("T", dest.new_text_string(&candidate)?)?;
             form.renamed += 1;
         }
         fields.array_push(root)?;

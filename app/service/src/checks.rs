@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-pub use pliego_a11y::{A11yReport, ReadingItem};
+pub use pliego_a11y::{A11yReport, FixOptions, ReadingItem};
 use pliego_core::{Error, JobContext, Result};
 pub use pliego_pdfa::{Level, Validation};
 pub use pliego_print::PreflightReport;
@@ -45,6 +45,19 @@ pub fn tab_order_copy(path: &Path, password: Option<&str>, suffix: &str) -> Resu
     pliego_a11y::fix_file(path, &out, &opts, password)
 }
 
+/// «Hacer accesible»: etiqueta si hace falta, pone título, idioma, textos alternativos y orden de tabulación, y guarda
+/// una copia `<nombre> (<suffix>).pdf`. El original no cambia.
+pub fn make_accessible_copy(
+    path: &Path,
+    password: Option<&str>,
+    opts: &pliego_a11y::FixOptions,
+    suffix: &str,
+    ctx: &JobContext,
+) -> Result<pliego_core::Report> {
+    let out = pliego_appdata::copyjob::unique_sibling(path, suffix, "pdf");
+    pliego_a11y::fix_file_with(path, &out, opts, password, ctx)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,5 +93,34 @@ mod tests {
         assert!(out.exists());
         assert!(reading_order(&src, None).unwrap().is_none());
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn make_accessible_copy_tags_titles_and_keeps_the_original() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("malo.pdf");
+        std::fs::copy(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/corpus/a11y/malo.pdf"),
+            &src,
+        )
+        .unwrap();
+        let before = std::fs::read(&src).unwrap();
+        let opts = pliego_a11y::FixOptions {
+            autotag: true,
+            title: Some("Acta de la reunión".into()),
+            language: Some("es-ES".into()),
+            tab_order: true,
+            ..Default::default()
+        };
+        let report = make_accessible_copy(&src, None, &opts, "accesible", &JobContext::silent()).unwrap();
+        assert_eq!(std::fs::read(&src).unwrap(), before);
+        let out = report.outputs.first().expect("copia creada").clone();
+        assert!(out.to_string_lossy().ends_with("malo (accesible).pdf"), "{out:?}");
+        let r = accessibility(&out, None).unwrap();
+        assert!(r.tagged);
+        assert_eq!(r.title.as_deref(), Some("Acta de la reunión"));
+        assert_eq!(r.language.as_deref(), Some("es-ES"));
+        // Sin nada que hacer, error claro.
+        assert!(make_accessible_copy(&src, None, &Default::default(), "x", &JobContext::silent()).is_err());
     }
 }

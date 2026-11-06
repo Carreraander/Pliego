@@ -22,6 +22,8 @@
 .outline-item { width: 100%; text-align: left; padding: var(--pl-space-2) var(--pl-space-3); border: 0; border-radius: var(--pl-radius-sm); background: transparent; }
 .outline-item:hover:not(:disabled) { background: var(--pl-hover); }
 .outline-item:disabled { color: var(--pl-text-3); }
+.outline-item--selected { background: var(--pl-accent-soft); color: var(--pl-accent-soft-text); }
+.outline-toolbar { margin-bottom: var(--pl-space-2); flex-wrap: wrap; }
 .muted { color: var(--pl-text-2); font-size: var(--pl-text-caption); padding: var(--pl-space-4); }
 
 .searchbox { display: flex; align-items: center; gap: var(--pl-space-3); }
@@ -31,6 +33,11 @@
 .searchbox button:hover:not(:disabled) { background: var(--pl-hover); }
 .searchbox button:disabled { opacity: 0.4; }
 .searchbox .muted { padding: 0; }
+
+/* Panel Adjuntos: nombre a la izquierda, acciones a la derecha. */
+.pl-attachments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pl-attachments li { display: flex; align-items: center; gap: 6px; }
+.pl-attachments li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
 /* Capa de texto (selección, copia y lectores de pantalla). Las páginas son imágenes: el texto sale del motor. */
 .viewer:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: -2px; }

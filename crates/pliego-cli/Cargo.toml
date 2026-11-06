@@ -38,6 +38,8 @@ pliego-office-export = { path = "../pliego-office-export" }
 pliego-redact = { path = "../pliego-redact" }
 pliego-a11y = { path = "../pliego-a11y" }
 pliego-pdfa = { path = "../pliego-pdfa" }
+# Proceso hijo de las herramientas de la app (`pliego __job`, hueco 1.0 n.º 7): comparte el despachador con la app.
+pliego-app-service = { path = "../../app/service" }
 
 # ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
 # [W06 ocr]
@@ -56,13 +58,16 @@ pliego-portfolio = { path = "../pliego-portfolio" }
 
 # [W13/W17/W12 extra]
 
-# [libre A]
+# [libre A] → [W45 impresión]
+pliego-printer = { path = "../pliego-printer" }
 
 # [libre B]
 
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
+regex = "1"
+sys-locale = "0.3"
 tempfile.workspace = true
 
 [dev-dependencies]

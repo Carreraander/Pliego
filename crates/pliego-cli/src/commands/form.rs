@@ -281,7 +281,7 @@ fn export(a: ExportArgs) -> anyhow::Result<()> {
     let text = pliego_forms::export_data(&mut doc, a.format.into())?;
     match a.output {
         Some(p) => std::fs::write(&p, text).with_context(|| format!("no se pudo escribir {}", p.display()))?,
-        None => print!("{text}"),
+        None => std::print!("{text}"),
     }
     Ok(())
 }

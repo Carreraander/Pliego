@@ -2,6 +2,9 @@
 export type Rule = readonly [es: string, en: string];
 
 export const SYSTEM_RULES: readonly Rule[] = [
+  ["El enlace está vacío.", "The link is empty."], ["La dirección del enlace es demasiado larga.", "The link address is too long."],
+  ["La dirección del enlace tiene caracteres que no se admiten.", "The link address has characters that are not allowed."], ["El enlace no es una dirección web.", "The link is not a web address."],
+  ["Pliego no abre enlaces de tipo «{}»; solo web (http, https) y correo (mailto).", "Pliego does not open “{}” links; only web (http, https) and email (mailto)."],
   // ── pliego-core ──
   ["el documento necesita contraseña o la contraseña no es válida", "the document needs a password, or the password is not valid"],
   ["entrada no válida: {}", "invalid input: {}"], ["operación no soportada: {}", "unsupported operation: {}"], ["operación cancelada", "operation cancelled"],
@@ -73,7 +76,11 @@ export const SYSTEM_RULES: readonly Rule[] = [
   ["El servicio de actualizaciones no está disponible.", "The update service is not available."], ["No hay ninguna actualización preparada.", "No update is ready."],
   ["Pliego no está instalado: no se puede reiniciar solo.", "Pliego is not installed: it cannot restart itself."], ["No se pudo reiniciar Pliego: {}", "Pliego could not be restarted: {}"],
   ["No se pudo abrir la carpeta de registros: {}", "The logs folder could not be opened: {}"], ["No se pudo abrir la ubicación: {}", "The location could not be opened: {}"],
-  ["sin páginas", "no pages"], ["indica páginas en blanco o un archivo", "enter blank pages or a file"], ["el asistente se interrumpió: {}", "the assistant was interrupted: {}"],
+  ["El enlace está vacío.", "The link is empty."],
+  ["La dirección del enlace es demasiado larga.", "The link address is too long."],
+  ["La dirección del enlace tiene caracteres que no se admiten.", "The link address has characters that are not allowed."],
+  ["El enlace no es una dirección web.", "The link is not a web address."],
+    ["sin páginas", "no pages"], ["indica páginas en blanco o un archivo", "enter blank pages or a file"], ["el asistente se interrumpió: {}", "the assistant was interrupted: {}"],
   ["No se pudo guardar la lista de recientes: {}", "The recent files list could not be saved: {}"], ["Los ajustes deben ser un objeto JSON", "Settings must be a JSON object"],
   ["No se pudieron guardar los ajustes: {}", "Settings could not be saved: {}"],
   ["paso {} ({}): este paso no está disponible en la app", "step {1} ({2}): this step is not available in the app"],
@@ -103,4 +110,17 @@ export const SYSTEM_RULES: readonly Rule[] = [
   ["el archivo cambió mientras estaba abierto en el visor", "the file changed while it was open in the viewer"],
   ["posición antes del inicio", "position before the start"],
   ["no se pudo preparar el documento para el visor: {}", "the document could not be prepared for the viewer: {}"],
+  // ── 1.0: guardar como, propiedades, adjuntos, recorte, marcadores, accesibilidad y ajustes ──
+  ["el destino es el propio documento", "the destination is the document itself"],
+  ["no hay ninguna propiedad que cambiar", "there is no property to change"],
+  ["elige al menos un archivo para adjuntar", "choose at least one file to attach"],
+  ["{} ocupa más de {} MB, el máximo para adjuntar", "{1} is larger than {2} MB, the maximum for an attachment"],
+  ["elige qué adjunto quitar", "choose which attachment to remove"], ["el documento no tiene el adjunto «{}»", "the document has no attachment “{}”"],
+  ["un PDF no puede adjuntarse a sí mismo", "a PDF cannot be attached to itself"],
+  ["los márgenes del recorte no pueden ser negativos", "the crop margins cannot be negative"],
+  ["no hay nada que recortar: todos los márgenes son 0", "there is nothing to crop: all margins are 0"],
+  ["un marcador no puede quedarse sin nombre", "a bookmark cannot be left without a name"],
+  ["etiquetas ({} encabezado(s), {} párrafo(s), {} lista(s), {} figura(s), {} tabla(s))", "tags ({1} heading(s), {2} paragraph(s), {3} list(s), {4} figure(s), {5} table(s))"],
+  ["Solo está disponible en Windows", "Only available on Windows"],
+  ["No se pudo abrir la configuración de Windows: {}", "Could not open the Windows settings: {}"],
 ];

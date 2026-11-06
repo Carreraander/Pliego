@@ -9,6 +9,7 @@ fn corpus(name: &str) -> PathBuf {
 
 fn pliego(args: &[&str], extra: &[&Path]) -> Output {
     let mut c = Command::new(env!("CARGO_BIN_EXE_pliego"));
+    c.env("PLIEGO_LANG", "es");
     c.args(args);
     c.args(extra);
     c.output().unwrap()
@@ -32,6 +33,7 @@ fn merge_then_pages_ops() {
     let dir = tempfile::tempdir().unwrap();
     let m = dir.path().join("m.pdf");
     let o = Command::new(env!("CARGO_BIN_EXE_pliego"))
+        .env("PLIEGO_LANG", "es")
         .arg("merge")
         .arg(corpus("a.pdf"))
         .arg(corpus("b.pdf"))
@@ -44,6 +46,7 @@ fn merge_then_pages_ops() {
 
     let e = dir.path().join("e.pdf");
     let o = Command::new(env!("CARGO_BIN_EXE_pliego"))
+        .env("PLIEGO_LANG", "es")
         .args(["pages", "extract"])
         .arg(&m)
         .args(["-p", "5,1-2", "-o"])
@@ -55,6 +58,7 @@ fn merge_then_pages_ops() {
 
     // Sin -o ni --in-place no se toca el original.
     let o = Command::new(env!("CARGO_BIN_EXE_pliego"))
+        .env("PLIEGO_LANG", "es")
         .args(["pages", "delete"])
         .arg(&m)
         .args(["-p", "1"])
@@ -64,6 +68,7 @@ fn merge_then_pages_ops() {
     assert_eq!(text(&m), "A p1 A p2 A p3 B p1 B p2");
 
     let o = Command::new(env!("CARGO_BIN_EXE_pliego"))
+        .env("PLIEGO_LANG", "es")
         .args(["pages", "reorder"])
         .arg(&e)
         .args(["--order", "3,1,2", "--in-place"])
@@ -77,6 +82,7 @@ fn merge_then_pages_ops() {
 fn split_every_and_json() {
     let dir = tempfile::tempdir().unwrap();
     let o = Command::new(env!("CARGO_BIN_EXE_pliego"))
+        .env("PLIEGO_LANG", "es")
         .args(["--json", "split", "--every", "2"])
         .arg(corpus("a.pdf"))
         .arg("-o")
@@ -94,7 +100,11 @@ fn labels_rotate_crop_insert() {
     let dir = tempfile::tempdir().unwrap();
     let r = dir.path().join("r.pdf");
     let run = |args: &[&str]| {
-        let o = Command::new(env!("CARGO_BIN_EXE_pliego")).args(args).output().unwrap();
+        let o = Command::new(env!("CARGO_BIN_EXE_pliego"))
+            .env("PLIEGO_LANG", "es")
+            .args(args)
+            .output()
+            .unwrap();
         ok(&o);
     };
     let a = corpus("a.pdf");
@@ -127,6 +137,7 @@ fn labels_rotate_crop_insert() {
     run(&["pages", "insert", r_s, "--blank", "1", "--in-place"]);
     assert_eq!(text(&r), "A p1 B p1 A p2 A p3");
     let o = Command::new(env!("CARGO_BIN_EXE_pliego"))
+        .env("PLIEGO_LANG", "es")
         .args(["--json", "info"])
         .arg(&r)
         .output()

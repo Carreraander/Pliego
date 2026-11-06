@@ -8,11 +8,17 @@ import { expect, test, type Page } from "@playwright/test";
 const DOC = "C:\\Docs\\escaneo.pdf";
 
 /** `locked`: otros archivos protegidos (ruta → contraseña) que `password_status` reconoce, como el servicio real. */
-async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string>; english?: boolean; signed?: boolean } = {}) {
-  await page.addInitScript(([doc, protectedDoc, locked, english, signed]: [string, boolean, Record<string, string>, boolean, boolean]) => {
+async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string>; english?: boolean; signed?: boolean; crashed?: boolean; reopen?: boolean } = {}) {
+  await page.addInitScript(([doc, protectedDoc, locked, english, signed, crashed, reopen]: [string, boolean, Record<string, string>, boolean, boolean, boolean, boolean]) => {
     const calls: { cmd: string; args: unknown }[] = [];
     const responses: Record<string, unknown> = {
-      startup_files: [doc],
+      // Con `crashed` la app arranca sin archivos y la vez anterior se cerró de golpe con una pestaña abierta.
+      // Con `reopen`, cierre normal con una pestaña y el ajuste «Reabrir las pestañas al iniciar».
+      startup_files: crashed || reopen ? [] : [doc],
+      session_previous: crashed || reopen ? { crashed, docs: [{ path: doc, page: 2 }] } : { crashed: false, docs: [] },
+      crash_report: "Pliego 0.1.0 · windows x86_64",
+      outline_tree: [{ title: "Capítulo A", page: 0, children: [], top: 700 }, { title: "Capítulo B", page: 2, children: [] }, { title: "Web del proyecto", page: null, children: [], uri: "https://pdfpliego.com/" }],
+      outline_save: 1,
       open_document: 1,
       document_info: { page_count: 3, title: "Escaneo", author: null, is_pdf: true },
       page_sizes: [{ width: 595, height: 842 }, { width: 595, height: 842 }, { width: 595, height: 842 }],
@@ -20,8 +26,24 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       recents_list: [],
       ocr_languages: { installed: ["eng", "osd", "spa"], downloadable: ["eng", "fra", "osd", "spa"] },
       pick_pdf_files: ["C:\\Docs\\version-2.pdf"],
+      pick_save_pdf: "C:\\Copias\\escaneo revisado",
+      save_document_as: "C:\\Copias\\escaneo revisado.pdf",
       ocr_pdf: 11,
       compress_pdf: 14,
+      crop_pages: 18,
+      make_accessible: 19,
+      properties_save: 1,
+      portfolio_list: { is_portfolio: false, entries: [{ name: "factura.xml", filename: "factura.xml", mime_type: "text/xml", size: 2048 }] },
+      pick_any_files: ["C:\\Docs\\anexo.xlsx"],
+      attachments_add: 1,
+      attachments_remove: 2,
+      open_default_apps: null,
+      print_printers: [{ name: "Impresora de prueba", isDefault: true }],
+      file_facts: { size: 2048, modified_secs: 1_700_000_000 },
+      check_accessibility: {
+        pages: 3, tagged: true, language: null, title: null,
+        issues: [{ code: "figure_without_alt", severity: "error", page: 1, xref: 40, message: "Figura sin texto alternativo", suggestion: "" }],
+      },
       analyze_pdf: null,
       compare_pdfs: 12,
       ocr_download_language: 13,
@@ -38,7 +60,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
           }]
         : [],
       // Ajustes guardados: con `english` la persona eligió «English» en Ajustes (el valor por defecto es español).
-      get_settings: english ? { version: 2, general: { language: "en" } } : null,
+      get_settings: english ? { version: 2, general: { language: "en" } } : reopen ? { version: 2, general: { reopenTabs: true } } : null,
     };
     let nextId = 1;
     const w = window as unknown as Record<string, unknown>;
@@ -66,11 +88,14 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
         return cmd in responses ? responses[cmd] : null;
       },
     };
-  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}, opts.english ?? false, opts.signed ?? false] as [string, boolean, Record<string, string>, boolean, boolean]);
+  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}, opts.english ?? false, opts.signed ?? false, opts.crashed ?? false, opts.reopen ?? false] as [string, boolean, Record<string, string>, boolean, boolean, boolean, boolean]);
 }
 
 const calls = (page: Page, cmd: string) =>
   page.evaluate((c) => ((window as unknown as { __calls: { cmd: string; args: Record<string, unknown> }[] }).__calls).filter((x) => x.cmd === c), cmd);
+
+/** Indicador de página de la barra de estado (la capa de texto también lleva «Página N de M» para el Narrador). */
+const statusPage = (page: Page, text: string) => page.getByRole("contentinfo", { name: "Barra de estado" }).getByText(text);
 
 async function openTool(page: Page, query: string, option: RegExp) {
   await page.keyboard.press("Control+k");
@@ -88,6 +113,60 @@ test.describe("humo de la app (backend simulado)", () => {
     await installBackend(page);
     await page.goto("/");
     await page.waitForSelector(".pl-window", { timeout: 45_000 });
+  });
+
+  test("Recortar páginas manda los márgenes en puntos y las páginas elegidas", async ({ page }) => {
+    await openTool(page, "recortar", /^Recortar páginas/);
+    await page.getByLabel("Arriba").fill("20");
+    await page.getByLabel("Izquierda").fill("0");
+    await page.getByLabel(/^Páginas/).fill("2-3");
+    await page.getByRole("button", { name: /Recortar/ }).last().click();
+    await expect.poll(async () => (await calls(page, "crop_pages")).length).toBe(1);
+    expect((await calls(page, "crop_pages"))[0]?.args).toMatchObject({
+      path: DOC, pages: [1, 2], margins: { left: 0, top: 56.69, right: 28.35, bottom: 28.35 },
+    });
+  });
+
+  test("Hacer accesible manda título, idioma y los textos alternativos de las figuras", async ({ page }) => {
+    await openTool(page, "hacer accesible", /^Hacer accesible/);
+    await expect(page.getByText("El documento ya tiene etiquetas")).toBeVisible();
+    await page.getByRole("textbox", { name: "Título" }).fill("Escaneo de abril");
+    await page.getByLabel("Figura 1 (página 2)").fill("Gráfico de ventas");
+    await page.getByRole("button", { name: "Guardar copia accesible" }).click();
+    await expect.poll(async () => (await calls(page, "make_accessible")).length).toBe(1);
+    expect((await calls(page, "make_accessible"))[0]?.args).toMatchObject({
+      path: DOC,
+      options: { autotag: false, title: "Escaneo de abril", language: "es-ES", alt_texts: [[40, "Gráfico de ventas"]], tab_order: true },
+    });
+  });
+
+  test("Propiedades guarda solo lo que cambió en el propio PDF", async ({ page }) => {
+    await openTool(page, "propiedades", /^Propiedades del documento/);
+    await expect(page.getByRole("textbox", { name: "Título" })).toHaveValue("Escaneo");
+    await page.getByRole("textbox", { name: "Autor" }).fill("Ana Muñoz");
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect.poll(async () => (await calls(page, "properties_save")).length).toBe(1);
+    expect((await calls(page, "properties_save"))[0]?.args).toMatchObject({ path: DOC, edit: { author: "Ana Muñoz" } });
+    expect(Object.keys((await calls(page, "properties_save"))[0]!.args.edit as object)).toEqual(["author"]);
+    await expect(page.getByRole("button", { name: "Deshacer" })).toBeVisible();
+  });
+
+  test("Adjuntos añade y quita archivos del propio PDF", async ({ page }) => {
+    await openTool(page, "adjuntos", /^Adjuntos/);
+    await expect(page.getByText("factura.xml")).toBeVisible();
+    await page.getByRole("button", { name: "Añadir archivos…" }).click();
+    await expect.poll(async () => (await calls(page, "attachments_add")).length).toBe(1);
+    expect((await calls(page, "attachments_add"))[0]?.args).toMatchObject({ path: DOC, files: ["C:\\Docs\\anexo.xlsx"], suffix: "antes de los adjuntos" });
+    await page.getByRole("button", { name: "Quitar" }).click();
+    await expect.poll(async () => (await calls(page, "attachments_remove")).length).toBe(1);
+    expect((await calls(page, "attachments_remove"))[0]?.args).toMatchObject({ names: ["factura.xml"] });
+    await expect(page.getByRole("button", { name: "Deshacer" })).toBeVisible();
+  });
+
+  test("Ajustes abre la página de Windows para elegir la app predeterminada", async ({ page }) => {
+    await page.keyboard.press("Control+,");
+    await page.getByRole("button", { name: "Elegir en Windows…" }).click();
+    await expect.poll(async () => (await calls(page, "open_default_apps")).length).toBe(1);
   });
 
   test("arranca en español aunque el sistema esté en inglés y abre el documento", async ({ page }) => {
@@ -250,5 +329,141 @@ test.describe("firmas con la app en inglés (backend simulado)", () => {
     const sent = (await calls(page, "sign_pdf"))[0]?.args as { options: Record<string, unknown>; suffix: string };
     expect(sent.options).toMatchObject({ lang: "en" });
     expect(sent.suffix).toBe("signed");
+  });
+});
+
+test.describe("atajos del visor y del navegador (backend simulado)", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page);
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await expect(statusPage(page, "Página 1 de 3")).toBeVisible();
+  });
+
+  test("Fin, Inicio, Ctrl+1 y Ctrl+W/Ctrl+Mayús+T hacen lo que dice la hoja de atajos", async ({ page }) => {
+    await page.locator(".viewer").click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("End");
+    await expect(statusPage(page, "Página 3 de 3")).toBeVisible();
+    await page.keyboard.press("Home");
+    await expect(statusPage(page, "Página 1 de 3")).toBeVisible();
+    await page.keyboard.press("Control+1");
+    await expect(page.getByText("100 %", { exact: true })).toBeVisible();
+    await page.keyboard.press("Control+w");
+    await expect(statusPage(page, "Página 1 de 3")).toHaveCount(0);
+    await page.keyboard.press("Control+Shift+T");
+    await expect(statusPage(page, "Página 1 de 3")).toBeVisible();
+    expect(await calls(page, "open_document")).toHaveLength(2);
+  });
+
+  test("Ctrl+F lleva a la caja de búsqueda y Ctrl+P abre Imprimir sin imprimir la interfaz", async ({ page }) => {
+    await page.keyboard.press("Control+f");
+    await expect(page.getByRole("searchbox", { name: "Buscar" })).toBeFocused();
+    await page.evaluate(() => { (window as unknown as { print: () => void; __printed: boolean }).print = () => { (window as unknown as { __printed: boolean }).__printed = true; }; });
+    await page.keyboard.press("Control+p");
+    await expect.poll(async () => (await calls(page, "print_printers")).length).toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as unknown as { __printed?: boolean }).__printed)).toBeUndefined();
+  });
+
+  test("Ctrl+Mayús+S guarda una copia y pasa a trabajar con ella; Ctrl+S confirma que ya está guardado", async ({ page }) => {
+    await page.keyboard.press("Control+s");
+    await expect(page.getByText("Los cambios ya están guardados en el archivo.")).toBeVisible();
+    await page.keyboard.press("Control+Shift+S");
+    await expect(page.getByText("Guardado como escaneo revisado.pdf")).toBeVisible();
+    expect((await calls(page, "pick_save_pdf"))[0]?.args).toMatchObject({ defaultName: "escaneo.pdf" });
+    expect((await calls(page, "save_document_as"))[0]?.args).toMatchObject({ path: DOC, target: "C:\\Copias\\escaneo revisado" });
+    const opened = await calls(page, "open_document");
+    expect(opened.at(-1)?.args).toMatchObject({ path: "C:\\Copias\\escaneo revisado.pdf" });
+    expect(await calls(page, "close_document")).toHaveLength(1);
+  });
+
+  test("F5, Ctrl+R y el menú contextual del navegador quedan bloqueados", async ({ page }) => {
+    await page.evaluate(() => { (window as unknown as { __sinRecargar: boolean }).__sinRecargar = true; });
+    const prevented = await page.evaluate(() => {
+      const press = (key: string, ctrlKey = false) => {
+        const e = new KeyboardEvent("keydown", { key, ctrlKey, bubbles: true, cancelable: true });
+        document.body.dispatchEvent(e);
+        return e.defaultPrevented;
+      };
+      const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+      document.querySelector(".viewer")!.dispatchEvent(menu);
+      return { f5: press("F5"), ctrlR: press("r", true), ctrlN: press("n", true), copy: press("c", true), menu: menu.defaultPrevented };
+    });
+    expect(prevented).toEqual({ f5: true, ctrlR: true, ctrlN: true, copy: false, menu: true });
+    await page.keyboard.press("F5");
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as unknown as { __sinRecargar?: boolean }).__sinRecargar)).toBe(true);
+  });
+});
+
+test.describe("recuperación tras un cierre inesperado (backend simulado)", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page, { crashed: true });
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+  });
+
+  test("Inicio ofrece reabrir las pestañas y vuelve a la página en la que estaba", async ({ page }) => {
+    const banner = page.getByRole("alert").filter({ hasText: "se cerró de forma inesperada" });
+    await expect(banner).toContainText("1 documento abierto");
+    await expect(banner.getByRole("button", { name: "Copiar informe" })).toBeVisible();
+    await banner.getByRole("button", { name: "Reabrir" }).click();
+    await expect(statusPage(page, "Página 3 de 3")).toBeVisible();
+    expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
+    await expect.poll(async () => (await calls(page, "session_save")).at(-1)?.args).toMatchObject({ docs: [{ path: DOC, page: 2 }] });
+  });
+});
+
+test.describe("reabrir las pestañas al iniciar (backend simulado)", () => {
+  test("con el ajuste activado, un cierre normal vuelve a abrir las pestañas en su página", async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page, { reopen: true });
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await expect(statusPage(page, "Página 3 de 3")).toBeVisible();
+    expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
+    await expect(page.getByText("se cerró de forma inesperada")).toHaveCount(0);
+  });
+});
+
+test.describe("marcadores editables (backend simulado)", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page);
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await page.getByRole("button", { name: "Marcadores" }).first().click();
+    await expect(page.getByRole("tree", { name: "Marcadores" })).toBeVisible();
+  });
+
+  test("un marcador que abre una web pide confirmación antes", async ({ page }) => {
+    await page.getByRole("button", { name: "Web del proyecto" }).click();
+    const dialog = page.getByRole("dialog", { name: "¿Abrir este enlace?" });
+    await expect(dialog).toContainText("pdfpliego.com");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test("mover, añadir y renombrar guardan el árbol entero sin perder la altura del destino", async ({ page }) => {
+    await page.getByRole("button", { name: "Capítulo B" }).click();
+    await page.keyboard.press("Alt+ArrowUp");
+    await expect.poll(async () => (await calls(page, "outline_save")).length).toBe(1);
+    const moved = (await calls(page, "outline_save"))[0]!.args as { nodes: { title: string; top?: number }[]; suffix: string };
+    expect(moved.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Capítulo A", "Web del proyecto"]);
+    expect(moved.nodes[1]).toMatchObject({ top: 700 });
+    expect(moved.suffix).toBe("antes de los marcadores");
+    expect(moved.nodes[2]).toMatchObject({ uri: "https://pdfpliego.com/" }); // el enlace web no se pierde
+
+    await page.getByRole("button", { name: "Añadir un marcador a la página actual" }).click();
+    const input = page.getByRole("textbox", { name: "Cambiar el nombre" });
+    await expect(input).toBeFocused();
+    await input.fill("Anexo");
+    await input.press("Enter");
+    await expect.poll(async () => (await calls(page, "outline_save")).length).toBe(3);
+    const last = (await calls(page, "outline_save"))[2]!.args as { nodes: { title: string; page: number }[] };
+    expect(last.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Anexo", "Capítulo A", "Web del proyecto"]);
+    expect(last.nodes[1]).toMatchObject({ page: 2 }); // la página que se estaba viendo (la de «Capítulo B»)
+    await expect(page.getByRole("button", { name: "Deshacer" }).first()).toBeEnabled();
   });
 });

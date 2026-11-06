@@ -38,6 +38,7 @@ e2e_documento_abierto`.
 | `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto; Playwright `medir-presentacion.spec.ts` (F11 oculta el armazón, la página cabe entera, flechas/Inicio/Fin, Esc vuelve). **Bug hallado y arreglado (2026-11-05):** al ocultar el armazón la cuadrícula del shell dejaba el visor a 0 px de alto → F11 mostraba una pantalla en blanco | **Windows (pc, app real, 2026-11-05):** F11 a pantalla completa 1920×1080 sin barras, la página cabe, flechas/Inicio/Fin/Esc OK; vista pequeña pendiente de arreglar: con escala 125 % asomaban ~5 px de la página siguiente y se veía la barra de desplazamiento (margen y barra ajustados en el PR siguiente) | V |
 | Leer: **texto de las páginas** (seleccionar, copiar, menú contextual, Ctrl+A, Mayús+flechas) | 🟡 | A: `model.test.ts` (hit-test, rangos, texto copiado, flechas) y `layout.test.ts` (clic → página y punto, con giro y zoom); Playwright `read-text.spec.ts` (arrastrar, a la inversa, entre páginas, doble/triple clic, clic en blanco, Mayús+flechas, Esc, Ctrl+A, menú contextual, texto para lectores de pantalla); `pliego-engine` (`page_words_have_boxes_inside_the_page`), `pliego-worker` (`matches_in_process_engine`) y `pliego-app-service` (`page_words_come_with_boxes`) | **W/V (acr12 o pc, app real):** arrastrar sobre un PDF de verdad con columnas y con la vista girada 90°; Ctrl+C y pegar en el Bloc de notas; PDF de 500 páginas (Ctrl+A y copiar). Granularidad de **palabra**, no de letra (ver w44.md) |
 | Leer: **enlaces del documento** (saltos con Alt+←/→, direcciones con confirmación) | 🟡 | A: `pliego-engine` (`page_links_give_pages_with_their_position_and_addresses`: URI, página con altura XYZ, Fit), `pliego-worker` (igual que el motor), `pliego-appdata` (`weblink`: solo http/https/mailto, nada de rutas, `file:`, `javascript:` ni espacios), Vitest `history.test.ts` y `openUrl.test.ts`; Playwright `read-links.spec.ts` (salto + Atrás/Adelante, diálogo con Cancelar/Abrir, `file:` rechazado, copiar dirección) | **W/V (acr12 o pc):** un PDF real con índice y URL; que `rundll32` abra el navegador por defecto y `mailto:` el cliente de correo; destinos con nombre |
+| Leer: **accesibilidad del visor** (Narrador, foco, alto contraste) | 🟡 | A: `announce.test.ts`; Playwright `read-a11y.spec.ts` (axe sin infracciones graves en el visor, nombres y roles, página sin texto, Tab + Intro en un enlace con foco visible, región en vivo con página/selección, variante `alto-contraste`) | **W/V:** `docs/qa/narrador-visor.md` con el Narrador real (acr12 o pc) y el tema de alto contraste de Windows |
 | `viewer.layers` Capas | 🟢 | E2E2 (`e2e_herramientas.rs`): PDF con una capa, ocultar y mostrar cambia la tesela y no toca el archivo; capa inexistente da error | V (un PDF de verdad con capas) |
 | `viewer.attachments` Adjuntos | 🟡 | A: `attachments.test.ts`; E2E: cartera (crear, listar, extraer) | V |
 | `viewer.properties` Propiedades | 🟡 | A: `properties.test.ts`, `document_info` | V |
@@ -118,6 +119,7 @@ e2e_documento_abierto`.
 | `access.validate-pdfa` | 🟢 | A + E2E: validación PDF/A-2b | — |
 | `print.preview` Vista previa de salida | 🟡 | A: `outputpreview.rs` | V |
 | `print.preflight` Comprobación previa | 🟢 | A + E2E: perfil `basic` | — |
+| `print.document` Imprimir (Ctrl+P) | 🟡 | A: opciones, páginas, maquetación, copias, bucle, CLI y servicio (`pliego-printer`, `print::`); compila para Windows | W: `tools\validar-impresion.ps1` (Microsoft Print to PDF) · V: vista previa del panel y papel real (`gestion/revision-manual-ander.md`) |
 | `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs`; E2E2: acción «borrar página 1» sobre un PDF abierto, salidas con una página menos | W |
 | `batch.index` Índice de búsqueda | 🟢 | A + E2E: indexa una carpeta y encuentra «Pliego» | índice de 1.000 PDF en W |
 | `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer; Playwright `medir-presentacion.spec.ts`: calibrar (200 px = 10 m), distancia (400 px → 20 m), área (100 m²) y `1:100`, con la geometría real del zoom y capturas | **Windows (pc, app real):** calibrar con 2 clics y 10 m → `1 pt = 0,09375 m`, distancia de 400 px = 20,00 m, área 200×200 px = 100,00 m² (perímetro 40,00 m); «Guardar medida» deja `line` y `polygon` en el PDF (`pliego annot list`) y la copia «(antes de medir)» idéntica | V |
@@ -185,6 +187,77 @@ Un fallo en el equipo de una persona no dejaba rastro. Ahora hay un log con rota
 contenidos ni contraseñas. Pruebas: unitarias de rotación y saneado, `crates/pliego-appdata/tests/log_trabajos.rs` y el
 botón de Ajustes en `app-smoke.spec.ts`. **W** pendiente en Windows: arrancar la app, provocar un fallo (abrir un PDF
 dañado), comprobar `%APPDATA%\Pliego\logs\pliego.log` y que «Abrir carpeta de registros» abre el Explorador.
+
+## Atajos del visor y del navegador (2026-11-06)
+
+La hoja de atajos (F1) prometía órdenes que no tenía nadie y WebView2 dejaba pasar los atajos de Edge (F5/Ctrl+R
+recargaban la app y cerraban los documentos; Ctrl+P imprimía la ventana; clic derecho con «Actualizar» o «Imprimir»).
+Ahora `app/src/viewer/commands.ts` registra Ctrl+O, Ctrl+W, Ctrl+Mayús+T, Ctrl+Tab/Ctrl+Mayús+Tab, Inicio/Fin/RePág/AvPág
+(solo con el foco en el visor de Leer), Ctrl+±/0/1/2 y Ctrl+rueda, Ctrl+R (girar la vista), Ctrl+F y F3/Mayús+F3;
+Ctrl+P avisa de que la impresión llega más adelante (`docs/handoff/huecos-1.0.md`, P0 #1). `app/src/browserGuard.ts` para
+lo que el navegador haría solo y su menú contextual (salvo en los campos de texto; F12 y Ctrl+Mayús+I solo en
+desarrollo). Pruebas: `browserGuard.test.ts`, `viewer/commands.test.ts` y tres casos de `app-smoke.spec.ts`. **W**: en la
+app instalada, F5, Ctrl+R, Ctrl+P, Alt+← y el clic derecho no deben recargar, imprimir ni sacar el menú de Edge.
+
+**Guardar como** (Ctrl+Mayús+S y menú de la app): copia el archivo abierto a la ruta elegida (temporal y renombrado,
+`app/service/src/saveas.rs`), abre la copia con la misma contraseña y cierra la pestaña anterior. Ctrl+S solo avisa de
+que los cambios ya están en el archivo (las herramientas guardan al aplicar). Pruebas: `saveas::tests` y
+`app-smoke.spec.ts`. **W**: guardar como sobre un PDF cifrado y en otra unidad.
+
+**Recuperación tras un cierre inesperado:** `%APPDATA%\Pliego\running` existe mientras la app está abierta y se borra al
+salir bien (`RunEvent::Exit`); `session.json` guarda las pestañas (ruta y página, sin contraseñas). Si al arrancar la
+marca seguía ahí, Inicio dice «Pliego se cerró de forma inesperada…» con [Reabrir] (vuelve a cada página), [Descartar] y
+[Copiar informe] (versión, sistema y las 60 últimas líneas del registro, al portapapeles). Pruebas: `session::tests` y
+`app-smoke.spec.ts`. **W**: matar `pliego-app.exe` con el Administrador de tareas con dos PDF abiertos y volver a abrir
+Pliego; cerrar bien y comprobar que no sale el aviso.
+
+**Marcadores editables** (panel Marcadores): añadir uno de la página actual, renombrar (doble clic o F2), subir y bajar
+(Alt+↑/↓), meter dentro del anterior o sacar un nivel (Alt+→/←), borrar (Supr) y deshacer. Se guarda en el propio PDF
+con copia «(antes de los marcadores)» y la pila de deshacer de los demás modos. `OutlineNode` conserva ahora la altura del
+destino (`/XYZ`) y los marcadores que abren una web (`/URI`), así que reescribirlos (y combinar PDF) ya no los pierde. Un marcador que abre una web pide confirmación antes (el mismo diálogo que los enlaces de Leer, #240).
+**Bug arreglado:** los títulos con tildes de los marcadores (también al combinar con «un marcador por archivo») salían
+como `CapÃ­tulo`: se escribían en UTF-8 sin BOM; ahora van como texto PDF (UTF-16BE). Igual para el nombre `/T` de los
+campos renombrados al combinar y el `/UF` de los adjuntos de sellos. Pruebas: `outline_roundtrip_keeps_height_and_web_links`,
+`organize::tests::outline_is_saved_in_place_with_backup_and_undo`, `outlineEdit.test.ts` y `app-smoke.spec.ts`. **V**: abrir
+en Reader los marcadores editados.
+
+**Recortar páginas** (Organizar): márgenes arriba/abajo/izquierda/derecha en mm (10 por defecto) para todas las
+páginas o las elegidas («1-3, 5»); cambia la caja visible (`CropBox`) y guarda una copia «(recortado)» al lado. Rechaza
+márgenes negativos, todos a cero o páginas fuera del documento. Pruebas: `organize::tests::crop_saves_a_smaller_copy_and_checks_the_margins`,
+`request.test.ts` (`cropArgs`) y `app-smoke.spec.ts`. **V**: recortar 20 mm arriba un PDF y comprobar en Reader que la
+página se ve más baja y que no se ve lo recortado.
+
+**Hacer accesible** (Estándares): al abrirlo comprueba el documento; si no tiene etiquetas ofrece autoetiquetarlo
+(encabezados, párrafos, listas, tablas sencillas y figuras), y siempre título (propone el nombre del archivo), idioma
+(el del documento o el de la interfaz) y tabulación según la estructura. Si ya está etiquetado, lista las figuras sin
+texto alternativo con un campo para cada una y «Ver» para ir a su página. Guarda una copia «(accesible)»; solo manda lo
+que cambia. Backend: `pliego_a11y::fix_file_with` (nuevo `FixOptions::autotag`, con progreso y cancelación). Pruebas:
+`fix_can_autotag_set_title_and_language_in_one_go`, `checks::tests::make_accessible_copy_tags_titles_and_keeps_the_original`,
+`fix.test.ts` y `app-smoke.spec.ts`. **W/V**: pasar un PDF sin etiquetas, abrir la copia, poner el texto alternativo de
+una figura y comprobar con «Comprobar accesibilidad» y con el Narrador que lee el título y la figura.
+
+**Propiedades editables** (Propiedades del documento): título, autor, asunto y palabras clave se cambian en el propio
+PDF (copia «(antes de las propiedades)» y deshacer compartido); solo se manda lo que cambia y vaciar un campo lo quita.
+Si el documento declara PDF/A (1b, 2b, 2u o 3b), `pliego_pdfa::update_info` rehace también el XMP para que siga validando;
+con otro XMP se deja y manda `/Info`, que lleva fecha más nueva. Pruebas: `editing_properties_keeps_pdfa_valid_and_xmp_in_sync`,
+`facts::tests::properties_are_saved_in_place_with_backup_and_undo`, `properties.test.ts` y `app-smoke.spec.ts`. **V**:
+cambiar el título de un PDF y de un PDF/A y ver en Reader (Archivo > Propiedades) los valores nuevos.
+
+**Adjuntos editables** (panel Adjuntos): «Añadir archivos…» adjunta cualquier archivo (hasta 256 MB cada uno, nombre
+repetido → « (2)», con fecha y suma MD5) y «Quitar» lo saca; los dos cambian el propio PDF con copia «(antes de los
+adjuntos)» y deshacer. Añadir guarda con un añadido al final; quitar reescribe el archivo entero para que los datos del
+adjunto no sigan dentro. Pruebas: `portfolio::tests::attachments_are_added_and_removed_in_place_with_undo` (comprueba que
+el contenido quitado no queda en el archivo) y `app-smoke.spec.ts`. **V**: adjuntar un .xlsx y ver en Reader (clip) que
+se abre; quitarlo y ver que ya no está.
+
+**App predeterminada desde Ajustes** (General > «Elegir en Windows…»): abre `ms-settings:defaultapps?registeredAppUser=Pliego`
+en Windows 11 y `ms-settings:defaultapps` en Windows 10 (compilación leída de `ver`, sin ventana). **W**: pulsarlo en acr12
+(Win10) y en pc (Win11). **«Reabrir las pestañas al iniciar»** ya funciona: con el ajuste activado, tras un cierre normal
+se vuelven a abrir las pestañas en su página (antes el ajuste no hacía nada). Pruebas: `recents::tests::default_apps_page_depends_on_the_windows_build`
+y `app-smoke.spec.ts`.
+
+Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
+termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 
 ## Cómo repetirlo
 

@@ -3,9 +3,13 @@
 //! Cada módulo añade su subcomando en `src/commands/<modulo>.rs` y UNA línea en `Command`
 //! y en el `match`, debajo de la marca de su flujo en las ranuras del final (ver docs/CONVENTIONS.md).
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 
+// Antes de los módulos: sus `println!`/`eprintln!` pasan por la traducción de la CLI.
+#[macro_use]
+mod output;
 mod commands;
+mod i18n;
 
 #[derive(Parser)]
 #[command(name = "pliego", version, about = "Pliego: herramientas PDF libres")]
@@ -81,6 +85,9 @@ enum Command {
     /// PDF/A: validar (y próximamente convertir).
     #[command(subcommand)]
     Pdfa(commands::pdfa::PdfaCommand),
+    /// Uso interno de la app: ejecuta un trabajo recibido por la entrada estándar (ver `pliego_app_service::isolated`).
+    #[command(name = "__job", hide = true)]
+    Job,
     // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
     // [W06 ocr]
     /// OCR: añade texto buscable a un PDF escaneado.
@@ -103,13 +110,31 @@ enum Command {
     Portfolio(commands::portfolio::PortfolioCommand),
     // [W13/W17/W12 extra]
 
-    // [libre A]
-
+    // [libre A] → [W45 impresión]
+    /// Imprimir un PDF en una impresora de Windows.
+    #[command(subcommand)]
+    Printer(commands::printer::PrinterCommand),
     // [libre B]
 }
 
-fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+fn main() {
+    let matches = i18n::localize(Cli::command()).get_matches();
+    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    i18n::set_json(cli.json);
+    if let Err(e) = run(cli) {
+        let chain: Vec<String> = e.chain().map(|c| i18n::tr(&c.to_string())).collect();
+        eprintln!("Error: {}", chain[0]);
+        if chain.len() > 1 {
+            eprintln!("\nCaused by:");
+            for (i, c) in chain.iter().skip(1).enumerate() {
+                eprintln!("    {i}: {c}");
+            }
+        }
+        std::process::exit(1);
+    }
+}
+
+fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Command::Info(a) => commands::view::info(a, cli.json),
         Command::Render(a) => commands::view::render(a, cli.json),
@@ -137,6 +162,7 @@ fn main() -> anyhow::Result<()> {
         Command::Redact(a) => commands::redact::run(a, cli.json),
         Command::A11y(c) => commands::a11y::run(c, cli.json),
         Command::Pdfa(c) => commands::pdfa::run(c, cli.json),
+        Command::Job => std::process::exit(pliego_app_service::isolated::child_main()),
         // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
         // [W06 ocr]
         Command::Ocr(a) => commands::ocr::run(a, cli.json),
@@ -151,8 +177,8 @@ fn main() -> anyhow::Result<()> {
         Command::Portfolio(c) => commands::portfolio::run(c, cli.json),
         // [W13/W17/W12 extra]
 
-        // [libre A]
-
+        // [libre A] → [W45 impresión]
+        Command::Printer(c) => commands::printer::run(c, cli.json),
         // [libre B]
     }
 }

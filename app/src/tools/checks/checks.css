@@ -7,3 +7,6 @@
 .pl-plate { margin: 0; }
 .pl-plate img { width: 100%; height: auto; display: block; border: 1px solid var(--pl-border, currentColor); background: var(--pl-surface, transparent); }
 .pl-plate figcaption { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
+.pl-checks-subtitle { font-size: 1em; margin: var(--pl-space-3, 12px) 0 4px; }
+.pl-checks-alt { display: flex; gap: 8px; align-items: center; }
+.pl-checks-alt > :first-child { flex: 1; }

@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use pliego_app_service::api::{ApiError, ApiResult};
+use pliego_app_service::isolated::JobSpec;
 use pliego_app_service::search_index::{self, Hit};
 use pliego_appdata::jobs::JobId;
 use pliego_core::Error;
@@ -14,8 +15,10 @@ use crate::commands::jobs::JobsState;
 #[tauri::command]
 pub fn index_folder(jobs: State<'_, JobsState>, folder: String) -> JobId {
     let folder = PathBuf::from(folder);
-    jobs.0
-        .spawn(move |ctx| search_index::index_folder(&pliego_appdata::data_dir(), &folder, ctx))
+    jobs.spawn_tool(JobSpec::IndexFolder {
+        data_dir: pliego_appdata::data_dir(),
+        folder,
+    })
 }
 
 /// Busca en el índice.

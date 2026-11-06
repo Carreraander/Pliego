@@ -47,6 +47,10 @@ export const CONVERT_RULES: readonly Rule[] = [
   ["el OCR no está instalado: falta {} (reinstala Pliego)", "OCR is not installed: {} is missing (reinstall Pliego)"], ["idiomas no válidos: «{}»", "invalid languages: “{}”"],
   ["la resolución del OCR va de 300 a 1200 ppp", "the OCR resolution ranges from 300 to 1200 ppi"], ["el reconocimiento terminó con error ({})", "the recognition ended with an error ({})"],
   ["respuesta del OCR no válida: {}", "invalid OCR response: {}"], ["idioma no válido: «{}»", "invalid language: “{}”"],
+  // ── Herramientas en un proceso aparte (pliego __job) ──
+  ["la herramienta se cerró de forma inesperada ({}); el original no se ha tocado, pero la copia puede estar incompleta", "the tool closed unexpectedly ({}); the original was not modified, but the copy may be incomplete"],
+  ["no llegó ningún trabajo", "no job was received"], ["trabajo no válido: {}", "invalid job: {}"],
+  ["la herramienta falló al procesar el documento", "the tool failed while processing the document"],
   // ── Asistente ──
   ["No he encontrado información sobre eso en el documento.", "I did not find any information about that in the document."],
   ["esta compilación no incluye el motor llama.cpp (característica `llama`)", "this build does not include the llama.cpp engine (the `llama` feature)"], ["la pregunta está vacía", "the question is empty"],

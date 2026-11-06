@@ -194,6 +194,32 @@ pub fn broadcast_environment_change() {
 pub fn notify_assoc_changed() {
     // SAFETY: sin punteros: avisa al Explorador de que cambiaron las asociaciones.
     unsafe { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None) };
+    refresh_icon_cache();
+}
+
+/// Pide a Windows que vuelva a leer los iconos (los del menú Inicio, el buscador y los `.pdf` asociados). Sin esto el
+/// buscador de Windows llegó a enseñar el icono genérico durante horas tras instalar (2026-11-04). `ie4uinit -show`
+/// existe desde Windows 10 y no necesita permisos; si falta o falla no pasa nada.
+fn refresh_icon_cache() {
+    let Some(system) = std::env::var_os("SystemRoot") else {
+        return;
+    };
+    let exe = Path::new(&system).join("System32").join("ie4uinit.exe");
+    if !exe.is_file() {
+        return;
+    }
+    match std::process::Command::new(&exe)
+        .arg("-show")
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        // No se espera: tarda poco, y el instalador no debe quedarse colgado por esto.
+        Ok(_) => {}
+        Err(e) => crate::logging::warn(&format!("ie4uinit -show: {e}")),
+    }
 }
 
 pub fn open(what: &str) {

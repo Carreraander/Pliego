@@ -119,3 +119,23 @@ pub async fn pick_action_file(app: tauri::AppHandle, title: Option<String>, filt
         .and_then(|p| p.into_path().ok())
         .map(|p| p.to_string_lossy().into_owned())
 }
+
+/// Diálogo «Guardar como» para un PDF. `default_name` es el nombre que se propone; `None` si se cancela.
+#[tauri::command]
+pub async fn pick_save_pdf(
+    app: tauri::AppHandle,
+    title: Option<String>,
+    default_name: Option<String>,
+) -> Option<String> {
+    let mut dialog = app.dialog().file().add_filter("PDF", &["pdf"]);
+    if let Some(t) = title {
+        dialog = dialog.set_title(t);
+    }
+    if let Some(n) = default_name {
+        dialog = dialog.set_file_name(n);
+    }
+    dialog
+        .blocking_save_file()
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
+}

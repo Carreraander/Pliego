@@ -583,8 +583,15 @@ fn huge_text_keeps_the_logo_and_its_line_together_after_the_text_without_overlap
         segundo[3] <= find(&p1, "Tercer")[1] && cuarto[3] < logo.0 && logo.1 < line[1],
         "el orden se conserva: {p1:#?}"
     );
-    // El resto del párrafo ocupa la página 2 desde arriba y no toca el pie ni se sale.
+    // El resto del párrafo ocupa la página 2 desde arriba, con el mismo margen superior que la 1, y no se sale.
     let mid = elements(&doc, 1);
+    let first = |e: &[(String, [f32; 4])]| e.iter().map(|(_, b)| b[1]).fold(f32::MAX, f32::min);
+    assert!(
+        (first(&mid) - first(&elements(&doc, 0))).abs() < 3.0,
+        "la página insertada debe empezar con el margen de la original: {} frente a {}",
+        first(&mid),
+        first(&elements(&doc, 0))
+    );
     assert!(
         mid.iter().all(|(_, b)| b[3] <= 842.0 - 30.0),
         "el texto sobrante no debe pasar del margen inferior: {mid:#?}"
@@ -617,4 +624,57 @@ fn text_longer_than_several_pages_gets_whole_pages_and_the_rest_follows_it() {
         last.iter().any(|(n, _)| n.contains("Mas informacion")) && last.iter().any(|(n, _)| n.contains("Segundo")),
         "lo que seguía va tras el texto: {last:#?}"
     );
+}
+
+/// Título de una línea en 18 pt (mayor que el cuerpo de 12 pt).
+fn heading(x: f32, y: f32, text: &str) -> String {
+    format!("BT /F1 18 Tf {x} {y} Td ({text}) Tj ET\n")
+}
+
+/// Página con párrafo inicial, seis secciones (título de 18 pt + cuerpo de dos líneas) y pie.
+fn page_with_headings() -> String {
+    let mut s = para(72.0, 700.0, &["Primer parrafo linea uno", "Primer parrafo linea dos"]);
+    for i in 0..12 {
+        let y = 650.0 - 50.0 * i as f32;
+        if i % 2 == 0 {
+            s += &heading(72.0, y, &format!("Titulo {i}"));
+        } else {
+            s += &para(
+                72.0,
+                y,
+                &[&format!("Cuerpo {i} linea uno"), &format!("Cuerpo {i} linea dos")],
+            );
+        }
+    }
+    s += &para(72.0, 40.0, &["Pie de pagina"]);
+    s
+}
+
+#[test]
+fn a_heading_never_stays_alone_at_the_bottom_of_a_page() {
+    let words: Vec<&str> = LONG.split(' ').collect();
+    let mut moved_headings = 0;
+    for n in 3..=words.len() {
+        let mut doc = open(&[page_with_headings()]);
+        let b0 = block_with(&doc, 0, "Primer");
+        let text = words[..n].join(" ");
+        replace_text_flow(&mut doc, 0, b0.id, &text, &Style::default(), &FlowOptions::default()).unwrap();
+        let pages = doc.pdf().page_count().unwrap() as usize;
+        let on =
+            |p: usize, needle: &str| p < pages && text_blocks(&doc, p).unwrap().iter().any(|b| b.text.contains(needle));
+        for i in (0..12).step_by(2) {
+            let (t, c) = (format!("Titulo {i}"), format!("Cuerpo {}", i + 1));
+            assert!(on(0, &t) || on(1, &t), "falta «{t}» con {n} palabras");
+            if on(0, &t) {
+                assert!(
+                    on(0, &c),
+                    "«{t}» se quedó solo al final de la página 1 con {n} palabras"
+                );
+            } else {
+                moved_headings += 1;
+                assert!(on(1, &c), "«{c}» no sigue a su título con {n} palabras");
+            }
+        }
+    }
+    assert!(moved_headings > 0, "la prueba debe llegar a desbordar títulos");
 }

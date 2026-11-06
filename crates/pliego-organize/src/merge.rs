@@ -91,6 +91,7 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
                     title,
                     page: Some(offset),
                     children: kept,
+                    ..Default::default()
                 });
             } else {
                 outline.extend(kept);

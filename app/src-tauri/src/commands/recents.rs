@@ -76,6 +76,32 @@ pub fn reveal_path(path: String) -> Result<(), String> {
         .map_err(|e| format!("No se pudo abrir la ubicación: {e}"))
 }
 
+/// Abre la página de Windows para hacer de Pliego la app predeterminada de los PDF (Ajustes > General).
+#[tauri::command]
+pub fn open_default_apps() -> Result<(), String> {
+    if !cfg!(windows) {
+        return Err("Solo está disponible en Windows".into());
+    }
+    let mut cmd = std::process::Command::new("cmd");
+    cmd.args(["/c", "ver"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let ver = cmd
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default();
+    let url = pliego_appdata::recents::default_apps_url(pliego_appdata::recents::windows_build_from_ver(&ver));
+    std::process::Command::new("explorer.exe")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("No se pudo abrir la configuración de Windows: {e}"))
+}
+
 /// Datos de «Acerca de».
 #[tauri::command]
 pub fn about_info() -> pliego_appdata::about::AboutInfo {
@@ -93,5 +119,5 @@ pub fn open_web_link(url: String) -> Result<(), String> {
         .args(args)
         .spawn()
         .map(|_| ())
-        .map_err(|e| format!("No se pudo abrir el enlace: {e}"))
+        .map_err(|e| e.to_string())
 }

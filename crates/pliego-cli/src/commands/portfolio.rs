@@ -54,7 +54,7 @@ pub fn run(c: PortfolioCommand, json: bool) -> anyhow::Result<()> {
     let ctx = JobContext::new(&LineProgress, Default::default());
     match c {
         PortfolioCommand::Create(a) => {
-            let r = pliego_portfolio::create(&a.files, &a.output, &ctx)?;
+            let r = pliego_portfolio::create_in(&a.files, &a.output, &ctx, pliego_core::Lang::from_env())?;
             print_report(&r, json)?;
         }
         PortfolioCommand::List(a) => {

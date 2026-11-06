@@ -8,6 +8,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { createSignal } from "solid-js";
+import { engineText } from "../i18n/engine";
 import { passwordFor } from "./passwords";
 
 export type PasswordStatus = "open" | "required" | "wrong";
@@ -55,7 +56,7 @@ export async function unlockFile(path: string, known: string | null = passwordFo
     }
     return { ok: true, password };
   } catch (e) {
-    const message = e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : String(e);
+    const message = engineText(e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : String(e));
     return { ok: false, reason: "error", message };
   }
 }

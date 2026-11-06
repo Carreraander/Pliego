@@ -48,6 +48,7 @@ pub fn office_export_pdf(
     fail_on_scanned: bool,
     password: Option<String>,
     label: String,
+    lang: Option<String>,
 ) -> JobId {
     let req = OfficeRequest {
         format,
@@ -56,6 +57,7 @@ pub fn office_export_pdf(
         fail_on_scanned,
         password,
         label,
+        lang: lang.as_deref().map(pliego_core::Lang::from_tag).unwrap_or_default(),
     };
     jobs.spawn_tool(JobSpec::Office {
         path: PathBuf::from(path),

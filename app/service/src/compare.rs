@@ -9,7 +9,7 @@ use std::path::Path;
 use pliego_appdata::copyjob::unique_sibling;
 use pliego_compare::CompareOptions;
 pub use pliego_compare::Comparison;
-use pliego_core::{Error, JobContext, Report, Result};
+use pliego_core::{Error, JobContext, Lang, Report, Result};
 
 /// Lo que pide el panel «Comparar».
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,6 +24,8 @@ pub struct CompareRequest {
     pub visual: bool,
     /// Etiqueta del nombre del informe, ya traducida («comparación»).
     pub label: String,
+    /// Idioma del texto del informe (el de la interfaz).
+    pub lang: Lang,
 }
 
 /// Una línea legible con lo que cambió, para el centro de tareas.
@@ -63,7 +65,7 @@ pub fn compare_view(first: &Path, req: &CompareRequest, ctx: &JobContext) -> Res
 pub fn compare_copy(first: &Path, req: &CompareRequest, ctx: &JobContext) -> Result<Report> {
     let result = compare_view(first, req, ctx)?;
     let out = unique_sibling(first, &req.label, "pdf");
-    if let Err(e) = pliego_compare::write_report_with(&result, &out, ctx) {
+    if let Err(e) = pliego_compare::write_report_in(&result, &out, ctx, req.lang) {
         let _ = std::fs::remove_file(&out);
         return Err(e);
     }
@@ -95,6 +97,7 @@ mod tests {
             text: true,
             visual: false,
             label: "comparación".into(),
+            lang: Lang::default(),
         }
     }
 

@@ -20,7 +20,7 @@ use pliego_core::{JobContext, Result};
 use serde::{Deserialize, Serialize};
 
 pub use model::{ChangeKind, Comparison, PageComparison, PageStatus, Rect, Summary, TextChange, VisualRegion};
-pub use report::{write_report, write_report_with};
+pub use report::{write_report, write_report_in, write_report_with};
 
 use align::Slot;
 

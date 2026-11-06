@@ -19,8 +19,8 @@ pub fn protect_encrypt(jobs: State<'_, JobsState>, request: ProtectRequest) -> J
 
 /// Quita la protección de una copia, conociendo la contraseña.
 #[tauri::command]
-pub fn protect_remove(jobs: State<'_, JobsState>, path: PathBuf, password: String) -> JobId {
-    jobs.spawn_tool(JobSpec::Unprotect { path, password })
+pub fn protect_remove(jobs: State<'_, JobsState>, path: PathBuf, password: String, suffix: Option<String>) -> JobId {
+    jobs.spawn_tool(JobSpec::Unprotect { path, password, suffix })
 }
 
 /// Quita metadatos, JavaScript, adjuntos, comentarios… de una copia y deja un informe.

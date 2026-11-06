@@ -84,7 +84,10 @@ pub(crate) fn prepare_at(doc: &[u8], signers: &Signers, now: i64, lang: SignLang
     filespec.set("UF", Object::string_literal(ATTACHMENT_NAME));
     filespec.set(
         "Desc",
-        Object::string_literal("Firmantes y orden del flujo de firmas de Pliego"),
+        Object::string_literal(match lang {
+            SignLang::Es => "Firmantes y orden del flujo de firmas de Pliego",
+            SignLang::En => "Signers and order of the Pliego signature workflow",
+        }),
     );
     let spec_id = inc.new_document.add_object(Object::Dictionary(filespec));
 

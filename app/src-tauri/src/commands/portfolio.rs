@@ -13,9 +13,10 @@ use crate::commands::jobs::JobsState;
 
 /// Crea una cartera con `paths` junto al primero (`<nombre> (<suffix>).pdf`).
 #[tauri::command]
-pub fn portfolio_create(jobs: State<'_, JobsState>, paths: Vec<String>, suffix: String) -> JobId {
+pub fn portfolio_create(jobs: State<'_, JobsState>, paths: Vec<String>, suffix: String, lang: Option<String>) -> JobId {
+    let lang = lang.as_deref().map(pliego_core::Lang::from_tag).unwrap_or_default();
     let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
-    jobs.spawn_tool(JobSpec::PortfolioCreate { files, suffix })
+    jobs.spawn_tool(JobSpec::PortfolioCreate { files, suffix, lang })
 }
 
 /// Archivos incrustados de `path`.

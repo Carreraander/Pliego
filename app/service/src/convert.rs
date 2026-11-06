@@ -10,7 +10,7 @@ use pliego_convert::{
     TextExportOptions, TextToPdfOptions, cbz_to_pdf, epub_to_pdf, extract_images, html_to_pdf, images_to_pdf,
     markdown_to_pdf, office_to_pdf, pdf_to_html, pdf_to_images, pdf_to_text, text_to_pdf, xps_to_pdf,
 };
-use pliego_core::{Error, JobContext, PageRange, Report, Result};
+use pliego_core::{Error, JobContext, Lang, PageRange, Report, Result};
 use pliego_office_export::{CommonOptions, DocxOptions, PptxOptions, ScannedPolicy, XlsxOptions};
 
 /// Lo que pide el panel «Exportar a imágenes o texto».
@@ -96,6 +96,8 @@ pub struct OfficeRequest {
     pub fail_on_scanned: bool,
     pub password: Option<String>,
     pub label: String,
+    /// Idioma de los textos que se escriben en el archivo (nombres de hoja, idioma de revisión): el de la interfaz.
+    pub lang: Lang,
 }
 
 /// Exporta `input` a `<nombre> (<etiqueta>).docx|xlsx|pptx` junto al original.
@@ -113,6 +115,7 @@ pub fn office_copy(input: &Path, req: &OfficeRequest, ctx: &JobContext) -> Resul
         } else {
             ScannedPolicy::Warn
         },
+        lang: req.lang,
     };
     let dpi = req.image_dpi.unwrap_or(150.0);
     match req.format.as_str() {

@@ -57,12 +57,12 @@ fn unprotect_quita_la_proteccion() {
     let req: ProtectRequest =
         serde_json::from_value(serde_json::json!({ "path": path, "userPassword": "abre" })).unwrap();
     let enc = protect(&req, &JobContext::silent()).unwrap().outputs.remove(0);
-    let rep = unprotect(&enc, "abre", &JobContext::silent()).unwrap();
+    let rep = unprotect(&enc, "abre", None, &JobContext::silent()).unwrap();
     assert!(
         pliego_protect::permissions_of(&rep.outputs[0], None).is_ok(),
         "ya no pide contraseña"
     );
-    assert!(unprotect(&enc, "", &JobContext::silent()).is_err());
+    assert!(unprotect(&enc, "", None, &JobContext::silent()).is_err());
 }
 
 #[test]
@@ -72,6 +72,7 @@ fn sanitize_deja_informe() {
         path,
         password: None,
         options: SanitizeOptions::default(),
+        suffix: None,
     };
     let rep = sanitize(&req, &JobContext::silent()).unwrap();
     assert!(rep.summary.starts_with("Eliminado:"), "{}", rep.summary);
@@ -93,6 +94,7 @@ fn busca_y_redacta_datos_personales() {
         areas: vec![],
         patterns: vec!["dni".into()],
         options: RedactOptions::default(),
+        suffix: None,
     };
     let rep = redact(&req, &JobContext::silent()).unwrap();
     let out = &rep.outputs[0];

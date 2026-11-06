@@ -17,7 +17,7 @@ export default function SanitizePanel(p: { onClose?: () => void }) {
     if (!built.ok) { setError(pt(built.error)); return; }
     setError(null);
     const id = await runToolJob({
-      command: "protect_sanitize", args: { request: built.request },
+      command: "protect_sanitize", args: { request: { ...built.request, suffix: pt("sanitize.suffix") } },
       title: pt("sanitize.job", { name: baseName(doc.path) }), started: pt("sanitize.started"),
     });
     if (id !== null) p.onClose?.();

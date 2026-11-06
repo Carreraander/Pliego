@@ -136,6 +136,33 @@ fn report_is_a_readable_pdf_with_summary_and_detail_pages() {
 }
 
 #[test]
+fn the_english_report_has_no_spanish_text() {
+    let c = run("base.pdf", "pagina.pdf");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("report.pdf");
+    pliego_compare::write_report_in(&c, &out, &JobContext::silent(), pliego_core::Lang::En).unwrap();
+    let doc = pliego_pdf::Document::open(out.to_str().unwrap()).unwrap();
+    let mut all = String::new();
+    for i in 0..doc.page_count().unwrap() {
+        all.push_str(
+            &doc.load_page(i)
+                .unwrap()
+                .to_text_page(pliego_pdf::TextFlags::empty())
+                .unwrap()
+                .to_text()
+                .unwrap(),
+        );
+    }
+    assert!(all.contains("Comparison report"), "{all}");
+    assert!(all.contains("page inserted"), "{all}");
+    for spanish in [
+        "Informe", "página", "Páginas", "Palabras", "Nueva", "Cambios", "añadido",
+    ] {
+        assert!(!all.contains(spanish), "queda «{spanish}» en el informe inglés: {all}");
+    }
+}
+
+#[test]
 fn missing_file_is_a_clear_error() {
     let r = compare(
         &corpus("nada.pdf"),

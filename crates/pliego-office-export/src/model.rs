@@ -221,4 +221,6 @@ pub struct Layout {
     pub header: Option<Band>,
     pub footer: Option<Band>,
     pub warnings: Vec<String>,
+    /// Idioma de los textos que se escriben en el archivo (nombres de hoja, idioma de revisión).
+    pub lang: pliego_core::Lang,
 }

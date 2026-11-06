@@ -25,7 +25,7 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
 use pliego_appdata::copyjob::unique_sibling;
-use pliego_core::{CancelToken, Error, JobContext, Progress, Report, Result};
+use pliego_core::{CancelToken, Error, JobContext, Lang, Progress, Report, Result};
 use pliego_organize::{MergeOptions, SplitRule};
 use pliego_sign::{SignLang, SignOptions};
 use pliego_signflow::SignerSpec;
@@ -106,6 +106,7 @@ pub enum JobSpec {
     PortfolioCreate {
         files: Vec<PathBuf>,
         suffix: String,
+        lang: Lang,
     },
     PortfolioExtract {
         path: PathBuf,
@@ -153,6 +154,7 @@ pub enum JobSpec {
     Unprotect {
         path: PathBuf,
         password: String,
+        suffix: Option<String>,
     },
     Sanitize {
         req: SanitizeRequest,
@@ -217,7 +219,7 @@ impl JobSpec {
                 formdesign::detect_copy(&path, password.as_deref(), &suffix, ctx)
             }
             JobSpec::IndexFolder { data_dir, folder } => search_index::index_folder(&data_dir, &folder, ctx),
-            JobSpec::PortfolioCreate { files, suffix } => portfolio::create_portfolio(&files, &suffix, ctx),
+            JobSpec::PortfolioCreate { files, suffix, lang } => portfolio::create_portfolio(&files, &suffix, lang, ctx),
             JobSpec::PortfolioExtract {
                 path,
                 names,
@@ -256,7 +258,9 @@ impl JobSpec {
                 suffix,
             } => organize::pages_copy(&path, password.as_deref(), &edits, &suffix, ctx),
             JobSpec::Protect { req } => protect::protect(&req, ctx),
-            JobSpec::Unprotect { path, password } => protect::unprotect(&path, &password, ctx),
+            JobSpec::Unprotect { path, password, suffix } => {
+                protect::unprotect(&path, &password, suffix.as_deref(), ctx)
+            }
             JobSpec::Sanitize { req } => protect::sanitize(&req, ctx),
             JobSpec::Redact { req } => protect::redact(&req, ctx),
             JobSpec::Sign {
@@ -449,7 +453,7 @@ pub fn run_in_child_with(cli: &Path, spec: &JobSpec, ctx: &JobContext, grace: Du
                 format!("el proceso de la herramienta terminó sin resultado ({status})"),
             );
             Err(Error::Other(format!(
-                "la herramienta se cerró de forma inesperada ({status}); el documento puede estar dañado"
+                "la herramienta se cerró de forma inesperada ({status}); el original no se ha tocado, pero la copia puede estar incompleta"
             )))
         }
     }
@@ -567,6 +571,7 @@ mod tests {
         JobSpec::Unprotect {
             path: "/tmp/a.pdf".into(),
             password: "s3creta".into(),
+            suffix: None,
         }
     }
 

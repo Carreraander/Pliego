@@ -1,5 +1,6 @@
 import { createResource, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "../../i18n";
 import { Button, Field, Notice, Radio, RadioGroup, Select, TextInput } from "../../ui";
 import type { KeyChoice } from "./request";
 import { st } from "./text";
@@ -14,7 +15,7 @@ export function KeyChooser(p: { value: KeyChoice; onChange: (k: KeyChoice) => vo
   const usable = () => (certs() ?? []).filter((c) => c.has_private_key);
   const set = (patch: Partial<KeyChoice>) => p.onChange({ ...p.value, ...patch });
   const pick = async () => {
-    const path = await invoke<string | null>("pick_key_file", { title: st("sign.pfx.choose") });
+    const path = await invoke<string | null>("pick_key_file", { title: st("sign.pfx.choose"), filter: t("dialog.filter.key") });
     if (path) set({ pfxPath: path });
   };
   return (

@@ -21,7 +21,7 @@ mod xlsx;
 
 use std::path::Path;
 
-use pliego_core::{Error, JobContext, PageRange, Report, Result};
+use pliego_core::{Error, JobContext, Lang, PageRange, Report, Result};
 use serde::{Deserialize, Serialize};
 
 pub use model::{
@@ -50,6 +50,8 @@ pub struct CommonOptions {
     /// Páginas (desde 1): `"all"`, `"1-3,5"`, `"last"`.
     pub pages: String,
     pub scanned: ScannedPolicy,
+    /// Idioma de los textos que se escriben en el archivo (nombres de hoja, idioma de revisión); el de la interfaz.
+    pub lang: Lang,
 }
 
 impl Default for CommonOptions {
@@ -58,6 +60,7 @@ impl Default for CommonOptions {
             password: None,
             pages: "all".into(),
             scanned: ScannedPolicy::Warn,
+            lang: Lang::Es,
         }
     }
 }
@@ -134,13 +137,14 @@ pub fn to_docx(input: &Path, out: &Path, options: &DocxOptions, ctx: &JobContext
         images: true,
         image_dpi: options.image_dpi,
     };
-    let layout = analyze::analyze(
+    let mut layout = analyze::analyze(
         input,
         options.common.password.as_deref(),
         &options.common.page_range()?,
         &opts,
         ctx,
     )?;
+    layout.lang = options.common.lang;
     enforce_scanned(&options.common, &layout)?;
     let bytes = docx::write_docx(&layout, &title_of(input))?;
     util::write_atomic(out, &bytes)?;
@@ -162,7 +166,9 @@ pub fn analyze_layout(input: &Path, common: &CommonOptions, ctx: &JobContext) ->
         images: false,
         image_dpi: 150.0,
     };
-    analyze::analyze(input, common.password.as_deref(), &common.page_range()?, &opts, ctx)
+    let mut layout = analyze::analyze(input, common.password.as_deref(), &common.page_range()?, &opts, ctx)?;
+    layout.lang = common.lang;
+    Ok(layout)
 }
 
 /// Opciones de [`to_xlsx`].
@@ -184,13 +190,14 @@ pub fn to_xlsx(input: &Path, out: &Path, options: &XlsxOptions, ctx: &JobContext
         images: false,
         image_dpi: 150.0,
     };
-    let layout = analyze::analyze(
+    let mut layout = analyze::analyze(
         input,
         options.common.password.as_deref(),
         &options.common.page_range()?,
         &opts,
         ctx,
     )?;
+    layout.lang = options.common.lang;
     enforce_scanned(&options.common, &layout)?;
     let (bytes, sheets, any_table) = xlsx::write_xlsx(&layout, options.sheet_per_page)?;
     util::write_atomic(out, &bytes)?;
@@ -233,13 +240,14 @@ pub fn to_pptx(input: &Path, out: &Path, options: &PptxOptions, ctx: &JobContext
         images: true,
         image_dpi: options.image_dpi,
     };
-    let layout = analyze::analyze(
+    let mut layout = analyze::analyze(
         input,
         options.common.password.as_deref(),
         &options.common.page_range()?,
         &opts,
         ctx,
     )?;
+    layout.lang = options.common.lang;
     enforce_scanned(&options.common, &layout)?;
     let bytes = pptx::write_pptx(&layout)?;
     util::write_atomic(out, &bytes)?;

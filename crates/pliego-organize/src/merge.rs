@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use pliego_core::{Error, JobContext, Report, Result};
@@ -19,6 +20,19 @@ pub struct MergeOptions {
     /// Contraseña común para los archivos protegidos.
     #[serde(default)]
     pub password: Option<String>,
+    /// Contraseña de cada archivo protegido (por su ruta tal como viene en `inputs`); tiene prioridad sobre `password`.
+    #[serde(default)]
+    pub file_passwords: BTreeMap<PathBuf, String>,
+}
+
+impl MergeOptions {
+    /// Contraseña con la que abrir `path`.
+    fn password_for(&self, path: &Path) -> Option<&str> {
+        self.file_passwords
+            .get(path)
+            .or(self.password.as_ref())
+            .map(String::as_str)
+    }
 }
 
 fn yes() -> bool {
@@ -31,6 +45,7 @@ impl Default for MergeOptions {
             keep_bookmarks: true,
             bookmark_per_file: false,
             password: None,
+            file_passwords: BTreeMap::new(),
         }
     }
 }
@@ -50,7 +65,7 @@ pub fn merge(inputs: &[PathBuf], out: &Path, options: &MergeOptions, ctx: &JobCo
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         ctx.step(i as u64, total, &format!("Añadiendo {name}"))?;
-        let mut src = open(path, options.password.as_deref())?;
+        let mut src = open(path, options.password_for(path))?;
         let src_pages = src.page_count()?.max(0) as u32;
         let offset = dest.page_count()?.max(0) as u32;
         if src_pages == 0 {

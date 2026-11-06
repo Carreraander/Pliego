@@ -14,4 +14,4 @@ mod package;
 pub use audit::{AuditEntry, AuditEvent, audit_log};
 pub use flow::{PendingSigner, next_signer, sign_next};
 pub use manifest::{Manifest, SignerSpec, Signers};
-pub use package::{Package, prepare, read_manifest};
+pub use package::{Package, prepare, prepare_in, read_manifest};

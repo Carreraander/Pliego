@@ -16,17 +16,25 @@ use pliego_core::Report;
 
 pub use pliego_annot::{AnnotId, AnnotSpec, CommentSummary};
 use pliego_annot::{export_xfdf, import_xfdf, summary};
-pub use pliego_forms::{FieldInfo, FieldValue, FieldValues};
+pub use pliego_forms::{FieldInfo, FieldValue, FieldValues, KeystrokeResult};
 
 /// Abre un PDF para anotarlo. Se lee a memoria para no dejar el archivo abierto (en Windows impediría sustituirlo).
 pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    let mut doc = Document::from_bytes(&bytes, "application/pdf")?;
+    open_bytes(&bytes, password).map_err(|e| match e {
+        Error::InvalidInput(_) => Error::InvalidInput(format!("{} no es un PDF", path.display())),
+        e => e,
+    })
+}
+
+/// Abre un PDF desde memoria; [`Error::Password`] si está protegido y la contraseña falta o es incorrecta.
+pub fn open_bytes(bytes: &[u8], password: Option<&str>) -> Result<PdfDocument> {
+    let mut doc = Document::from_bytes(bytes, "application/pdf")?;
     if doc.needs_password()? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
         return Err(Error::Password);
     }
     if !doc.is_pdf() {
-        return Err(Error::InvalidInput(format!("{} no es un PDF", path.display())));
+        return Err(Error::InvalidInput("no es un PDF".into()));
     }
     doc.into_pdf()
 }
@@ -59,6 +67,18 @@ pub fn save(doc: &PdfDocument, out: &Path) -> Result<()> {
     persist_with_retry(tmp, out)
 }
 
+/// Guardado que no toca lo que ya había: incremental si se puede, completo si no.
+fn save_preserving(doc: &PdfDocument, out: &Path) -> Result<()> {
+    if doc.can_be_saved_incrementally() {
+        let mut opts = WriteOptions::default();
+        opts.set_incremental(true);
+        if let Ok(bytes) = doc.to_bytes(&opts) {
+            return write_bytes(out, &bytes);
+        }
+    }
+    save(doc, out)
+}
+
 fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
     // En Windows un antivirus o el indexador pueden tener el archivo recién escrito unos milisegundos.
     let mut tmp = tmp;
@@ -77,7 +97,19 @@ fn persist_with_retry(tmp: tempfile::TempPath, out: &Path) -> Result<()> {
 
 /// Campos del formulario de `src` (con su recuadro en la página) para dibujar los controles sobre el visor.
 pub fn form_fields(src: &Path, password: Option<&str>) -> Result<Vec<FieldInfo>> {
-    pliego_forms::fields(&mut open(src, password)?)
+    pliego_forms::fields_with_scripts(&mut open(src, password)?)
+}
+
+/// Filtra una pulsación en curso en el campo `name` con su script de tecleo. No modifica el archivo.
+pub fn form_keystroke(
+    src: &Path,
+    password: Option<&str>,
+    name: &str,
+    change: &str,
+    current: &str,
+    sel: (usize, usize),
+) -> Result<pliego_forms::KeystrokeResult> {
+    pliego_forms::keystroke(&mut open(src, password)?, name, change, current, sel)
 }
 
 /// Resumen de los comentarios de `src`.
@@ -120,18 +152,43 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 impl Editor {
     /// Añade una anotación al archivo y devuelve el contenido nuevo (para recargar el visor).
-    pub fn add(&self, path: &Path, spec: &AnnotSpec, backup_suffix: &str) -> Result<Vec<u8>> {
-        self.edit_pdf(path, backup_suffix, |doc| pliego_annot::add(doc, spec).map(drop))
+    ///
+    /// Todas las ediciones reciben la `password` del documento (`None` si no está protegido): el archivo se abre con
+    /// ella y se guarda **con la misma protección**.
+    pub fn add(&self, path: &Path, password: Option<&str>, spec: &AnnotSpec, backup_suffix: &str) -> Result<Vec<u8>> {
+        self.edit_pdf(path, password, backup_suffix, |doc| {
+            pliego_annot::add(doc, spec).map(drop)
+        })
     }
 
     /// Borra una anotación del archivo.
-    pub fn delete(&self, path: &Path, id: AnnotId, backup_suffix: &str) -> Result<Vec<u8>> {
-        self.edit_pdf(path, backup_suffix, |doc| pliego_annot::delete(doc, id))
+    pub fn delete(&self, path: &Path, password: Option<&str>, id: AnnotId, backup_suffix: &str) -> Result<Vec<u8>> {
+        self.edit_pdf(path, password, backup_suffix, |doc| pliego_annot::delete(doc, id))
     }
 
     /// Rellena campos de formulario en el archivo (Rellenar y firmar). Comparte la pila de deshacer con los comentarios.
-    pub fn fill(&self, path: &Path, values: &FieldValues, backup_suffix: &str) -> Result<Vec<u8>> {
-        self.edit_pdf(path, backup_suffix, |doc| {
+    /// Devuelve el contenido nuevo.
+    pub fn fill(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        values: &FieldValues,
+        backup_suffix: &str,
+    ) -> Result<Vec<u8>> {
+        self.fill_report(path, password, values, backup_suffix)
+            .map(|(bytes, _)| bytes)
+    }
+
+    /// Como [`Editor::fill`], con los avisos de los scripts del formulario (`app.alert`...).
+    pub fn fill_report(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        values: &FieldValues,
+        backup_suffix: &str,
+    ) -> Result<(Vec<u8>, Vec<String>)> {
+        let mut messages = Vec::new();
+        let bytes = self.edit_pdf(path, password, backup_suffix, |doc| {
             // Con el JavaScript del formulario: validación, cálculo entre campos y formato, como un lector.
             let r = pliego_forms::fill_with_scripts(doc, values)?;
             if r.filled.is_empty() {
@@ -146,8 +203,31 @@ impl Editor {
                     r.not_found.len()
                 )));
             }
+            messages = r.messages;
             Ok(())
-        })
+        })?;
+        Ok((bytes, messages))
+    }
+
+    /// Ejecuta la acción `trigger` (`U` para un botón) del campo `name` y guarda lo que el script cambie en el
+    /// documento. Devuelve el contenido nuevo y los avisos. Error si el campo no tiene esa acción.
+    pub fn run_action(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        name: &str,
+        trigger: &str,
+        backup_suffix: &str,
+    ) -> Result<(Vec<u8>, Vec<String>)> {
+        let mut messages = Vec::new();
+        let bytes = self.edit_pdf(path, password, backup_suffix, |doc| {
+            match pliego_forms::run_action(doc, name, trigger)? {
+                Some(m) => messages = m,
+                None => return Err(Error::InvalidInput(format!("el campo «{name}» no tiene esa acción"))),
+            }
+            Ok(())
+        })?;
+        Ok((bytes, messages))
     }
 
     /// Deshace el último cambio; `None` si no hay nada que deshacer.
@@ -170,23 +250,44 @@ impl Editor {
     pub fn edit_pdf(
         &self,
         path: &Path,
+        password: Option<&str>,
         backup_suffix: &str,
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
-        self.edit_with(path, backup_suffix, PdfDocument::from_bytes, op, save)
+        self.edit_with(path, backup_suffix, |bytes| open_bytes(bytes, password), op, save)
+    }
+
+    /// Como [`Editor::edit_pdf`] pero conservando los bytes originales: añade los cambios al final del archivo
+    /// (guardado incremental), sin recomprimir ni reordenar nada. Si el documento no lo admite (reparado,
+    /// cifrado nuevo...) cae al guardado completo de siempre.
+    pub fn edit_pdf_preserving(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        backup_suffix: &str,
+        op: impl FnOnce(&mut PdfDocument) -> Result<()>,
+    ) -> Result<Vec<u8>> {
+        self.edit_with(
+            path,
+            backup_suffix,
+            |bytes| open_bytes(bytes, password),
+            op,
+            save_preserving,
+        )
     }
 
     /// Igual que [`Editor::edit_pdf`] pero sobre un `pliego_document::Document` (lo que piden `pliego-edit`).
     pub fn edit_document(
         &self,
         path: &Path,
+        password: Option<&str>,
         backup_suffix: &str,
         op: impl FnOnce(&mut pliego_document::Document) -> Result<()>,
     ) -> Result<Vec<u8>> {
         self.edit_with(
             path,
             backup_suffix,
-            |bytes| pliego_document::Document::open_bytes(bytes, None),
+            |bytes| pliego_document::Document::open_bytes(bytes, password),
             op,
             |d: &pliego_document::Document, out: &Path| save(d.pdf(), out),
         )
@@ -306,7 +407,7 @@ mod tests {
                 quads: vec![[10.0, 10.0, 90.0, 10.0, 10.0, 24.0, 90.0, 24.0]],
             },
         );
-        let after = ed.add(&p, &spec, "copia de seguridad").unwrap();
+        let after = ed.add(&p, None, &spec, "copia de seguridad").unwrap();
         assert_eq!(std::fs::read(&p).unwrap(), after);
         assert_eq!(summary_of(&p, None).unwrap().total, 2);
         assert_eq!(
@@ -314,7 +415,7 @@ mod tests {
             original
         );
         // Un segundo cambio no crea otra copia de seguridad.
-        ed.add(&p, &spec, "copia de seguridad").unwrap();
+        ed.add(&p, None, &spec, "copia de seguridad").unwrap();
         assert!(!dir.path().join("a (copia de seguridad 2).pdf").exists());
         assert_eq!(ed.undo_depth(&p), 2);
         ed.undo(&p).unwrap().unwrap();
@@ -332,7 +433,7 @@ mod tests {
         let before = std::fs::read(&p).unwrap();
         let ed = Editor::default();
         let bad = AnnotSpec::new(99, Geometry::Note { at: [1.0, 1.0] });
-        assert!(ed.add(&p, &bad, "copia de seguridad").is_err());
+        assert!(ed.add(&p, None, &bad, "copia de seguridad").is_err());
         assert_eq!(std::fs::read(&p).unwrap(), before);
         assert_eq!(ed.undo_depth(&p), 0);
         assert!(!dir.path().join("a (copia de seguridad).pdf").exists());
@@ -361,13 +462,14 @@ trailer<</Root 1 0 R/Size 6>>\n%%EOF\n";
         let ed = Editor::default();
         let mut v = FieldValues::new();
         v.insert("nombre".into(), FieldValue::Text("Ñandú".into()));
-        ed.fill(&p, &v, "copia de seguridad").unwrap();
+        let (_, avisos) = ed.fill_report(&p, None, &v, "copia de seguridad").unwrap();
+        assert!(avisos.is_empty());
         assert_eq!(form_fields(&p, None).unwrap()[0].value.as_deref(), Some("Ñandú"));
         assert!(dir.path().join("f (copia de seguridad).pdf").exists());
         // Un nombre inexistente no cuenta como cambio.
         let mut bad = FieldValues::new();
         bad.insert("nadie".into(), FieldValue::Text("x".into()));
-        assert!(ed.fill(&p, &bad, "copia de seguridad").is_err());
+        assert!(ed.fill(&p, None, &bad, "copia de seguridad").is_err());
         assert_eq!(ed.undo_depth(&p), 1);
         ed.undo(&p).unwrap().unwrap();
         assert_eq!(form_fields(&p, None).unwrap()[0].value.as_deref().unwrap_or(""), "");

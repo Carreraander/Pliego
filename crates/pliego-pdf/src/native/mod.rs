@@ -36,6 +36,7 @@ mod formap;
 mod formjs;
 mod graft;
 mod image;
+mod ink;
 mod metrics;
 mod object;
 mod outline;
@@ -70,7 +71,7 @@ pub use image::{ExtractedImage, Image, ImagePlacement, ImageSource, InsertImageO
 pub use object::Object;
 pub use page::PdfPage;
 pub use raster::Raster;
-pub use redact::RedactReport;
+pub use redact::{ContentMove, CutContent, MoveReport, RedactReport};
 pub use widget::PdfWidget;
 
 use std::cell::RefCell;

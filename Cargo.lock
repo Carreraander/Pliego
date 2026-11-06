@@ -4613,10 +4613,12 @@ dependencies = [
  "pliego-core",
  "pliego-pdf",
  "pulldown-cmark",
+ "roxmltree",
  "serde",
  "serde_json",
  "tempfile",
  "tiff",
+ "zip",
 ]
 
 [[package]]
@@ -4624,6 +4626,7 @@ name = "pliego-core"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 
@@ -4836,6 +4839,7 @@ dependencies = [
 name = "pliego-print"
 version = "0.1.0"
 dependencies = [
+ "jpeg-encoder",
  "pliego-core",
  "pliego-pdf",
  "serde",
@@ -4933,6 +4937,7 @@ dependencies = [
  "rcgen",
  "rsa",
  "serde",
+ "serde_json",
  "sha1 0.10.7",
  "sha2 0.10.9",
  "signature",

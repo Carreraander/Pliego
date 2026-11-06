@@ -47,6 +47,14 @@ pub struct FieldInfo {
     pub multiline: bool,
     pub password: bool,
     pub signed: bool,
+    /// Texto formateado por el script de formato del campo (`1.234,50 €` para el valor `1234.5`). Solo con
+    /// [`fields_with_scripts`]; sin formato, `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<String>,
+    /// Acciones del campo con script (`K` tecleo, `V` validación, `C` cálculo, `F` formato, `U` ratón/botón...). Solo
+    /// con [`fields_with_scripts`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scripts: Vec<String>,
 }
 
 fn kind_of(t: WidgetType, flags: FieldFlags) -> FieldKind {
@@ -125,6 +133,19 @@ fn choice_options(w: &PdfWidget) -> Vec<String> {
 
 /// Lista los campos del formulario (uno por nombre; los radios agrupan sus botones).
 pub fn fields(doc: &mut PdfDocument) -> Result<Vec<FieldInfo>> {
+    fields_impl(doc)
+}
+
+/// Como [`fields`], pero con el JavaScript del formulario activo para dar también el texto formateado de cada campo
+/// ([`FieldInfo::display`]). No modifica el documento.
+pub fn fields_with_scripts(doc: &mut PdfDocument) -> Result<Vec<FieldInfo>> {
+    doc.enable_js()?;
+    let res = fields_impl(doc);
+    doc.disable_js()?;
+    res
+}
+
+fn fields_impl(doc: &mut PdfDocument) -> Result<Vec<FieldInfo>> {
     let n = doc.page_count()?;
     let mut out: Vec<FieldInfo> = Vec::new();
     for p in 0..n {
@@ -160,6 +181,8 @@ pub fn fields(doc: &mut PdfDocument) -> Result<Vec<FieldInfo>> {
                 multiline: flags.contains(FieldFlags::MULTILINE),
                 password: flags.contains(FieldFlags::PASSWORD),
                 signed: w.is_signed().unwrap_or(false),
+                display: w.display_value().ok().flatten(),
+                scripts: w.script_triggers().unwrap_or_default(),
             });
         }
     }
@@ -295,4 +318,70 @@ pub fn flatten(doc: &mut PdfDocument) -> Result<usize> {
     let before = fields(doc)?.len();
     doc.bake(false, true)?;
     Ok(before)
+}
+
+/// Resultado de [`keystroke`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeystrokeResult {
+    /// `false` si el script de tecleo rechazó la pulsación.
+    pub accepted: bool,
+    /// Texto que se inserta (el script puede cambiarlo: mayúsculas, quitar caracteres...).
+    pub change: String,
+    pub messages: Vec<String>,
+}
+
+fn widget_named(doc: &mut PdfDocument, name: &str) -> Result<Option<PdfWidget>> {
+    for p in 0..doc.page_count()? {
+        let page = doc.load_pdf_page(p)?;
+        if let Some(w) = page
+            .widgets()
+            .find(|w| w.name().ok().flatten().as_deref() == Some(name))
+        {
+            return Ok(Some(w));
+        }
+    }
+    Ok(None)
+}
+
+/// Filtra una pulsación en curso en el campo `name` con su script de tecleo (`/AA /K`): `change` es lo que se
+/// escribe, `current` el contenido actual y `sel` la selección (inicio y fin, en caracteres) que reemplaza. Sin
+/// script, o si el campo no existe, se acepta tal cual. No modifica el documento.
+pub fn keystroke(
+    doc: &mut PdfDocument,
+    name: &str,
+    change: &str,
+    current: &str,
+    sel: (usize, usize),
+) -> Result<KeystrokeResult> {
+    doc.enable_js()?;
+    let out = (|| {
+        let Some(mut w) = widget_named(doc, name)? else {
+            return Ok((true, change.to_owned()));
+        };
+        w.keystroke(doc, change, current, sel)
+    })();
+    let messages = doc.take_js_messages().iter().map(describe).collect();
+    doc.disable_js()?;
+    let (accepted, change) = out?;
+    Ok(KeystrokeResult {
+        accepted,
+        change,
+        messages,
+    })
+}
+
+/// Ejecuta la acción `trigger` (`U`, `D`, `E`, `X`, `Fo`, `Bl`; la de un botón es `U`) del campo `name` y devuelve
+/// los avisos de los scripts. Lo que el script cambie en otros campos queda en el documento. `Ok(None)` si el campo
+/// no existe o no tiene esa acción.
+pub fn run_action(doc: &mut PdfDocument, name: &str, trigger: &str) -> Result<Option<Vec<String>>> {
+    doc.enable_js()?;
+    let ran = (|| {
+        let Some(mut w) = widget_named(doc, name)? else {
+            return Ok(false);
+        };
+        w.run_action(doc, trigger)
+    })();
+    let messages = doc.take_js_messages().iter().map(describe).collect();
+    doc.disable_js()?;
+    Ok(if ran? { Some(messages) } else { None })
 }

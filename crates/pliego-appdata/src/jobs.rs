@@ -115,11 +115,16 @@ impl JobRegistry {
                     result: Some(report),
                     error: None,
                 },
-                Err(e) => JobEvent::Finished {
-                    job_id: id,
-                    result: None,
-                    error: Some(JobError::from(&e)),
-                },
+                Err(e) => {
+                    if !matches!(e, Error::Cancelled) {
+                        pliego_core::log::error("job", format!("el trabajo {id} falló: {e}"));
+                    }
+                    JobEvent::Finished {
+                        job_id: id,
+                        result: None,
+                        error: Some(JobError::from(&e)),
+                    }
+                }
             };
             (registry.sink)(event);
         });

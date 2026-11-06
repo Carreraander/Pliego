@@ -33,6 +33,21 @@ impl Environment {
         )
     }
 
+    /// Línea de registro del arranque: versión e instalación.
+    pub fn launch_log_line(&self) -> String {
+        format!("versión {} · instalación {:?}", self.current_version, self.kind)
+    }
+
+    /// Línea de registro de la vuelta atrás del lanzador (versiones como «0.1.2», no en formato de depuración).
+    pub fn rollback_log_line(&self) -> Option<String> {
+        self.rolled_back_from.as_ref().map(|from| {
+            format!(
+                "se volvió a la versión {} porque la {from} no arrancó",
+                self.current_version
+            )
+        })
+    }
+
     pub fn from_vars(app_version: &str, var: impl Fn(&str) -> Option<String>, program_dirs: &[PathBuf]) -> Self {
         let parse = |s: String| Version::parse(s.trim()).ok();
         let current_version = var("PLIEGO_VERSION")
@@ -112,6 +127,10 @@ mod tests {
         assert_eq!(e.kind, InstallKind::PerUser);
         assert_eq!(e.current_version, Version::new(0, 1, 1));
         assert_eq!(e.rolled_back_from, Some(Version::new(0, 1, 2)));
+        // El registro muestra las versiones como «0.1.2», no como `Version { major: 0, … }`.
+        let line = e.rollback_log_line().unwrap();
+        assert_eq!(line, "se volvió a la versión 0.1.1 porque la 0.1.2 no arrancó");
+        assert!(e.launch_log_line().starts_with("versión 0.1.1 · instalación"));
         assert!(
             e.state_path.ends_with("Pliego/update-state.json") || e.state_path.ends_with(r"Pliego\update-state.json")
         );

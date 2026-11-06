@@ -183,6 +183,16 @@ pub fn text_literals(content: &[u8]) -> (Vec<u8>, Vec<u8>) {
     (lit, hexs)
 }
 
+/// Primer píxel que cae entero dentro de una región que empieza en `edge` (en píxeles).
+fn inner_start(edge: f32) -> u32 {
+    edge.max(0.0).ceil() as u32
+}
+
+/// Fin (exclusivo) de los píxeles que caen enteros dentro de una región que termina en `edge`, sin pasar de `max`.
+fn inner_end(edge: f32, max: u32) -> u32 {
+    (edge.max(0.0).floor() as u32).min(max)
+}
+
 fn without_nul(b: &[u8]) -> Vec<u8> {
     b.iter().copied().filter(|&c| c != 0).collect()
 }
@@ -383,8 +393,10 @@ pub fn check_redacted(engine: &dyn DynEngine, path: &Path, cfg: &OracleConfig) -
     for r in &cfg.regions {
         let img = doc.render_page(r.page, 150.0 / 72.0)?;
         let k = 150.0 / 72.0;
-        let (x0, x1) = ((r.x0 * k) as u32, ((r.x1 * k) as u32).min(img.width));
-        let (y0, y1) = ((r.y0 * k) as u32, ((r.y1 * k) as u32).min(img.height));
+        // Solo los píxeles que caen enteros dentro de la región: si un borde cae a medio píxel, ese píxel es el
+        // suavizado del borde de la caja negra (o de lo que hay fuera), no contenido que se haya salvado.
+        let (x0, x1) = (inner_start(r.x0 * k), inner_end(r.x1 * k, img.width));
+        let (y0, y1) = (inner_start(r.y0 * k), inner_end(r.y1 * k, img.height));
         let mut counts = std::collections::HashMap::<[u8; 3], u32>::new();
         for y in y0..y1 {
             for x in x0..x1 {
@@ -442,6 +454,15 @@ mod tests {
         let mut v = w("12 12 345");
         remove_words(&mut v, &w("12 999"));
         assert_eq!(v, w("12 345"));
+    }
+
+    #[test]
+    fn inner_pixels_exclude_partially_covered_edges() {
+        // 140 pt × 150/72 = 291,67 → el píxel 291 está cubierto a medias: empieza en el 292.
+        assert_eq!(inner_start(140.0 * 150.0 / 72.0), 292);
+        assert_eq!(inner_end(410.0 * 150.0 / 72.0, 2000), 854); // 854,17
+        assert_eq!(inner_start(100.0), 100);
+        assert_eq!(inner_end(100.0, 90), 90);
     }
 
     #[test]

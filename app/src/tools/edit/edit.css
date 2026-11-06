@@ -10,3 +10,15 @@
 .pl-edit-form__row > * { flex: 1 1 90px; }
 .pl-edit-form__actions { display: flex; justify-content: flex-end; gap: var(--pl-space-2); }
 .pl-edit-hint { color: var(--pl-text-2); font-size: 0.85em; margin-inline-start: var(--pl-space-2); }
+.pl-edit-layer[data-tool="image"], .pl-edit-layer[data-tool="link"] { cursor: crosshair; }
+.pl-edit-object { position: absolute; box-sizing: border-box; border: 1px dashed transparent; cursor: move; background: none; padding: 0; }
+.pl-edit-object:hover, .pl-edit-object:focus-visible { border-color: var(--pl-accent); background: var(--pl-selection); }
+.pl-edit-object.is-selected { border: 1px solid var(--pl-accent); background: var(--pl-selection); }
+.pl-edit-link { cursor: pointer; border-color: var(--pl-accent); }
+.pl-edit-handle { position: absolute; width: 10px; height: 10px; box-sizing: border-box; background: var(--pl-surface-raised); border: 1px solid var(--pl-accent); border-radius: 2px; }
+.pl-edit-handle--nw { left: -6px; top: -6px; cursor: nwse-resize; } .pl-edit-handle--n { left: calc(50% - 5px); top: -6px; cursor: ns-resize; }
+.pl-edit-handle--ne { right: -6px; top: -6px; cursor: nesw-resize; } .pl-edit-handle--e { right: -6px; top: calc(50% - 5px); cursor: ew-resize; }
+.pl-edit-handle--se { right: -6px; bottom: -6px; cursor: nwse-resize; } .pl-edit-handle--s { left: calc(50% - 5px); bottom: -6px; cursor: ns-resize; }
+.pl-edit-handle--sw { left: -6px; bottom: -6px; cursor: nesw-resize; } .pl-edit-handle--w { left: -6px; top: calc(50% - 5px); cursor: ew-resize; }
+.pl-edit-actions { position: absolute; display: flex; align-items: center; gap: var(--pl-space-1); padding: var(--pl-space-1); background: var(--pl-surface-raised); border: 1px solid var(--pl-border); border-radius: var(--pl-radius-md); box-shadow: var(--pl-shadow-2); }
+.pl-edit-color { width: 100%; height: 32px; padding: 0; border: 1px solid var(--pl-border); border-radius: var(--pl-radius-sm); background: none; cursor: pointer; }

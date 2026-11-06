@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import { Button, Checkbox, Field, Select, TextInput } from "../../ui";
-import { parseSize, styleFor, type Align, type Family, type TextBlock, type TextStyle } from "./geometry";
+import { parseColor, parseSize, styleFor, toHex, type Align, type Family, type TextBlock, type TextStyle } from "./geometry";
 import { et } from "./text";
 
 /** Formulario emergente junto al texto: contenido y estilo. `block` es el párrafo que se edita (`null` = texto nuevo). */
@@ -11,11 +11,12 @@ export function TextEditor(p: { block: TextBlock | null; style: { left: string; 
   const [bold, setBold] = createSignal(p.block?.bold ?? false);
   const [italic, setItalic] = createSignal(p.block?.italic ?? false);
   const [align, setAlign] = createSignal<Align>("left");
+  const [color, setColor] = createSignal(toHex(p.block?.color ?? [0, 0, 0]));
   const n = () => parseSize(size());
   const submit = () => {
     const sz = n();
     if (sz === null || !text().trim()) return;
-    p.onApply(text(), styleFor(p.block, { family: family(), size: sz, bold: bold(), italic: italic(), align: align() }));
+    p.onApply(text(), styleFor(p.block, { family: family(), size: sz, bold: bold(), italic: italic(), align: align(), color: parseColor(color()) ?? undefined }));
   };
   return (
     <form class="pl-edit-form" style={p.style} onPointerDown={(e) => e.stopPropagation()}
@@ -37,6 +38,9 @@ export function TextEditor(p: { block: TextBlock | null; style: { left: string; 
       <div class="pl-edit-form__row">
         <Checkbox label={et("edit.editor.bold")} checked={bold()} onChange={(e) => setBold(e.currentTarget.checked)} />
         <Checkbox label={et("edit.editor.italic")} checked={italic()} onChange={(e) => setItalic(e.currentTarget.checked)} />
+        <Field label={et("edit.editor.color")}>
+          <input type="color" class="pl-edit-color" value={color()} onInput={(e) => setColor(e.currentTarget.value)} />
+        </Field>
       </div>
       <div class="pl-edit-form__actions">
         <Button variant="ghost" type="button" onClick={p.onCancel}>{et("edit.editor.cancel")}</Button>

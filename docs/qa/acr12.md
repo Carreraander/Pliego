@@ -88,3 +88,20 @@ JSON de la última ejecución queda en `docs/qa/bench/0.1.0-d05ebc1.json` (el sc
 unos 2 ms. Es un coste de arranque, probablemente la carga de la fuente Helvetica (no incrustada) o la inicialización
 de MuPDF en el primer render. En la app sería un retraso de 1,5 s en la primera página que se ve: hay que investigarlo
 (W02), precalentar el motor en segundo plano y medir aparte en `bench` la primera tesela y la media sin ella.
+
+## Memoria de la app con WebView2 (2026-11-06, beta desde `main` en `f5d8cf9`)
+`tools/bench-memoria-webview.ps1`, 3 repeticiones por variante, 25 s tras abrir `bench-100.pdf`, WebView2 156.0.4314.58. Misma
+medición que la de la beta 0.1.0 (`docs/qa/memoria-webview/2026-11-06-0255-DESKTOP-41TJN0V.json`, 10 variantes); esta
+(`docs/qa/memoria-webview/2026-11-06-0401-DESKTOP-41TJN0V.json`) repite 4 variantes con la beta nueva (incluye #213, #218,
+#220 y #223).
+
+| Variante | Procesos WebView2 | Memoria total (WS) | Privada total | Beta 0.1.0 (WS) |
+|---|---|---|---|---|
+| base | 6 | 452,5 MB | 192,4 MB | 453,2 MB |
+| v8-lite | 6 | 423,9 MB | 167,0 MB | 423,1 MB |
+| gpu-interna | 5 | 454,2 MB | 176,0 MB | 453,9 MB |
+| combo-v8 | 5 | 453,3 MB | 176,4 MB | 456,8 MB |
+
+Sin cambio de memoria respecto a la beta anterior: los cambios de `main` no la mueven. Solo `v8-lite` baja (unos 29 MB)
+y las variantes `gpu-interna` y `combo-v8` ahorran un proceso y unos 16 MB de memoria privada, pero no de conjunto de trabajo.
+El objetivo de 150 MB se cumple para app + worker (unos 52 MB). Con WebView2 el total superaba el techo de entonces de 400 MB; desde el 2026-11-06 el techo es de 500 MB (memoria privada, como el Administrador de tareas) y el banco informa «app+worker» y «WebView2» por separado.

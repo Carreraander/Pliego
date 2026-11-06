@@ -323,6 +323,7 @@ impl WorkerDocument {
 
     fn start(&self, st: &mut State) -> Result<()> {
         let mut proc = spawn(&self.config).map_err(|e| {
+            pliego_core::log::error("worker", format!("no se pudo iniciar {:?}: {e}", self.config.exe));
             Error::Other(format!(
                 "no se pudo iniciar el proceso del motor {:?}: {e}",
                 self.config.exe
@@ -386,6 +387,18 @@ impl WorkerDocument {
                         CallError::Timeout(m) => (m, false),
                         CallError::Op(_) => unreachable!("tratado arriba"),
                     };
+                    pliego_core::log::warn(
+                        "worker",
+                        format!(
+                            "{msg} (intento {}; {})",
+                            attempt + 1,
+                            if retry {
+                                "se relanza y se reintenta"
+                            } else {
+                                "se aísla"
+                            }
+                        ),
+                    );
                     st.proc = None; // Drop mata el proceso; la siguiente petición lo relanza
                     self.restarts.fetch_add(1, Ordering::Relaxed);
                     self.recovered.store(true, Ordering::Relaxed);

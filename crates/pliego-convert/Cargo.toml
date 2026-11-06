@@ -13,6 +13,9 @@ serde.workspace = true
 tempfile.workspace = true
 pulldown-cmark = { version = "0.13", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff", "webp"] }
+# CBZ, EPUB y XPS son paquetes ZIP (OPC): `zip` los lee y `roxmltree` analiza su XML. Ya los usa `pliego-office-export`.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+roxmltree = "0.20"
 
 [dev-dependencies]
 tiff = "0.11"

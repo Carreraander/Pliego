@@ -1,7 +1,8 @@
 import { createSignal, Show } from "solid-js";
 import { api } from "../../api";
 import { activeDoc, currentPageIndex } from "../../state/documents";
-import { Button, Field, Notice, Radio, RadioGroup, TaskPanel, TextInput } from "../../ui";
+import { unlockFile } from "../../state/unlock";
+import { Button, Field, Notice, Radio, RadioGroup, TaskPanel, TextInput, toast } from "../../ui";
 import { fileName, runToolJob } from "../run";
 import { insertArgs } from "./request";
 import { ot } from "./text";
@@ -12,12 +13,20 @@ export default function InsertPanel(p: { onClose: () => void }) {
   const [kind, setKind] = createSignal<"blank" | "file">("blank");
   const [count, setCount] = createSignal("1");
   const [source, setSource] = createSignal<string | null>(null);
+  const [sourcePassword, setSourcePassword] = createSignal<string | null>(null);
   const [pages, setPages] = createSignal("");
   const [where, setWhere] = createSignal(String(currentPageIndex() + 1));
   const [error, setError] = createSignal<string | null>(null);
 
-  const pick = async () => { const f = await api.pickPdfFiles(); if (f[0]) setSource(f[0]); };
-  const args = () => insertArgs({ path: activeDoc()?.path ?? "", total: total(), kind: kind(), count: count(), source: source(), pages: pages(), where: where(), suffix: ot("organize.insert.suffix") });
+  const pick = async () => {
+    const f = (await api.pickPdfFiles())[0];
+    if (!f) return;
+    const u = await unlockFile(f); // si el PDF de origen está protegido, se pide su contraseña ahora
+    if (!u.ok) { if (u.reason === "error") toast({ tone: "danger", text: u.message ?? "" }); return; }
+    setSource(f);
+    setSourcePassword(u.password);
+  };
+  const args = () => insertArgs({ path: activeDoc()?.path ?? "", total: total(), kind: kind(), count: count(), source: source(), sourcePassword: sourcePassword(), pages: pages(), where: where(), suffix: ot("organize.insert.suffix") });
 
   const run = async () => {
     const a = args();

@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use pliego_app_service::DocId;
+use pliego_app_service::passwords::{self, PasswordStatus};
 use pliego_core::{DocInfo, PageSize};
 use tauri::State;
 
@@ -13,6 +14,16 @@ use pliego_app_service::api::{ApiError, ApiResult};
 #[tauri::command]
 pub fn open_document(state: State<'_, AppState>, path: String, password: Option<String>) -> ApiResult<DocId> {
     Ok(state.service.open_document(&PathBuf::from(path), password.as_deref())?)
+}
+
+/// ¿Pide contraseña `path`, y vale la dada? Para los archivos que un panel recibe además del abierto.
+#[tauri::command]
+pub async fn password_status(path: String, password: Option<String>) -> ApiResult<PasswordStatus> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || passwords::status(&PathBuf::from(path), password.as_deref()))
+            .await
+            .map_err(|e| pliego_core::Error::Other(e.to_string()))?;
+    Ok(joined?)
 }
 
 #[tauri::command]

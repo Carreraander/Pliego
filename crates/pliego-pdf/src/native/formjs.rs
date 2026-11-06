@@ -593,6 +593,58 @@ fn apply(shared: &Shared, ids: &HashMap<String, ObjectId>, engine: &js::Engine, 
             }
         }
     }
+    settle_appearances(shared, ids, &form)?;
+    Ok(())
+}
+
+/// Con texto formateado por scripts (`1.234,50 €`, `25 %`) el PDF lleva el valor crudo en `/V` y el texto que se ve en
+/// `/AP`. Con `/NeedAppearances true` PDFium, Poppler, Edge y compañía regeneran la apariencia desde `/V` y muestran el
+/// valor crudo (`1234.5`), porque no ejecutan los scripts de formato. Si todos los campos dibujables tienen
+/// apariencia, se reconstruyen los formateados y se baja la marca para que se vea el texto formateado.
+fn settle_appearances(shared: &Shared, ids: &HashMap<String, ObjectId>, form: &js::Form) -> Result<()> {
+    let formatted: Vec<ObjectId> = shared.borrow().js.display.keys().copied().collect();
+    if formatted.is_empty() {
+        return Ok(());
+    }
+    {
+        let st = shared.borrow();
+        let needs = acroform_dict(&st).is_some_and(|a| matches!(a.get(b"NeedAppearances"), Ok(L::Boolean(true))));
+        if !needs {
+            return Ok(());
+        }
+        let has_ap = |w: ObjectId| {
+            dict_at(&st, w)
+                .and_then(|d| d.get(b"AP").ok())
+                .and_then(|a| st.deref(a))
+                .is_some_and(|a| matches!(a, L::Dictionary(ap) if ap.has(b"N")))
+        };
+        for (name, node) in ids {
+            let drawable = form
+                .field(name)
+                .is_some_and(|f| !matches!(f.kind, js::FieldKind::Signature | js::FieldKind::Button));
+            if drawable && !leaves(&st, *node).into_iter().all(has_ap) {
+                return Ok(());
+            }
+        }
+    }
+    for node in formatted {
+        let widgets = leaves(&shared.borrow(), node);
+        for w in widgets {
+            rebuild_ap(shared, w)?;
+        }
+    }
+    let mut st = shared.borrow_mut();
+    let Some(root) = tree::catalog_id(&st) else {
+        return Ok(());
+    };
+    match dict_at(&st, root).and_then(|c| c.get(b"AcroForm").ok()).cloned() {
+        Some(L::Reference(fid)) => put(&mut st, fid, "NeedAppearances", Some(L::Boolean(false))),
+        Some(L::Dictionary(mut d)) => {
+            d.set("NeedAppearances", L::Boolean(false));
+            put(&mut st, root, "AcroForm", Some(L::Dictionary(d)));
+        }
+        _ => {}
+    }
     Ok(())
 }
 
@@ -790,6 +842,25 @@ pub(super) fn run_action(shared: &Shared, widget_id: ObjectId, trigger: &str) ->
     log(shared, &out);
     give_back(shared, rt);
     r.map(|()| true)
+}
+
+/// Claves de las acciones con script del campo (`K`, `V`, `C`, `F`, `U`, `A`...), ordenadas. Vacío si el motor no está
+/// activo o no conoce el campo.
+pub(super) fn script_triggers(shared: &Shared, widget_id: ObjectId) -> Vec<String> {
+    let Some(rt) = take_runtime(shared) else {
+        return Vec::new();
+    };
+    let name = {
+        let st = shared.borrow();
+        let node = field_node(&st, widget_id);
+        qualified_name(&st, node).filter(|n| rt.ids.get(n) == Some(&node))
+    };
+    let mut keys: Vec<String> = name
+        .and_then(|n| rt.engine.form().field(&n).map(|f| f.scripts.keys().cloned().collect()))
+        .unwrap_or_default();
+    keys.sort();
+    give_back(shared, rt);
+    keys
 }
 
 /// Eventos de documento y de página que pueden tener un script.

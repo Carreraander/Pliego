@@ -59,9 +59,19 @@ pub struct SignatureReport {
     /// Sello de tiempo del documento (B-LTA) que cubre esta firma y su DSS, si lo hay.
     pub document_timestamp: Option<crate::timestamp::TimestampInfo>,
     pub problems: Vec<String>,
+    /// Clave estable de cada entrada de `problems` (misma posición), para que la interfaz las muestre en su idioma:
+    /// `document-timestamp-invalid`, `changes-not-allowed`, `timestamp-mismatch`, `timestamp-invalid`,
+    /// `timestamp-unreadable`, `untrusted-root`, `chain-incomplete`, `chain-invalid` u `other` (texto libre).
+    #[serde(default)]
+    pub problem_keys: Vec<String>,
 }
 
 impl SignatureReport {
+    fn add_problem(&mut self, key: &str, message: String) {
+        self.problems.push(message);
+        self.problem_keys.push(key.to_string());
+    }
+
     /// Firma íntegra, sin cambios posteriores y con cadena de confianza.
     pub fn is_valid(&self) -> bool {
         self.integrity
@@ -155,7 +165,10 @@ pub fn validate_bytes(data: &[u8], opts: &ValidationOptions) -> Result<Vec<Signa
     if let Some(stamp) = doc_stamps.pop() {
         for r in &mut reports {
             if !stamp.valid {
-                r.problems.push("el sello de tiempo del documento no es válido".into());
+                r.add_problem(
+                    "document-timestamp-invalid",
+                    "el sello de tiempo del documento no es válido".into(),
+                );
             } else if r.level == crate::PadesLevel::BLt {
                 r.level = crate::PadesLevel::BLta;
             }
@@ -238,9 +251,10 @@ fn check_signature(
         timestamp: None,
         document_timestamp: None,
         problems: Vec::new(),
+        problem_keys: Vec::new(),
     };
     if let Err(msg) = check_inner(data, d, opts, &mut r) {
-        r.problems.push(msg);
+        r.add_problem("other", msg);
     }
     r
 }
@@ -283,7 +297,10 @@ fn check_inner(
         // Cambios posteriores: permitidos si solo añaden DSS, firmas o anotaciones de campos.
         if let Err(m) = crate::changes::check_updates(data, s2 + l2, r.certification) {
             r.modifications_allowed = false;
-            r.problems.push(format!("cambios no permitidos tras la firma: {m}"));
+            r.add_problem(
+                "changes-not-allowed",
+                format!("cambios no permitidos tras la firma: {m}"),
+            );
         }
     }
     let contents = match d.get(b"Contents") {
@@ -324,24 +341,30 @@ fn check_inner(
             Some(token) => match crate::timestamp::check_token(&token, si.signature.as_bytes(), &opts.trust_anchors) {
                 Ok(t) => {
                     if !t.valid {
-                        r.problems.push("el sello de tiempo no corresponde a esta firma".into());
+                        r.add_problem(
+                            "timestamp-mismatch",
+                            "el sello de tiempo no corresponde a esta firma".into(),
+                        );
                     }
                     r.timestamp = Some(t);
                 }
-                Err(e) => r.problems.push(format!("el sello de tiempo no es válido: {e}")),
+                Err(e) => r.add_problem("timestamp-invalid", format!("el sello de tiempo no es válido: {e}")),
             },
-            None => r.problems.push("el sello de tiempo es ilegible".into()),
+            None => r.add_problem("timestamp-unreadable", "el sello de tiempo es ilegible".into()),
         }
     }
 
     r.chain = check_chain(leaf, &certs, &opts.trust_anchors);
     match r.chain {
         ChainStatus::Trusted => {}
-        ChainStatus::UntrustedRoot => r
-            .problems
-            .push("el certificado no procede de una entidad de confianza".into()),
-        ChainStatus::Incomplete => r.problems.push("la cadena de certificados está incompleta".into()),
-        ChainStatus::Invalid => r.problems.push("la cadena de certificados no es válida".into()),
+        ChainStatus::UntrustedRoot => r.add_problem(
+            "untrusted-root",
+            "el certificado no procede de una entidad de confianza".into(),
+        ),
+        ChainStatus::Incomplete => {
+            r.add_problem("chain-incomplete", "la cadena de certificados está incompleta".into())
+        }
+        ChainStatus::Invalid => r.add_problem("chain-invalid", "la cadena de certificados no es válida".into()),
     }
     Ok(())
 }

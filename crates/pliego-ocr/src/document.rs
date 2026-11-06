@@ -44,6 +44,9 @@ pub struct OcrOptions {
     pub min_confidence: f32,
     /// Carpeta de modelos; `None` = búsqueda habitual.
     pub tessdata_dir: Option<PathBuf>,
+    /// Contraseña del PDF de entrada, si está protegido. La copia resultante conserva el cifrado.
+    #[serde(skip_serializing)]
+    pub password: Option<String>,
 }
 
 impl Default for OcrOptions {
@@ -60,6 +63,7 @@ impl Default for OcrOptions {
             threads: 0,
             min_confidence: 0.0,
             tessdata_dir: None,
+            password: None,
         }
     }
 }
@@ -246,11 +250,10 @@ pub fn ocr_document(input: &Path, output: &Path, opts: &OcrOptions, ctx: &JobCon
         Some(d) => d.clone(),
         None => tessdata::resolve_for(&opts.langs)?,
     };
-    let mut doc =
-        PdfDocument::open(input).map_err(|e| Error::Pdf(format!("no se pudo abrir {}: {e}", input.display())))?;
-    if doc.needs_password()? {
-        return Err(Error::Password);
-    }
+    let mut doc = PdfDocument::open_with_password(input, opts.password.as_deref()).map_err(|e| match e {
+        Error::Password => Error::Password,
+        e => Error::Pdf(format!("no se pudo abrir {}: {e}", input.display())),
+    })?;
     let page_count = doc.page_count()? as u32;
     let range: PageRange = opts.pages.parse()?;
     let selected = range.resolve(page_count)?;

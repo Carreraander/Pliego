@@ -8,7 +8,7 @@ use pliego_app_service::api::ApiResult;
 use pliego_app_service::sign::{self, CertInfo, KeySource};
 use pliego_appdata::copyjob::unique_sibling;
 use pliego_appdata::jobs::JobId;
-use pliego_sign::{SignOptions, SignatureReport};
+use pliego_sign::{SignLang, SignOptions, SignatureReport};
 use pliego_signflow::{AuditEntry, PendingSigner, SignerSpec};
 use tauri::State;
 
@@ -22,10 +22,16 @@ pub fn sign_list_certificates() -> ApiResult<Vec<CertInfo>> {
 
 /// Firma `path` y guarda `<nombre> (firmado).pdf` junto al original.
 #[tauri::command]
-pub fn sign_pdf(jobs: State<'_, JobsState>, path: String, key: KeySource, options: SignOptions) -> JobId {
+pub fn sign_pdf(
+    jobs: State<'_, JobsState>,
+    path: String,
+    key: KeySource,
+    options: SignOptions,
+    suffix: Option<String>,
+) -> JobId {
     let src = PathBuf::from(path);
     jobs.0.spawn(move |ctx| {
-        let out = unique_sibling(&src, "firmado", "pdf");
+        let out = unique_sibling(&src, suffix.as_deref().unwrap_or("firmado"), "pdf");
         sign::sign_pdf(&src, &out, &key, options, ctx)
     })
 }
@@ -38,11 +44,17 @@ pub fn sign_validate(path: String) -> ApiResult<Vec<SignatureReport>> {
 
 /// Prepara `path` para que lo firmen `signers` en orden: `<nombre> (para firmar).pdf`.
 #[tauri::command]
-pub fn signflow_prepare(jobs: State<'_, JobsState>, path: String, signers: Vec<SignerSpec>) -> JobId {
+pub fn signflow_prepare(
+    jobs: State<'_, JobsState>,
+    path: String,
+    signers: Vec<SignerSpec>,
+    lang: Option<SignLang>,
+    suffix: Option<String>,
+) -> JobId {
     let src = PathBuf::from(path);
     jobs.0.spawn(move |ctx| {
-        let out = unique_sibling(&src, "para firmar", "pdf");
-        sign::flow_prepare(&src, &out, signers, ctx)
+        let out = unique_sibling(&src, suffix.as_deref().unwrap_or("para firmar"), "pdf");
+        sign::flow_prepare(&src, &out, signers, lang.unwrap_or_default(), ctx)
     })
 }
 
@@ -54,10 +66,16 @@ pub fn signflow_next(path: String) -> ApiResult<Option<PendingSigner>> {
 
 /// Añade la firma del siguiente firmante: `<nombre> (firmado).pdf`.
 #[tauri::command]
-pub fn signflow_sign(jobs: State<'_, JobsState>, path: String, key: KeySource, options: SignOptions) -> JobId {
+pub fn signflow_sign(
+    jobs: State<'_, JobsState>,
+    path: String,
+    key: KeySource,
+    options: SignOptions,
+    suffix: Option<String>,
+) -> JobId {
     let src = PathBuf::from(path);
     jobs.0.spawn(move |ctx| {
-        let out = unique_sibling(&src, "firmado", "pdf");
+        let out = unique_sibling(&src, suffix.as_deref().unwrap_or("firmado"), "pdf");
         sign::flow_sign(&src, &out, &key, options, ctx)
     })
 }

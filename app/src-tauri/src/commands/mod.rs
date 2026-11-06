@@ -15,6 +15,7 @@ pub mod formdesign;
 pub mod formdetect;
 pub mod index;
 pub mod jobs;
+pub mod logs;
 pub mod measure;
 pub mod ocr;
 pub mod optimize;
@@ -43,6 +44,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         dialog::pick_image_file,
         dialog::pick_source_files,
         document::open_document,
+        document::password_status,
         document::close_document,
         document::document_info,
         document::page_sizes,
@@ -58,9 +60,12 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::recent_thumbnail,
         recents::reveal_path,
         recents::about_info,
+        logs::logs_dir,
+        logs::open_logs_folder,
         jobs::cancel_job,
         convert::create_pdf,
         compare::compare_pdfs,
+        compare::compare_view,
         ocr::ocr_pdf,
         ocr::ocr_languages,
         ocr::ocr_download_language,
@@ -81,6 +86,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         annot::annot_undo,
         annot::forms_fields,
         annot::forms_fill,
+        annot::forms_keystroke,
+        annot::forms_run_action,
         annot::export_comments_xfdf,
         annot::import_comments_xfdf,
         annot::pick_xfdf_file,
@@ -94,6 +101,17 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         pageedit::edit_text_blocks,
         pageedit::edit_text_replace,
         pageedit::edit_text_insert,
+        pageedit::edit_images,
+        pageedit::edit_vectors,
+        pageedit::edit_links,
+        pageedit::edit_image_insert,
+        pageedit::edit_image_replace,
+        pageedit::edit_image_crop,
+        pageedit::edit_object_transform,
+        pageedit::edit_object_delete,
+        pageedit::edit_link_add,
+        pageedit::edit_link_update,
+        pageedit::edit_link_delete,
         index::index_folder,
         index::index_search,
         portfolio::portfolio_create,

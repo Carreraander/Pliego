@@ -6,6 +6,7 @@ import { errorText } from "../run";
 import type { FieldInfo } from "./geometry";
 import { setFieldList } from "./state";
 import { ft } from "./text";
+import { withPassword } from "../../state/passwords";
 
 let cache: { key: string; list: Promise<FieldInfo[]> } | null = null;
 
@@ -13,7 +14,7 @@ let cache: { key: string; list: Promise<FieldInfo[]> } | null = null;
 export function loadFields(doc: OpenDoc): Promise<FieldInfo[]> {
   const key = `${doc.path}:${doc.revision}`;
   if (cache?.key !== key) {
-    const list = invoke<FieldInfo[]>("form_fields", { path: doc.path }).catch((e) => { toast({ tone: "danger", text: errorText(e) }); return []; });
+    const list = invoke<FieldInfo[]>("form_fields", withPassword({ path: doc.path })).catch((e) => { toast({ tone: "danger", text: errorText(e) }); return []; });
     cache = { key, list };
     void list.then((l) => { if (cache?.key === key) setFieldList(l); });
   }
@@ -23,7 +24,7 @@ export function loadFields(doc: OpenDoc): Promise<FieldInfo[]> {
 async function run(command: string, args: Record<string, unknown>): Promise<boolean> {
   try {
     // El servicio guarda la copia de seguridad la primera vez, recarga el visor y devuelve cuántos cambios se pueden deshacer.
-    setUndoDepth(await invoke<number>(command, { ...args, suffix: ft("fdesign.backupSuffix") }));
+    setUndoDepth(await invoke<number>(command, withPassword({ ...args, suffix: ft("fdesign.backupSuffix") })));
     cache = null;
     return true;
   } catch (e) {

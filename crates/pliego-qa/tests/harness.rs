@@ -308,3 +308,42 @@ fn oraculo_acepta_un_campo_de_formulario_con_relieve_redactado() {
     let left = check_redacted(engine.as_ref(), &out, &cfg).unwrap();
     assert!(left.is_empty(), "{left:?}");
 }
+
+/// Falso positivo visto en acr12: con una zona cuyos bordes caen a medio píxel a 150 ppp (140 pt × 150/72 = 291,67), el
+/// anillo exterior de un píxel es el suavizado del borde de la caja negra, no contenido. El oráculo solo debe mirar los
+/// píxeles que caen enteros dentro de la región.
+#[test]
+fn oraculo_ignora_el_suavizado_del_borde_de_una_zona_a_medio_pixel() {
+    let engine = engines::by_name("pdfium").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("form.pdf");
+    std::fs::write(&input, formulario_con_relieve()).unwrap();
+    let (x0, y0, x1, y1) = (140.0, 120.0, 410.0, 146.0);
+    let out = dir.path().join("salida.pdf");
+    let job = RedactJob {
+        areas: vec![Area {
+            page: 0,
+            x0,
+            y0,
+            x1,
+            y1,
+        }],
+        ..Default::default()
+    };
+    apply(&input, &out, None, &job, &JobContext::silent()).unwrap();
+    let cfg = OracleConfig {
+        needles: vec!["SECRETO-123".into()],
+        regions: vec![pliego_qa::oracle::Region {
+            page: 0,
+            x0,
+            y0,
+            x1,
+            y1,
+        }],
+    };
+    let left = check_redacted(engine.as_ref(), &out, &cfg).unwrap();
+    assert!(left.is_empty(), "{left:?}");
+    // Control negativo: la misma región sobre el original (con el campo sin redactar) sí es contenido visible.
+    let original = check_redacted(engine.as_ref(), &input, &cfg).unwrap();
+    assert!(original.iter().any(|f| f.check == "región no uniforme"), "{original:?}");
+}

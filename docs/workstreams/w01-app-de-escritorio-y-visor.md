@@ -53,7 +53,7 @@ Crear la aplicación de escritorio de Pliego con identidad visual propia y un vi
 
 ## Criterios de "hecho"
 - Abre y navega con fluidez un PDF de 500 páginas en acr12 (abrir < 1,5 s, desplazamiento sin saltos visibles a 60 Hz en zoom 100 %).
-- Memoria en reposo < 150 MB con un documento de 100 páginas abierto.
+- Memoria en reposo con un documento de 100 páginas abierto: < 150 MB para app + worker y < 500 MB en total contando WebView2 (decisión de Ander, 2026-11-06; medidos por separado con `tools/bench-memoria-webview.ps1`).
 - Tests: Rust para el servidor de teselas y comandos; Playwright o pruebas de componentes para la interfaz básica.
 - `npm run tauri build` genera un ejecutable en acr12; captura de pantalla adjunta al PR.
 - Bocetos aprobados por Ander (vía hilo de gestión) antes de fusionar el diseño final.

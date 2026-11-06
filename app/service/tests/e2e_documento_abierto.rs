@@ -107,7 +107,7 @@ fn comentar_resaltar_y_deshacer_con_el_documento_abierto() {
     let mut spec = AnnotSpec::new(hits[0].page as usize, pliego_annot::Geometry::Highlight { quads });
     spec.author = Some("Ander".into());
     let before = svc.revision(id).unwrap();
-    let bytes = ed.add(&path, &spec, "copia de seguridad").unwrap();
+    let bytes = ed.add(&path, None, &spec, "copia de seguridad").unwrap();
     svc.reload_bytes(id, &bytes).unwrap();
     assert_repaints(&svc, id, before);
     assert_eq!(std::fs::read(&path).unwrap(), bytes, "el PDF abierto quedó guardado");
@@ -130,7 +130,7 @@ fn comentar_resaltar_y_deshacer_con_el_documento_abierto() {
         let mut s = AnnotSpec::new(0, geometry);
         s.contents = Some("que tal estas?".into());
         let rev = svc.revision(id).unwrap();
-        let b = ed.add(&path, &s, "copia de seguridad").unwrap();
+        let b = ed.add(&path, None, &s, "copia de seguridad").unwrap();
         svc.reload_bytes(id, &b).unwrap();
         assert_repaints(&svc, id, rev);
     }
@@ -153,11 +153,11 @@ fn borrar_un_comentario_con_el_documento_abierto() {
     let ed = Editor::default();
     let mut s = AnnotSpec::new(0, pliego_annot::Geometry::Note { at: [100.0, 100.0] });
     s.contents = Some("borrar".into());
-    let b = ed.add(&path, &s, "cs").unwrap();
+    let b = ed.add(&path, None, &s, "cs").unwrap();
     svc.reload_bytes(id, &b).unwrap();
     let list = pliego_app_service::annot::summary_of(&path, None).unwrap();
     let annot = list.threads[0].comment.id;
-    let b = ed.delete(&path, annot, "cs").unwrap();
+    let b = ed.delete(&path, None, annot, "cs").unwrap();
     svc.reload_bytes(id, &b).unwrap();
     assert_eq!(pliego_app_service::annot::summary_of(&path, None).unwrap().total, 0);
 }
@@ -173,6 +173,7 @@ fn editar_y_anadir_texto_con_el_documento_abierto() {
     let out = pliego_app_service::pageedit::insert(
         &ed,
         &path,
+        None,
         0,
         [60.0, 600.0, 300.0, 640.0],
         "Añadido aquí",
@@ -185,8 +186,18 @@ fn editar_y_anadir_texto_con_el_documento_abierto() {
     assert!(svc.page_text(id, 0).unwrap().contains("Añadido"));
 
     let rev = svc.revision(id).unwrap();
-    let out =
-        pliego_app_service::pageedit::replace(&ed, &path, 0, 0, "Texto nuevo", &style, "copia de seguridad").unwrap();
+    let out = pliego_app_service::pageedit::replace(
+        &ed,
+        &path,
+        None,
+        0,
+        0,
+        "Texto nuevo",
+        &style,
+        true,
+        "copia de seguridad",
+    )
+    .unwrap();
     svc.reload_bytes(id, &out.bytes).unwrap();
     assert_repaints(&svc, id, rev);
     assert!(svc.page_text(id, 0).unwrap().contains("Texto nuevo"));
@@ -208,7 +219,7 @@ fn rellenar_y_disenar_formularios_con_el_documento_abierto() {
     let mut values = pliego_forms::FieldValues::new();
     values.insert(text_field.name.clone(), pliego_forms::FieldValue::Text("Ander".into()));
     let rev = svc.revision(id).unwrap();
-    let b = ed.fill(&path, &values, "copia de seguridad").unwrap();
+    let b = ed.fill(&path, None, &values, "copia de seguridad").unwrap();
     svc.reload_bytes(id, &b).unwrap();
     assert_repaints(&svc, id, rev);
     let after = pliego_app_service::annot::form_fields(&path, None).unwrap();
@@ -227,14 +238,14 @@ fn rellenar_y_disenar_formularios_con_el_documento_abierto() {
         "name": "nuevo", "kind": "text", "page": 0, "rect": [50.0, 50.0, 200.0, 80.0]
     }))
     .unwrap();
-    let b = pliego_app_service::formdesign::add(&ed, &path, &spec, "copia de seguridad").unwrap();
+    let b = pliego_app_service::formdesign::add(&ed, &path, None, &spec, "copia de seguridad").unwrap();
     svc.reload_bytes(id, &b).unwrap();
     let designed = pliego_app_service::formdesign::fields(&path, None).unwrap();
     assert!(designed.iter().any(|f| f.name == "nuevo"));
     let patch: pliego_formdesign::FieldPatch = serde_json::from_value(serde_json::json!({ "required": true })).unwrap();
-    let b = pliego_app_service::formdesign::update(&ed, &path, "nuevo", &patch, "copia de seguridad").unwrap();
+    let b = pliego_app_service::formdesign::update(&ed, &path, None, "nuevo", &patch, "copia de seguridad").unwrap();
     svc.reload_bytes(id, &b).unwrap();
-    let b = pliego_app_service::formdesign::delete(&ed, &path, "nuevo", "copia de seguridad").unwrap();
+    let b = pliego_app_service::formdesign::delete(&ed, &path, None, "nuevo", "copia de seguridad").unwrap();
     svc.reload_bytes(id, &b).unwrap();
     let designed = pliego_app_service::formdesign::fields(&path, None).unwrap();
     assert!(!designed.iter().any(|f| f.name == "nuevo"));
@@ -416,7 +427,7 @@ fn convertir_comprobar_y_buscar_desde_un_pdf_abierto() {
     // Comprobaciones de solo lectura.
     assert!(checks::accessibility(&path, None).is_ok());
     assert!(checks::preflight(&path, "basic", None).is_ok());
-    assert!(checks::pdfa(&path, checks::Level::A2b).is_ok());
+    assert!(checks::pdfa(&path, checks::Level::A2b, None).is_ok());
 
     // Cartera: crear con dos archivos, listar y extraer.
     let other = dir.path().join("otro.pdf");

@@ -86,7 +86,10 @@
 .demo-page { height: 100%; display: grid; place-items: start center; padding: var(--pl-space-8); overflow: hidden; }
 .demo-paper { width: 420px; height: 560px; background: var(--pl-paper); box-shadow: var(--pl-page-shadow); }
 
-/* Presentación (F11): sin armazón; la página ocupa toda la pantalla. */
-[data-presenting] .pl-window { grid-template-rows: 0 0 minmax(0, 1fr) 0; }
+/* Presentación (F11): sin armazón; la página ocupa toda la pantalla. Los elementos con display:none salen de la
+   cuadrícula, así que el cuerpo es el único elemento y tiene una sola fila (con cuatro filas caía en la primera, de 0 px). */
+[data-presenting] .pl-window { grid-template-rows: minmax(0, 1fr); }
 [data-presenting] .pl-titlebar, [data-presenting] .pl-modebar, [data-presenting] .pl-status,
 [data-presenting] .pl-rail, [data-presenting] .pl-sidepanel, [data-presenting] .pl-inspector-col, [data-presenting] .pl-splitter { display: none; }
+[data-presenting] .viewer { scrollbar-width: none; }
+[data-presenting] .viewer::-webkit-scrollbar { display: none; }

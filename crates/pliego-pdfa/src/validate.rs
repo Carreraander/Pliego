@@ -557,7 +557,13 @@ pub fn validate_doc(doc: &PdfDocument, level: Level) -> Result<Validation> {
 
 /// Abre `input` y lo valida contra `level`.
 pub fn validate(input: &Path, level: Level) -> Result<Validation> {
-    let doc = open_pdf(input, None)?;
+    validate_with_password(input, level, None)
+}
+
+/// Como [`validate`] para un archivo protegido con contraseña (el informe dirá, entre otras cosas, que PDF/A no
+/// permite el cifrado).
+pub fn validate_with_password(input: &Path, level: Level, password: Option<&str>) -> Result<Validation> {
+    let doc = open_pdf(input, password)?;
     validate_doc(&doc, level)
 }
 

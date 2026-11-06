@@ -1,2 +1,3 @@
 # Los PDF de prueba son binarios: sin esto, Git en Windows (autocrlf) estropea los desplazamientos y los datos cifrados.
 crates/pliego-pdf/tests/fixtures/** binary
+tests/corpus/packages/** binary

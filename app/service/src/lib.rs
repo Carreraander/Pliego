@@ -18,6 +18,7 @@ pub mod optimize;
 pub mod organize;
 pub mod outputpreview;
 pub mod pageedit;
+pub mod passwords;
 pub mod portfolio;
 pub mod protect;
 pub mod search_index;
@@ -104,7 +105,12 @@ impl DocumentService {
     /// Abre un documento en el worker. Devuelve `Error::Password` si hace falta contraseña.
     pub fn open_document(&self, path: &Path, password: Option<&str>) -> Result<DocId> {
         let t0 = std::time::Instant::now();
-        let doc = self.engine.open(path, password)?;
+        let doc = self.engine.open(path, password).inspect_err(|e| {
+            // Pedir contraseña no es un fallo.
+            if !matches!(e, Error::Password) {
+                pliego_core::log::warn("motor", format!("no se pudo abrir un documento: {e}"));
+            }
+        })?;
         trace("open_document", t0);
         let id = DocId(doc.id());
         lock(&self.docs).insert(id, Arc::new(doc));

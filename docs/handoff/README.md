@@ -86,6 +86,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W22](flujos/w22.md) | Autoactualizaciones | Fusionado (parcial) | Comandos Tauri, directiva HKLM, UI en Ajustes y prueba de extremo a extremo en acr12 |
 | [W25](flujos/w25.md) | Conectar Proteger y Redactar | Fusionado | Falta prueba en acr12 y revisión visual (revision-manual-ander.md) |
 | [W42](flujos/w42.md) | Motor de JavaScript de formularios (Boa) | En curso | Conectarlo a `pliego_pdf::native` y a la app |
+| [W43](flujos/w43.md) | Edición tipo Acrobat (recolocar texto; imágenes, vectores y enlaces) | En curso | PR 1: motor de movimiento y recolocación; falta la interfaz y validar en acr12/pc |
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)
 
@@ -116,7 +117,8 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 - **Actualizaciones:** servidor estático (Caddy en un VPS que pondrá Ander), manifiesto firmado Ed25519
   `v1/<canal>/manifest.json`. La clave secreta de producción la genera Ander sin conexión: **nunca al repo ni al
   VPS**. Con las actualizaciones «Desactivadas» la app no hace ninguna petición.
-- **Memoria en reposo (W01, Ander, 2026-11-04):** 150 MB para app + worker; techo de 400 MB contando WebView2.
+- **Memoria en reposo (W01, Ander, 2026-11-04; techo actualizado 2026-11-06):** 150 MB de memoria privada para app + worker (lo propio de
+  Pliego, medido aparte) y techo de 500 MB en total contando WebView2 (la cifra del Administrador de tareas). Antes era 400 MB.
 - **Bates continua en lote:** en las acciones en lote la numeración Bates sigue entre archivos y está activada por
   defecto (#103), como se espera en un expediente.
 - **TLS:** https con rustls + proveedor ring (licencias compatibles con AGPL). Dependencias RustCrypto en la
@@ -137,7 +139,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 3. ~~W20 (y W03): control de pantalla~~: no funciona desde Remote Control; lo visual lo hace Ander a mano. Ander autorizó
    (2026-11-04) que gestión pruebe sola en acr12 la beta nueva y los PDFs cifrados de W07 en lo que no necesite pantalla.
 4. ~~Criterio de memoria de W01~~: **decidido por Ander (2026-11-04)**: 150 MB para app + worker y techo total de
-   400 MB contando WebView2.
+   400 MB contando WebView2; **el 2026-11-06 subió el techo total a 500 MB** (app+worker y WebView2 se miden por separado).
 5. **DNIe/FNMT (W05):** acr12 no tiene lector de tarjetas conectado (#106); conectar uno o descartar la prueba.
 6. ~~Modelos GGUF de W18 en C:~~: **Ander autorizó moverlos a D: (2026-11-04)**; lo hace W18.
 7. ~~Excluir `D:\dev-cache` del antivirus~~: no hace falta. La causa del indexado lento era `system-fonts` de MuPDF

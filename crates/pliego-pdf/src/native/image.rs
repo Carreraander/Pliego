@@ -20,6 +20,7 @@ use super::appearance::n;
 use super::font::flate_stream;
 
 mod decode;
+pub(crate) mod ink;
 use super::{Object, PdfDocument, PdfPage};
 use crate::geom::Rect;
 use crate::pixmap::{Colorspace, Pixmap};

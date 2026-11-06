@@ -46,6 +46,10 @@ pub struct OcrArgs {
     /// Carpeta con los modelos `*.traineddata`.
     #[arg(long)]
     pub tessdata: Option<PathBuf>,
+    /// Contraseña del PDF de entrada. Si falta se usa la variable de entorno `PLIEGO_PASSWORD` (así la app no la
+    /// deja visible en la lista de procesos).
+    #[arg(long)]
+    pub password: Option<String>,
     /// Lista los idiomas instalados y termina.
     #[arg(long)]
     pub list_languages: bool,
@@ -125,6 +129,9 @@ pub fn run(a: OcrArgs, json: bool) -> anyhow::Result<()> {
         denoise: a.denoise,
         threads: a.jobs,
         tessdata_dir: a.tessdata,
+        password: a
+            .password
+            .or_else(|| std::env::var("PLIEGO_PASSWORD").ok().filter(|p| !p.is_empty())),
         ..OcrOptions::default()
     };
     let ctx = JobContext::new(&Bar, CancelToken::new());

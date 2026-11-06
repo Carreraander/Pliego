@@ -19,6 +19,8 @@ export interface SignatureReport {
   has_timestamp: boolean;
   document_timestamp: { valid: boolean } | null;
   problems: string[];
+  /** Clave estable de cada aviso de `problems` (misma posición); puede faltar en informes antiguos. */
+  problem_keys?: string[];
 }
 type Level = "b-b" | "b-t" | "b-lt" | "b-lta";
 
@@ -44,3 +46,22 @@ export function overall(reports: SignatureReport[]): Verdict | null {
 }
 
 export const levelLabel = (l: Level): string => ({ "b-b": "B-B", "b-t": "B-T", "b-lt": "B-LT", "b-lta": "B-LTA" })[l];
+
+/** Avisos que ya muestra la línea de la cadena de confianza: no se repiten como avisos sueltos. */
+const CHAIN_KEYS = new Set(["untrusted-root", "chain-incomplete", "chain-invalid"]);
+
+/**
+ * Avisos de una firma en el idioma de la app. El motor manda, junto a cada texto (en español), una clave estable;
+ * `translate` busca `problem.<clave>`. Un aviso sin clave conocida (`other`, o un informe antiguo) se muestra tal cual.
+ */
+export function problemLines(r: SignatureReport, translate: (key: string) => string): string[] {
+  const keys = r.problem_keys ?? [];
+  const lines: string[] = [];
+  r.problems.forEach((message, i) => {
+    const key = keys[i];
+    if (key && CHAIN_KEYS.has(key)) return;
+    const text = key && key !== "other" ? translate(`problem.${key}`) : message;
+    lines.push(text === `problem.${key}` ? message : text);
+  });
+  return lines;
+}

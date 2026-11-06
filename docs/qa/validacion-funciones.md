@@ -35,7 +35,7 @@ e2e_documento_abierto`.
 ### Ver
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto | V: pantalla completa |
+| `viewer.present` Presentación | 🟡 | A: `present.test.ts`, manifiesto; Playwright `medir-presentacion.spec.ts` (F11 oculta el armazón, la página cabe entera, flechas/Inicio/Fin, Esc vuelve). **Bug hallado y arreglado (2026-11-05):** al ocultar el armazón la cuadrícula del shell dejaba el visor a 0 px de alto → F11 mostraba una pantalla en blanco | **Windows (pc, app real, 2026-11-05):** F11 a pantalla completa 1920×1080 sin barras, la página cabe, flechas/Inicio/Fin/Esc OK; vista pequeña pendiente de arreglar: con escala 125 % asomaban ~5 px de la página siguiente y se veía la barra de desplazamiento (margen y barra ajustados en el PR siguiente) | V |
 | `viewer.layers` Capas | 🟢 | E2E2 (`e2e_herramientas.rs`): PDF con una capa, ocultar y mostrar cambia la tesela y no toca el archivo; capa inexistente da error | V (un PDF de verdad con capas) |
 | `viewer.attachments` Adjuntos | 🟡 | A: `attachments.test.ts`; E2E: cartera (crear, listar, extraer) | V |
 | `viewer.properties` Propiedades | 🟡 | A: `properties.test.ts`, `document_info` | V |
@@ -52,16 +52,16 @@ e2e_documento_abierto`.
 ### Rellenar y firmar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor | W; V |
-| `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | W: certificado del almacén de Windows (CNG), DNIe sin lector; V |
-| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo | W |
+| `forms.fill` campos y «Mi firma» | 🟡 | E2E: rellenar campo de texto con el documento abierto y comprobar el valor; Playwright `rellenar-scripts.spec.ts` (backend simulado): campo con formato enseña `1.234,50 €` sin enfocar y el valor al editar, el filtro de tecleo rechaza letras y acepta cifras, `forms_fill` al confirmar y el botón con acción llama a `forms_run_action` y enseña el aviso del script | W; V |
+| `sign.digital` Firma digital | 🟡 | A: `sign.rs`; E2E2: firma con PFX de prueba desde un PDF abierto, la copia se abre en el visor y valida; no se puede firmar sobre el propio archivo | **Windows (pc, 2026-11-05):** firma con certificado en una **tarjeta inteligente virtual TPM** (proveedor «Microsoft Smart Card Key Storage Provider», el mismo camino que el DNIe): `pliego sign --store` firma en 4–7 s, `verify --strict` válida, un bit alterado la rompe, cancelar el PIN da `Cancelled`. El PIN lo pide una ventana de Windows (`Credential Dialog Xaml Host`) que se puede automatizar con UI Automation (`PasswordField_0` + `OkButton`). Con PIN erróneo Windows reabre el cuadro y la firma espera (no da error): cuidar que la interfaz no se quede bloqueada. DNIe real: pendiente de lector; V |
+| `sign.validate` Validar firmas | 🟡 | A: `validate` tras firmar; E2E2: dos firmas del flujo; vitest `problems.test.ts` y Playwright con la app en inglés: los avisos salen en el idioma de la app | W |
 | `sign.workflow` Flujo de firmas | 🟡 | A: `signflow_runs_in_order_and_keeps_an_audit_log`; E2E2: preparar, dos firmas en orden, auditoría de 3 entradas, cada paso se abre y se pinta | W, V |
 
 ### Organizar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
 | `pages.organize` (miniaturas, girar, borrar, reordenar, extraer) | 🟡 | A: `pages_copy` (reordenar, girar, borrar, duplicar) | V: arrastrar y soltar |
-| `pages.merge` Combinar | 🟢 | A + E2E: combina dos PDF abiertos y cuenta páginas | — |
+| `pages.merge` Combinar | 🟢 | A + E2E: combina dos PDF abiertos y cuenta páginas; con un PDF cifrado distinto en cada archivo (`e2e_contrasena.rs`) | — |
 | `pages.split` Dividir | 🟢 | A + E2E | — |
 | `pages.insert` Insertar | 🟡 | A: `insert_copy` (en blanco y de otro PDF) | — |
 | `pages.number` Numerar | 🟢 | A + E2E: el número «Página 1 de N» aparece en el texto de la hoja | V (Reader) |
@@ -76,7 +76,7 @@ e2e_documento_abierto`.
 ### Formularios
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `forms.design` Diseñar | 🟡 | E2E: añadir, cambiar y borrar un campo con el documento abierto | **W**; V |
+| `forms.design` Diseñar | 🟡 | E2E: añadir, cambiar y borrar un campo con el documento abierto; `pliego-formdesign/tests/render_forms.rs` (Linux con PDFium de la CI): los 15 campos de un formulario (texto, número con €, fecha, %, multilínea, contraseña, casillas, radios, combo, lista, botón, firma) se dibujan con tinta donde toca, en vivo y tras guardar. **Bugs hallados y arreglados (2026-11-05):** (1) con texto formateado por scripts el PDF llevaba `/NeedAppearances true` y PDFium/Poppler/Edge regeneraban la apariencia desde `/V`: se veía `1234.5` en vez de `1.234,50 €` y `0.255` en vez de `25,5%`; ahora se reconstruye la apariencia y se baja la marca; (2) los radios del diseñador se dibujaban con marco cuadrado | **W** (dibujo en la app instalada); V (Reader) |
 | `forms.detect` Detectar campos | 🟡 | A: `tests/formdetect.rs` | — |
 
 ### OCR
@@ -104,8 +104,8 @@ e2e_documento_abierto`.
 ### Comparar y optimizar
 | Herramienta | Estado | Evidencia | Falta |
 | --- | --- | --- | --- |
-| `compare.compare` Comparar | 🟡 | Conectado como panel de tarea (no pantalla): compara el documento abierto con otro y guarda `<nombre> (comparación).pdf`; A: `compare.rs` (informe, idénticos, peticiones inválidas) | V; pantalla lado a lado (diseño original) pendiente |
-| `optimize.compress` Comprimir | 🟢 | A + E2E: copia con el mismo número de páginas | Documentos con contraseña (el panel no la guarda) |
+| `compare.compare` Comparar | 🟡 | Panel de tarea: compara el documento abierto con otro y guarda `<nombre> (comparación).pdf`; A: `compare.rs` (informe, idénticos, peticiones inválidas). **Vista lado a lado** («Ver lado a lado», comando `compare_view`): dos columnas en un solo lienzo con un solo desplazamiento, páginas emparejadas (huecos en insertadas/eliminadas), cambios resaltados en los dos (quitado rojo, añadido verde, cambiado ámbar, formato punteado, aspecto con recuadro), F3/Mayús+F3 y contador; A: `compare_view` en `app/service`, `view.test.ts` (disposición, cambios, saltos) y e2e simulado `tests/visual/compare-view.spec.ts` (capturas en `test-results/compare-view/`) | **W**: comparar dos PDF reales con teselas de PDFium; V: aspecto y posición de los resaltados sobre páginas reales, legibilidad en oscuro y alto contraste |
+| `optimize.compress` Comprimir | 🟢 | A + E2E: copia con el mismo número de páginas; con contraseña (E2E2) | — |
 | `optimize.advanced` Optimizar avanzado | 🟡 | A: `analyze` | — |
 
 ### Accesibilidad, impresión, lote
@@ -118,7 +118,7 @@ e2e_documento_abierto`.
 | `print.preflight` Comprobación previa | 🟢 | A + E2E: perfil `basic` | — |
 | `batch.actions` Acciones en lote | 🟡 | A: `tests/actions.rs`; E2E2: acción «borrar página 1» sobre un PDF abierto, salidas con una página menos | W |
 | `batch.index` Índice de búsqueda | 🟢 | A + E2E: indexa una carpeta y encuentra «Pliego» | índice de 1.000 PDF en W |
-| `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer | V |
+| `batch.measure` Medir | 🟡 | A: `measure.rs`; E2E2: guardar escala y medida en el PDF abierto, repintar y deshacer; Playwright `medir-presentacion.spec.ts`: calibrar (200 px = 10 m), distancia (400 px → 20 m), área (100 m²) y `1:100`, con la geometría real del zoom y capturas | **Windows (pc, app real):** calibrar con 2 clics y 10 m → `1 pt = 0,09375 m`, distancia de 400 px = 20,00 m, área 200×200 px = 100,00 m² (perímetro 40,00 m); «Guardar medida» deja `line` y `polygon` en el PDF (`pliego annot list`) y la copia «(antes de medir)» idéntica | V |
 | `batch.portfolio` Carteras | 🟢 | A + E2E: crear, listar y extraer | — |
 
 ### Asistente y actualizaciones
@@ -129,24 +129,65 @@ e2e_documento_abierto`.
 
 ## Documentos con contraseña (2026-11-05)
 
-El panel no guardaba la contraseña: abrir un PDF protegido pedía la clave, pero Comprimir, Convertir, Sellos, Numerar,
-Comprobaciones, Portafolio, Medir… la mandaban vacía y fallaban. Ahora la interfaz recuerda la contraseña **solo en
-memoria** (`app/src/state/passwords.ts`, se olvida al cerrar el documento) y la añade a los trabajos y consultas sobre
-ese mismo archivo (`runToolJob` y las consultas directas). Probado con vitest (`passwords.test.ts`), Playwright
-(`app-smoke.spec.ts`: abrir con contraseña y comprimir manda `password`) y en Rust (`e2e_herramientas.rs`: comprobar,
-analizar, comprimir, numerar y Bates sobre un PDF cifrado; las copias **siguen protegidas**).
+Regla: **la contraseña de un PDF abierto llega a todas las herramientas** y las copias que salen siguen protegidas con la
+misma contraseña. La interfaz la recuerda **solo en memoria** (`app/src/state/passwords.ts`, se olvida al cerrar el
+documento) y la añade a los trabajos y consultas sobre ese archivo (`runToolJob` y `withPassword` en las llamadas
+directas). Para los archivos que una herramienta recibe **además** del abierto (Combinar, Comparar con otro PDF, Insertar
+páginas de otro PDF) el comando `password_status` dice si piden contraseña y el panel la pide en un diálogo
+(`state/unlock.ts`, `components/PasswordPrompt.tsx`) antes de lanzar el trabajo; esas contraseñas viven en el panel y no
+se guardan en ninguna parte.
 
-Bug encontrado por esa prueba y arreglado: Comprimir un PDF cifrado con la contraseña correcta fallaba al final con
-«contraseña necesaria» porque la comprobación del resultado no usaba la contraseña (`pliego-optimize`).
+| Herramienta | Cómo llega la contraseña | Prueba |
+| --- | --- | --- |
+| Comprimir, Convertir, Sellos, Numerar, Bates, comprobaciones, Portafolio, Medir (consulta) | `password` del comando (PR #203) | `e2e_herramientas.rs`, `passwords.test.ts`, `app-smoke.spec.ts` |
+| **OCR** y «Enderezar y limpiar» | `OcrRequest.password` → variable `PLIEGO_PASSWORD` del proceso hijo `pliego ocr` (también `--password`); nunca por la línea de órdenes | `e2e_contrasena.rs` (CLI real, copia protegida), `ocr.rs` (CLI simulada: entorno sí, argumentos no), `crates/pliego-cli/tests/ocr.rs` |
+| **Comparar** con el segundo archivo cifrado | `passwordA` (la del abierto) y `passwordB` (se pide al elegir el archivo) | `e2e_contrasena.rs`, `app-smoke.spec.ts` (contraseña mala, correcta y cancelar) |
+| **Combinar** | `MergeOptions.file_passwords` (una por archivo; `password` común como reserva) | `e2e_contrasena.rs`, `pliego-organize/tests/organize.rs`, `app-smoke.spec.ts` |
+| **Insertar páginas** de otro PDF cifrado | `sourcePassword` (se pide al elegir el archivo) | `e2e_contrasena.rs`, `request.test.ts` |
+| **Comentar**, rellenar, diseñar campos, editar y añadir texto, medir (guardar), XFDF, resumen de comentarios | `password` en `annot_*`, `forms_*`, `form_*`, `edit_text_*`, `measure_save`: el archivo se abre con ella, se edita y se **guarda con la misma protección**; el visor se recarga porque el worker conserva la contraseña | `e2e_contrasena.rs`: resaltar, borrar y deshacer; rellenar y diseñar; editar, añadir texto y medir; el original (la copia de seguridad) sigue cifrado |
 
-No cubierto todavía con contraseña: OCR (la CLI `pliego ocr` no tiene opción de contraseña), Comparar con el segundo
-archivo cifrado, Combinar con entradas cifradas y las ediciones que escriben encima del propio PDF (comentar, rellenar,
-editar texto, diseñar campos, medir).
+Bugs encontrados al hacerlo (arreglados):
+- Comprimir un PDF cifrado con la contraseña correcta fallaba al final por la comprobación del resultado (#203).
+- El mensaje de error del OCR salía como la última línea de la traza si la CLI tenía `RUST_BACKTRACE`: ahora se usa la
+  línea «Error: …» y la app quita esa variable del hijo.
+- Las lecturas de campos y comentarios de un PDF cifrado devolvían una lista vacía sin avisar (no recibían la contraseña).
+
+**Sin soporte todavía:** firmar o validar un PDF cifrado (`pliego-sign` lo rechaza al ver `/Encrypt`; `sign_validate` y
+el flujo de firmas no reciben contraseña) y las acciones en lote sobre carpetas (cada archivo tendría la suya).
+
+Falta en Windows (acr12 / «pc»): repetir `cargo test -p pliego-app-service --test e2e_contrasena` con `PLIEGO_CLI`
+apuntando a la CLI compilada, y la comprobación visual de Ander (abrir un PDF cifrado, comentar, comprimir y combinar
+con otro cifrado).
+
+## Idioma de las firmas (2026-11-05)
+
+Con la app en inglés, la apariencia visible de la firma («Firmado digitalmente por…», «Fecha», «Motivo», «Lugar»), el
+nombre del campo («FirmaN»), la hoja y el motivo del flujo de firmas y los avisos de «Validar firmas» seguían en
+español (los textos salían del motor). Ahora `SignOptions.lang` (`es`/`en`, por defecto `es`) decide el texto que la
+firma deja en el PDF y la interfaz manda el idioma de la app; el motor da una clave estable por aviso
+(`problem_keys`) y la interfaz los traduce. Los sufijos de las copias («firmado», «para firmar») también salen de la
+interfaz. Sin cubrir: el error libre al leer una firma corrupta (`other`).
+
+## Centro de tareas en inglés (2026-11-05)
+
+Los títulos, el progreso («Guardando…») y los resúmenes («3 páginas numeradas») de los trabajos salen de los motores
+en español (la CLI usa los mismos). La interfaz los traduce en `app/src/jobs/translate.ts` con una tabla de plantillas
+(`RULES`, es → en); un texto sin regla se muestra tal cual. `translate.test.ts` recorre los fuentes de Rust y falla si
+aparece una plantilla sin regla, así que añadir un mensaje nuevo obliga a traducirlo. Sin cubrir: los errores libres
+(`job.error`), que siguen en español.
+
+## Registro de diagnóstico (2026-11-06)
+
+Un fallo en el equipo de una persona no dejaba rastro. Ahora hay un log con rotación (`pliego_core::log`; ver
+`docs/app-integration.md`): arranque, worker, documentos que no abren, trabajos fallidos, pánicos y actualizaciones, sin
+contenidos ni contraseñas. Pruebas: unitarias de rotación y saneado, `crates/pliego-appdata/tests/log_trabajos.rs` y el
+botón de Ajustes en `app-smoke.spec.ts`. **W** pendiente en Windows: arrancar la app, provocar un fallo (abrir un PDF
+dañado), comprobar `%APPDATA%\Pliego\logs\pliego.log` y que «Abrir carpeta de registros» abre el Explorador.
 
 ## Cómo repetirlo
 
 ```
-cargo test -p pliego-app-service --test e2e_documento_abierto --test e2e_herramientas   # Linux y Windows (acr12: por turno)
+cargo test -p pliego-app-service --test e2e_documento_abierto --test e2e_herramientas --test e2e_contrasena   # Linux y Windows (acr12: por turno; con PLIEGO_PDFIUM_DLL y, para el OCR, PLIEGO_CLI)
 cd app && npx playwright test tests/visual/app-smoke.spec.ts --project=claro
 cargo test -p pliego-engine -p pliego-core -p pliego-net
 cargo test -p pliego-app-service --lib -- ocr:: compare::   # OCR con CLI simulada y Comparar
@@ -156,5 +197,5 @@ cd app && npm test
 ## Pendiente (siguientes PRs)
 
 1. Repetir en acr12 las pruebas marcadas **W** y pasar a Ander las **V** (`gestion/revision-manual-ander.md`).
-2. Contraseña en OCR, Comparar (archivo B), Combinar y las ediciones sobre el propio PDF (ver arriba).
-3. Pantalla lado a lado de Comparar.
+2. Repetir en Windows las pruebas con contraseña (`e2e_contrasena.rs`).
+3. ~~Pantalla lado a lado de Comparar~~ (hecha; falta Windows y revisión visual).

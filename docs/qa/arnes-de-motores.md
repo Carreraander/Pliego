@@ -95,3 +95,6 @@ Cuando el motor nuevo de render esté enchufado en `engines::by_name`, `engine-c
 - Manual: `pliego redact ... --apply -o salida.pdf` y luego
   `redaction-oracle salida.pdf --original entrada.pdf --needle ...`. **Usa siempre `--original`**: sin él el oráculo solo busca
   el dato entero y no ve restos parciales (`8Z`) ni texto vecino perdido (fallo de las páginas giradas 90°/270°).
+  Con `--original`, pasa cada dato **completo, tal como lo encuentra `pliego redact`** (`+34 612 345 678`, el IBAN entero): si falta
+  una parte, sus palabras se cuentan como texto vecino perdido (`+34`). Las regiones (`--region`) se miden solo sobre los píxeles
+  que caen enteros dentro de ellas: el suavizado de un borde a medio píxel no cuenta como contenido.

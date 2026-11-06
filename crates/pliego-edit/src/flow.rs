@@ -99,6 +99,15 @@ fn body_top(pdf: &PdfDocument, page: usize, col: (f32, f32)) -> Result<Option<f3
         .map(|e| e.rect[1]))
 }
 
+/// Margen superior del cuerpo de la página `page` (donde empieza su primer elemento de la columna), para las páginas
+/// nuevas que se inserten: así quedan como la que se edita y no con un hueco distinto. Sin elementos, el 10 % del alto.
+/// Hay que llamarla antes de retirar el texto original, que puede ser ese primer elemento.
+pub(crate) fn margin_top(pdf: &PdfDocument, page: usize, col: (f32, f32)) -> Result<f32> {
+    let h = page_height(pdf, page)?;
+    let fallback = (h * 0.1).max(36.0);
+    Ok(body_top(pdf, page, col)?.map_or(fallback, |t| t.clamp(36.0, (0.2 * h).max(36.0))))
+}
+
 /// Recoloca lo que hay bajo `y_start` en la columna `col` de la página, `dy` puntos (positivo = hacia abajo).
 /// `reserve` es el hueco que hay que dejar al principio de la página siguiente (por delante de lo que desborde) para
 /// el texto del propio párrafo que también pasa a ella; `inserted` son las páginas que ya se insertaron tras `page`
@@ -418,11 +427,11 @@ pub(crate) fn make_room_on_next_pages(
     leading: f32,
     rest_lines: usize,
     gap_after: f32,
+    default_top: f32,
     opts: &FlowOptions,
     report: &mut Report,
 ) -> Result<Vec<Placement>> {
     let h = page_height(pdf, page)?;
-    let default_top = (h * 0.1).max(36.0);
     let cap = (((h - BOTTOM_MARGIN - default_top) / leading).floor().max(1.0)) as usize;
     let (mut left, mut full) = (rest_lines, 0usize);
     while left > cap {
@@ -503,14 +512,13 @@ pub(crate) fn push_below(
     y_start: f32,
     leading: f32,
     dy: f32,
+    default_top: f32,
     opts: &FlowOptions,
     report: &mut Report,
 ) -> Result<()> {
     if !opts.push_below {
         return Ok(());
     }
-    let h = page_height(pdf, page)?;
-    let default_top = (h * 0.1).max(36.0);
     if !(dy.is_finite() && leading.is_finite() && leading > 0.0) {
         return Err(Error::InvalidInput(
             "no se pudo calcular la recolocación del texto".into(),

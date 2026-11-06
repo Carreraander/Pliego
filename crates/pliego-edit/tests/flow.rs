@@ -583,8 +583,15 @@ fn huge_text_keeps_the_logo_and_its_line_together_after_the_text_without_overlap
         segundo[3] <= find(&p1, "Tercer")[1] && cuarto[3] < logo.0 && logo.1 < line[1],
         "el orden se conserva: {p1:#?}"
     );
-    // El resto del párrafo ocupa la página 2 desde arriba y no toca el pie ni se sale.
+    // El resto del párrafo ocupa la página 2 desde arriba, con el mismo margen superior que la 1, y no se sale.
     let mid = elements(&doc, 1);
+    let first = |e: &[(String, [f32; 4])]| e.iter().map(|(_, b)| b[1]).fold(f32::MAX, f32::min);
+    assert!(
+        (first(&mid) - first(&elements(&doc, 0))).abs() < 3.0,
+        "la página insertada debe empezar con el margen de la original: {} frente a {}",
+        first(&mid),
+        first(&elements(&doc, 0))
+    );
     assert!(
         mid.iter().all(|(_, b)| b[3] <= 842.0 - 30.0),
         "el texto sobrante no debe pasar del margen inferior: {mid:#?}"

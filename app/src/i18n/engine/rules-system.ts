@@ -80,7 +80,6 @@ export const SYSTEM_RULES: readonly Rule[] = [
   ["La dirección del enlace es demasiado larga.", "The link address is too long."],
   ["La dirección del enlace tiene caracteres que no se admiten.", "The link address has characters that are not allowed."],
   ["El enlace no es una dirección web.", "The link is not a web address."],
-  ["Pliego no abre enlaces de tipo «{}»; solo web (http, https) y correo (mailto).", "Pliego does not open links of type \"{}\"; only web (http, https) and email (mailto)."],
     ["sin páginas", "no pages"], ["indica páginas en blanco o un archivo", "enter blank pages or a file"], ["el asistente se interrumpió: {}", "the assistant was interrupted: {}"],
   ["No se pudo guardar la lista de recientes: {}", "The recent files list could not be saved: {}"], ["Los ajustes deben ser un objeto JSON", "Settings must be a JSON object"],
   ["No se pudieron guardar los ajustes: {}", "Settings could not be saved: {}"],

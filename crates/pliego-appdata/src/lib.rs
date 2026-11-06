@@ -7,6 +7,7 @@ pub mod about;
 pub mod copyjob;
 pub mod jobs;
 pub mod recents;
+pub mod session;
 pub mod settings;
 pub mod weblink;
 

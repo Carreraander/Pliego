@@ -104,4 +104,17 @@ export const SYSTEM_RULES: readonly Rule[] = [
   ["paso desconocido «{}». Disponibles: {}", "unknown step “{1}”. Available: {2}"], ["el paso {} ({}) no produjo ningún archivo", "step {1} ({2}) produced no file"],
   ["la salida de {} coincidiría con el original; elige otra carpeta de salida", "the output of {} would match the original; choose another output folder"],
   ["la acción ha cambiado desde el lote anterior: se empieza de cero", "the action changed since the previous batch: starting from scratch"],
+  // ── 1.0: guardar como, propiedades, adjuntos, recorte, marcadores, accesibilidad y ajustes ──
+  ["el destino es el propio documento", "the destination is the document itself"],
+  ["no hay ninguna propiedad que cambiar", "there is no property to change"],
+  ["elige al menos un archivo para adjuntar", "choose at least one file to attach"],
+  ["{} ocupa más de {} MB, el máximo para adjuntar", "{1} is larger than {2} MB, the maximum for an attachment"],
+  ["elige qué adjunto quitar", "choose which attachment to remove"], ["el documento no tiene el adjunto «{}»", "the document has no attachment “{}”"],
+  ["un PDF no puede adjuntarse a sí mismo", "a PDF cannot be attached to itself"],
+  ["los márgenes del recorte no pueden ser negativos", "the crop margins cannot be negative"],
+  ["no hay nada que recortar: todos los márgenes son 0", "there is nothing to crop: all margins are 0"],
+  ["un marcador no puede quedarse sin nombre", "a bookmark cannot be left without a name"],
+  ["etiquetas ({} encabezado(s), {} párrafo(s), {} lista(s), {} figura(s), {} tabla(s))", "tags ({1} heading(s), {2} paragraph(s), {3} list(s), {4} figure(s), {5} table(s))"],
+  ["Solo está disponible en Windows", "Only available on Windows"],
+  ["No se pudo abrir la configuración de Windows: {}", "Could not open the Windows settings: {}"],
 ];

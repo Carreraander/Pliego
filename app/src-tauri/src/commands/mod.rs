@@ -27,6 +27,7 @@ pub mod print;
 pub mod protect;
 pub mod recents;
 pub mod search;
+pub mod session;
 pub mod settings;
 pub mod sign;
 pub mod stamp;
@@ -44,13 +45,16 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         dialog::pick_any_files,
         dialog::pick_image_file,
         dialog::pick_source_files,
+        dialog::pick_save_pdf,
         document::open_document,
         document::password_status,
         document::close_document,
         document::document_info,
         document::page_sizes,
         document::file_facts,
+        document::properties_save,
         document::bump_revision,
+        document::save_document_as,
         search::search,
         settings::get_settings,
         settings::set_settings,
@@ -60,10 +64,14 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::recents_pin,
         recents::recent_thumbnail,
         recents::reveal_path,
+        recents::open_default_apps,
         recents::open_web_link,
         recents::about_info,
         logs::logs_dir,
         logs::open_logs_folder,
+        session::session_previous,
+        session::session_save,
+        session::crash_report,
         jobs::cancel_job,
         convert::create_pdf,
         compare::compare_pdfs,
@@ -86,6 +94,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         outputpreview::output_preview,
         checks::reading_order,
         checks::tab_order_copy,
+        checks::make_accessible,
         checks::validate_pdfa,
         checks::preflight_pdf,
         annot::annot_summary,
@@ -126,6 +135,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         portfolio::portfolio_create,
         portfolio::portfolio_list,
         portfolio::portfolio_extract,
+        portfolio::attachments_add,
+        portfolio::attachments_remove,
         convert::export_pdf,
         convert::pdfa_convert,
         convert::office_export_pdf,
@@ -148,6 +159,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         organize::insert_pages,
         organize::number_pages,
         organize::organize_pages,
+        organize::outline_tree,
+        organize::crop_pages,
+        organize::outline_save,
         stamp::stamp_pdf,
         stamp::stamp_annot_pdf,
         text::outline,

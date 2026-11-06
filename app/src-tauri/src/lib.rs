@@ -66,6 +66,19 @@ pub fn run() {
             app.manage(commands::recents::RecentsState(
                 pliego_appdata::recents::RecentStore::new(&data_dir),
             ));
+            // Marca de «en marcha»: si ya estaba, la vez anterior Pliego se cerró de golpe.
+            let session = pliego_appdata::session::SessionStore::new(&data_dir);
+            let previous = session.start();
+            if previous.crashed {
+                pliego_core::log::warn(
+                    "arranque",
+                    format!("la sesión anterior no se cerró bien ({} pestañas)", previous.docs.len()),
+                );
+            }
+            app.manage(commands::session::SessionState {
+                store: session,
+                previous,
+            });
             app.manage(commands::jobs::JobsState::new(app.handle().clone()));
             app.manage(commands::assistant::AssistantState::default());
             app.manage(commands::annot::AnnotEditState::default());
@@ -76,9 +89,18 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(commands::handler())
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .unwrap_or_else(|e| {
             pliego_core::log::error("arranque", format!("no se pudo iniciar Pliego: {e}"));
             panic!("no se pudo iniciar Pliego: {e}");
+        })
+        .run(|app, event| {
+            // Salida normal: se quita la marca de «en marcha» para que el próximo arranque no ofrezca recuperar.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(s) = app.try_state::<commands::session::SessionState>() {
+                    s.store.clean_exit();
+                }
+                pliego_core::log::info("cierre", "Pliego se cerró bien");
+            }
         });
 }

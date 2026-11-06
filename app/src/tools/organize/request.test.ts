@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insertArgs, mergeOptions, NUMBER_TEMPLATE, numberArgs } from "./request";
+import { insertArgs, mergeOptions, NUMBER_TEMPLATE, numberArgs, cropArgs } from "./request";
 
 const ins = { path: "a.pdf", total: 10, kind: "blank" as const, count: "2", source: null, pages: "", where: "11", suffix: "insertado" };
 
@@ -40,5 +40,19 @@ describe("mergeOptions", () => {
   });
   it("sin contraseñas deja el mapa vacío", () => {
     expect(mergeOptions(["a.pdf"], false, {})).toEqual({ keep_bookmarks: true, bookmark_per_file: false, file_passwords: {} });
+  });
+});
+
+describe("cropArgs", () => {
+  const base = { path: "C:\\a.pdf", total: 4, pages: "", left: "10", top: "0", right: "10", bottom: "", suffix: "recortado" };
+  it("pasa los milímetros a puntos y todas las páginas a lista vacía", () => {
+    expect(cropArgs(base)).toEqual({ path: "C:\\a.pdf", pages: [], margins: { left: 28.35, top: 0, right: 28.35, bottom: 0 }, suffix: "recortado" });
+    expect(cropArgs({ ...base, pages: "2-3", left: "5,5" })).toMatchObject({ pages: [1, 2], margins: { left: 15.59 } });
+  });
+  it("rechaza márgenes negativos, todos a cero o páginas que no existen", () => {
+    expect(cropArgs({ ...base, left: "-1" })).toBeNull();
+    expect(cropArgs({ ...base, left: "0", right: "0" })).toBeNull();
+    expect(cropArgs({ ...base, pages: "5" })).toBeNull();
+    expect(cropArgs({ ...base, top: "abc" })).toBeNull();
   });
 });

@@ -3,7 +3,7 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
-use pliego_core::{Error, Report, Result};
+use pliego_core::{Error, JobContext, Report, Result};
 use pliego_pdf::{Object, PdfDocument};
 
 use crate::check::is_valid_language_tag;
@@ -114,17 +114,51 @@ pub fn set_tab_order(doc: &mut PdfDocument) -> Result<usize> {
 /// Qué corregir en [`fix_file`].
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct FixOptions {
+    /// Etiquetar antes con [`crate::autotag`] si el documento no tiene estructura (si ya la tiene, se avisa y se sigue).
+    #[serde(default)]
+    pub autotag: bool,
     pub language: Option<String>,
     pub title: Option<String>,
     /// Pares (objeto, texto alternativo).
+    #[serde(default)]
     pub alt_texts: Vec<(i32, String)>,
+    #[serde(default)]
     pub tab_order: bool,
 }
 
 /// Aplica correcciones a un archivo y guarda el resultado en `output` (nunca sobrescribe la entrada).
 pub fn fix_file(input: &Path, output: &Path, opts: &FixOptions, password: Option<&str>) -> Result<Report> {
+    fix_file_with(input, output, opts, password, &JobContext::silent())
+}
+
+/// Como [`fix_file`], con progreso y cancelación (el autoetiquetado de un documento largo tarda).
+pub fn fix_file_with(
+    input: &Path,
+    output: &Path,
+    opts: &FixOptions,
+    password: Option<&str>,
+    ctx: &JobContext,
+) -> Result<Report> {
     let mut doc = open_pdf(input, password)?;
     let mut done = Vec::new();
+    let mut warnings = Vec::new();
+    if opts.autotag {
+        if doc.catalog()?.get_dict("StructTreeRoot")?.is_some() {
+            warnings.push("El documento ya estaba etiquetado: se conservan sus etiquetas.".to_string());
+        } else {
+            let s = crate::autotag(&mut doc, &crate::AutotagOptions::default(), ctx)?;
+            done.push(format!(
+                "etiquetas ({} encabezado(s), {} párrafo(s), {} lista(s), {} figura(s), {} tabla(s))",
+                s.headings, s.paragraphs, s.lists, s.figures, s.tables
+            ));
+            if s.figures > 0 {
+                warnings.push(format!(
+                    "{} figura(s) necesitan texto alternativo: abre la copia y vuelve a «Hacer accesible».",
+                    s.figures
+                ));
+            }
+        }
+    }
     if let Some(l) = &opts.language {
         set_language(&mut doc, l)?;
         done.push(format!("idioma {l}"));
@@ -148,6 +182,9 @@ pub fn fix_file(input: &Path, output: &Path, opts: &FixOptions, password: Option
     }
     let mut options = pliego_pdf::WriteOptions::default();
     options.set_garbage_level(1);
+    options.set_compress(opts.autotag);
     save_atomic(&doc, input, output, options)?;
-    Ok(Report::with_output(output, format!("Corregido: {}.", done.join(", "))))
+    let mut report = Report::with_output(output, format!("Corregido: {}.", done.join(", ")));
+    report.warnings = warnings;
+    Ok(report)
 }

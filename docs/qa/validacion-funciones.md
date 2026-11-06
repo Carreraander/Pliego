@@ -188,6 +188,77 @@ contenidos ni contraseñas. Pruebas: unitarias de rotación y saneado, `crates/p
 botón de Ajustes en `app-smoke.spec.ts`. **W** pendiente en Windows: arrancar la app, provocar un fallo (abrir un PDF
 dañado), comprobar `%APPDATA%\Pliego\logs\pliego.log` y que «Abrir carpeta de registros» abre el Explorador.
 
+## Atajos del visor y del navegador (2026-11-06)
+
+La hoja de atajos (F1) prometía órdenes que no tenía nadie y WebView2 dejaba pasar los atajos de Edge (F5/Ctrl+R
+recargaban la app y cerraban los documentos; Ctrl+P imprimía la ventana; clic derecho con «Actualizar» o «Imprimir»).
+Ahora `app/src/viewer/commands.ts` registra Ctrl+O, Ctrl+W, Ctrl+Mayús+T, Ctrl+Tab/Ctrl+Mayús+Tab, Inicio/Fin/RePág/AvPág
+(solo con el foco en el visor de Leer), Ctrl+±/0/1/2 y Ctrl+rueda, Ctrl+R (girar la vista), Ctrl+F y F3/Mayús+F3;
+Ctrl+P avisa de que la impresión llega más adelante (`docs/handoff/huecos-1.0.md`, P0 #1). `app/src/browserGuard.ts` para
+lo que el navegador haría solo y su menú contextual (salvo en los campos de texto; F12 y Ctrl+Mayús+I solo en
+desarrollo). Pruebas: `browserGuard.test.ts`, `viewer/commands.test.ts` y tres casos de `app-smoke.spec.ts`. **W**: en la
+app instalada, F5, Ctrl+R, Ctrl+P, Alt+← y el clic derecho no deben recargar, imprimir ni sacar el menú de Edge.
+
+**Guardar como** (Ctrl+Mayús+S y menú de la app): copia el archivo abierto a la ruta elegida (temporal y renombrado,
+`app/service/src/saveas.rs`), abre la copia con la misma contraseña y cierra la pestaña anterior. Ctrl+S solo avisa de
+que los cambios ya están en el archivo (las herramientas guardan al aplicar). Pruebas: `saveas::tests` y
+`app-smoke.spec.ts`. **W**: guardar como sobre un PDF cifrado y en otra unidad.
+
+**Recuperación tras un cierre inesperado:** `%APPDATA%\Pliego\running` existe mientras la app está abierta y se borra al
+salir bien (`RunEvent::Exit`); `session.json` guarda las pestañas (ruta y página, sin contraseñas). Si al arrancar la
+marca seguía ahí, Inicio dice «Pliego se cerró de forma inesperada…» con [Reabrir] (vuelve a cada página), [Descartar] y
+[Copiar informe] (versión, sistema y las 60 últimas líneas del registro, al portapapeles). Pruebas: `session::tests` y
+`app-smoke.spec.ts`. **W**: matar `pliego-app.exe` con el Administrador de tareas con dos PDF abiertos y volver a abrir
+Pliego; cerrar bien y comprobar que no sale el aviso.
+
+**Marcadores editables** (panel Marcadores): añadir uno de la página actual, renombrar (doble clic o F2), subir y bajar
+(Alt+↑/↓), meter dentro del anterior o sacar un nivel (Alt+→/←), borrar (Supr) y deshacer. Se guarda en el propio PDF
+con copia «(antes de los marcadores)» y la pila de deshacer de los demás modos. `OutlineNode` conserva ahora la altura del
+destino (`/XYZ`) y los marcadores que abren una web (`/URI`), así que reescribirlos (y combinar PDF) ya no los pierde. Un marcador que abre una web pide confirmación antes (el mismo diálogo que los enlaces de Leer, #240).
+**Bug arreglado:** los títulos con tildes de los marcadores (también al combinar con «un marcador por archivo») salían
+como `CapÃ­tulo`: se escribían en UTF-8 sin BOM; ahora van como texto PDF (UTF-16BE). Igual para el nombre `/T` de los
+campos renombrados al combinar y el `/UF` de los adjuntos de sellos. Pruebas: `outline_roundtrip_keeps_height_and_web_links`,
+`organize::tests::outline_is_saved_in_place_with_backup_and_undo`, `outlineEdit.test.ts` y `app-smoke.spec.ts`. **V**: abrir
+en Reader los marcadores editados.
+
+**Recortar páginas** (Organizar): márgenes arriba/abajo/izquierda/derecha en mm (10 por defecto) para todas las
+páginas o las elegidas («1-3, 5»); cambia la caja visible (`CropBox`) y guarda una copia «(recortado)» al lado. Rechaza
+márgenes negativos, todos a cero o páginas fuera del documento. Pruebas: `organize::tests::crop_saves_a_smaller_copy_and_checks_the_margins`,
+`request.test.ts` (`cropArgs`) y `app-smoke.spec.ts`. **V**: recortar 20 mm arriba un PDF y comprobar en Reader que la
+página se ve más baja y que no se ve lo recortado.
+
+**Hacer accesible** (Estándares): al abrirlo comprueba el documento; si no tiene etiquetas ofrece autoetiquetarlo
+(encabezados, párrafos, listas, tablas sencillas y figuras), y siempre título (propone el nombre del archivo), idioma
+(el del documento o el de la interfaz) y tabulación según la estructura. Si ya está etiquetado, lista las figuras sin
+texto alternativo con un campo para cada una y «Ver» para ir a su página. Guarda una copia «(accesible)»; solo manda lo
+que cambia. Backend: `pliego_a11y::fix_file_with` (nuevo `FixOptions::autotag`, con progreso y cancelación). Pruebas:
+`fix_can_autotag_set_title_and_language_in_one_go`, `checks::tests::make_accessible_copy_tags_titles_and_keeps_the_original`,
+`fix.test.ts` y `app-smoke.spec.ts`. **W/V**: pasar un PDF sin etiquetas, abrir la copia, poner el texto alternativo de
+una figura y comprobar con «Comprobar accesibilidad» y con el Narrador que lee el título y la figura.
+
+**Propiedades editables** (Propiedades del documento): título, autor, asunto y palabras clave se cambian en el propio
+PDF (copia «(antes de las propiedades)» y deshacer compartido); solo se manda lo que cambia y vaciar un campo lo quita.
+Si el documento declara PDF/A (1b, 2b, 2u o 3b), `pliego_pdfa::update_info` rehace también el XMP para que siga validando;
+con otro XMP se deja y manda `/Info`, que lleva fecha más nueva. Pruebas: `editing_properties_keeps_pdfa_valid_and_xmp_in_sync`,
+`facts::tests::properties_are_saved_in_place_with_backup_and_undo`, `properties.test.ts` y `app-smoke.spec.ts`. **V**:
+cambiar el título de un PDF y de un PDF/A y ver en Reader (Archivo > Propiedades) los valores nuevos.
+
+**Adjuntos editables** (panel Adjuntos): «Añadir archivos…» adjunta cualquier archivo (hasta 256 MB cada uno, nombre
+repetido → « (2)», con fecha y suma MD5) y «Quitar» lo saca; los dos cambian el propio PDF con copia «(antes de los
+adjuntos)» y deshacer. Añadir guarda con un añadido al final; quitar reescribe el archivo entero para que los datos del
+adjunto no sigan dentro. Pruebas: `portfolio::tests::attachments_are_added_and_removed_in_place_with_undo` (comprueba que
+el contenido quitado no queda en el archivo) y `app-smoke.spec.ts`. **V**: adjuntar un .xlsx y ver en Reader (clip) que
+se abre; quitarlo y ver que ya no está.
+
+**App predeterminada desde Ajustes** (General > «Elegir en Windows…»): abre `ms-settings:defaultapps?registeredAppUser=Pliego`
+en Windows 11 y `ms-settings:defaultapps` en Windows 10 (compilación leída de `ver`, sin ventana). **W**: pulsarlo en acr12
+(Win10) y en pc (Win11). **«Reabrir las pestañas al iniciar»** ya funciona: con el ajuste activado, tras un cierre normal
+se vuelven a abrir las pestañas en su página (antes el ajuste no hacía nada). Pruebas: `recents::tests::default_apps_page_depends_on_the_windows_build`
+y `app-smoke.spec.ts`.
+
+Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
+termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
+
 ## Cómo repetirlo
 
 ```

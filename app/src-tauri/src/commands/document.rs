@@ -58,3 +58,32 @@ pub fn bump_revision(state: State<'_, AppState>, doc_id: DocId) -> Result<u64, A
 pub fn file_facts(path: String) -> ApiResult<pliego_app_service::facts::FileFacts> {
     pliego_app_service::facts::file_facts(std::path::Path::new(&path)).map_err(ApiError::from)
 }
+
+/// «Guardar como»: copia el archivo del documento a `target` y devuelve la ruta final (con `.pdf`).
+#[tauri::command]
+pub async fn save_document_as(path: String, target: String) -> ApiResult<String> {
+    let joined = tauri::async_runtime::spawn_blocking(move || {
+        pliego_app_service::saveas::save_copy_as(std::path::Path::new(&path), std::path::Path::new(&target))
+    })
+    .await
+    .map_err(|e| pliego_core::Error::Other(e.to_string()))?;
+    Ok(joined?.to_string_lossy().into_owned())
+}
+
+/// Cambia título, autor, asunto y palabras clave del PDF abierto (con copia previa) y recarga el visor. Devuelve
+/// cuántos cambios se pueden deshacer con `annot_undo`.
+#[tauri::command]
+pub async fn properties_save(
+    state: State<'_, crate::AppState>,
+    editor: State<'_, crate::commands::annot::AnnotEditState>,
+    doc_id: pliego_app_service::DocId,
+    path: String,
+    password: Option<String>,
+    edit: pliego_app_service::facts::InfoEdit,
+    suffix: String,
+) -> ApiResult<usize> {
+    let path = PathBuf::from(path);
+    let bytes = pliego_app_service::facts::properties_save(&editor.0, &path, password.as_deref(), &edit, &suffix)?;
+    state.service.reload_bytes(doc_id, &bytes)?;
+    Ok(editor.0.undo_depth(&path))
+}

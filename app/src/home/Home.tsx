@@ -2,7 +2,7 @@ import { createResource, createSignal, For, Show } from "solid-js";
 import { api } from "../api";
 import { activateTool } from "../navigation/activate";
 import { openToolsPalette } from "../navigation/ToolsPalette";
-import { Button, Chip, ContextMenu, contextPoint, Icon, IconButton, Logo, MenuButton, type MenuEntry, type Point } from "../ui";
+import { Button, Chip, ContextMenu, contextPoint, Icon, IconButton, Logo, MenuButton, type MenuEntry, type Point, toast } from "../ui";
 import { getTool } from "../tools";
 import { DEFAULT_QUICK_ACTIONS, settings, updateSettings } from "../settings/store";
 import { updateService } from "../settings/updates";
@@ -85,6 +85,9 @@ export function Home(props: { onOpen: (path: string) => void }) {
           <span>{rec.docs.length === 1 ? ht("recover.one") : ht("recover.text", { n: rec.docs.length })}</span>
           <Button variant="primary" onClick={() => { void rec.handlers.restore(rec.docs); clearRecoverable(); }}>{ht("recover.restore")}</Button>
           <Button onClick={() => { void rec.handlers.discard(rec.docs); clearRecoverable(); }}>{ht("recover.discard")}</Button>
+          <Show when={rec.handlers.report}>{(report) => (
+            <Button variant="ghost" onClick={() => void report()().then((text) => navigator.clipboard.writeText(text)).then(() => toast({ tone: "ok", text: ht("recover.copied") }))}>{ht("recover.report")}</Button>
+          )}</Show>
         </div>
       )}</Show>
       <Show when={news()} keyed>{(n) => (

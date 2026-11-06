@@ -142,6 +142,26 @@ pub fn reveal_command(path: &str) -> (&'static str, Vec<String>) {
     }
 }
 
+/// Página de Windows para elegir la app predeterminada. Desde Windows 11 (compilación 22000) se abre directamente en la
+/// ficha de Pliego (el nombre con que el instalador lo registra en `RegisteredApplications`); antes, en la lista general.
+pub fn default_apps_url(windows_build: u32) -> &'static str {
+    if windows_build >= 22000 {
+        "ms-settings:defaultapps?registeredAppUser=Pliego"
+    } else {
+        "ms-settings:defaultapps"
+    }
+}
+
+/// Compilación de Windows a partir de la salida de `ver` («Microsoft Windows [Version 10.0.22631.4317]»); 0 si no se
+/// entiende.
+pub fn windows_build_from_ver(text: &str) -> u32 {
+    text.split(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .find(|t| t.matches('.').count() >= 2)
+        .and_then(|v| v.split('.').nth(2))
+        .and_then(|b| b.parse().ok())
+        .unwrap_or(0)
+}
+
 /// Orden del sistema para abrir una carpeta en el explorador.
 pub fn open_folder_command(folder: &str) -> (&'static str, Vec<String>) {
     if cfg!(windows) {
@@ -155,6 +175,22 @@ pub fn open_folder_command(folder: &str) -> (&'static str, Vec<String>) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn default_apps_page_depends_on_the_windows_build() {
+        assert_eq!(
+            windows_build_from_ver("\r\nMicrosoft Windows [Version 10.0.22631.4317]\r\n"),
+            22631
+        );
+        assert_eq!(
+            windows_build_from_ver("Microsoft Windows [Versión 10.0.19045.5011]"),
+            19045
+        );
+        assert_eq!(windows_build_from_ver("nada"), 0);
+        assert!(default_apps_url(22631).contains("registeredAppUser=Pliego"));
+        assert_eq!(default_apps_url(19045), "ms-settings:defaultapps");
+    }
+
     use super::*;
 
     #[test]

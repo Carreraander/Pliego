@@ -2,6 +2,7 @@
 //!
 //! - [`convert`]: convierte un PDF al nivel pedido (o explica por qué no puede).
 //! - [`validate`] / [`validate_doc`]: comprueba un documento contra un [`Level`].
+//! - [`update_info`]: cambia título, autor, asunto y palabras clave (y el XMP si es PDF/A).
 //! - [`icc::srgb_profile`]: perfil ICC sRGB generado por código para la intención de salida.
 //! - [`verapdf`]: validación completa opcional con veraPDF (descarga aparte, necesita Java).
 //!
@@ -17,6 +18,7 @@
 
 mod convert;
 mod icc;
+mod info;
 mod io;
 mod level;
 mod substitute;
@@ -27,5 +29,6 @@ mod xmp;
 
 pub use convert::convert;
 pub use icc::srgb_profile;
+pub use info::{InfoEdit, XmpSync, update_info};
 pub use level::Level;
 pub use validate::{PdfaIssue, Rule, Validation, validate, validate_doc, validate_with_password};

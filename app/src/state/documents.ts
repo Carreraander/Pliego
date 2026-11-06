@@ -47,11 +47,26 @@ export async function openPath(path: string, viewportWidth: number, password?: s
   }
 }
 
+/** Rutas de las pestañas cerradas, la última al final (Ctrl+Mayús+T las reabre). Solo en memoria. */
+const closedPaths: string[] = [];
+const MAX_CLOSED = 20;
+
+/** Saca la última pestaña cerrada que no esté abierta otra vez. */
+export function popClosedPath(): string | null {
+  while (closedPaths.length) {
+    const p = closedPaths.pop()!;
+    if (!docs().some((d) => d.path === p)) return p;
+  }
+  return null;
+}
+
 export async function closeDoc(id: DocId): Promise<void> {
   const path = docs().find((d) => d.id === id)?.path;
   if (path) {
     forgetPassword(path);
     forgetSignedChoice(path);
+    closedPaths.push(path);
+    if (closedPaths.length > MAX_CLOSED) closedPaths.shift();
   }
   await api.closeDocument(id).catch(() => undefined);
   const rest = docs().filter((d) => d.id !== id);

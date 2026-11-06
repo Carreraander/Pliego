@@ -19,6 +19,10 @@ export const number: ToolManifest = {
   id: "pages.number", group: "organize", kind: "task", title: "tools.pages.number.title", description: "tools.pages.number.description",
   icon: "hash", keywords: ["numeración", "paginar", "etiquetas"], when: { document: true }, pinnable: true, load: () => import("./NumberPanel"),
 };
+export const crop: ToolManifest = {
+  id: "pages.crop", group: "organize", kind: "task", title: "tools.pages.crop.title", description: "tools.pages.crop.description",
+  icon: "crop", keywords: ["recortar", "crop", "márgenes", "cortar bordes"], when: { document: true }, pinnable: true, load: () => import("./CropPanel"),
+};
 
 export const organize: ToolManifest = {
   id: "pages.organize", group: "organize", kind: "mode", title: "tools.pages.organize.title", description: "tools.pages.organize.description",
@@ -31,4 +35,5 @@ export function registerOrganizeTools(): void {
   registerTool(split);
   registerTool(insert);
   registerTool(number);
+  registerTool(crop);
 }

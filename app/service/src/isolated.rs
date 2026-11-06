@@ -73,6 +73,12 @@ pub enum JobSpec {
         password: Option<String>,
         suffix: String,
     },
+    MakeAccessible {
+        path: PathBuf,
+        password: Option<String>,
+        options: checks::FixOptions,
+        suffix: String,
+    },
     Compare {
         path: PathBuf,
         req: CompareRequest,
@@ -148,6 +154,13 @@ pub enum JobSpec {
         edits: Vec<PageEdit>,
         suffix: String,
     },
+    Crop {
+        path: PathBuf,
+        password: Option<String>,
+        pages: Vec<u32>,
+        margins: organize::CropMargins,
+        suffix: String,
+    },
     Protect {
         req: ProtectRequest,
     },
@@ -210,6 +223,12 @@ impl JobSpec {
                 suffix,
             } => annot::import_xfdf_copy(&path, password.as_deref(), &xfdf, &suffix),
             JobSpec::TabOrder { path, password, suffix } => checks::tab_order_copy(&path, password.as_deref(), &suffix),
+            JobSpec::MakeAccessible {
+                path,
+                password,
+                options,
+                suffix,
+            } => checks::make_accessible_copy(&path, password.as_deref(), &options, &suffix, ctx),
             JobSpec::Compare { path, req } => compare::compare_copy(&path, &req, ctx),
             JobSpec::Export { path, req } => convert::export_copy(&path, &req, ctx),
             JobSpec::Office { path, req } => convert::office_copy(&path, &req, ctx),
@@ -257,6 +276,13 @@ impl JobSpec {
                 edits,
                 suffix,
             } => organize::pages_copy(&path, password.as_deref(), &edits, &suffix, ctx),
+            JobSpec::Crop {
+                path,
+                password,
+                pages,
+                margins,
+                suffix,
+            } => organize::crop_copy(&path, password.as_deref(), &pages, margins, &suffix, ctx),
             JobSpec::Protect { req } => protect::protect(&req, ctx),
             JobSpec::Unprotect { path, password, suffix } => {
                 protect::unprotect(&path, &password, suffix.as_deref(), ctx)
@@ -586,6 +612,28 @@ mod tests {
     fn specs_survive_the_wire_and_know_where_they_run() {
         let specs = vec![
             spec(),
+            JobSpec::Crop {
+                path: "a.pdf".into(),
+                password: None,
+                pages: vec![0],
+                margins: organize::CropMargins {
+                    left: 0.0,
+                    top: 28.35,
+                    right: 0.0,
+                    bottom: 0.0,
+                },
+                suffix: "recortado".into(),
+            },
+            JobSpec::MakeAccessible {
+                path: "a.pdf".into(),
+                password: Some("x".into()),
+                options: checks::FixOptions {
+                    autotag: true,
+                    title: Some("Acta".into()),
+                    ..Default::default()
+                },
+                suffix: "accesible".into(),
+            },
             JobSpec::Insert {
                 path: "a.pdf".into(),
                 password: None,

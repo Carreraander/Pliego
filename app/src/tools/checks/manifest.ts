@@ -23,6 +23,12 @@ export const readingOrder: ToolManifest = {
   icon: "list-ordered", keywords: ["lectura", "orden", "tabulación"], when: { document: true }, load: () => import("./OrderPanel"),
 };
 
+export const makeAccessible: ToolManifest = {
+  id: "access.fix", group: "standards", kind: "task", title: "tools.access.fix.title", description: "tools.access.fix.description",
+  icon: "wand", keywords: ["accesibilidad", "etiquetar", "texto alternativo", "idioma", "título", "pdf/ua"], when: { document: true },
+  load: () => import("./FixPanel"),
+};
+
 export const outputPreview: ToolManifest = {
   id: "print.preview", group: "print", kind: "task", title: "tools.print.preview.title", description: "tools.print.preview.description",
   icon: "printer", keywords: ["imprenta", "separaciones", "cmyk", "tinta total"], when: { document: true }, load: () => import("./OutputPanel"),
@@ -33,5 +39,6 @@ export function registerCheckTools(): void {
   registerTool(validatePdfa);
   registerTool(preflight);
   registerTool(readingOrder);
+  registerTool(makeAccessible);
   registerTool(outputPreview);
 }

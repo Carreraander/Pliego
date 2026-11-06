@@ -218,6 +218,89 @@ pub fn number_copy(
     Ok(Report::with_output(out, format!("{} páginas numeradas", pages.len())))
 }
 
+/// Márgenes que se quitan a cada página, en puntos PDF (1 mm = 2,8346 pt).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub struct CropMargins {
+    pub left: f32,
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+}
+
+/// Recorta las páginas `pages` (desde 0; vacío = todas) quitando `margins` a su caja visible (`/CropBox`) y guarda una
+/// copia `<nombre> (<suffix>).pdf`. El contenido no se borra: solo deja de verse e imprimirse lo que queda fuera.
+pub fn crop_copy(
+    input: &Path,
+    password: Option<&str>,
+    pages: &[u32],
+    margins: CropMargins,
+    suffix: &str,
+    ctx: &JobContext,
+) -> Result<Report> {
+    let m = [margins.left, margins.top, margins.right, margins.bottom];
+    if m.iter().any(|v| !v.is_finite() || *v < 0.0) {
+        return Err(Error::InvalidInput(
+            "los márgenes del recorte no pueden ser negativos".into(),
+        ));
+    }
+    if m.iter().all(|v| *v == 0.0) {
+        return Err(Error::InvalidInput(
+            "no hay nada que recortar: todos los márgenes son 0".into(),
+        ));
+    }
+    let mut doc = pliego_organize::open(input, password)?;
+    let n = pliego_organize::page_count(&doc)?;
+    let list: Vec<u32> = if pages.is_empty() {
+        (0..n).collect()
+    } else {
+        pages.to_vec()
+    };
+    if let Some(bad) = list.iter().find(|&&p| p >= n) {
+        return Err(Error::InvalidInput(format!(
+            "la página {} no existe (el documento tiene {n})",
+            bad + 1
+        )));
+    }
+    ctx.step(0, 2, "Recortando páginas")?;
+    let spec = pliego_organize::CropSpec::Margins {
+        left: margins.left,
+        top: margins.top,
+        right: margins.right,
+        bottom: margins.bottom,
+    };
+    pliego_organize::crop(&mut doc, &list, spec)?;
+    ctx.step(1, 2, "Guardando")?;
+    let out = unique_sibling(input, suffix, "pdf");
+    pliego_organize::save(&doc, &out)?;
+    Ok(Report::with_output(out, format!("{} páginas recortadas", list.len())))
+}
+
+/// Marcadores de `path` con todo lo que hace falta para editarlos sin perder nada (altura de destino, enlaces web).
+pub fn outline_tree(path: &Path, password: Option<&str>) -> Result<Vec<pliego_organize::OutlineNode>> {
+    pliego_organize::read_outline(&pliego_organize::open(path, password)?)
+}
+
+/// Sustituye los marcadores del PDF abierto (copia de seguridad la primera vez y deshacer compartido con los demás
+/// modos que editan el archivo). Guardado incremental si se puede. Devuelve el contenido nuevo para recargar el visor.
+pub fn outline_save(
+    editor: &crate::annot::Editor,
+    path: &Path,
+    password: Option<&str>,
+    nodes: &[pliego_organize::OutlineNode],
+    backup_suffix: &str,
+) -> Result<Vec<u8>> {
+    if nodes.iter().any(has_empty_title) {
+        return Err(Error::InvalidInput("un marcador no puede quedarse sin nombre".into()));
+    }
+    editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
+        pliego_organize::write_outline(doc, nodes)
+    })
+}
+
+fn has_empty_title(n: &pliego_organize::OutlineNode) -> bool {
+    n.title.trim().is_empty() || n.children.iter().any(has_empty_title)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,6 +359,72 @@ mod tests {
         let n = pages(&input);
         assert!(insert_copy(&input, None, &InsertSource::Blank { count: 1 }, n + 5, "x").is_err());
         assert!(insert_copy(&input, None, &InsertSource::Blank { count: 0 }, 0, "x").is_err());
+    }
+
+    #[test]
+    fn outline_is_saved_in_place_with_backup_and_undo() {
+        let Some((dir, input)) = setup() else { return };
+        let before = std::fs::read(&input).unwrap();
+        let editor = crate::annot::Editor::default();
+        let nodes = vec![pliego_organize::OutlineNode {
+            title: "Introducción".into(),
+            page: Some(0),
+            top: Some(700.0),
+            ..Default::default()
+        }];
+        outline_save(&editor, &input, None, &nodes, "antes de los marcadores").unwrap();
+        assert_eq!(outline_tree(&input, None).unwrap(), nodes);
+        assert_eq!(
+            std::fs::read(dir.path().join("doc (antes de los marcadores).pdf")).unwrap(),
+            before
+        );
+        editor.undo(&input).unwrap();
+        assert_eq!(std::fs::read(&input).unwrap(), before);
+        let empty = vec![pliego_organize::OutlineNode {
+            title: "  ".into(),
+            ..Default::default()
+        }];
+        assert!(matches!(
+            outline_save(&editor, &input, None, &empty, "x"),
+            Err(Error::InvalidInput(_))
+        ));
+    }
+
+    #[test]
+    fn crop_saves_a_smaller_copy_and_checks_the_margins() {
+        let Some((dir, input)) = setup() else { return };
+        let before = std::fs::read(&input).unwrap();
+        let m = CropMargins {
+            left: 36.0,
+            top: 72.0,
+            right: 36.0,
+            bottom: 0.0,
+        };
+        let r = crop_copy(&input, None, &[], m, "recortado", &JobContext::silent()).unwrap();
+        assert_eq!(r.outputs, vec![dir.path().join("doc (recortado).pdf")]);
+        assert_eq!(std::fs::read(&input).unwrap(), before, "el original no cambia");
+        let size = |p: &Path| {
+            let b = pliego_organize::open(p, None)
+                .unwrap()
+                .load_pdf_page(0)
+                .unwrap()
+                .bounds()
+                .unwrap();
+            (b.x1 - b.x0, b.y1 - b.y0)
+        };
+        let (a, b) = (size(&input), size(&r.outputs[0]));
+        assert!((a.0 - b.0 - 72.0).abs() < 0.5, "{a:?} → {b:?}");
+        assert!((a.1 - b.1 - 72.0).abs() < 0.5, "{a:?} → {b:?}");
+        let zero = CropMargins::default();
+        assert!(crop_copy(&input, None, &[], zero, "x", &JobContext::silent()).is_err());
+        let neg = CropMargins { left: -1.0, ..zero };
+        assert!(crop_copy(&input, None, &[], neg, "x", &JobContext::silent()).is_err());
+        let huge = CropMargins { left: 5000.0, ..zero };
+        assert!(
+            crop_copy(&input, None, &[], huge, "x", &JobContext::silent()).is_err(),
+            "recorte vacío"
+        );
+        assert!(crop_copy(&input, None, &[99], m, "x", &JobContext::silent()).is_err());
     }
 
     fn number_req() -> NumberRequest {

@@ -1,7 +1,7 @@
 import {
   Accessibility, ArrowLeftRight, BadgeCheck, ClipboardCheck, Columns2, Combine, Database, Droplet, Eraser, FileOutput, FilePlus2, FileType,
   Folders, FolderSearch, FormInput, Hash, House, Image, Keyboard, Languages, List, ListChecks, ListOrdered, PanelTop, PenLine, Presentation,
-  Printer, Ruler, ScanSearch, SlidersHorizontal, Sparkles, Users, Wand, ExternalLink, Command,
+  Printer, Ruler, ScanSearch, SlidersHorizontal, Sparkles, Users, Wand, ExternalLink, Command, Crop,
 } from "lucide-solid";
 import { registerIcon } from "../ui";
 
@@ -14,7 +14,7 @@ export function registerToolIcons(): void {
     hash: Hash, home: House, image: Image, keyboard: Keyboard, languages: Languages, list: List, "list-checks": ListChecks,
     "list-ordered": ListOrdered, "panel-top": PanelTop, "pen-line": PenLine, presentation: Presentation, printer: Printer, ruler: Ruler,
     "scan-search": ScanSearch, "sliders-horizontal": SlidersHorizontal, sparkles: Sparkles, users: Users, wand: Wand,
-    "external-link": ExternalLink, command: Command,
+    "external-link": ExternalLink, command: Command, crop: Crop,
   };
   for (const [name, component] of Object.entries(icons)) registerIcon(name, component);
 }

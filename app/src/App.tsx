@@ -7,6 +7,9 @@ import {
 } from "./state/documents";
 import { fitPageZoom, fitWidthZoom, rotate, stepZoom } from "./viewer/layout";
 import { Viewer } from "./viewer/Viewer";
+import { installViewerCommands, saveAs, type ViewerCommandHost } from "./viewer/commands";
+import { installBrowserGuard } from "./browserGuard";
+import { installSession } from "./state/session";
 import { LinkDialog } from "./viewer/links/LinkDialog";
 import { Thumbnails } from "./panels/Thumbnails";
 import { Outline } from "./panels/Outline";
@@ -17,7 +20,7 @@ import { SignedEditPrompt } from "./components/SignedEditPrompt";
 import { closeScreen, currentScreen, installNavigation, NavigationHost, openShortcutSheet } from "./navigation";
 import { Home, installHome, openHome, openSettings, recordOpened } from "./home";
 import { installJobs } from "./jobs";
-import { initSettings } from "./settings";
+import { initSettings, settings } from "./settings";
 import { installUpdates } from "./updates";
 import { Dynamic } from "solid-js/web";
 import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode, type DocTab } from "./shell";
@@ -39,6 +42,12 @@ export function App() {
   };
 
   const first = () => activeDoc()?.sizes[0];
+  const pickAndOpen = () => void api.pickPdfFiles().then((ps) => ps.forEach((p) => void open(p)));
+  const commandHost: ViewerCommandHost = {
+    open: (p, pw) => open(p, pw), pickAndOpen,
+    viewport: () => ({ width: canvas.clientWidth, height: canvas.clientHeight }),
+    closeActiveScreen: () => { if (!currentScreen()) return false; closeScreen(); return true; },
+  };
 
   onMount(async () => {
     // Raíl, modo «Leer» y barra de estado del visor: se montan en las ranuras del armazón (docs/app-integration.md).
@@ -64,6 +73,9 @@ export function App() {
       registerStatusItem({ id: "viewer.page", slot: "start", hideOnHome: true, text: () => (activeDoc() ? t("status.page", { page: currentPageIndex() + 1, total: activeDoc()!.sizes.length }) : "") }),
     ];
     offs.push(installNavigation(), installHome((p) => void open(p)));
+    offs.push(installViewerCommands(commandHost));
+    // Después de los atajos propios: solo para lo que el navegador (WebView2) haría por su cuenta.
+    offs.push(installBrowserGuard());
     offs.push(await installJobs((p) => void open(p)));
     offs.push(await installUpdates());
     setMode("read");
@@ -77,6 +89,9 @@ export function App() {
     ]);
     onCleanup(() => { offs.forEach((off) => off()); unlisten.forEach((off) => off()); });
     for (const p of await api.startupFiles()) await open(p);
+    // Después de abrir lo que pidió el sistema: si la vez anterior se cerró de golpe, Inicio ofrece reabrir las pestañas
+    // (y con «Reabrir las pestañas al iniciar», se reabren solas tras un cierre normal).
+    offs.push(await installSession((p) => open(p), settings().general.reopenTabs));
   });
 
   return (
@@ -88,7 +103,8 @@ export function App() {
       onNewTab={openHome}
       onReorderTabs={(from, to) => from < docs().length && to < docs().length && setDocs((all) => { const n = [...all]; n.splice(to, 0, n.splice(from, 1)[0]!); return n; })}
       appMenu={[
-        { id: "open", label: t("toolbar.open"), icon: "folder-open", shortcut: "Ctrl+O", onSelect: () => void api.pickPdfFiles().then((ps) => ps.forEach((p) => void open(p))) },
+        { id: "open", label: t("toolbar.open"), icon: "folder-open", shortcut: "Ctrl+O", onSelect: pickAndOpen },
+        { id: "saveAs", label: t("menu.saveAs"), icon: "file-down", shortcut: "Ctrl+Shift+S", disabled: !activeDoc(), onSelect: () => void saveAs(commandHost) },
         { id: "home", label: t("menu.home"), icon: "home", onSelect: openHome },
         { type: "separator" },
         { id: "settings", label: t("menu.settings"), icon: "settings", shortcut: "Ctrl+,", onSelect: () => openSettings() },

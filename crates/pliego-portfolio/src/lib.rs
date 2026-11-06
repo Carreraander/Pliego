@@ -250,6 +250,75 @@ pub fn extract(
     Ok(report)
 }
 
+/// Tamaño máximo de un adjunto que se añade desde la app (el deshacer guarda copias del PDF entero).
+pub const MAX_ATTACHMENT_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Adjunta `files` a un documento abierto. Si un nombre ya está, se añade « (2)»; devuelve los nombres usados.
+pub fn add_files(doc: &mut PdfDocument, files: &[PathBuf]) -> Result<Vec<String>> {
+    if files.is_empty() {
+        return Err(Error::InvalidInput("elige al menos un archivo para adjuntar".into()));
+    }
+    let mut taken: HashSet<String> = doc
+        .embedded_files()?
+        .into_iter()
+        .flat_map(|e| [Some(e.name), e.filename])
+        .flatten()
+        .map(|n| n.to_lowercase())
+        .collect();
+    let mut names = Vec::new();
+    for f in files {
+        let meta = std::fs::metadata(f).map_err(|e| Error::io_at(f, e))?;
+        if !meta.is_file() {
+            return Err(Error::InvalidInput(format!("{} no es un archivo", f.display())));
+        }
+        if meta.len() > MAX_ATTACHMENT_BYTES {
+            return Err(Error::InvalidInput(format!(
+                "{} ocupa más de {} MB, el máximo para adjuntar",
+                f.display(),
+                MAX_ATTACHMENT_BYTES / (1024 * 1024)
+            )));
+        }
+        let data = std::fs::read(f).map_err(|e| Error::io_at(f, e))?;
+        let name = unique(
+            &safe_name(
+                &f.file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+            ),
+            &mut taken,
+        );
+        let mut opts = EmbeddedFileOptions::new(&name);
+        opts.mime_type = mime_of(&name);
+        opts.modified = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs() as i64);
+        opts.add_checksum = true;
+        doc.add_embedded_file(&name, &data, opts)?;
+        names.push(name);
+    }
+    Ok(names)
+}
+
+/// Quita los adjuntos con esos nombres internos. Falla si alguno no está, sin quitar ninguno.
+pub fn remove_files(doc: &mut PdfDocument, names: &[String]) -> Result<usize> {
+    if names.is_empty() {
+        return Err(Error::InvalidInput("elige qué adjunto quitar".into()));
+    }
+    let all = doc.embedded_files()?;
+    if let Some(n) = names.iter().find(|n| !all.iter().any(|e| &e.name == *n)) {
+        return Err(Error::InvalidInput(format!("el documento no tiene el adjunto «{n}»")));
+    }
+    let mut removed = 0;
+    for n in names {
+        if doc.delete_embedded_file(n)? {
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

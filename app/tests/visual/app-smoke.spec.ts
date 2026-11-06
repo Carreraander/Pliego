@@ -32,6 +32,10 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       crop_pages: 18,
       make_accessible: 19,
       properties_save: 1,
+      portfolio_list: { is_portfolio: false, entries: [{ name: "factura.xml", filename: "factura.xml", mime_type: "text/xml", size: 2048 }] },
+      pick_any_files: ["C:\\Docs\\anexo.xlsx"],
+      attachments_add: 1,
+      attachments_remove: 2,
       file_facts: { size: 2048, modified_secs: 1_700_000_000 },
       check_accessibility: {
         pages: 3, tagged: true, language: null, title: null,
@@ -138,6 +142,18 @@ test.describe("humo de la app (backend simulado)", () => {
     await expect.poll(async () => (await calls(page, "properties_save")).length).toBe(1);
     expect((await calls(page, "properties_save"))[0]?.args).toMatchObject({ path: DOC, edit: { author: "Ana Muñoz" } });
     expect(Object.keys((await calls(page, "properties_save"))[0]!.args.edit as object)).toEqual(["author"]);
+    await expect(page.getByRole("button", { name: "Deshacer" })).toBeVisible();
+  });
+
+  test("Adjuntos añade y quita archivos del propio PDF", async ({ page }) => {
+    await openTool(page, "adjuntos", /^Adjuntos/);
+    await expect(page.getByText("factura.xml")).toBeVisible();
+    await page.getByRole("button", { name: "Añadir archivos…" }).click();
+    await expect.poll(async () => (await calls(page, "attachments_add")).length).toBe(1);
+    expect((await calls(page, "attachments_add"))[0]?.args).toMatchObject({ path: DOC, files: ["C:\\Docs\\anexo.xlsx"], suffix: "antes de los adjuntos" });
+    await page.getByRole("button", { name: "Quitar" }).click();
+    await expect.poll(async () => (await calls(page, "attachments_remove")).length).toBe(1);
+    expect((await calls(page, "attachments_remove"))[0]?.args).toMatchObject({ names: ["factura.xml"] });
     await expect(page.getByRole("button", { name: "Deshacer" })).toBeVisible();
   });
 

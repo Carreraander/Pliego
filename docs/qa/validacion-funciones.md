@@ -239,6 +239,13 @@ con otro XMP se deja y manda `/Info`, que lleva fecha más nueva. Pruebas: `edit
 `facts::tests::properties_are_saved_in_place_with_backup_and_undo`, `properties.test.ts` y `app-smoke.spec.ts`. **V**:
 cambiar el título de un PDF y de un PDF/A y ver en Reader (Archivo > Propiedades) los valores nuevos.
 
+**Adjuntos editables** (panel Adjuntos): «Añadir archivos…» adjunta cualquier archivo (hasta 256 MB cada uno, nombre
+repetido → « (2)», con fecha y suma MD5) y «Quitar» lo saca; los dos cambian el propio PDF con copia «(antes de los
+adjuntos)» y deshacer. Añadir guarda con un añadido al final; quitar reescribe el archivo entero para que los datos del
+adjunto no sigan dentro. Pruebas: `portfolio::tests::attachments_are_added_and_removed_in_place_with_undo` (comprueba que
+el contenido quitado no queda en el archivo) y `app-smoke.spec.ts`. **V**: adjuntar un .xlsx y ver en Reader (clip) que
+se abre; quitarlo y ver que ya no está.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

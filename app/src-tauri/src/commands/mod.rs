@@ -126,6 +126,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         portfolio::portfolio_create,
         portfolio::portfolio_list,
         portfolio::portfolio_extract,
+        portfolio::attachments_add,
+        portfolio::attachments_remove,
         convert::export_pdf,
         convert::pdfa_convert,
         convert::office_export_pdf,

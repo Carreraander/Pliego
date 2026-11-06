@@ -33,3 +33,8 @@
 .searchbox button:hover:not(:disabled) { background: var(--pl-hover); }
 .searchbox button:disabled { opacity: 0.4; }
 .searchbox .muted { padding: 0; }
+
+/* Panel Adjuntos: nombre a la izquierda, acciones a la derecha. */
+.pl-attachments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pl-attachments li { display: flex; align-items: center; gap: 6px; }
+.pl-attachments li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }

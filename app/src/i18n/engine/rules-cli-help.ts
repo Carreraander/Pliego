@@ -336,6 +336,7 @@ export const CLI_HELP_RULES: readonly Rule[] = [
   ["Un archivo por marcador de primer nivel", "One file per first-level bookmark"],
   ["Una hoja por página (con todas sus tablas) en lugar de una por tabla", "One sheet per page (with all its tables) instead of one per table"],
   ["Usa AES-128 en vez de AES-256 (para lectores antiguos)", "Use AES-128 instead of AES-256 (for old viewers)"],
+  ["Uso interno de la app: ejecuta un trabajo recibido por la entrada estándar (ver `pliego_app_service::isolated`)", "Internal use by the app: runs a job received on standard input (see `pliego_app_service::isolated`)"],
   ["Valida además con veraPDF (descarga aparte, necesita Java)", "Also validate with veraPDF (separate download, needs Java)"],
   ["Valor de un campo, `nombre=valor` (las casillas aceptan true/false)", "Value of a field, `name=value` (checkboxes accept true/false)"],
   ["Valor por defecto", "Default value"],

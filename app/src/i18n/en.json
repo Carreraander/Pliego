@@ -61,5 +61,9 @@
   "link.failed": "Could not open the link: {error}",
   "link.badPage": "The link goes to a page that does not exist.",
   "link.back": "Back",
-  "link.forward": "Forward"
+  "link.forward": "Forward",
+  "viewer.selected": "Selected: {text}",
+  "viewer.allSelected": "All the text in the document selected",
+  "viewer.jumpBack": "Back to page {page}",
+  "viewer.jumpForward": "Forward to page {page}"
 }

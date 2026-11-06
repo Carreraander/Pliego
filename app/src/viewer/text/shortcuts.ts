@@ -1,4 +1,5 @@
-import { locale } from "../../i18n";
+import { locale, t } from "../../i18n";
+import { announce } from "../announce";
 import { registerShortcut } from "../../navigation/shortcuts";
 import { currentScreen } from "../../navigation/screen";
 import { activeMode } from "../../shell";
@@ -26,7 +27,7 @@ export function registerTextShortcuts(): () => void {
     }),
     registerShortcut({
       id: "edit.selectAll", section: "edit", keys: "Ctrl+A", title: () => (es() ? "Seleccionar todo" : "Select all"),
-      when: reading, run: () => selectAll(activeDoc()!),
+      when: reading, run: () => { selectAll(activeDoc()!); announce(t("viewer.allSelected")); },
     }),
   ];
   return () => offs.forEach((off) => off());

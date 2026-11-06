@@ -1,7 +1,8 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { tileUrl } from "../api";
 import { t } from "../i18n";
 import { activeMode } from "../shell";
+import { announce, announcement } from "./announce";
 import { currentPageIndex, setCurrentPageIndex, type OpenDoc } from "../state/documents";
 import { clearGoTo, goToRequest } from "../state/navigation";
 import { matchIndex, matchesOnPage } from "../state/search";
@@ -32,6 +33,17 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
   /** Enlace bajo el clic derecho (el menú ofrece abrirlo o copiar su dirección). */
   const [menuLink, setMenuLink] = createSignal<{ kind: string; target: string; y: number | null } | null>(null);
   const [scrollTop, setScrollTop] = createSignal(0);
+
+  // El Narrador no ve el desplazamiento: al quedarse en otra página (tras una pausa) se anuncia cuál es.
+  let announcedPage = currentPageIndex();
+  createEffect(on(currentPageIndex, (page) => {
+    clearTimeout(pageTimer);
+    pageTimer = setTimeout(() => {
+      if (page !== announcedPage) { announcedPage = page; announce(t("viewer.page", { page: page + 1, total: props.doc.sizes.length })); }
+    }, 700);
+  }, { defer: true }));
+  let pageTimer: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(pageTimer));
   const [size, setSize] = createSignal({ width: 800, height: 600 });
 
   const layout = createMemo(() => computeLayout(props.doc.sizes, props.zoom, props.rotation));
@@ -117,7 +129,9 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
           <For each={visible()}>{(i) => <PageView doc={props.doc} index={i} zoom={props.zoom} rotation={props.rotation} layout={layout()} scrollTop={scrollTop()} viewport={size()} />}</For>
         </div>
       </div>
-      <ContextMenu point={menuAt()} onClose={() => setMenuAt(null)} items={menuItems()} label={t("text.menu")} />
+      {/* Lo que el Narrador lee sin que cambie el foco: página a la que se llega, texto que se va seleccionando… */}
+    <div class="pl-sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="viewer-live">{announcement()}</div>
+    <ContextMenu point={menuAt()} onClose={() => setMenuAt(null)} items={menuItems()} label={t("text.menu")} />
     </>
   );
 }

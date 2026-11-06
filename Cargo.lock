@@ -4564,6 +4564,7 @@ dependencies = [
  "pliego-a11y",
  "pliego-actions",
  "pliego-annot",
+ "pliego-app-service",
  "pliego-assistant",
  "pliego-compare",
  "pliego-convert",

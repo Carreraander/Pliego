@@ -38,6 +38,8 @@ pliego-office-export = { path = "../pliego-office-export" }
 pliego-redact = { path = "../pliego-redact" }
 pliego-a11y = { path = "../pliego-a11y" }
 pliego-pdfa = { path = "../pliego-pdfa" }
+# Proceso hijo de las herramientas de la app (`pliego __job`, hueco 1.0 n.º 7): comparte el despachador con la app.
+pliego-app-service = { path = "../../app/service" }
 
 # ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
 # [W06 ocr]

@@ -93,8 +93,9 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)
 
-- Los trabajos archivo → archivo corren en el proceso de la app (patrón de `docs/app-integration.md`); antes de la 1.0
-  pasan a un proceso aislado con el mismo `JobId` y eventos (pendiente de W02).
+- Los trabajos archivo → archivo corrían en el proceso de la app; **desde el hueco 1.0 n.º 7 (2026-11-06) corren en un
+  proceso hijo** (`pliego.exe __job`) con el mismo `JobId`, progreso y cancelación (`app/service/src/isolated.rs`,
+  `docs/app-integration.md`, «Tareas en segundo plano»).
 - OCR desde la app: `pliego.exe ocr` como proceso hijo (la app no enlaza Tesseract), con progreso JSON por líneas.
 - Patrón común: lógica en `app/service/src/<área>.rs` con pruebas; comandos Tauri que solo traducen; copias con
   `pliego_appdata::copyjob`; frontend con `runToolJob` y una línea en `registerAppTools()`.

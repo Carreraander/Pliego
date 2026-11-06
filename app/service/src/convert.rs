@@ -1,6 +1,7 @@
 //! Convertir desde la app (flujo W24): exportar a imágenes o texto y exportar a Office. Siempre guarda una copia
 //! junto al original (archivo o carpeta) y no lo modifica.
 
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use pliego_appdata::copyjob::{unique_in, unique_sibling};
@@ -13,7 +14,7 @@ use pliego_core::{Error, JobContext, Lang, PageRange, Report, Result};
 use pliego_office_export::{CommonOptions, DocxOptions, PptxOptions, ScannedPolicy, XlsxOptions};
 
 /// Lo que pide el panel «Exportar a imágenes o texto».
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ExportRequest {
     /// `png`, `jpg`, `tiff`, `images` (las incrustadas), `txt` o `html`.
     pub format: String,
@@ -85,7 +86,7 @@ pub fn export_copy(input: &Path, req: &ExportRequest, ctx: &JobContext) -> Resul
 }
 
 /// Lo que pide el panel «Exportar a Word, Excel o PowerPoint».
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct OfficeRequest {
     /// `docx`, `xlsx` o `pptx`.
     pub format: String,
@@ -152,7 +153,7 @@ pub fn office_copy(input: &Path, req: &OfficeRequest, ctx: &JobContext) -> Resul
 }
 
 /// Lo que pide el panel «Crear PDF».
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CreateRequest {
     /// `fit`, `a3`, `a4`, `a5`, `letter` o `legal`.
     pub page_size: String,

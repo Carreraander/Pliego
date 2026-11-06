@@ -7,7 +7,7 @@
 //! que un logo o una línea centrados también se mueven; si hay bloques lado a lado (varias columnas, tablas) se usa
 //! solo la columna del párrafo. Los
 //! encabezados (franja superior) y pies (franja inferior) no se mueven, y el límite de la página es el pie, o el
-//! margen inferior de 36 pt. Lo movido no se recompone: se desplaza (véase `pliego_pdf::PdfDocument::move_content`).
+//! margen inferior de 36 pt. Un título (una o dos líneas, más grande que el cuerpo o en negrita) no se deja solo al final: se va con lo que le sigue. Lo movido no se recompone: se desplaza (véase `pliego_pdf::PdfDocument::move_content`).
 
 use pliego_core::{Error, Report, Result};
 use pliego_pdf::{ContentMove, PdfDocument, Rect, Size};
@@ -57,6 +57,14 @@ struct Elem {
     rect: RectPts,
     /// Cajas de las líneas (vacío en imágenes).
     lines: Vec<RectPts>,
+    /// Parece un título (una o dos líneas, de cuerpo mayor que el del texto de la página o en negrita): no se deja
+    /// solo al final de una página, se va con lo que le sigue.
+    heading: bool,
+}
+
+/// ¿Es título un bloque de texto? Mayor que el cuerpo habitual de la página (mediana) o de una sola línea en negrita.
+fn looks_like_heading(block: &crate::types::TextBlock, lines: usize, body_size: f32) -> bool {
+    lines <= 2 && (block.font_size >= body_size * 1.2 || (block.bold && lines == 1 && block.text.chars().count() <= 80))
 }
 
 fn overlap_ratio(a: (f32, f32), b: (f32, f32)) -> f32 {
@@ -72,9 +80,14 @@ fn page_height(pdf: &PdfDocument, page: usize) -> Result<f32> {
 /// Elementos de la columna `col` de la página, de arriba abajo.
 fn column_elems(pdf: &PdfDocument, page: usize, col: (f32, f32)) -> Result<Vec<Elem>> {
     let p = load_page(pdf, page)?;
-    let mut out: Vec<Elem> = extract(&p, page)?
+    let raws = extract(&p, page)?;
+    let mut sizes: Vec<f32> = raws.iter().map(|r| r.block.font_size).filter(|s| *s > 0.0).collect();
+    sizes.sort_by(f32::total_cmp);
+    let body_size = sizes.get(sizes.len() / 2).copied().unwrap_or(12.0);
+    let mut out: Vec<Elem> = raws
         .into_iter()
         .map(|r| Elem {
+            heading: looks_like_heading(&r.block, r.line_rects.len().max(r.block.lines.len()), body_size),
             rect: r.block.bbox,
             lines: r.line_rects,
         })
@@ -83,6 +96,7 @@ fn column_elems(pdf: &PdfDocument, page: usize, col: (f32, f32)) -> Result<Vec<E
         out.push(Elem {
             rect,
             lines: Vec::new(),
+            heading: false,
         });
     }
     out.retain(|e| overlap_ratio((e.rect[0], e.rect[2]), col) >= 0.6);
@@ -157,24 +171,34 @@ pub(crate) fn push_column(
     // Límite inferior: el pie, o el margen; nunca por encima de donde ya llegaba el contenido.
     let limit = bottom_limit(pdf, page, col, leading)?.max(chain_end);
 
-    // ¿Dónde se corta si no cabe? A mitad de la separación entre la última línea que cabe y la primera que no.
-    let mut cut: Option<(f32, f32)> = None; // (y de corte, parte alta de lo que pasa)
-    if dy > 0.0 && opts.overflow_to_next_page && chain_end + dy > limit {
-        let mut before = y_start;
-        'outer: for e in &chain {
-            let parts: Vec<RectPts> = if e.lines.len() > 1 {
-                e.lines.clone()
-            } else {
-                vec![e.rect]
-            };
-            for l in &parts {
-                if l[3] + dy > limit {
-                    cut = Some(((before + l[1]) / 2.0, l[1]));
-                    break 'outer;
-                }
-                before = before.max(l[3]);
-            }
+    // ¿Dónde se corta si no cabe? A mitad de la separación entre la última línea que cabe y la primera que no. Un título
+    // no se deja solo al final: si lo que se corta empieza justo después de uno, el corte sube antes del título.
+    struct Part {
+        rect: RectPts,
+        heading: bool,
+    }
+    let mut parts: Vec<Part> = Vec::new();
+    for e in &chain {
+        if e.heading || e.lines.len() <= 1 {
+            parts.push(Part {
+                rect: e.rect,
+                heading: e.heading,
+            });
+        } else {
+            parts.extend(e.lines.iter().map(|l| Part {
+                rect: *l,
+                heading: false,
+            }));
         }
+    }
+    let mut cut: Option<(f32, f32)> = None; // (y de corte, parte alta de lo que pasa)
+    let overflow = dy > 0.0 && opts.overflow_to_next_page && chain_end + dy > limit;
+    if let Some(mut i) = parts.iter().position(|p| overflow && p.rect[3] + dy > limit) {
+        while i > 0 && parts[i - 1].heading {
+            i -= 1;
+        }
+        let before = parts[..i].iter().map(|p| p.rect[3]).fold(y_start, f32::max);
+        cut = Some(((before + parts[i].rect[1]) / 2.0, parts[i].rect[1]));
     }
 
     let Some((cut_y, over_top)) = cut else {

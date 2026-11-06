@@ -2,7 +2,11 @@
 .SYNOPSIS
   Mide la memoria total de Pliego (app + worker + procesos de WebView2) con distintas opciones del navegador.
 .DESCRIPTION
-  Criterio de Ander (W01): 150 MB para app + worker y techo de 400 MB contando WebView2, con un PDF de 100 páginas abierto.
+  Criterio de Ander (W01, revisado el 2026-11-06), con un PDF de 100 páginas abierto y en reposo:
+    - Memoria propia de Pliego (app + worker): <= 150 MB de conjunto de trabajo (-LimitePropioMb).
+    - Cifra del Administrador de tareas (app + worker + todos los procesos de WebView2, conjunto de trabajo): <= 500 MB
+      (-LimiteTotalMb). Se mide aparte porque casi todo lo que pesa es el motor de WebView2, que Pliego no controla.
+  El script marca cada variante con OK/FALLA contra los dos límites y termina con código 1 si alguna falla.
 
   Uso (en acr12, tras `. .\tools\acr12-env.ps1`; no hace falta compilar si ya hay un pliego-app.exe):
       .\tools\acr12-turno.ps1 -Flujo w01 -- .\tools\bench-memoria-webview.ps1 -Exe D:\ruta\pliego-app.exe
@@ -21,6 +25,8 @@ param(
     [string[]]$Variantes,
     [int]$Espera = 25,
     [int]$Repeticiones = 1,
+    [int]$LimitePropioMb = 150,
+    [int]$LimiteTotalMb = 500,
     [string]$Salida
 )
 $ErrorActionPreference = 'Stop'
@@ -121,6 +127,8 @@ function Measure-Once([string]$nombre, [string]$opciones) {
             por_tipo          = $porTipo
             args_navegador    = $browserCmd
         }
+        $res['propio_ok'] = ($res.app_worker_ws_mb -le $LimitePropioMb)
+        $res['total_ok']  = ($res.total_ws_mb -le $LimiteTotalMb)
         return $res
     }
     finally {
@@ -146,7 +154,8 @@ foreach ($v in $Variantes) {
 
 Write-Host ""
 $resultados | ForEach-Object { [pscustomobject]$_ } |
-    Format-Table variante, repeticion, procesos_wv2, app_worker_ws_mb, wv2_ws_mb, wv2_priv_mb, total_ws_mb, total_priv_mb -AutoSize
+    Format-Table variante, repeticion, procesos_wv2, app_worker_ws_mb, propio_ok, wv2_ws_mb, wv2_priv_mb, total_ws_mb, total_ok, total_priv_mb -AutoSize
+$fallos = @($resultados | Where-Object { -not $_.propio_ok -or -not $_.total_ok })
 
 if (-not $Salida) {
     $dir = Join-Path $repo 'docs\qa\memoria-webview'
@@ -158,6 +167,12 @@ if (-not $Salida) {
     windows = (Get-CimInstance Win32_OperatingSystem).Version
     webview2 = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv
     exe = $Exe; pdf = $Pdf; espera_s = $Espera
+    limite_propio_mb = $LimitePropioMb; limite_total_mb = $LimiteTotalMb
     resultados = $resultados
 } | ConvertTo-Json -Depth 6 | Set-Content -Path $Salida -Encoding UTF8
 Write-Host "Resultado guardado en $Salida"
+if ($fallos.Count -gt 0) {
+    Write-Host ("FALLA: {0} medida(s) superan {1} MB (propia) o {2} MB (Administrador de tareas)." -f $fallos.Count, $LimitePropioMb, $LimiteTotalMb) -ForegroundColor Red
+    exit 1
+}
+Write-Host ("OK: memoria propia <= {0} MB y total <= {1} MB en todas las medidas." -f $LimitePropioMb, $LimiteTotalMb) -ForegroundColor Green

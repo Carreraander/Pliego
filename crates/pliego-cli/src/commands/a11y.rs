@@ -136,7 +136,16 @@ fn check(input: &Path, password: Option<&str>, json: bool) -> anyhow::Result<()>
                 (None, Some(x)) => format!(" (objeto {x})"),
                 (None, None) => String::new(),
             };
-            println!("[{tag}]{place} {}\n    Cómo arreglarlo: {}", i.message, i.suggestion);
+            // Etiqueta, lugar, mensaje y consejo se traducen por separado: el mensaje y el consejo son frases del motor.
+            let tr = crate::i18n::tr;
+            std::println!(
+                "[{}]{} {}\n    {} {}",
+                tr(tag),
+                tr(&place),
+                tr(&i.message),
+                tr("Cómo arreglarlo:"),
+                tr(&i.suggestion)
+            );
         }
         println!("{} error(es), {} aviso(s).", rep.errors(), rep.warnings());
     }

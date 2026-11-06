@@ -182,7 +182,7 @@ fn ask(a: AskArgs, json: bool) -> anyhow::Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(&ans)?);
     } else {
-        println!("{}", ans.text);
+        std::println!("{}", ans.text);
         for c in ans.citations {
             println!("  · p. {}: {}", c.page + 1, c.snippet);
         }
@@ -197,7 +197,7 @@ fn summarize(a: SummarizeArgs, json: bool) -> anyhow::Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(&s)?);
     } else {
-        println!("{}", s.text);
+        std::println!("{}", s.text);
     }
     Ok(())
 }

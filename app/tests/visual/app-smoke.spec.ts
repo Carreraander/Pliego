@@ -113,6 +113,21 @@ test.describe("humo de la app (backend simulado)", () => {
   });
 });
 
+test.describe("registro de diagnóstico (backend simulado)", () => {
+  test.use({ locale: "en-US" });
+
+  test("Ajustes > Avanzado abre la carpeta de registros", async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page);
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await page.keyboard.press("Control+,");
+    await page.getByTestId("settings").getByRole("button", { name: "Avanzado" }).click();
+    await page.getByRole("button", { name: "Abrir carpeta de registros" }).click();
+    await expect.poll(async () => (await calls(page, "open_logs_folder")).length).toBe(1);
+  });
+});
+
 test.describe("documento con contraseña (backend simulado)", () => {
   test.use({ locale: "en-US" });
 

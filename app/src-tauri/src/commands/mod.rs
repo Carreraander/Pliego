@@ -15,6 +15,7 @@ pub mod formdesign;
 pub mod formdetect;
 pub mod index;
 pub mod jobs;
+pub mod logs;
 pub mod measure;
 pub mod ocr;
 pub mod optimize;
@@ -58,6 +59,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::recent_thumbnail,
         recents::reveal_path,
         recents::about_info,
+        logs::logs_dir,
+        logs::open_logs_folder,
         jobs::cancel_job,
         convert::create_pdf,
         compare::compare_pdfs,

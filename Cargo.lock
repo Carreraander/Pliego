@@ -4626,6 +4626,7 @@ name = "pliego-core"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 

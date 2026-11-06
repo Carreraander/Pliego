@@ -9,6 +9,7 @@
 pub mod engine;
 pub mod error;
 pub mod job;
+pub mod log;
 pub mod pages;
 
 pub use engine::{DocInfo, EngineDocument, Layer, OutlineItem, PageSize, PdfEngine, RgbaImage, SearchHit, TileRequest};

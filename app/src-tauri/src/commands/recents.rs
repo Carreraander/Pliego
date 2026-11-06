@@ -93,5 +93,5 @@ pub fn open_web_link(url: String) -> Result<(), String> {
         .args(args)
         .spawn()
         .map(|_| ())
-        .map_err(|e| format!("No se pudo abrir el enlace: {e}"))
+        .map_err(|e| e.to_string())
 }

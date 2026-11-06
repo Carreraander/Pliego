@@ -1,4 +1,6 @@
+import { t as text } from "../../i18n";
 import { goToPage } from "../../state/navigation";
+import { announce } from "../announce";
 import type { DocId } from "../../api";
 
 /** Lugar de un documento al que se puede volver: página y altura (en puntos desde el borde superior de la página). */
@@ -52,6 +54,7 @@ export function goBack(id: DocId): boolean {
   const here = probe?.(id);
   if (here) t.forward.push(here);
   goToPage(to.page, to.y);
+  announce(text("viewer.jumpBack", { page: to.page + 1 }));
   return true;
 }
 
@@ -63,6 +66,7 @@ export function goForward(id: DocId): boolean {
   const here = probe?.(id);
   if (here) t.back.push(here);
   goToPage(to.page, to.y);
+  announce(text("viewer.jumpForward", { page: to.page + 1 }));
   return true;
 }
 

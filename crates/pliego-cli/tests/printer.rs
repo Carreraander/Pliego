@@ -4,6 +4,7 @@ use std::process::Command;
 fn pliego() -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_pliego"));
     c.env_remove("RUST_BACKTRACE");
+    c.env("PLIEGO_LANG", "es");
     c
 }
 

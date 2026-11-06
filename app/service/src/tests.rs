@@ -173,6 +173,8 @@ fn page_words_come_with_boxes() {
             .all(|w| !w.text.is_empty() && w.rect[0] < w.rect[2] && w.rect[1] < w.rect[3])
     );
     assert!(svc.page_words(doc, 999).is_err());
+    assert!(svc.page_links(doc, 0).is_ok());
+    assert!(svc.page_links(doc, 999).is_err());
 }
 
 #[test]

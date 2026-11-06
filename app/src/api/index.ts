@@ -42,6 +42,13 @@ export interface PageWord {
   block: number;
   line: number;
 }
+/** Adónde lleva un enlace de una página: otra página (con la altura pedida, en puntos desde su borde superior) o una dirección. */
+export type PageLinkTarget = { type: "page"; page: number; y: number | null } | { type: "uri"; uri: string };
+/** Enlace de una página; `rect` = `[x0, y0, x1, y1]` en puntos de página (origen arriba a la izquierda). */
+export interface PageLink {
+  rect: [number, number, number, number];
+  target: PageLinkTarget;
+}
 export interface DocumentChanged {
   doc_id: DocId;
   revision: number;
@@ -56,6 +63,10 @@ export const api = {
   pageText: (docId: DocId, page: number) => invoke<string>("page_text", { docId, page }),
   /** Palabras con caja de una página (capa de texto del visor). */
   pageWords: (docId: DocId, page: number) => invoke<PageWord[]>("page_words", { docId, page }),
+  /** Enlaces de una página a otra página o a una dirección. */
+  pageLinks: (docId: DocId, page: number) => invoke<PageLink[]>("page_links", { docId, page }),
+  /** Abre una dirección web o de correo en el sistema. Pide confirmación antes (véase `viewer/links/openUrl.ts`). */
+  openWebLink: (url: string) => invoke<void>("open_web_link", { url }),
   search: (docId: DocId, query: string, maxResults?: number) =>
     invoke<SearchHit[]>("search", { docId, query, maxResults }),
   startupFiles: () => invoke<string[]>("startup_files"),

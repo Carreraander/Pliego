@@ -31,7 +31,7 @@ function JobItem(props: { job: Job }) {
         <Show when={j().status !== "running"}><IconButton icon="x" label={jt("jobs.dismiss")} onClick={() => dismissJob(j().id)} /></Show>
       </div>
       <Show when={j().status === "running"}>
-        <ProgressBar value={j().total > 0 ? j().done / j().total : null} label={jobT(j().label) || jt("jobs.progress", { done: j().done, total: j().total })} onCancel={() => void cancelJob(j().id)} />
+        <ProgressBar value={j().total > 0 ? j().done / j().total : null} label={jobT(j().label) || (j().total > 0 ? jt("jobs.progress", { done: j().done, total: j().total }) : jt("jobs.working"))} onCancel={() => void cancelJob(j().id)} />
       </Show>
       <Show when={j().status === "done"}>
         <p class="pl-job__text">{jobT(j().report?.summary ?? "") || jt("jobs.done")}</p>

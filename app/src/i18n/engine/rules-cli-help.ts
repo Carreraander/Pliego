@@ -345,4 +345,5 @@ export const CLI_HELP_RULES: readonly Rule[] = [
   ["top-left, top-right, bottom-left o bottom-right", "top-left, top-right, bottom-left or bottom-right"],
   ["Área del enlace `x0,y0,x1,y1` en puntos", "Link area `x0,y0,x1,y1` in points"],
   ["Índice de texto de carpetas de PDFs: indexar y buscar", "Text index of PDF folders: index and search"],
+  ["Uso interno de la app: ejecuta un trabajo recibido por la entrada estándar (ver `pliego_app_service::isolated`)", "Internal use by the app: runs a job received on standard input (see `pliego_app_service::isolated`)"],
 ];

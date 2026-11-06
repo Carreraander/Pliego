@@ -184,6 +184,20 @@ contenidos ni contraseñas. Pruebas: unitarias de rotación y saneado, `crates/p
 botón de Ajustes en `app-smoke.spec.ts`. **W** pendiente en Windows: arrancar la app, provocar un fallo (abrir un PDF
 dañado), comprobar `%APPDATA%\Pliego\logs\pliego.log` y que «Abrir carpeta de registros» abre el Explorador.
 
+## Atajos del visor y del navegador (2026-11-06)
+
+La hoja de atajos (F1) prometía órdenes que no tenía nadie y WebView2 dejaba pasar los atajos de Edge (F5/Ctrl+R
+recargaban la app y cerraban los documentos; Ctrl+P imprimía la ventana; clic derecho con «Actualizar» o «Imprimir»).
+Ahora `app/src/viewer/commands.ts` registra Ctrl+O, Ctrl+W, Ctrl+Mayús+T, Ctrl+Tab/Ctrl+Mayús+Tab, Inicio/Fin/RePág/AvPág
+(solo con el foco en el visor de Leer), Ctrl+±/0/1/2 y Ctrl+rueda, Ctrl+R (girar la vista), Ctrl+F y F3/Mayús+F3;
+Ctrl+P avisa de que la impresión llega más adelante (`docs/handoff/huecos-1.0.md`, P0 #1). `app/src/browserGuard.ts` para
+lo que el navegador haría solo y su menú contextual (salvo en los campos de texto; F12 y Ctrl+Mayús+I solo en
+desarrollo). Pruebas: `browserGuard.test.ts`, `viewer/commands.test.ts` y tres casos de `app-smoke.spec.ts`. **W**: en la
+app instalada, F5, Ctrl+R, Ctrl+P, Alt+← y el clic derecho no deben recargar, imprimir ni sacar el menú de Edge.
+
+Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
+termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
+
 ## Cómo repetirlo
 
 ```

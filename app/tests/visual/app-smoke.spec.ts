@@ -252,3 +252,55 @@ test.describe("firmas con la app en inglés (backend simulado)", () => {
     expect(sent.suffix).toBe("signed");
   });
 });
+
+test.describe("atajos del visor y del navegador (backend simulado)", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page);
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await expect(page.getByText("Página 1 de 3")).toBeVisible();
+  });
+
+  test("Fin, Inicio, Ctrl+1 y Ctrl+W/Ctrl+Mayús+T hacen lo que dice la hoja de atajos", async ({ page }) => {
+    await page.locator(".viewer").click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("End");
+    await expect(page.getByText("Página 3 de 3")).toBeVisible();
+    await page.keyboard.press("Home");
+    await expect(page.getByText("Página 1 de 3")).toBeVisible();
+    await page.keyboard.press("Control+1");
+    await expect(page.getByText("100 %", { exact: true })).toBeVisible();
+    await page.keyboard.press("Control+w");
+    await expect(page.getByText("Página 1 de 3")).toHaveCount(0);
+    await page.keyboard.press("Control+Shift+T");
+    await expect(page.getByText("Página 1 de 3")).toBeVisible();
+    expect(await calls(page, "open_document")).toHaveLength(2);
+  });
+
+  test("Ctrl+F lleva a la caja de búsqueda y Ctrl+P no imprime la interfaz", async ({ page }) => {
+    await page.keyboard.press("Control+f");
+    await expect(page.getByRole("searchbox", { name: "Buscar" })).toBeFocused();
+    await page.evaluate(() => { (window as unknown as { print: () => void; __printed: boolean }).print = () => { (window as unknown as { __printed: boolean }).__printed = true; }; });
+    await page.keyboard.press("Control+p");
+    await expect(page.getByText("La impresión llegará en una próxima versión.")).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { __printed?: boolean }).__printed)).toBeUndefined();
+  });
+
+  test("F5, Ctrl+R y el menú contextual del navegador quedan bloqueados", async ({ page }) => {
+    await page.evaluate(() => { (window as unknown as { __sinRecargar: boolean }).__sinRecargar = true; });
+    const prevented = await page.evaluate(() => {
+      const press = (key: string, ctrlKey = false) => {
+        const e = new KeyboardEvent("keydown", { key, ctrlKey, bubbles: true, cancelable: true });
+        document.body.dispatchEvent(e);
+        return e.defaultPrevented;
+      };
+      const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+      document.querySelector(".viewer")!.dispatchEvent(menu);
+      return { f5: press("F5"), ctrlR: press("r", true), ctrlN: press("n", true), copy: press("c", true), menu: menu.defaultPrevented };
+    });
+    expect(prevented).toEqual({ f5: true, ctrlR: true, ctrlN: true, copy: false, menu: true });
+    await page.keyboard.press("F5");
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as unknown as { __sinRecargar?: boolean }).__sinRecargar)).toBe(true);
+  });
+});

@@ -8,6 +8,7 @@ import { api } from "../../api";
 import type { Box, ImageObj, LinkItem, LinkTarget, ObjectKind, TextBlock, TextStyle, Transform, VectorObj } from "./geometry";
 import { et } from "./text";
 import { withPassword } from "../../state/passwords";
+import { confirmEditSigned } from "../../state/signedEdit";
 
 interface Outcome { undo_depth: number; warnings: string[] }
 
@@ -43,6 +44,8 @@ export const loadVectors = cached<VectorObj>("edit_vectors");
 export const loadLinks = cached<LinkItem>("edit_links");
 
 async function run(command: string, args: Record<string, unknown>): Promise<boolean> {
+  // Un documento firmado pierde la validez de sus firmas al editarlo: se avisa antes de la primera edición.
+  if (typeof args.path === "string" && !(await confirmEditSigned(args.path))) return false;
   try {
     // El servicio guarda la copia de seguridad la primera vez y recarga el visor; la revisión nueva invalida la caché.
     const out = await invoke<Outcome>(command, withPassword({ ...args, suffix: et("edit.backupSuffix") }));

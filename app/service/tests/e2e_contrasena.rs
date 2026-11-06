@@ -341,6 +341,30 @@ fn editar_texto_y_medir_en_un_pdf_protegido() {
 }
 
 #[test]
+fn editar_imagenes_y_enlaces_en_un_pdf_protegido() {
+    let _s = serial();
+    let dir = tempfile::tempdir().unwrap();
+    let path = encrypted(dir.path(), "edit/imagenes.pdf", "imagenes", "abre");
+    let svc = service();
+    let ed = Editor::default();
+    let uri = pageedit::LinkTarget::Uri {
+        uri: "https://pdfpliego.com".into(),
+    };
+
+    assert!(pageedit::images(&path, 0, None).is_err());
+    assert!(!pageedit::images(&path, 0, Some("abre")).unwrap().is_empty());
+    assert!(!pageedit::is_signed(&path, Some("abre")).unwrap());
+    assert!(pageedit::link_add(&ed, &path, None, 0, [50.0, 50.0, 150.0, 70.0], &uri, "cs").is_err());
+    pageedit::link_add(&ed, &path, Some("abre"), 0, [50.0, 50.0, 150.0, 70.0], &uri, "cs").unwrap();
+    let l = pageedit::links(&path, 0, Some("abre")).unwrap();
+    assert_eq!(l.len(), 1);
+    pageedit::link_delete(&ed, &path, Some("abre"), 0, l[0].id, "cs").unwrap();
+    assert!(pageedit::links(&path, 0, Some("abre")).unwrap().is_empty());
+    assert_eq!(ed.undo_depth(&path), 2);
+    assert_still_protected(&svc, &path, "abre");
+}
+
+#[test]
 fn combinar_archivos_protegidos_cada_uno_con_su_contrasena() {
     let _s = serial();
     let dir = tempfile::tempdir().unwrap();

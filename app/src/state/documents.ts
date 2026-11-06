@@ -1,4 +1,5 @@
 import { forgetPassword, rememberPassword } from "./passwords";
+import { forgetSignedChoice } from "./signedEdit";
 import { createSignal } from "solid-js";
 import { api, events, isApiError, type DocId, type PageSize } from "../api";
 import { engineText } from "../i18n/engine";
@@ -50,7 +51,10 @@ export async function openPath(path: string, viewportWidth: number, password?: s
 
 export async function closeDoc(id: DocId): Promise<void> {
   const path = docs().find((d) => d.id === id)?.path;
-  if (path) forgetPassword(path);
+  if (path) {
+    forgetPassword(path);
+    forgetSignedChoice(path);
+  }
   await api.closeDocument(id).catch(() => undefined);
   const rest = docs().filter((d) => d.id !== id);
   setDocs(rest);

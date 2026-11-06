@@ -80,6 +80,7 @@ fn fix_language_title_alt_and_tabs() {
         language: Some("es-ES".into()),
         title: Some("Informe ñandú".into()),
         alt_texts: vec![(xref, "Un cuadrado negro".into())],
+        autotag: false,
         tab_order: true,
     };
     let report = fix_file(&input, &out, &opts, None).unwrap();

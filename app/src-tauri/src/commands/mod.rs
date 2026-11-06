@@ -84,6 +84,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         outputpreview::output_preview,
         checks::reading_order,
         checks::tab_order_copy,
+        checks::make_accessible,
         checks::validate_pdfa,
         checks::preflight_pdf,
         annot::annot_summary,

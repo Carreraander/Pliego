@@ -1,7 +1,7 @@
 /** Informes de las comprobaciones (W29) y su forma común para mostrarlos en una lista. */
 export interface A11yReport {
   pages: number; tagged: boolean; language: string | null; title: string | null;
-  issues: { severity: "error" | "warning"; page: number | null; message: string; suggestion: string }[];
+  issues: { code?: string; severity: "error" | "warning"; page: number | null; xref?: number | null; message: string; suggestion: string }[];
 }
 export interface PdfaValidation { level: string; issues: { page: number | null; message: string }[] }
 export interface PreflightReport {

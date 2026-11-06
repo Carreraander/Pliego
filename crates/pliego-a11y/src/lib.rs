@@ -18,7 +18,7 @@ use std::path::Path;
 
 pub use autotag::{AutotagOptions, AutotagSummary, autotag, autotag_file};
 pub use check::{check, is_valid_language_tag};
-pub use edit::{FixOptions, fix_file, set_alt_text, set_language, set_tab_order, set_title};
+pub use edit::{FixOptions, fix_file, fix_file_with, set_alt_text, set_language, set_tab_order, set_title};
 pub use report::{A11yIssue, A11yReport, IssueCode, Severity};
 pub use structure::{ReadingItem, reading_order};
 

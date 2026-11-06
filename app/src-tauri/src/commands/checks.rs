@@ -48,3 +48,17 @@ pub fn tab_order_copy(jobs: State<'_, JobsState>, path: String, password: Option
     jobs.0
         .spawn(move |_ctx| checks::tab_order_copy(&path, password.as_deref(), &suffix))
 }
+
+/// «Hacer accesible»: copia etiquetada con título, idioma, textos alternativos y tabulación.
+#[tauri::command]
+pub fn make_accessible(
+    jobs: State<'_, JobsState>,
+    path: String,
+    password: Option<String>,
+    options: checks::FixOptions,
+    suffix: String,
+) -> JobId {
+    let path = PathBuf::from(path);
+    jobs.0
+        .spawn(move |ctx| checks::make_accessible_copy(&path, password.as_deref(), &options, &suffix, ctx))
+}

@@ -223,6 +223,15 @@ márgenes negativos, todos a cero o páginas fuera del documento. Pruebas: `orga
 `request.test.ts` (`cropArgs`) y `app-smoke.spec.ts`. **V**: recortar 20 mm arriba un PDF y comprobar en Reader que la
 página se ve más baja y que no se ve lo recortado.
 
+**Hacer accesible** (Estándares): al abrirlo comprueba el documento; si no tiene etiquetas ofrece autoetiquetarlo
+(encabezados, párrafos, listas, tablas sencillas y figuras), y siempre título (propone el nombre del archivo), idioma
+(el del documento o el de la interfaz) y tabulación según la estructura. Si ya está etiquetado, lista las figuras sin
+texto alternativo con un campo para cada una y «Ver» para ir a su página. Guarda una copia «(accesible)»; solo manda lo
+que cambia. Backend: `pliego_a11y::fix_file_with` (nuevo `FixOptions::autotag`, con progreso y cancelación). Pruebas:
+`fix_can_autotag_set_title_and_language_in_one_go`, `checks::tests::make_accessible_copy_tags_titles_and_keeps_the_original`,
+`fix.test.ts` y `app-smoke.spec.ts`. **W/V**: pasar un PDF sin etiquetas, abrir la copia, poner el texto alternativo de
+una figura y comprobar con «Comprobar accesibilidad» y con el Narrador que lee el título y la figura.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

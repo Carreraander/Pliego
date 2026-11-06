@@ -100,6 +100,7 @@ pub fn run(cmd: A11yCommand, json: bool) -> anyhow::Result<()> {
                 language: a.lang,
                 title: a.title,
                 alt_texts,
+                autotag: false,
                 tab_order: a.tab_order,
             };
             let rep = pliego_a11y::fix_file(&a.input, &a.output, &opts, a.password.as_deref())?;

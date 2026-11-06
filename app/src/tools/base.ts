@@ -62,6 +62,7 @@ const rows: Row[] = [
   ["optimize.advanced", "compare-optimize", "task", "sliders-horizontal", ["Optimizar avanzado", "Controla imágenes, fuentes y estructura"], ["Advanced optimize", "Control images, fonts and structure"], ["optimizar", "subconjunto", "fuentes"], D],
   // Estándares y accesibilidad (W12)
   ["access.check", "standards", "mode", "accessibility", ["Comprobar accesibilidad", "Revisa etiquetas y estructura"], ["Check accessibility", "Review tags and structure"], ["accesibilidad", "pdf/ua", "etiquetas"], D],
+  ["access.fix", "standards", "task", "wand", ["Hacer accesible", "Etiqueta y pone título, idioma y textos alternativos"], ["Make accessible", "Tag and set title, language and alt text"], ["accesibilidad", "etiquetar", "texto alternativo"], D],
   ["access.order", "standards", "mode", "list-ordered", ["Orden de lectura", "Define el orden en que se lee el documento"], ["Reading order", "Set the order the document is read in"], ["lectura", "orden"], D],
   ["access.validate-pdfa", "standards", "task", "shield-check", ["Validar PDF/A", "Comprueba la conformidad con PDF/A"], ["Validate PDF/A", "Check PDF/A conformance"], ["pdf/a", "validar"], { document: true, pdfa: true }],
   // Impresión (W16)

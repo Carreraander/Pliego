@@ -30,6 +30,11 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       ocr_pdf: 11,
       compress_pdf: 14,
       crop_pages: 18,
+      make_accessible: 19,
+      check_accessibility: {
+        pages: 3, tagged: true, language: null, title: null,
+        issues: [{ code: "figure_without_alt", severity: "error", page: 1, xref: 40, message: "Figura sin texto alternativo", suggestion: "" }],
+      },
       analyze_pdf: null,
       compare_pdfs: 12,
       ocr_download_language: 13,
@@ -107,6 +112,19 @@ test.describe("humo de la app (backend simulado)", () => {
     await expect.poll(async () => (await calls(page, "crop_pages")).length).toBe(1);
     expect((await calls(page, "crop_pages"))[0]?.args).toMatchObject({
       path: DOC, pages: [1, 2], margins: { left: 0, top: 56.69, right: 28.35, bottom: 28.35 },
+    });
+  });
+
+  test("Hacer accesible manda título, idioma y los textos alternativos de las figuras", async ({ page }) => {
+    await openTool(page, "hacer accesible", /^Hacer accesible/);
+    await expect(page.getByText("El documento ya tiene etiquetas")).toBeVisible();
+    await page.getByRole("textbox", { name: "Título" }).fill("Escaneo de abril");
+    await page.getByLabel("Figura 1 (página 2)").fill("Gráfico de ventas");
+    await page.getByRole("button", { name: "Guardar copia accesible" }).click();
+    await expect.poll(async () => (await calls(page, "make_accessible")).length).toBe(1);
+    expect((await calls(page, "make_accessible"))[0]?.args).toMatchObject({
+      path: DOC,
+      options: { autotag: false, title: "Escaneo de abril", language: "es-ES", alt_texts: [[40, "Gráfico de ventas"]], tab_order: true },
     });
   });
 

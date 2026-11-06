@@ -89,6 +89,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W42](flujos/w42.md) | Motor de JavaScript de formularios (Boa) | En curso | Conectarlo a `pliego_pdf::native` y a la app |
 | [W43](flujos/w43.md) | Edición tipo Acrobat (recolocar texto; imágenes, vectores y enlaces) | En curso | PR 1: motor de movimiento y recolocación; falta la interfaz y validar en acr12/pc |
 | [W44](flujos/w44.md) | Texto seleccionable y enlaces en Leer; Narrador | En curso | #236 (texto y copiar) y #240 (enlaces) fusionados; PR 3 (Narrador, foco, alto contraste) en revisión; falta la prueba con el Narrador real |
+| [W45](flujos/w45.md) | Imprimir documentos PDF (panel, `pliego printer`, PDFium sobre el HDC) | Hecho; falta validar | Pasar `tools\validar-impresion.ps1` en acr12 y probar una impresora de papel real |
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)
 

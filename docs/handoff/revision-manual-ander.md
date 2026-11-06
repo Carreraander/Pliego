@@ -2,6 +2,15 @@
 
 Solo lo que necesita ojos humanos. Lo demás se valida con renders PNG y pruebas automáticas.
 
+## W45: imprimir
+
+Con un PDF abierto, pulsa **Ctrl+P** (o busca «Imprimir» en Ctrl+K):
+
+1. Se abre el panel «Imprimir» en la columna derecha (no se imprime la interfaz de la app ni sale el menú de Edge).
+2. La **vista previa de la hoja** cambia al elegir «Tamaño real», un porcentaje o «Horizontal», y la página apaisada se gira sola en una hoja vertical.
+3. Imprime en «Microsoft Print to PDF» (o en una impresora de papel): las páginas elegidas salen, centradas y sin cortes; con 2 copias y «Intercalar» el orden es 1, 2 · 1, 2.
+4. Con comentarios y campos rellenados: salen los campos con lo escrito y, con «Incluir comentarios» desmarcado, sin notas ni resaltados.
+
 ## W43: edición tipo Acrobat (PR #211)
 
 Con un PDF de Word de varias páginas, en modo Editar:

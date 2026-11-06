@@ -20,6 +20,7 @@ import { registerEditTools } from "./edit/manifest";
 import { registerMeasureTools } from "./measure/manifest";
 import { registerOcrTools } from "./ocr/manifest";
 import { registerCompareTools } from "./compare/manifest";
+import { registerPrintTools } from "./print/manifest";
 
 /** Herramientas reales conectadas a la app: cada flujo añade aquí una línea y sustituye a su fantasma de `base.ts`. */
 export function registerAppTools(): void {
@@ -39,4 +40,5 @@ export function registerAppTools(): void {
   registerMeasureTools(); // W29
   registerOcrTools(); // W24
   registerCompareTools(); // W24
+  registerPrintTools(); // W45
 }

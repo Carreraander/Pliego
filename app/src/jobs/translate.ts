@@ -8,6 +8,7 @@
  * En español no se toca nada. `translate.test.ts` comprueba las reglas contra ejemplos reales del motor.
  */
 import type { Locale } from "../i18n";
+import { CLI_RULES } from "../i18n/engine/rules-cli";
 import { CONVERT_RULES } from "../i18n/engine/rules-convert";
 import { DOCS_RULES } from "../i18n/engine/rules-docs";
 import { EDIT_RULES } from "../i18n/engine/rules-edit";
@@ -101,14 +102,17 @@ const JOB_RULES: readonly Rule[] = [
 const GENERIC: Rule = ["{}: {}", "{1}: {2}"];
 
 /** Todas las reglas. Se aplican de la más específica (más texto fijo) a la más general; la genérica, la última. */
-export const RULES: readonly Rule[] = [...JOB_RULES, ...SYSTEM_RULES, ...SIGN_RULES, ...DOCS_RULES, ...EDIT_RULES, ...CONVERT_RULES, GENERIC];
+export const RULES: readonly Rule[] = [...JOB_RULES, ...SYSTEM_RULES, ...SIGN_RULES, ...DOCS_RULES, ...EDIT_RULES, ...CONVERT_RULES, ...CLI_RULES, GENERIC];
 
 interface Compiled { re: RegExp; en: string; fixed: number }
+const ruleOf = new Map<Compiled, Rule>();
 
 /** `Fila {} de {}` → `/^Fila (.+?) de (.+?)$/is`. */
 function compile([es, en]: Rule): Compiled {
   const escaped = es.replace(/[.*+?^$|()[\]\\]/g, "\\$&").replace(/\{\w*\}/g, "(.+?)");
-  return { re: new RegExp(`^${escaped}$`, "s"), en, fixed: es.replace(/\{\w*\}/g, "").length };
+  const c = { re: new RegExp(`^${escaped}$`, "s"), en, fixed: es.replace(/\{\w*\}/g, "").length };
+  ruleOf.set(c, [es, en]);
+  return c;
 }
 
 let compiled: Compiled[] | null = null;
@@ -127,6 +131,11 @@ function rules(): Compiled[] {
     compiled = [...rest.map((c, i) => ({ c, i })).sort((a, b) => b.c.fixed - a.c.fixed || a.i - b.i).map((x) => x.c), generic];
   }
   return compiled;
+}
+
+/** Las reglas en el orden en que se aplican (para exportarlas a la CLI, que las aplica igual desde Rust). */
+export function orderedRulePairs(): Rule[] {
+  return rules().map((c) => ruleOf.get(c)!);
 }
 
 /** Traduce un trozo capturado conservando los espacios que lo rodean (` (página 3)` sigue pegado a lo anterior). */

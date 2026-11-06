@@ -79,7 +79,7 @@ pub fn run(a: OcrArgs, json: bool) -> anyhow::Result<()> {
         } else if langs.is_empty() {
             println!("No hay idiomas instalados. Carpeta de modelos: {}", dirs_hint());
         } else {
-            println!("{}", langs.join("\n"));
+            std::println!("{}", langs.join("\n"));
         }
         return Ok(());
     }
@@ -88,7 +88,7 @@ pub fn run(a: OcrArgs, json: bool) -> anyhow::Result<()> {
         if json {
             println!("{}", serde_json::to_string_pretty(&langs)?);
         } else {
-            println!("{}", langs.join("\n"));
+            std::println!("{}", langs.join("\n"));
         }
         return Ok(());
     }

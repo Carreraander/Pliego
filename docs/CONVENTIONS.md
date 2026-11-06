@@ -48,7 +48,11 @@
   `PLIEGO_LANG`/`LANG` (`Lang::from_env`); la app, del idioma de la interfaz.
 - Dos pruebas lo vigilan: `app/src/i18n/engine/coverage.test.ts` (literales de Rust sin traducir; lo que no ve nadie va en
   `not-translated.ts` con su motivo) y `app/src/i18n/fixed-strings.test.ts` (texto fijo en componentes `.tsx`).
-- Pendiente: los mensajes de ejecución y la ayuda (`--help`) de la CLI siguen solo en español.
+- La CLI traduce al imprimir (`crates/pliego-cli/src/i18n.rs`): idioma de `PLIEGO_LANG` o, si no, el del sistema (en
+  Windows, el de la interfaz de usuario). Los mensajes usan las mismas reglas que la app, más `rules-cli.ts`; la ayuda
+  (`--help`), `rules-cli-help.ts`. Tras tocar reglas: `UPDATE_CLI_RULES=1 npx vitest run cli-rules` y sube los JSON de
+  `crates/pliego-cli/src/i18n/`. Los `println!`/`eprintln!` de la CLI ya traducen; para datos del documento (texto,
+  títulos) usa `std::println!`. Con `--json` no se traduce nada. Los tests de la CLI fijan `PLIEGO_LANG=es`.
 
 ## Pruebas
 - Unitarias junto al código; de integración en `tests/` del crate.

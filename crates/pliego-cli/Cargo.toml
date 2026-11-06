@@ -65,6 +65,8 @@ pliego-portfolio = { path = "../pliego-portfolio" }
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
+regex = "1"
+sys-locale = "0.3"
 tempfile.workspace = true
 
 [dev-dependencies]

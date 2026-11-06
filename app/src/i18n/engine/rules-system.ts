@@ -2,6 +2,9 @@
 export type Rule = readonly [es: string, en: string];
 
 export const SYSTEM_RULES: readonly Rule[] = [
+  ["El enlace está vacío.", "The link is empty."], ["La dirección del enlace es demasiado larga.", "The link address is too long."],
+  ["La dirección del enlace tiene caracteres que no se admiten.", "The link address has characters that are not allowed."], ["El enlace no es una dirección web.", "The link is not a web address."],
+  ["Pliego no abre enlaces de tipo «{}»; solo web (http, https) y correo (mailto).", "Pliego does not open “{}” links; only web (http, https) and email (mailto)."],
   // ── pliego-core ──
   ["el documento necesita contraseña o la contraseña no es válida", "the document needs a password, or the password is not valid"],
   ["entrada no válida: {}", "invalid input: {}"], ["operación no soportada: {}", "unsupported operation: {}"], ["operación cancelada", "operation cancelled"],

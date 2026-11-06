@@ -8,8 +8,8 @@ import { expect, test, type Page } from "@playwright/test";
 const DOC = "C:\\Docs\\informe.pdf";
 const OUTCOME = { undo_depth: 1, warnings: [] };
 
-async function installBackend(page: Page) {
-  await page.addInitScript(([doc, outcome]: [string, unknown]) => {
+async function installBackend(page: Page, signed = false) {
+  await page.addInitScript(([doc, outcome, isSigned]: [string, unknown, boolean]) => {
     const calls: { cmd: string; args: unknown }[] = [];
     const responses: Record<string, unknown> = {
       startup_files: [doc],
@@ -23,6 +23,7 @@ async function installBackend(page: Page) {
       edit_images: [{ page: 0, id: 0, name: "Im0", xref: 7, bbox: [100, 200, 200, 250] }],
       edit_vectors: [{ page: 0, id: 3, bbox: [50, 300, 150, 301] }],
       edit_links: [{ page: 0, id: 4, rect: [72, 400, 200, 420], target: { type: "uri", uri: "https://pdfpliego.com" } }],
+      edit_is_signed: isSigned,
       edit_text_replace: outcome, edit_image_insert: outcome, edit_image_replace: outcome, edit_image_crop: outcome,
       edit_object_transform: outcome, edit_object_delete: outcome, edit_link_add: outcome, edit_link_update: outcome, edit_link_delete: outcome,
     };
@@ -54,7 +55,7 @@ async function installBackend(page: Page) {
         return cmd in responses ? responses[cmd] : null;
       },
     };
-  }, [DOC, OUTCOME] as [string, unknown]);
+  }, [DOC, OUTCOME, signed] as [string, unknown, boolean]);
 }
 
 const calls = (page: Page, cmd: string) =>
@@ -145,5 +146,31 @@ test.describe("modo Editar (backend simulado)", () => {
     await page.evaluate(() => (window as unknown as { __emit: (e: string, p: unknown) => void }).__emit("document-changed", { doc_id: 1, revision: 5 }));
     await page.waitForTimeout(300);
     expect(await page.getByTestId("viewer").evaluate((el) => el.scrollTop)).toBe(300);
+  });
+
+  test("un documento firmado avisa antes de la primera edición y no edita si se cancela", async ({ page }) => {
+    // Se vuelve a abrir con el backend que dice que el documento está firmado.
+    const fresh = await page.context().newPage();
+    await installBackend(fresh, true);
+    await fresh.goto("/");
+    await fresh.waitForSelector(".pl-window", { timeout: 45_000 });
+    await fresh.locator(".pl-modebar__modes").getByRole("tab", { name: "Editar" }).click();
+    const edit = async () => {
+      await fresh.getByRole("button", { name: /Párrafo: Hola mundo/ }).first().click();
+      await fresh.getByLabel("Texto", { exact: true }).fill("Texto distinto");
+      await fresh.getByRole("button", { name: "Aplicar" }).click();
+    };
+    await edit();
+    const dialog = fresh.getByRole("dialog", { name: "Documento firmado" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    expect(await calls(fresh, "edit_text_replace")).toHaveLength(0);
+    await edit();
+    await fresh.getByRole("dialog", { name: "Documento firmado" }).getByRole("button", { name: "Editar de todos modos" }).click();
+    await expect.poll(async () => (await calls(fresh, "edit_text_replace")).length).toBe(1);
+    // Una vez aceptado, no vuelve a preguntar en este documento.
+    await edit();
+    await expect.poll(async () => (await calls(fresh, "edit_text_replace")).length).toBe(2);
+    await expect(fresh.getByRole("dialog", { name: "Documento firmado" })).toBeHidden();
   });
 });

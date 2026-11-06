@@ -106,6 +106,16 @@ pub async fn edit_text_insert(
     finish(&state, &editor, doc_id, &path, edited)
 }
 
+/// ¿El documento está firmado? (editarlo invalida las firmas; la interfaz avisa antes de la primera edición).
+#[tauri::command]
+pub async fn edit_is_signed(path: String, password: Option<String>) -> ApiResult<bool> {
+    let joined =
+        tauri::async_runtime::spawn_blocking(move || pageedit::is_signed(&PathBuf::from(path), password.as_deref()))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
+    Ok(joined?)
+}
+
 /// Imágenes colocadas en la página `page` (desde 0).
 #[tauri::command]
 pub async fn edit_images(path: String, page: usize, password: Option<String>) -> ApiResult<Vec<ImageObject>> {

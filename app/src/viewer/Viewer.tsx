@@ -25,9 +25,12 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
   const layout = createMemo(() => computeLayout(props.doc.sizes, props.zoom, props.rotation));
   const visible = createMemo(() => visiblePages(layout(), scrollTop(), size().height));
 
+  // Mientras se restaura la posición (el navegador puede recortarla hasta que el contenido tenga su alto) no se
+  // guarda lo que lea el visor: sobrescribiría la posición buscada.
+  let restoring = false;
   const update = () => {
     setScrollTop(box.scrollTop);
-    lastScroll.set(props.doc.id, { top: box.scrollTop, left: box.scrollLeft });
+    if (!restoring) lastScroll.set(props.doc.id, { top: box.scrollTop, left: box.scrollLeft });
     setCurrentPageIndex(currentPage(layout(), box.scrollTop, size().height));
   };
   onMount(() => {
@@ -36,9 +39,15 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
     onCleanup(() => ro.disconnect());
     // Al volver a esta pestaña o cambiar la página desde fuera, mantiene la posición.
     const saved = lastScroll.get(props.doc.id);
-    box.scrollTop = saved?.top ?? layout().tops[currentPageIndex()] ?? 0;
-    if (saved) box.scrollLeft = saved.left;
-    update();
+    if (!saved) {
+      box.scrollTop = layout().tops[currentPageIndex()] ?? 0;
+      return;
+    }
+    restoring = true;
+    const apply = () => { box.scrollTop = saved.top; box.scrollLeft = saved.left; };
+    apply();
+    // Se repite tras dos fotogramas, cuando el diseño ya tiene el alto completo.
+    requestAnimationFrame(() => { apply(); requestAnimationFrame(() => { apply(); restoring = false; update(); }); });
   });
 
   // Atiende "ir a página" (miniaturas, marcadores, búsqueda).

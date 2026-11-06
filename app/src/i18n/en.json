@@ -29,5 +29,9 @@
   "menu.settings": "Settings",
   "menu.shortcuts": "Keyboard shortcuts",
   "error.open": "The document could not be opened",
-  "mode.read": "Read"
+  "mode.read": "Read",
+  "dialog.filter.image": "Image",
+  "dialog.filter.source": "Images, books, text and Office",
+  "dialog.filter.key": "Certificate",
+  "dialog.filter.action": "Action"
 }

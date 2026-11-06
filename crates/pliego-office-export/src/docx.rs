@@ -578,7 +578,14 @@ pub(crate) fn write_docx(layout: &Layout, title: &str) -> Result<Vec<u8>> {
     pkg.add("word/_rels/document.xml.rels", rels.as_bytes())?;
 
     pkg.add("word/document.xml", document.as_bytes())?;
-    pkg.add("word/styles.xml", STYLES.as_bytes())?;
+    pkg.add(
+        "word/styles.xml",
+        match layout.lang {
+            pliego_core::Lang::Es => STYLES.to_string(),
+            pliego_core::Lang::En => STYLES.replace("w:val=\"es-ES\"", "w:val=\"en-US\""),
+        }
+        .as_bytes(),
+    )?;
     pkg.add("word/settings.xml", SETTINGS.as_bytes())?;
     pkg.add("word/numbering.xml", numbering_xml(layout).as_bytes())?;
     if let Some(h) = &layout.header {

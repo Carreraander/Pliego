@@ -316,7 +316,8 @@ fn editar_texto_y_medir_en_un_pdf_protegido() {
             0,
             &scale,
             &[[100.0, 100.0], [200.0, 100.0]],
-            false
+            false,
+            pliego_core::Lang::Es,
         )
         .is_err()
     );
@@ -329,6 +330,7 @@ fn editar_texto_y_medir_en_un_pdf_protegido() {
         &scale,
         &[[100.0, 100.0], [200.0, 100.0]],
         false,
+        pliego_core::Lang::Es,
     )
     .unwrap();
     svc.reload_bytes(id, &bytes).unwrap();
@@ -404,6 +406,7 @@ fn comparar_con_el_segundo_archivo_protegido() {
         text: true,
         visual: true,
         label: "comparación".into(),
+        lang: Default::default(),
     };
 
     for (pa, pb) in [(None, None), (Some("clave-a"), None), (Some("clave-a"), Some("mala"))] {

@@ -6,7 +6,7 @@ use std::path::Path;
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
-use pliego_core::{Error, JobContext, Result};
+use pliego_core::{Error, JobContext, Lang, Result};
 
 use crate::extract::{self, Raster};
 use crate::model::{ChangeKind, Comparison, PageComparison, PageStatus, Rect};
@@ -244,37 +244,70 @@ fn file_name(p: &Path) -> String {
         .unwrap_or_else(|| p.display().to_string())
 }
 
-fn summary_lines(c: &Comparison) -> Vec<(bool, (f32, f32, f32), String)> {
+/// Entrecomilla un fragmento: «así» en español y "así" en inglés (el PDF usa WinAnsi sin comillas tipográficas inglesas).
+fn quoted(lang: Lang, s: &str) -> String {
+    match lang {
+        Lang::Es => format!("«{s}»"),
+        Lang::En => format!("\"{s}\""),
+    }
+}
+
+fn summary_lines(c: &Comparison, lang: Lang) -> Vec<(bool, (f32, f32, f32), String)> {
     let mut lines = Vec::new();
     for p in &c.pages {
+        let pg = lang.pick("Pág.", "Page");
         let label = match (p.page_a, p.page_b) {
-            (Some(a), Some(b)) => format!("Pág. {} → {}", a + 1, b + 1),
-            (Some(a), None) => format!("Pág. {} (original)", a + 1),
-            (None, Some(b)) => format!("Pág. {} (nueva)", b + 1),
+            (Some(a), Some(b)) => format!("{pg} {} → {}", a + 1, b + 1),
+            (Some(a), None) => format!("{pg} {} ({})", a + 1, lang.pick("original", "original")),
+            (None, Some(b)) => format!("{pg} {} ({})", b + 1, lang.pick("nueva", "new")),
             (None, None) => String::new(),
         };
         match p.status {
-            PageStatus::Inserted => lines.push((false, GREEN, format!("{label}: página insertada"))),
-            PageStatus::Deleted => lines.push((false, RED, format!("{label}: página eliminada"))),
+            PageStatus::Inserted => lines.push((
+                false,
+                GREEN,
+                format!("{label}: {}", lang.pick("página insertada", "page inserted")),
+            )),
+            PageStatus::Deleted => lines.push((
+                false,
+                RED,
+                format!("{label}: {}", lang.pick("página eliminada", "page deleted")),
+            )),
             PageStatus::Matched => {
                 for t in &p.text_changes {
                     let (color, desc) = match (t.kind, t.format_only) {
                         (_, true) => (
                             AMBER,
                             format!(
-                                "formato ({}): «{}»",
+                                "{} ({}): {}",
+                                lang.pick("formato", "format"),
                                 t.note.clone().unwrap_or_default(),
-                                truncate(&t.text_b, 50)
+                                quoted(lang, &truncate(&t.text_b, 50))
                             ),
                         ),
-                        (ChangeKind::Added, _) => (GREEN, format!("añadido: «{}»", truncate(&t.text_b, 90))),
-                        (ChangeKind::Removed, _) => (RED, format!("borrado: «{}»", truncate(&t.text_a, 90))),
+                        (ChangeKind::Added, _) => (
+                            GREEN,
+                            format!(
+                                "{}: {}",
+                                lang.pick("añadido", "added"),
+                                quoted(lang, &truncate(&t.text_b, 90))
+                            ),
+                        ),
+                        (ChangeKind::Removed, _) => (
+                            RED,
+                            format!(
+                                "{}: {}",
+                                lang.pick("borrado", "deleted"),
+                                quoted(lang, &truncate(&t.text_a, 90))
+                            ),
+                        ),
                         (ChangeKind::Changed, _) => (
                             AMBER,
                             format!(
-                                "cambiado: «{}» → «{}»",
-                                truncate(&t.text_a, 42),
-                                truncate(&t.text_b, 42)
+                                "{}: {} → {}",
+                                lang.pick("cambiado", "changed"),
+                                quoted(lang, &truncate(&t.text_a, 42)),
+                                quoted(lang, &truncate(&t.text_b, 42))
                             ),
                         ),
                     };
@@ -284,7 +317,10 @@ fn summary_lines(c: &Comparison) -> Vec<(bool, (f32, f32, f32), String)> {
                     lines.push((
                         false,
                         GREY,
-                        format!("{label}: {} zona(s) con diferencias visuales", p.visual_regions.len()),
+                        match lang {
+                            Lang::Es => format!("{label}: {} zona(s) con diferencias visuales", p.visual_regions.len()),
+                            Lang::En => format!("{label}: {} area(s) with visual differences", p.visual_regions.len()),
+                        },
                     ));
                 }
             }
@@ -293,10 +329,10 @@ fn summary_lines(c: &Comparison) -> Vec<(bool, (f32, f32, f32), String)> {
     lines
 }
 
-fn summary_pages(doc: &mut Doc, c: &Comparison) -> Result<()> {
+fn summary_pages(doc: &mut Doc, c: &Comparison, lang: Lang) -> Result<()> {
     const W: f32 = 595.0;
     const H: f32 = 842.0;
-    let lines = summary_lines(c);
+    let lines = summary_lines(c, lang);
     let s = &c.summary;
     let mut idx = 0;
     let mut first = true;
@@ -304,7 +340,14 @@ fn summary_pages(doc: &mut Doc, c: &Comparison) -> Result<()> {
         let mut cv = Canvas::new();
         let mut y = H - 60.0;
         if first {
-            cv.text(50.0, y, 20.0, true, (0.1, 0.1, 0.1), "Informe de comparación");
+            cv.text(
+                50.0,
+                y,
+                20.0,
+                true,
+                (0.1, 0.1, 0.1),
+                lang.pick("Informe de comparación", "Comparison report"),
+            );
             y -= 26.0;
             cv.text(
                 50.0,
@@ -312,7 +355,7 @@ fn summary_pages(doc: &mut Doc, c: &Comparison) -> Result<()> {
                 10.0,
                 false,
                 GREY,
-                &format!("Original: {}", file_name(&c.path_a)),
+                &format!("{}: {}", lang.pick("Original", "Original"), file_name(&c.path_a)),
             );
             y -= 14.0;
             cv.text(
@@ -321,27 +364,74 @@ fn summary_pages(doc: &mut Doc, c: &Comparison) -> Result<()> {
                 10.0,
                 false,
                 GREY,
-                &format!("Nueva:    {}", file_name(&c.path_b)),
+                &format!("{}{}", lang.pick("Nueva:    ", "New:      "), file_name(&c.path_b)),
             );
             y -= 28.0;
             let rows = [
                 (
                     GREY,
-                    format!("Páginas: {} (original) · {} (nueva)", s.pages_a, s.pages_b),
+                    match lang {
+                        Lang::Es => format!("Páginas: {} (original) · {} (nueva)", s.pages_a, s.pages_b),
+                        Lang::En => format!("Pages: {} (original) · {} (new)", s.pages_a, s.pages_b),
+                    },
                 ),
-                (GREEN, format!("Páginas insertadas: {}", s.inserted_pages)),
-                (RED, format!("Páginas eliminadas: {}", s.deleted_pages)),
-                (AMBER, format!("Páginas emparejadas con cambios: {}", s.changed_pages)),
-                (GREEN, format!("Palabras añadidas: {}", s.added_words)),
-                (RED, format!("Palabras borradas: {}", s.removed_words)),
+                (
+                    GREEN,
+                    format!(
+                        "{}: {}",
+                        lang.pick("Páginas insertadas", "Pages inserted"),
+                        s.inserted_pages
+                    ),
+                ),
+                (
+                    RED,
+                    format!(
+                        "{}: {}",
+                        lang.pick("Páginas eliminadas", "Pages deleted"),
+                        s.deleted_pages
+                    ),
+                ),
                 (
                     AMBER,
                     format!(
-                        "Palabras cambiadas: {} · cambios de formato: {}",
-                        s.changed_words, s.format_changes
+                        "{}: {}",
+                        lang.pick("Páginas emparejadas con cambios", "Matched pages with changes"),
+                        s.changed_pages
                     ),
                 ),
-                (GREY, format!("Zonas con diferencias visuales: {}", s.visual_regions)),
+                (
+                    GREEN,
+                    format!("{}: {}", lang.pick("Palabras añadidas", "Words added"), s.added_words),
+                ),
+                (
+                    RED,
+                    format!(
+                        "{}: {}",
+                        lang.pick("Palabras borradas", "Words deleted"),
+                        s.removed_words
+                    ),
+                ),
+                (
+                    AMBER,
+                    match lang {
+                        Lang::Es => format!(
+                            "Palabras cambiadas: {} · cambios de formato: {}",
+                            s.changed_words, s.format_changes
+                        ),
+                        Lang::En => format!(
+                            "Words changed: {} · format changes: {}",
+                            s.changed_words, s.format_changes
+                        ),
+                    },
+                ),
+                (
+                    GREY,
+                    format!(
+                        "{}: {}",
+                        lang.pick("Zonas con diferencias visuales", "Areas with visual differences"),
+                        s.visual_regions
+                    ),
+                ),
             ];
             for (col, text) in rows {
                 cv.fill_rect((50.0, y - 1.0, 8.0, 8.0), col, false);
@@ -350,15 +440,29 @@ fn summary_pages(doc: &mut Doc, c: &Comparison) -> Result<()> {
             }
             y -= 12.0;
             if c.is_identical() {
-                cv.text(50.0, y, 12.0, true, GREEN, "No se encontraron diferencias.");
+                cv.text(
+                    50.0,
+                    y,
+                    12.0,
+                    true,
+                    GREEN,
+                    lang.pick("No se encontraron diferencias.", "No differences were found."),
+                );
                 y -= 20.0;
             } else {
-                cv.text(50.0, y, 12.0, true, (0.1, 0.1, 0.1), "Cambios");
+                cv.text(50.0, y, 12.0, true, (0.1, 0.1, 0.1), lang.pick("Cambios", "Changes"));
                 y -= 18.0;
             }
             first = false;
         } else {
-            cv.text(50.0, y, 12.0, true, (0.1, 0.1, 0.1), "Cambios (continuación)");
+            cv.text(
+                50.0,
+                y,
+                12.0,
+                true,
+                (0.1, 0.1, 0.1),
+                lang.pick("Cambios (continuación)", "Changes (continued)"),
+            );
             y -= 20.0;
         }
         while idx < lines.len() && y > 50.0 {
@@ -399,6 +503,7 @@ fn detail_page(
     p: &PageComparison,
     da: &pliego_pdf::Document,
     db: &pliego_pdf::Document,
+    lang: Lang,
 ) -> Result<()> {
     const W: f32 = 842.0;
     const H: f32 = 595.0;
@@ -407,13 +512,26 @@ fn detail_page(
     let panel_h = H - 2.0 * MARGIN - 38.0;
     let mut cv = Canvas::new();
     let head = match p.status {
-        PageStatus::Matched => format!(
-            "Original pág. {} · Nueva pág. {}",
-            p.page_a.unwrap() + 1,
-            p.page_b.unwrap() + 1
-        ),
-        PageStatus::Inserted => format!("Página insertada: nueva pág. {}", p.page_b.unwrap() + 1),
-        PageStatus::Deleted => format!("Página eliminada: original pág. {}", p.page_a.unwrap() + 1),
+        PageStatus::Matched => match lang {
+            Lang::Es => format!(
+                "Original pág. {} · Nueva pág. {}",
+                p.page_a.unwrap() + 1,
+                p.page_b.unwrap() + 1
+            ),
+            Lang::En => format!(
+                "Original page {} · New page {}",
+                p.page_a.unwrap() + 1,
+                p.page_b.unwrap() + 1
+            ),
+        },
+        PageStatus::Inserted => match lang {
+            Lang::Es => format!("Página insertada: nueva pág. {}", p.page_b.unwrap() + 1),
+            Lang::En => format!("Page inserted: new page {}", p.page_b.unwrap() + 1),
+        },
+        PageStatus::Deleted => match lang {
+            Lang::Es => format!("Página eliminada: original pág. {}", p.page_a.unwrap() + 1),
+            Lang::En => format!("Page deleted: original page {}", p.page_a.unwrap() + 1),
+        },
     };
     cv.text(MARGIN, H - MARGIN + 2.0, 12.0, true, (0.1, 0.1, 0.1), &head);
     cv.text(
@@ -422,20 +540,33 @@ fn detail_page(
         8.0,
         false,
         GREY,
-        "Verde: añadido · Rojo: borrado · Ámbar: cambiado",
+        lang.pick(
+            "Verde: añadido · Rojo: borrado · Ámbar: cambiado",
+            "Green: added · Red: deleted · Amber: changed",
+        ),
     );
 
     let mut panels: [Option<Panel>; 2] = [None, None];
-    for (k, (idx, d, label)) in [(p.page_a, da, "Original"), (p.page_b, db, "Nueva")]
-        .into_iter()
-        .enumerate()
+    for (k, (idx, d, label)) in [
+        (p.page_a, da, lang.pick("Original", "Original")),
+        (p.page_b, db, lang.pick("Nueva", "New")),
+    ]
+    .into_iter()
+    .enumerate()
     {
         let x = MARGIN + k as f32 * (panel_w + MARGIN);
         let top = H - MARGIN - 26.0;
         cv.text(x, top + 4.0, 9.0, true, GREY, label);
         let Some(i) = idx else {
             cv.stroke_rect((x, top - panel_h, panel_w, panel_h), GREY, 0.5);
-            cv.text(x + 10.0, top - 20.0, 10.0, false, GREY, "(sin página)");
+            cv.text(
+                x + 10.0,
+                top - 20.0,
+                10.0,
+                false,
+                GREY,
+                lang.pick("(sin página)", "(no page)"),
+            );
             continue;
         };
         let (pw, ph) = extract::page_size(d, i)?;
@@ -499,17 +630,22 @@ pub fn write_report(comparison: &Comparison, out: &Path) -> Result<()> {
 
 /// Igual que [`write_report`], con progreso y cancelación.
 pub fn write_report_with(comparison: &Comparison, out: &Path, ctx: &JobContext) -> Result<()> {
+    write_report_in(comparison, out, ctx, Lang::Es)
+}
+
+/// Igual que [`write_report_with`], con el texto del informe en `lang` (el idioma de la interfaz).
+pub fn write_report_in(comparison: &Comparison, out: &Path, ctx: &JobContext, lang: Lang) -> Result<()> {
     let da = extract::open(&comparison.path_a, comparison.password_a.as_deref())?;
     let db = extract::open(&comparison.path_b, comparison.password_b.as_deref())?;
     let mut doc = Doc::new();
-    summary_pages(&mut doc, comparison)?;
+    summary_pages(&mut doc, comparison, lang)?;
     let detail: Vec<&PageComparison> = comparison.pages.iter().filter(|p| p.has_differences()).collect();
     for (i, p) in detail.iter().enumerate() {
         ctx.step(i as u64, detail.len() as u64, "Dibujando el informe")?;
-        detail_page(&mut doc, comparison, p, &da, &db)?;
+        detail_page(&mut doc, comparison, p, &da, &db, lang)?;
     }
     ctx.step(detail.len() as u64, detail.len() as u64, "Informe terminado")?;
-    let bytes = doc.finish("Informe de comparación");
+    let bytes = doc.finish(lang.pick("Informe de comparación", "Comparison report"));
     let tmp = out.with_extension("pdf.tmp");
     std::fs::write(&tmp, &bytes).map_err(|e| Error::io_at(&tmp, e))?;
     std::fs::rename(&tmp, out).map_err(|e| Error::io_at(out, e))?;

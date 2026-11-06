@@ -5,7 +5,10 @@ const base = { path: "C:\\Docs\\v1.pdf", other: "C:\\Docs\\v2.pdf", text: true, 
 
 describe("Comparar", () => {
   it("arma los argumentos con los nombres que espera el comando", () => {
-    expect(compareArgs(base)).toEqual({ path: "C:\\Docs\\v1.pdf", other: "C:\\Docs\\v2.pdf", passwordA: null, passwordB: null, text: true, visual: true, label: "comparación" });
+    expect(compareArgs(base)).toEqual({ path: "C:\\Docs\\v1.pdf", other: "C:\\Docs\\v2.pdf", passwordA: null, passwordB: null, text: true, visual: true, label: "comparación", lang: null });
+  });
+  it("lleva el idioma del informe", () => {
+    expect(compareArgs({ ...base, lang: "en" })?.lang).toBe("en");
   });
   it("lleva la contraseña del segundo archivo cuando está protegido", () => {
     expect(compareArgs({ ...base, passwordB: "abre" })?.passwordB).toBe("abre");

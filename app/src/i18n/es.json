@@ -29,5 +29,9 @@
   "menu.settings": "Ajustes",
   "menu.shortcuts": "Atajos de teclado",
   "error.open": "No se pudo abrir el documento",
-  "mode.read": "Leer"
+  "mode.read": "Leer",
+  "dialog.filter.image": "Imagen",
+  "dialog.filter.source": "Imágenes, libros, texto y Office",
+  "dialog.filter.key": "Certificado",
+  "dialog.filter.action": "Acción"
 }

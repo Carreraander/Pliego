@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { engineText } from "../../i18n/engine";
 import { toast } from "../../ui";
 import type { OpenDoc } from "../../state/documents";
 import { setUndoDepth } from "../annotate/state";
@@ -47,7 +48,7 @@ async function run(command: string, args: Record<string, unknown>): Promise<bool
     const out = await invoke<Outcome>(command, withPassword({ ...args, suffix: et("edit.backupSuffix") }));
     setUndoDepth(out.undo_depth);
     toast({ tone: "ok", text: et("edit.done") });
-    for (const w of out.warnings) toast({ tone: "warn", text: et("edit.warning", { text: w }) });
+    for (const w of out.warnings) toast({ tone: "warn", text: et("edit.warning", { text: engineText(w) }) });
     return true;
   } catch (e) {
     toast({ tone: "danger", text: errorText(e) });

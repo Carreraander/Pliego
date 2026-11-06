@@ -1,6 +1,7 @@
 //! Envoltorios tipados de los comandos y eventos de Tauri (ver docs/app-integration.md).
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { t } from "../i18n";
 
 export type DocId = number;
 
@@ -56,12 +57,12 @@ export const api = {
   pickAnyFiles: (title?: string) => invoke<string[]>("pick_any_files", { title }),
   /** Selector nativo de una carpeta; `null` si se cancela. */
   /** Selector nativo de una acción guardada (.toml o .json); `null` si se cancela. */
-  pickActionFile: (title?: string) => invoke<string | null>("pick_action_file", { title }),
+  pickActionFile: (title?: string) => invoke<string | null>("pick_action_file", { title, filter: t("dialog.filter.action") }),
   pickFolder: (title?: string) => invoke<string | null>("pick_folder", { title }),
   /** Selector nativo de una imagen PNG o JPEG; `null` si se cancela. */
-  pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title }),
+  pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title, filter: t("dialog.filter.image") }),
   /** Selector nativo de imágenes, texto y documentos de Office para «Crear PDF». */
-  pickSourceFiles: (title?: string) => invoke<string[]>("pick_source_files", { title }),
+  pickSourceFiles: (title?: string) => invoke<string[]>("pick_source_files", { title, filter: t("dialog.filter.source") }),
 };
 
 export const events = {

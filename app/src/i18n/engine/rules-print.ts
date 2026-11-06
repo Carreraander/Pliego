@@ -21,4 +21,6 @@ export const PRINT_RULES: readonly Rule[] = [
   ["no hay ninguna impresora instalada: añade una en la configuración de Windows", "no printer is installed: add one in the Windows settings"],
   ["respuesta de la impresión no válida: {}", "invalid print response: {}"],
   ["respuesta de la impresora no válida: {}", "invalid printer response: {}"],
+  ["Hoja {} × {} pt, zona imprimible {} × {} pt (margen izquierdo {}, superior {})", "Sheet {1} × {2} pt, printable area {3} × {4} pt (left margin {5}, top {6})"],
+  ["{}: color {}, doble cara {}, hasta {} copias{}", "{1}: color {2}, two-sided {3}, up to {4} copies{5}"],
 ];

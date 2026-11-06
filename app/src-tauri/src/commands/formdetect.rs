@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use pliego_app_service::formdesign;
+use pliego_app_service::isolated::JobSpec;
 use pliego_appdata::jobs::JobId;
 use tauri::State;
 
@@ -12,6 +12,5 @@ use crate::commands::jobs::JobsState;
 #[tauri::command]
 pub fn form_detect(jobs: State<'_, JobsState>, path: String, password: Option<String>, suffix: String) -> JobId {
     let path = PathBuf::from(path);
-    jobs.0
-        .spawn(move |ctx| formdesign::detect_copy(&path, password.as_deref(), &suffix, ctx))
+    jobs.spawn_tool(JobSpec::FormDetect { path, password, suffix })
 }

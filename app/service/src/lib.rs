@@ -12,6 +12,7 @@ pub mod compare;
 pub mod convert;
 pub mod facts;
 pub mod formdesign;
+pub mod isolated;
 pub mod measure;
 pub mod ocr;
 pub mod optimize;

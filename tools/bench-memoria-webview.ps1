@@ -78,6 +78,7 @@ function Get-Kind($proc) {
     $name = $proc.Name.ToLowerInvariant()
     if ($name -eq 'pliego-app.exe') { return 'app' }
     if ($name -like 'pliego-worker*') { return 'worker' }
+    if ($name -eq 'pliego.exe') { return 'trabajo' }   # hijo de las herramientas (`pliego.exe __job`): solo existe mientras dura un trabajo
     if ($name -ne 'msedgewebview2.exe') { return 'otro' }
     $cl = [string]$proc.CommandLine
     if ($cl -match '--type=renderer') { return 'renderer' }

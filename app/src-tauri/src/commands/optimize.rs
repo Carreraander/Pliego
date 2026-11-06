@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use pliego_app_service::api::ApiResult;
+use pliego_app_service::isolated::JobSpec;
 use pliego_app_service::optimize::{self, CompressRequest, SpaceUsage};
 use pliego_appdata::jobs::JobId;
 use tauri::State;
@@ -28,8 +29,10 @@ pub fn compress_pdf(
         password,
         suffix,
     };
-    jobs.0
-        .spawn(move |ctx| optimize::compress_copy(&PathBuf::from(path), &req, ctx))
+    jobs.spawn_tool(JobSpec::Compress {
+        path: PathBuf::from(path),
+        req,
+    })
 }
 
 /// Reparto del tamaño del archivo por categorías.

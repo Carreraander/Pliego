@@ -5,8 +5,8 @@
 use std::path::PathBuf;
 
 use pliego_app_service::api::ApiResult;
+use pliego_app_service::isolated::JobSpec;
 use pliego_app_service::sign::{self, CertInfo, KeySource};
-use pliego_appdata::copyjob::unique_sibling;
 use pliego_appdata::jobs::JobId;
 use pliego_sign::{SignLang, SignOptions, SignatureReport};
 use pliego_signflow::{AuditEntry, PendingSigner, SignerSpec};
@@ -29,10 +29,11 @@ pub fn sign_pdf(
     options: SignOptions,
     suffix: Option<String>,
 ) -> JobId {
-    let src = PathBuf::from(path);
-    jobs.0.spawn(move |ctx| {
-        let out = unique_sibling(&src, suffix.as_deref().unwrap_or("firmado"), "pdf");
-        sign::sign_pdf(&src, &out, &key, options, ctx)
+    jobs.spawn_tool(JobSpec::Sign {
+        path: PathBuf::from(path),
+        key,
+        options,
+        suffix,
     })
 }
 
@@ -51,10 +52,11 @@ pub fn signflow_prepare(
     lang: Option<SignLang>,
     suffix: Option<String>,
 ) -> JobId {
-    let src = PathBuf::from(path);
-    jobs.0.spawn(move |ctx| {
-        let out = unique_sibling(&src, suffix.as_deref().unwrap_or("para firmar"), "pdf");
-        sign::flow_prepare(&src, &out, signers, lang.unwrap_or_default(), ctx)
+    jobs.spawn_tool(JobSpec::FlowPrepare {
+        path: PathBuf::from(path),
+        signers,
+        lang: lang.unwrap_or_default(),
+        suffix,
     })
 }
 
@@ -73,10 +75,11 @@ pub fn signflow_sign(
     options: SignOptions,
     suffix: Option<String>,
 ) -> JobId {
-    let src = PathBuf::from(path);
-    jobs.0.spawn(move |ctx| {
-        let out = unique_sibling(&src, suffix.as_deref().unwrap_or("firmado"), "pdf");
-        sign::flow_sign(&src, &out, &key, options, ctx)
+    jobs.spawn_tool(JobSpec::FlowSign {
+        path: PathBuf::from(path),
+        key,
+        options,
+        suffix,
     })
 }
 

@@ -64,10 +64,12 @@ pub fn info(a: InfoArgs, json: bool) -> anyhow::Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(&info)?);
     } else {
-        println!("Páginas:    {}", info.page_count);
+        // Las etiquetas se traducen; los valores (título, autor…) son del documento y se imprimen tal cual.
+        let label = |k: &str| crate::i18n::tr(k);
+        std::println!("{:<11} {}", label("Páginas:"), info.page_count);
         let show = |k: &str, v: &Option<String>| {
             if let Some(v) = v {
-                println!("{k:<11} {v}");
+                std::println!("{:<11} {v}", label(k));
             }
         };
         show("Título:", &info.title);
@@ -113,7 +115,7 @@ pub fn text(a: TextArgs, json: bool) -> anyhow::Result<()> {
         println!("{}", serde_json::to_string_pretty(&out)?);
     } else {
         for item in out {
-            print!("{}", item["text"].as_str().unwrap_or_default());
+            std::print!("{}", item["text"].as_str().unwrap_or_default());
         }
     }
     Ok(())

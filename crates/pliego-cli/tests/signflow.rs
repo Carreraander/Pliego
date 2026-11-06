@@ -7,6 +7,7 @@ use rcgen::{BasicConstraints, CertificateParams, DnType, IsCa, Issuer, KeyPair, 
 
 fn pliego() -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_pliego"));
+    c.env("PLIEGO_LANG", "es");
     c.env("PLIEGO_P12_PASSWORD", "prueba");
     c
 }

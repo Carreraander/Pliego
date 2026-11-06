@@ -6,7 +6,9 @@ fn corpus() -> PathBuf {
 }
 
 fn pliego() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_pliego"))
+    let mut c = Command::new(env!("CARGO_BIN_EXE_pliego"));
+    c.env("PLIEGO_LANG", "es");
+    c
 }
 
 #[test]

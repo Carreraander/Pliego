@@ -110,4 +110,4 @@ existen. Un documento cifrado se abre con contraseña y PDFium lee la copia orig
 `docs/handoff/flujos/w40.md`.
 
 ## Rendimiento objetivo (medido en acr12)
-Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB, instalador < 40 MB.
+Arranque en frío < 1 s, abrir PDF de 500 páginas < 1,5 s, memoria en reposo < 150 MB (app + worker; < 500 MB en total con WebView2), instalador < 40 MB.

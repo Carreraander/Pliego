@@ -1,8 +1,12 @@
 <#
 .SYNOPSIS
-  Mide la memoria total de Pliego (app + worker + procesos de WebView2) con distintas opciones del navegador.
+  Mide la memoria de Pliego (app + worker y, por separado, los procesos de WebView2) con distintas opciones del navegador.
 .DESCRIPTION
-  Criterio de Ander (W01): 150 MB para app + worker y techo de 400 MB contando WebView2, con un PDF de 100 páginas abierto.
+  Criterio de Ander (W01, actualizado 2026-11-06), con un PDF de 100 páginas abierto y dos mediciones separadas:
+    - app + worker (lo propio de Pliego): memoria privada <= 150 MB (-LimiteAppWorkerMB).
+    - total con WebView2 (la cifra del Administrador de tareas, memoria privada): <= 500 MB (-LimiteTotalMB).
+  El informe da «app+worker» y «WebView2» por separado y compara el total con el límite. El conjunto de trabajo (WS)
+  se sigue guardando como dato, pero el veredicto usa la memoria privada, que es lo que enseña el Administrador de tareas.
 
   Uso (en acr12, tras `. .\tools\acr12-env.ps1`; no hace falta compilar si ya hay un pliego-app.exe):
       .\tools\acr12-turno.ps1 -Flujo w01 -- .\tools\bench-memoria-webview.ps1 -Exe D:\ruta\pliego-app.exe
@@ -21,7 +25,9 @@ param(
     [string[]]$Variantes,
     [int]$Espera = 25,
     [int]$Repeticiones = 1,
-    [string]$Salida
+    [string]$Salida,
+    [int]$LimiteAppWorkerMB = 150,
+    [int]$LimiteTotalMB = 500
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -121,6 +127,12 @@ function Measure-Once([string]$nombre, [string]$opciones) {
             por_tipo          = $porTipo
             args_navegador    = $browserCmd
         }
+        $res['limite_app_worker_mb'] = $LimiteAppWorkerMB
+        $res['limite_total_mb'] = $LimiteTotalMB
+        $res['cumple_app_worker'] = ($res.app_worker_priv_mb -le $LimiteAppWorkerMB)
+        $res['cumple_total'] = ($res.total_priv_mb -le $LimiteTotalMB)
+        # Dato de control: el mismo límite aplicado al conjunto de trabajo, que es mayor que la memoria privada.
+        $res['cumple_total_ws'] = ($res.total_ws_mb -le $LimiteTotalMB)
         return $res
     }
     finally {
@@ -139,14 +151,17 @@ foreach ($v in $Variantes) {
         $r = Measure-Once $v $todas[$v]
         $r['repeticion'] = $i
         $resultados += $r
-        Write-Host ("   WV2 {0} procesos: {1} MB WS / {2} MB privados · app+worker {3} MB · total {4} MB WS / {5} MB privados" -f `
-            $r.procesos_wv2, $r.wv2_ws_mb, $r.wv2_priv_mb, $r.app_worker_ws_mb, $r.total_ws_mb, $r.total_priv_mb)
+        $ok = { param($b) if ($b) { 'cumple' } else { 'NO cumple' } }
+        Write-Host ("   app+worker: {0} MB privados (límite {1}: {2}) · WebView2 ({3} procesos): {4} MB privados / {5} MB WS" -f `
+            $r.app_worker_priv_mb, $LimiteAppWorkerMB, (& $ok $r.cumple_app_worker), $r.procesos_wv2, $r.wv2_priv_mb, $r.wv2_ws_mb)
+        Write-Host ("   total: {0} MB privados (límite {1}: {2}) · {3} MB WS ({4} el mismo límite)" -f `
+            $r.total_priv_mb, $LimiteTotalMB, (& $ok $r.cumple_total), $r.total_ws_mb, (& $ok $r.cumple_total_ws))
     }
 }
 
 Write-Host ""
 $resultados | ForEach-Object { [pscustomobject]$_ } |
-    Format-Table variante, repeticion, procesos_wv2, app_worker_ws_mb, wv2_ws_mb, wv2_priv_mb, total_ws_mb, total_priv_mb -AutoSize
+    Format-Table variante, repeticion, procesos_wv2, app_worker_priv_mb, cumple_app_worker, wv2_priv_mb, total_priv_mb, cumple_total, total_ws_mb -AutoSize
 
 if (-not $Salida) {
     $dir = Join-Path $repo 'docs\qa\memoria-webview'
@@ -158,6 +173,7 @@ if (-not $Salida) {
     windows = (Get-CimInstance Win32_OperatingSystem).Version
     webview2 = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv
     exe = $Exe; pdf = $Pdf; espera_s = $Espera
+    limite_app_worker_mb = $LimiteAppWorkerMB; limite_total_mb = $LimiteTotalMB
     resultados = $resultados
 } | ConvertTo-Json -Depth 6 | Set-Content -Path $Salida -Encoding UTF8
 Write-Host "Resultado guardado en $Salida"

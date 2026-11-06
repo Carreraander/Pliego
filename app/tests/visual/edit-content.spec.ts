@@ -143,9 +143,11 @@ test.describe("modo Editar (backend simulado)", () => {
     const viewer = page.getByTestId("viewer");
     await viewer.evaluate((el) => { el.scrollTop = 300; });
     await expect.poll(() => viewer.evaluate((el) => el.scrollTop)).toBe(300);
+    // Deja pasar el evento de scroll (asíncrono) antes de cambiar la revisión.
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
     await page.evaluate(() => (window as unknown as { __emit: (e: string, p: unknown) => void }).__emit("document-changed", { doc_id: 1, revision: 5 }));
     await page.waitForTimeout(300);
-    expect(await page.getByTestId("viewer").evaluate((el) => el.scrollTop)).toBe(300);
+    await expect.poll(() => page.getByTestId("viewer").evaluate((el) => el.scrollTop)).toBe(300);
   });
 
   test("un documento firmado avisa antes de la primera edición y no edita si se cancela", async ({ page }) => {

@@ -105,3 +105,25 @@ medición que la de la beta 0.1.0 (`docs/qa/memoria-webview/2026-11-06-0255-DESK
 Sin cambio de memoria respecto a la beta anterior: los cambios de `main` no la mueven. Solo `v8-lite` baja (unos 29 MB)
 y las variantes `gpu-interna` y `combo-v8` ahorran un proceso y unos 16 MB de memoria privada, pero no de conjunto de trabajo.
 El objetivo de 150 MB se cumple para app + worker (unos 52 MB). Con WebView2 el total superaba el techo de entonces de 400 MB; desde el 2026-11-06 el techo es de 500 MB (memoria privada, como el Administrador de tareas) y el banco informa «app+worker» y «WebView2» por separado.
+
+Comprobación del banco tras #228 (2026-11-06, `main` en `90e080f`, app de `5940cff`; #228 solo cambia el script): `-Variantes base -Repeticiones 1`
+corre y muestra las dos líneas y el total (`docs/qa/memoria-webview/2026-11-06-1139-DESKTOP-41TJN0V.json`):
+
+| Línea | Privada | WS | Límite |
+|---|---|---|---|
+| app + worker | 23,2 MB | — | 150 MB: cumple |
+| WebView2 (6 procesos) | 174,4 MB | 405,9 MB | — |
+| Total | 197,6 MB | 459 MB | 500 MB: cumple (también en WS) |
+
+## Validación de la edición tipo Acrobat (#211, 2026-11-06, `main` en `5940cff`)
+- Pruebas de Rust: `cargo test -p pliego-pdf native::redact` 42/42, `cargo test -p pliego-edit` todo en verde (flow, links…),
+  `cargo test -p pliego-app-service --lib pageedit` 4/4.
+- App real en Windows (WebView2 con CDP, PDF de 3 páginas con 4 párrafos por página, un logo PNG y un enlace; modo Editar):
+  - Reemplazar un párrafo corto por 5 líneas con «Recolocar lo de debajo»: lo de debajo baja con su aspecto intacto, sin solapes, con aviso de
+    fuente estándar; se guarda en el archivo.
+  - Texto muy largo (14 frases): lo que no cabe pasa a la página 2 y 3 en cascada, sin páginas de más; Deshacer revierte las tres páginas en un paso.
+  - Imágenes: arrastrar, tirador SE (300×120 → 360×160 con +60/+40 de arrastre) y Supr con Deshacer funcionan.
+  - Enlaces: cambiar `https://pdfpliego.com` por otra dirección se aplica y persiste en el PDF.
+- Límites confirmados: el párrafo editado conserva el ancho del original y, si no cabe, no continúa en la página siguiente (se sale por abajo);
+  el pie, que no se mueve, se superpone con el texto crecido; tras mover, redimensionar o borrar una imagen el visor vuelve al principio de la página.
+- Pendiente: revisión visual a mano en la beta con un PDF de Word real (acr12 no tiene Word).

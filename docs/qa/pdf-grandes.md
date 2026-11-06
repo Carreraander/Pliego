@@ -59,13 +59,14 @@ Escaneado de 1 044 MB, 300 páginas (`PLIEGO_ENGINE=pdfium`):
 Texto de 5 000 páginas (23 MB): app + worker de 160 MB a **74 MB** (con la apertura «solo para ver»; la búsqueda en las 5 000 páginas
 sigue en ~7 s, 1,4 ms por página).
 
-Edición del de 1 GB (`pdf_grande`, tres comentarios y tres «deshacer»):
+Edición del de 1 GB (`pdf_grande`, tres comentarios y tres «deshacer»; los comentarios en modo ligero):
 
 | | Antes | Después |
 | --- | --- | --- |
 | Pasos de deshacer | 30 × 1 GB **en memoria** (tope del código, no del PDF: 30 GB) | en disco, junto al documento; 24 MB en memoria como mucho; 4 GB de disco como mucho |
-| Memoria de la app tras editar | 1 GB retenido por recarga (`Source::Bytes`) | **5 MB** |
-| Pico de la app durante un guardado | 5,2 GB | 3,1 GB, transitorio (guardado en flujo directo al archivo; baja más con guardado incremental) |
+| Memoria de la app tras editar | 1 GB retenido por recarga (`Source::Bytes`) | **3 MB** (el visor recarga leyendo el archivo; ya no pasa el PDF por la app) |
+| Pico de la app durante un guardado (comentar) | 5,2 GB | **1,05 GB**, transitorio: es leer el archivo una vez al abrirlo en modo ligero; el guardado añade al final del archivo (incremental) y la app queda en 3 MB |
+| Tiempo de un comentario sobre el de 1 GB | 7,3 s | 3,9-6,9 s (casi todo es copiar el archivo: copia de seguridad la primera vez, paso de deshacer y resultado) |
 
 ### acr12
 
@@ -76,7 +77,9 @@ Pendiente de la pasada de gestión (`bench-pdf-grandes.ps1`). Añadir aquí la t
 - **Pico al abrir:** un PDF se lee entero una vez para construir el modelo; el búfer se suelta enseguida, pero el Administrador de tareas lo ve
   unos segundos (≈ tamaño del archivo). Por eso el máximo es 1,7 GB (`VIEW_ONLY_MAX_BYTES`, bajo el límite de 2 GB del worker); PDFium no abre
   archivos de 4 GiB o más en Windows.
-- **Editar un PDF de 1 GB en el propio archivo** reescribe el PDF entero (lopdf): pico de varios GB de memoria durante el guardado, de segundos.
-  La edición **incremental** (añadir solo lo cambiado) sin cargar los flujos grandes lo bajaría a decenas de MB; es la mejora natural (ver W46).
+- **Comentar en un PDF grande (≥ 64 MiB)** usa el modo ligero (`PdfDocument::open_lean` / `save_lean`): el modelo se carga sin los
+  flujos grandes y los cambios se añaden al final del archivo. El pico es leer el archivo una vez (≈ su tamaño). Si el cambio tocara un
+  flujo que no se cargó, o el PDF está cifrado o reparado, se usa el camino de siempre, que **reescribe el PDF entero** (lopdf): pico de
+  ~3 GB durante segundos. Las demás herramientas que editan (formularios, texto, medir, páginas) siguen por ese camino.
 - **Capas en PDF grandes:** mostrar u ocultar una capa necesita el documento entero; solo se admite hasta 256 MB (`LAYER_EDIT_MAX_BYTES`).
 - El ejecutable `pliego` (CLI) abre los PDF enteros: sus pasos no usan el modo «solo para ver».

@@ -320,11 +320,21 @@ impl WorkerDocument {
         self.cache.drop_stale(self.id, revision);
     }
 
+    /// Vuelve a abrir el documento desde `path` (el archivo que acaba de escribir una edición) con la nueva `revision`.
+    /// No pasa el contenido por memoria: con un PDF grande es lo que evita leerlo y reescribirlo en cada cambio.
+    pub fn reload_path(&self, path: &Path, revision: u64) -> Result<()> {
+        self.swap_source(Source::Path(path.to_path_buf()), revision)
+    }
+
     /// Sustituye el contenido por `bytes` (p. ej. tras una edición) con la nueva `revision`.
     pub fn reload_bytes(&self, bytes: &[u8], revision: u64) -> Result<()> {
-        let mut st = self.lock();
-        let beside = st.source.file().map(Path::to_path_buf);
+        let beside = self.lock().source.file().map(Path::to_path_buf);
         let source = Source::from_bytes(bytes, beside.as_deref())?;
+        self.swap_source(source, revision)
+    }
+
+    fn swap_source(&self, source: Source, revision: u64) -> Result<()> {
+        let mut st = self.lock();
         let old = (st.source.clone(), st.proc.take());
         st.source = source;
         drop(st);

@@ -169,20 +169,20 @@ fn comentar_y_deshacer_un_pdf_de_un_gigabyte() {
         );
         spec.contents = Some(format!("nota {i}"));
         let t = Instant::now();
-        let bytes = ed.add(&path, None, &spec, "copia de seguridad").unwrap();
+        let saved = ed.add_saved(&path, None, &spec, "copia de seguridad").unwrap();
         mark(&format!("comentar {i} (guardar)"), t);
         let t = Instant::now();
-        svc.reload_bytes(id, &bytes).unwrap();
-        drop(bytes);
+        svc.reload_saved(id, &path, &saved).unwrap();
+        drop(saved);
         mark(&format!("comentar {i} (recargar visor)"), t);
     }
     let idle_after_edits = private_mb(me);
 
     for i in 1..=3 {
         let t = Instant::now();
-        let bytes = ed.undo(&path).unwrap().unwrap();
-        svc.reload_bytes(id, &bytes).unwrap();
-        drop(bytes);
+        let saved = ed.undo_saved(&path).unwrap().unwrap();
+        svc.reload_saved(id, &path, &saved).unwrap();
+        drop(saved);
         mark(&format!("deshacer {i}"), t);
     }
     assert!(

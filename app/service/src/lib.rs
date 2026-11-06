@@ -211,6 +211,26 @@ impl DocumentService {
         Ok(revision)
     }
 
+    /// Vuelve a leer el documento de `path` (el archivo que acaba de guardar una edición) y sube la revisión, sin pasar
+    /// el contenido por la memoria de la app.
+    pub fn reload_path(&self, doc: DocId, path: &Path) -> Result<u64> {
+        let d = self.doc(doc)?;
+        let revision = d.revision() + 1;
+        d.reload_path(path, revision)?;
+        if let Some(f) = &self.listener {
+            f(DocumentChanged { doc_id: doc, revision });
+        }
+        Ok(revision)
+    }
+
+    /// Recarga el visor con el resultado de una edición ([`annot::Saved`]): los bytes o el archivo ya guardado.
+    pub fn reload_saved(&self, doc: DocId, path: &Path, saved: &annot::Saved) -> Result<u64> {
+        match saved {
+            annot::Saved::Bytes(b) => self.reload_bytes(doc, b),
+            annot::Saved::File(_) => self.reload_path(doc, path),
+        }
+    }
+
     /// PNG de una tesela; el RGBA sale de la caché compartida del motor.
     pub fn tile(&self, doc: DocId, req: TileRequest) -> Result<Vec<u8>> {
         let t0 = std::time::Instant::now();

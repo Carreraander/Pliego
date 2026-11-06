@@ -547,3 +547,37 @@ fn pdf_grande_editar_y_deshacer_sin_memoria_ni_archivos_abiertos() {
     assert_eq!(std::fs::read(&path).unwrap(), original);
     assert_eq!(spilled(), 0);
 }
+
+#[test]
+fn pdf_grande_comentar_en_modo_ligero_no_reescribe_el_archivo() {
+    use pliego_app_service::annot::{Saved, summary_of};
+    let _s = serial();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hola.pdf");
+    std::fs::copy(corpus("basic/hola.pdf"), &path).unwrap();
+    let original = std::fs::read(&path).unwrap();
+    let svc = view_only_service();
+    let id = svc.open_document(&path, None).unwrap();
+    // `with_lean_min_bytes(0)`: todo se trata como un PDF grande.
+    let ed = Editor::default().with_lean_min_bytes(0);
+    let mut s = AnnotSpec::new(0, pliego_annot::Geometry::Note { at: [100.0, 100.0] });
+    s.contents = Some("nota grande".into());
+    let rev = svc.revision(id).unwrap();
+    let saved = ed.add_saved(&path, None, &s, "copia de seguridad").unwrap();
+    assert!(matches!(saved, Saved::File(_)), "el resultado se entrega como archivo");
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert_repaints(&svc, id, rev);
+    let after = std::fs::read(&path).unwrap();
+    assert!(
+        after.starts_with(&original),
+        "se añade al final: el original queda intacto"
+    );
+    assert_eq!(summary_of(&path, None).unwrap().total, 1);
+    assert_eq!(ed.undo_depth(&path), 1);
+
+    let rev = svc.revision(id).unwrap();
+    let saved = ed.undo_saved(&path).unwrap().unwrap();
+    svc.reload_saved(id, &path, &saved).unwrap();
+    assert_repaints(&svc, id, rev);
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+}

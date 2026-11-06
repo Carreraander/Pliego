@@ -77,4 +77,8 @@ export const EDIT_RULES: readonly Rule[] = [
   ["no se pudo crear ViewerPreferences", "could not create ViewerPreferences"], ["el objeto {} no existe en el documento", "object {} does not exist in the document"],
   ["el objeto {} no es un elemento de estructura al que se pueda poner texto alternativo", "object {} is not a structure element that can take alternative text"],
   ["{} texto(s) alternativo(s)", "{} alternative text(s)"], ["idioma {}", "language {}"],
+  ["lo que seguía al párrafo no cabe entero en una página y puede salirse de ella", "what followed the paragraph does not fit on one page and may run off it"],
+  ["lo que seguía no cabía en la página siguiente", "what followed did not fit on the next page"], ["el resto del párrafo ocupa casi una página", "the rest of the paragraph takes up almost a page"],
+  ["lo que seguía no cabía tras el resto del párrafo", "what followed did not fit after the rest of the paragraph"], ["el texto sobrante ocupa páginas enteras", "the overflowing text takes up whole pages"],
+  ["se insertó la página {} porque {}", "page {1} was inserted because {2}"],
 ];

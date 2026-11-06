@@ -1,0 +1,64 @@
+{
+  "caso": "texto-5000",
+  "archivo_mb": 22.57351303100586,
+  "paginas": 5000,
+  "pasos": [
+    {
+      "paso": "abrir",
+      "ms": 120.5258,
+      "app_mb": 0.78125,
+      "worker_mb": 22.65234375,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "páginas (5000) e info",
+      "ms": 1.9895999999999998,
+      "app_mb": 0.78125,
+      "worker_mb": 22.65234375,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "marcadores (500)",
+      "ms": 1.5857,
+      "app_mb": 0.86328125,
+      "worker_mb": 22.65234375,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "primera tesela",
+      "ms": 24.9434,
+      "app_mb": 1.87109375,
+      "worker_mb": 26.73046875,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "40 saltos (la peor 8 ms)",
+      "ms": 238.41789999999997,
+      "app_mb": 41.10546875,
+      "worker_mb": 35.2578125,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "última página",
+      "ms": 6.5541,
+      "app_mb": 42.109375,
+      "worker_mb": 34.88671875,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "texto de una página (4048 car.)",
+      "ms": 4.0473,
+      "app_mb": 42.109375,
+      "worker_mb": 35.8359375,
+      "worker_pico_mb": null
+    },
+    {
+      "paso": "buscar «contrato» en 5000 págs (0 coincidencias)",
+      "ms": 9088.4162,
+      "app_mb": 42.109375,
+      "worker_mb": 38.59765625,
+      "worker_pico_mb": null
+    }
+  ],
+  "max_app_mas_worker_mb": 80.70703125
+}

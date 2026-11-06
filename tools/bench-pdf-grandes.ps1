@@ -33,8 +33,11 @@ Set-Location $repo
 $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path $repo 'target' }
 
 # Compilar el banco y el worker (release: es lo que se empaqueta).
-cargo build --release -p pliego-qa --bin big-bench -p pliego-worker
-if ($LASTEXITCODE -ne 0) { throw 'cargo build falló' }
+# Dos compilaciones: con `--bin big-bench` y `-p pliego-worker` juntos cargo solo construye ese binario y no el del worker.
+cargo build --release -p pliego-qa --bin big-bench
+if ($LASTEXITCODE -ne 0) { throw 'cargo build (big-bench) falló' }
+cargo build --release -p pliego-worker
+if ($LASTEXITCODE -ne 0) { throw 'cargo build (worker) falló' }
 $bench = Join-Path $target 'release\big-bench.exe'
 $env:PLIEGO_WORKER = Join-Path $target 'release\pliego-worker.exe'
 $env:PLIEGO_ENGINE = 'pdfium'

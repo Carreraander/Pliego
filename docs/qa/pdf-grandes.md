@@ -70,7 +70,39 @@ Edición del de 1 GB (`pdf_grande`, tres comentarios y tres «deshacer»; los co
 
 ### acr12
 
-Pendiente de la pasada de gestión (`bench-pdf-grandes.ps1`). Añadir aquí la tabla con la fecha y el JSON de `docs/qa/pdf-grandes/`.
+Windows 10, acr12 (DESKTOP-41TJN0V), 2026-11-06, PDFium de `tools/pdfium/pdfium.lock.json`, worker real, `bench-pdf-grandes.ps1` con turno `w46`
+sobre la cabeza de #241 (e85e5b2). JSON: `docs/qa/pdf-grandes/2026-11-06-1625-DESKTOP-41TJN0V-*.json`. Memoria privada (`PrivateMemorySize64`).
+
+Escaneado de 1 044 MB, 300 páginas:
+
+| Paso | Tiempo | App | Worker |
+| --- | --- | --- | --- |
+| Abrir | 1,98 s | 0,8 MB | 4,1 MB |
+| Primera tesela | 284 ms | 1,8 MB | 10,7 MB |
+| 40 saltos (el peor 95 ms) | 2,05 s | 41,1 MB | 25,2 MB |
+| Última página | 48 ms | 42,1 MB | 28,5 MB |
+| Texto de una página | 4 ms | 42,1 MB | 32,6 MB |
+| Buscar «contrato» en 300 págs (300 coincidencias) | 2,19 s | 42,1 MB | 29,2 MB |
+| **Máximo app + worker** | | **74,7 MB** (≤ 150 cumple) | |
+
+Texto de 5 000 páginas (23 MB): abrir 121 ms; 40 saltos 238 ms; buscar en las 5 000 páginas (0 coincidencias) 9,1 s; **máximo app + worker 80,7 MB** (cumple).
+
+Comentar y deshacer sobre el de 1 GB (`pdf_grande`, 399 s en total; el pico del worker en Windows no se mide: `worker_pico_mb` es nulo):
+
+| Paso | Tiempo | App |
+| --- | --- | --- |
+| Abrir | 24,4 s | 1,0 MB (pico 6) |
+| Comentar 1: guardar / recargar visor | 76,1 s / 16,7 s | 2,2 / 2,4 MB (pico 1 055) |
+| Comentar 2: guardar / recargar visor | 40,9 s / 11,0 s | 1,8 / 1,8 MB |
+| Comentar 3: guardar / recargar visor | 26,6 s / 9,0 s | 2,2 / 2,1 MB |
+| Deshacer 1 / 2 / 3 | 35,8 / 36,2 / 38,0 s | 2,9 MB |
+
+La app en reposo tras editar queda en 2 MB y tras deshacer en 3 MB: no crece con el archivo (criterio cumplido). Ojo con los **tiempos**: en
+acr12 (disco D: y antivirus) un comentario sobre 1 GB tarda 27-76 s y cada «deshacer» 36-38 s, frente a 3,9-6,9 s en Linux; casi todo es copiar
+el archivo de 1 GB (copia de seguridad, paso de deshacer y resultado). Para Ander puede ser lento; conviene vigilarlo.
+
+Nota de la pasada: el script compilaba con `cargo build --release -p pliego-qa --bin big-bench -p pliego-worker`, que no construye `pliego-worker.exe`
+(`--bin` filtra todos los paquetes) y `big-bench` fallaba con «no se pudo iniciar el proceso del motor»; ahora son dos compilaciones.
 
 ## Límites conocidos
 

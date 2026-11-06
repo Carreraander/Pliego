@@ -8,11 +8,14 @@ import { expect, test, type Page } from "@playwright/test";
 const DOC = "C:\\Docs\\escaneo.pdf";
 
 /** `locked`: otros archivos protegidos (ruta → contraseña) que `password_status` reconoce, como el servicio real. */
-async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string>; english?: boolean; signed?: boolean } = {}) {
-  await page.addInitScript(([doc, protectedDoc, locked, english, signed]: [string, boolean, Record<string, string>, boolean, boolean]) => {
+async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string>; english?: boolean; signed?: boolean; crashed?: boolean } = {}) {
+  await page.addInitScript(([doc, protectedDoc, locked, english, signed, crashed]: [string, boolean, Record<string, string>, boolean, boolean, boolean]) => {
     const calls: { cmd: string; args: unknown }[] = [];
     const responses: Record<string, unknown> = {
-      startup_files: [doc],
+      // Con `crashed` la app arranca sin archivos y la vez anterior se cerró de golpe con una pestaña abierta.
+      startup_files: crashed ? [] : [doc],
+      session_previous: crashed ? { crashed: true, docs: [{ path: doc, page: 2 }] } : { crashed: false, docs: [] },
+      crash_report: "Pliego 0.1.0 · windows x86_64",
       open_document: 1,
       document_info: { page_count: 3, title: "Escaneo", author: null, is_pdf: true },
       page_sizes: [{ width: 595, height: 842 }, { width: 595, height: 842 }, { width: 595, height: 842 }],
@@ -68,7 +71,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
         return cmd in responses ? responses[cmd] : null;
       },
     };
-  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}, opts.english ?? false, opts.signed ?? false] as [string, boolean, Record<string, string>, boolean, boolean]);
+  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}, opts.english ?? false, opts.signed ?? false, opts.crashed ?? false] as [string, boolean, Record<string, string>, boolean, boolean, boolean]);
 }
 
 const calls = (page: Page, cmd: string) =>
@@ -316,5 +319,24 @@ test.describe("atajos del visor y del navegador (backend simulado)", () => {
     await page.keyboard.press("F5");
     await page.waitForTimeout(300);
     expect(await page.evaluate(() => (window as unknown as { __sinRecargar?: boolean }).__sinRecargar)).toBe(true);
+  });
+});
+
+test.describe("recuperación tras un cierre inesperado (backend simulado)", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page, { crashed: true });
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+  });
+
+  test("Inicio ofrece reabrir las pestañas y vuelve a la página en la que estaba", async ({ page }) => {
+    const banner = page.getByRole("alert").filter({ hasText: "se cerró de forma inesperada" });
+    await expect(banner).toContainText("1 documento abierto");
+    await expect(banner.getByRole("button", { name: "Copiar informe" })).toBeVisible();
+    await banner.getByRole("button", { name: "Reabrir" }).click();
+    await expect(page.getByText("Página 3 de 3")).toBeVisible();
+    expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
+    await expect.poll(async () => (await calls(page, "session_save")).at(-1)?.args).toMatchObject({ docs: [{ path: DOC, page: 2 }] });
   });
 });

@@ -9,6 +9,7 @@ import { fitPageZoom, fitWidthZoom, rotate, stepZoom } from "./viewer/layout";
 import { Viewer } from "./viewer/Viewer";
 import { installViewerCommands, saveAs, type ViewerCommandHost } from "./viewer/commands";
 import { installBrowserGuard } from "./browserGuard";
+import { installSession } from "./state/session";
 import { Thumbnails } from "./panels/Thumbnails";
 import { Outline } from "./panels/Outline";
 import { registerAssistantPanel } from "./panels/assistant";
@@ -86,6 +87,8 @@ export function App() {
     ]);
     onCleanup(() => { offs.forEach((off) => off()); unlisten.forEach((off) => off()); });
     for (const p of await api.startupFiles()) await open(p);
+    // Después de abrir lo que pidió el sistema: si la vez anterior se cerró de golpe, Inicio ofrece reabrir las pestañas.
+    offs.push(await installSession((p) => open(p)));
   });
 
   return (

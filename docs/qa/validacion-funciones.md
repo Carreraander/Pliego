@@ -200,6 +200,13 @@ app instalada, F5, Ctrl+R, Ctrl+P, Alt+← y el clic derecho no deben recargar, 
 que los cambios ya están en el archivo (las herramientas guardan al aplicar). Pruebas: `saveas::tests` y
 `app-smoke.spec.ts`. **W**: guardar como sobre un PDF cifrado y en otra unidad.
 
+**Recuperación tras un cierre inesperado:** `%APPDATA%\Pliego\running` existe mientras la app está abierta y se borra al
+salir bien (`RunEvent::Exit`); `session.json` guarda las pestañas (ruta y página, sin contraseñas). Si al arrancar la
+marca seguía ahí, Inicio dice «Pliego se cerró de forma inesperada…» con [Reabrir] (vuelve a cada página), [Descartar] y
+[Copiar informe] (versión, sistema y las 60 últimas líneas del registro, al portapapeles). Pruebas: `session::tests` y
+`app-smoke.spec.ts`. **W**: matar `pliego-app.exe` con el Administrador de tareas con dos PDF abiertos y volver a abrir
+Pliego; cerrar bien y comprobar que no sale el aviso.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

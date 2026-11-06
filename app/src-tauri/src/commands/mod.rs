@@ -26,6 +26,7 @@ pub mod portfolio;
 pub mod protect;
 pub mod recents;
 pub mod search;
+pub mod session;
 pub mod settings;
 pub mod sign;
 pub mod stamp;
@@ -64,6 +65,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::about_info,
         logs::logs_dir,
         logs::open_logs_folder,
+        session::session_previous,
+        session::session_save,
+        session::crash_report,
         jobs::cancel_job,
         convert::create_pdf,
         compare::compare_pdfs,

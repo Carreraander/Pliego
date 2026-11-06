@@ -6,7 +6,9 @@ use p12_keystore::{Certificate, KeyStore, KeyStoreEntry, PrivateKey, PrivateKeyC
 use rcgen::{BasicConstraints, CertificateParams, DnType, IsCa, Issuer, KeyPair, KeyUsagePurpose};
 
 fn pliego() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_pliego"))
+    let mut c = Command::new(env!("CARGO_BIN_EXE_pliego"));
+    c.env("PLIEGO_LANG", "es");
+    c
 }
 
 fn corpus() -> PathBuf {

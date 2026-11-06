@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use pliego_app_service::api::{ApiError, ApiResult};
 use pliego_app_service::checks::{self, A11yReport, Level, PreflightReport, Validation};
+use pliego_app_service::isolated::JobSpec;
 use pliego_appdata::jobs::JobId;
 use pliego_core::Error;
 use tauri::State;
@@ -45,8 +46,7 @@ pub async fn reading_order(path: String, password: Option<String>) -> ApiResult<
 #[tauri::command]
 pub fn tab_order_copy(jobs: State<'_, JobsState>, path: String, password: Option<String>, suffix: String) -> JobId {
     let path = PathBuf::from(path);
-    jobs.0
-        .spawn(move |_ctx| checks::tab_order_copy(&path, password.as_deref(), &suffix))
+    jobs.spawn_tool(JobSpec::TabOrder { path, password, suffix })
 }
 
 /// «Hacer accesible»: copia etiquetada con título, idioma, textos alternativos y tabulación.
@@ -58,7 +58,10 @@ pub fn make_accessible(
     options: checks::FixOptions,
     suffix: String,
 ) -> JobId {
-    let path = PathBuf::from(path);
-    jobs.0
-        .spawn(move |ctx| checks::make_accessible_copy(&path, password.as_deref(), &options, &suffix, ctx))
+    jobs.spawn_tool(JobSpec::MakeAccessible {
+        path: PathBuf::from(path),
+        password,
+        options,
+        suffix,
+    })
 }

@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { api } from "../../api";
 import { t } from "../../i18n";
+import { engineText } from "../../i18n/engine";
 import { toast } from "../../ui";
 
 /** Dirección a la espera de que la persona confirme que se abra (`null` = ninguna). */
@@ -31,7 +32,7 @@ export async function confirmOpenUrl(): Promise<void> {
     await api.openWebLink(url);
   } catch (e) {
     const error = typeof e === "string" ? e : e instanceof Error ? e.message : (e as { message?: string })?.message ?? "?";
-    toast({ tone: "danger", text: t("link.failed", { error }) });
+    toast({ tone: "danger", text: t("link.failed", { error: engineText(error) }) });
   }
 }
 

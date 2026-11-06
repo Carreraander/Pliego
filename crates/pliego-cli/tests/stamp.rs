@@ -6,7 +6,11 @@ fn corpus() -> PathBuf {
 }
 
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_pliego")).args(args).output().unwrap()
+    Command::new(env!("CARGO_BIN_EXE_pliego"))
+        .env("PLIEGO_LANG", "es")
+        .args(args)
+        .output()
+        .unwrap()
 }
 
 fn ok(o: &Output) {

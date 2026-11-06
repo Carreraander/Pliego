@@ -7,6 +7,7 @@ const PROMPT = "instrucción al modelo del asistente: no se muestra; el modelo c
 const REGEX = "expresión regular de reconocimiento: no se muestra";
 const ALIAS = "alias español que se escribe en la CLI o en la acción guardada: no se muestra";
 const UI = "nombre que la interfaz traduce ella misma (clave dialog.filter.* en i18n)";
+const NAME = "nombre de archivo o plantilla técnica: no es un mensaje";
 const LOG = "texto de registro de diagnóstico: no se muestra en la interfaz";
 
 export const NOT_TRANSLATED: Record<string, string> = {
@@ -27,4 +28,13 @@ export const NOT_TRANSLATED: Record<string, string> = {
   "Imágenes, libros, texto y Office": UI,
   "Acción": UI,
   "sin nombre": LOG,
+  "Error: {}": "formato de error de la CLI, igual en los dos idiomas (el mensaje de dentro sí se traduce)",
+  "Caused by:": "formato de error de la CLI, igual en los dos idiomas",
+  "Script: {}": "mensaje del script del formulario: no tiene texto propio",
+  ".pliego-{}.tmp": NAME,
+  "{}-ocr.pdf": NAME,
+  "{}-p{}-{}.png": NAME,
+  "{}-{}.png": NAME,
+  "xref {} {}×{} {} {}": NAME,
+  "{} {} {} MB RAM {} GB {}{} {}": "columnas de la tabla de modelos: solo cifras y nombres propios",
 };

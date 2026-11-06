@@ -88,12 +88,13 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W25](flujos/w25.md) | Conectar Proteger y Redactar | Fusionado | Falta prueba en acr12 y revisión visual (revision-manual-ander.md) |
 | [W42](flujos/w42.md) | Motor de JavaScript de formularios (Boa) | En curso | Conectarlo a `pliego_pdf::native` y a la app |
 | [W43](flujos/w43.md) | Edición tipo Acrobat (recolocar texto; imágenes, vectores y enlaces) | En curso | PR 1: motor de movimiento y recolocación; falta la interfaz y validar en acr12/pc |
-| [W44](flujos/w44.md) | Texto seleccionable y enlaces en Leer; Narrador | En curso | PR 1 (texto y copiar, #236) fusionado; PR 2 (enlaces) en revisión; falta Narrador |
+| [W44](flujos/w44.md) | Texto seleccionable y enlaces en Leer; Narrador | En curso | #236 (texto y copiar) y #240 (enlaces) fusionados; PR 3 (Narrador, foco, alto contraste) en revisión; falta la prueba con el Narrador real |
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)
 
-- Los trabajos archivo → archivo corren en el proceso de la app (patrón de `docs/app-integration.md`); antes de la 1.0
-  pasan a un proceso aislado con el mismo `JobId` y eventos (pendiente de W02).
+- Los trabajos archivo → archivo corrían en el proceso de la app; **desde el hueco 1.0 n.º 7 (2026-11-06) corren en un
+  proceso hijo** (`pliego.exe __job`) con el mismo `JobId`, progreso y cancelación (`app/service/src/isolated.rs`,
+  `docs/app-integration.md`, «Tareas en segundo plano»).
 - OCR desde la app: `pliego.exe ocr` como proceso hijo (la app no enlaza Tesseract), con progreso JSON por líneas.
 - Patrón común: lógica en `app/service/src/<área>.rs` con pruebas; comandos Tauri que solo traducen; copias con
   `pliego_appdata::copyjob`; frontend con `runToolJob` y una línea en `registerAppTools()`.

@@ -247,7 +247,7 @@ fn summary(a: ListArgs, json: bool) -> anyhow::Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(&s)?);
     } else {
-        print!("{}", s.to_text());
+        std::print!("{}", s.to_text());
     }
     Ok(())
 }
@@ -257,7 +257,7 @@ fn export(a: ExportArgs) -> anyhow::Result<()> {
     let xml = pliego_annot::export_xfdf(&mut doc)?;
     match a.output {
         Some(p) => std::fs::write(&p, xml).with_context(|| format!("no se pudo escribir {}", p.display()))?,
-        None => print!("{xml}"),
+        None => std::print!("{xml}"),
     }
     Ok(())
 }

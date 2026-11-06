@@ -1,7 +1,9 @@
 use std::process::Command;
 
 fn pliego() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_pliego"))
+    let mut c = Command::new(env!("CARGO_BIN_EXE_pliego"));
+    c.env("PLIEGO_LANG", "es");
+    c
 }
 
 /// PDF con un campo de texto "nombre" y una casilla "acepto" (generado, sin datos reales).

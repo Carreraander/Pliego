@@ -4,6 +4,7 @@ import { createSignal } from "solid-js";
 import { api, events, isApiError, type DocId, type PageSize } from "../api";
 import { engineText } from "../i18n/engine";
 import { fitWidthZoom, type Rotation } from "../viewer/layout";
+import { displayTitle } from "./docTitle";
 
 export interface OpenDoc {
   id: DocId;
@@ -21,9 +22,6 @@ export const [currentPageIndex, setCurrentPageIndex] = createSignal(0);
 
 export const activeDoc = () => docs().find((d) => d.id === activeId()) ?? null;
 
-function fileName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
-}
 
 /** Abre un archivo. Devuelve "password" si hace falta contraseña (o es incorrecta), "ok" o el mensaje de error. */
 export async function openPath(path: string, viewportWidth: number, password?: string): Promise<"ok" | "password" | string> {
@@ -36,7 +34,7 @@ export async function openPath(path: string, viewportWidth: number, password?: s
     const id = await api.openDocument(path, password);
     if (password) rememberPassword(path, password); // para los trabajos que se lancen luego sobre este archivo
     const [info, sizes] = await Promise.all([api.documentInfo(id), api.pageSizes(id)]);
-    const doc: OpenDoc = { id, path, title: info.title || fileName(path), sizes, revision: 0 };
+    const doc: OpenDoc = { id, path, title: displayTitle(info.title, path), sizes, revision: 0 };
     setDocs((d) => [...d, doc]);
     setActiveId(id);
     setRotation(0);

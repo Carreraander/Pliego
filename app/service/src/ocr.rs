@@ -138,6 +138,8 @@ fn command(cli: &Path, args: &[OsString], password: Option<&str>) -> Command {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    // La CLI habla el idioma del sistema; aquí se pide español, que es lo que la interfaz sabe traducir (`engineText`).
+    c.env("PLIEGO_LANG", "es");
     c.env_remove("RUST_BACKTRACE"); // las trazas de la CLI no son un mensaje para la persona
     // Siempre se fija o se quita, para que una variable del entorno de la persona no cambie el resultado.
     match password.filter(|p| !p.is_empty()) {

@@ -1,4 +1,6 @@
+import { t } from "../../i18n";
 import { currentPageIndex } from "../../state/documents";
+import { announce, brief } from "../announce";
 import type { OpenDoc } from "../../state/documents";
 import { pointToPage, rotatePoint, type Layout, type Rotation } from "../layout";
 import {
@@ -191,6 +193,9 @@ export function createSelectionController(env: ControllerEnv) {
     if (!pos) return;
     select(doc, { anchor: sel.anchor, focus: pos });
     reveal(pos);
+    // Sin caret visible, el Narrador no sabe qué se acaba de seleccionar: se lo decimos.
+    const word = (peekWords(doc, pos.page) ?? words)[pos.word]?.text;
+    if (word) announce(t("viewer.selected", { text: brief(word) }));
   }
 
   function onKeyDown(e: KeyboardEvent): void {

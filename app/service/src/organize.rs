@@ -38,7 +38,7 @@ pub fn split_copy(
 }
 
 /// De dónde salen las páginas que se insertan.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InsertSource {
     /// `count` páginas en blanco, del tamaño de la vecina.
     Blank { count: u32 },

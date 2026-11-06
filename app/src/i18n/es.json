@@ -73,5 +73,9 @@
   "link.failed": "No se pudo abrir el enlace: {error}",
   "link.badPage": "El enlace lleva a una página que no existe.",
   "link.back": "Atrás",
-  "link.forward": "Adelante"
+  "link.forward": "Adelante",
+  "viewer.selected": "Seleccionado: {text}",
+  "viewer.allSelected": "Todo el texto del documento seleccionado",
+  "viewer.jumpBack": "Vuelves a la página {page}",
+  "viewer.jumpForward": "Adelante a la página {page}"
 }

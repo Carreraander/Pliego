@@ -5,6 +5,7 @@
 //! Los originales no se tocan: los resultados van a una carpeta de salida (por defecto `<primera entrada> (lote)`,
 //! junto a ella y con nombre libre) y nunca puede ser la de un original.
 
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 pub use pliego_actions::Action;
@@ -13,7 +14,7 @@ use pliego_appdata::copyjob::unique_in;
 use pliego_core::{Error, JobContext, Report, Result};
 
 /// Lo que pide el asistente de acciones en lote.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct BatchRequest {
     /// Acción guardada (`.toml` o `.json`).
     pub action: PathBuf,

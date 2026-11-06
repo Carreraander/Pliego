@@ -25,15 +25,9 @@ const NO_SERVICE: &str = "El servicio de actualizaciones no está disponible.";
 /// Arranca el servicio con los ajustes guardados (`updates.mode|channel|metered`) y la directiva de la organización.
 pub fn start(app: &AppHandle, settings: &SettingsStore) -> UpdatesState {
     let env = Environment::detect(env!("CARGO_PKG_VERSION"));
-    pliego_core::log::info(
-        "updates",
-        format!("versión {} · instalación {:?}", env.current_version, env.kind),
-    );
-    if let Some(from) = env.rolled_back_from.as_ref() {
-        pliego_core::log::warn(
-            "updates",
-            format!("se volvió a una versión anterior; la {from:?} no arrancó"),
-        );
+    pliego_core::log::info("updates", env.launch_log_line());
+    if let Some(line) = env.rollback_log_line() {
+        pliego_core::log::warn("updates", line);
     }
     mark_healthy_later(&env);
     let (user, respect_metered) = UserSettings::from_app_settings(settings.load().as_ref());

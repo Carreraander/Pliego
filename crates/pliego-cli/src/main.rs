@@ -81,6 +81,9 @@ enum Command {
     /// PDF/A: validar (y próximamente convertir).
     #[command(subcommand)]
     Pdfa(commands::pdfa::PdfaCommand),
+    /// Uso interno de la app: ejecuta un trabajo recibido por la entrada estándar (ver `pliego_app_service::isolated`).
+    #[command(name = "__job", hide = true)]
+    Job,
     // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
     // [W06 ocr]
     /// OCR: añade texto buscable a un PDF escaneado.
@@ -137,6 +140,7 @@ fn main() -> anyhow::Result<()> {
         Command::Redact(a) => commands::redact::run(a, cli.json),
         Command::A11y(c) => commands::a11y::run(c, cli.json),
         Command::Pdfa(c) => commands::pdfa::run(c, cli.json),
+        Command::Job => std::process::exit(pliego_app_service::isolated::child_main()),
         // ── Ranuras: añade tu línea justo debajo de tu marca (evita conflictos entre flujos) ──
         // [W06 ocr]
         Command::Ocr(a) => commands::ocr::run(a, cli.json),

@@ -30,6 +30,10 @@ Documento de diseño completo: https://claude.ai/artifact/Wu4ZXyGqToREgugipQuNgw
   revisión anterior se invalidan.
 - **Proceso aislado:** `pliego-worker` ejecuta MuPDF para PDFs no confiables; si cae, la app reabre el documento
   y muestra un aviso, sin cerrarse.
+- **Herramientas en proceso aparte:** los trabajos archivo → archivo de la app (comprimir, combinar, proteger, redactar,
+  firmar con PFX…) se describen con un `JobSpec` y los ejecuta `pliego.exe __job`, la CLI que va junto a la app (como el
+  OCR). Un PDF que tumbe el motor termina el trabajo con error, no la app. Firmar con el almacén de Windows (PIN de
+  tarjeta) se queda en la app. Ver `app/service/src/isolated.rs`.
 - **Fuentes del sistema:** el motor se compila sin `system-fonts` (font-kit enumeraba todas las fuentes en cada
   búsqueda: ~1,3 s por documento en Windows). `pliego_pdf::init_fonts()` registra un `FontLoader` propio con
   un índice perezoso de `%WINDIR%\Fonts` y `%LOCALAPPDATA%\Microsoft\Windows\Fonts`; fuera de Windows no hace nada.

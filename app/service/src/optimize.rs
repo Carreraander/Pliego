@@ -2,6 +2,7 @@
 //!
 //! La lógica vive aquí, sin Tauri, para probarla en Linux; `app/src-tauri/src/commands/optimize.rs` solo traduce.
 
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -12,7 +13,7 @@ use pliego_optimize::{OptimizeOptions, Preset};
 use pliego_appdata::copyjob::unique_sibling;
 
 /// Lo que pide el panel de Comprimir u Optimizar avanzado.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CompressRequest {
     /// `pantalla`, `ebook`, `impresion` o `sin-perdida`.
     pub preset: String,

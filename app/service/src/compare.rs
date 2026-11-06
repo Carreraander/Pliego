@@ -3,6 +3,7 @@
 //! La lógica vive aquí, sin Tauri, para probarla en Linux; `app/src-tauri/src/commands/compare.rs` solo traduce.
 //! No modifica ninguno de los dos documentos: el informe es un PDF nuevo `<primero> (<etiqueta>).pdf`.
 
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use pliego_appdata::copyjob::unique_sibling;
@@ -11,7 +12,7 @@ pub use pliego_compare::Comparison;
 use pliego_core::{Error, JobContext, Report, Result};
 
 /// Lo que pide el panel «Comparar».
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompareRequest {
     /// Versión nueva (la que se compara con la abierta).
     pub other: std::path::PathBuf,

@@ -4,10 +4,19 @@
 //! el `JobId` a la interfaz. Los eventos `job-progress {job_id, done, total, label}` y
 //! `job-finished {job_id, result | error}` los escucha el centro de tareas.
 
+use pliego_app_service::isolated::{self, JobSpec};
 use pliego_appdata::jobs::{JobEvent, JobId, JobRegistry};
 use tauri::{AppHandle, Emitter, State};
 
 pub struct JobsState(pub JobRegistry);
+
+impl JobsState {
+    /// Lanza una herramienta archivo → archivo como trabajo. Corre en el proceso aislado `pliego __job` (un PDF que
+    /// tumbe el motor no cierra la app); ver `pliego_app_service::isolated`.
+    pub fn spawn_tool(&self, spec: JobSpec) -> JobId {
+        self.0.spawn(move |ctx| isolated::dispatch(spec, ctx))
+    }
+}
 
 impl JobsState {
     pub fn new(app: AppHandle) -> Self {

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use pliego_app_service::api::{ApiError, ApiResult};
 use pliego_app_service::compare::{self, CompareRequest};
+use pliego_app_service::isolated::JobSpec;
 use pliego_appdata::jobs::JobId;
 use tauri::State;
 
@@ -30,8 +31,10 @@ pub fn compare_pdfs(
         visual,
         label,
     };
-    jobs.0
-        .spawn(move |ctx| compare::compare_copy(&PathBuf::from(path), &req, ctx))
+    jobs.spawn_tool(JobSpec::Compare {
+        path: PathBuf::from(path),
+        req,
+    })
 }
 
 /// Comparación para la vista lado a lado: devuelve las páginas emparejadas, los cambios y sus posiciones, sin guardar nada.

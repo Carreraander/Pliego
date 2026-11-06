@@ -162,11 +162,14 @@ barra de estado). El registro vive en `pliego-appdata` (`jobs.rs`, con pruebas) 
 // app/src-tauri/src/commands/optimize.rs
 #[tauri::command]
 pub fn compress_pdf(jobs: State<'_, JobsState>, path: String, quality: String) -> JobId {
-    // `spawn` devuelve el JobId de inmediato y ejecuta el cierre en un hilo. `ctx` es el JobContext de pliego-core:
-    // `ctx.step(hecho, total, "texto")?` emite `job-progress` y devuelve Err(Cancelled) si se canceló.
-    jobs.0.spawn(move |ctx| pliego_optimize::compress(&path, &quality, ctx))
+    // `spawn_tool` devuelve el JobId de inmediato y ejecuta la herramienta en el PROCESO HIJO `pliego.exe __job`
+    // (ver «Herramientas en un proceso aislado»). El `JobSpec` lleva los mismos argumentos que la función del servicio.
+    jobs.spawn_tool(JobSpec::Compress { path: path.into(), req })
 }
 ```
+Para algo que no es archivo → archivo, o que no toca PDF, `jobs.0.spawn(move |ctx| …)` sigue ejecutando el cierre en un
+hilo de la app: `ctx` es el `JobContext` de pliego-core, `ctx.step(hecho, total, "texto")?` emite `job-progress` y
+devuelve `Err(Cancelled)` si se canceló.
 ```ts
 // en el panel de la tarea
 const id = await invoke<number>("compress_pdf", { path, quality });
@@ -177,6 +180,28 @@ trackJob(id, { title: "Comprimir contrato.pdf", retry: apply }); // import { tra
 - El centro de tareas ofrece cancelar, «Abrir resultado» (primer PDF de `outputs`), «Mostrar en carpeta» y
   «Reintentar» (si pasaste `retry`). Con la ventana en segundo plano al terminar, lanza una notificación de Windows.
 - Si la operación modifica el documento abierto, llama a `bump_revision(docId)` al terminar (ver «Documentos»).
+
+### Herramientas en un proceso aislado
+Todo trabajo que abre un PDF del usuario corre fuera de la app (`app/service/src/isolated.rs`): un PDF roto o malicioso
+puede tumbar PDFium o lopdf (fallo nativo, desbordamiento de pila, falta de memoria) y, dentro de la app, eso cerraría
+todos los documentos abiertos. El hijo es `pliego.exe __job`, la CLI que va junto a la app (la misma que usa el OCR).
+
+- **Añadir una herramienta:** una variante en `JobSpec` con los argumentos (todo `Serialize + Deserialize`), su rama en
+  `JobSpec::run` (llama a la función del servicio) y en el comando Tauri `jobs.spawn_tool(JobSpec::…)`.
+- **Protocolo:** el padre escribe el `JobSpec` en JSON en la entrada estándar del hijo (las contraseñas no van por la
+  línea de órdenes ni por el entorno); el hijo da el progreso por la salida de error (`[hecho/total] mensaje`) y el
+  resultado como una línea JSON en la salida estándar (`{"ok": Report}` o `{"err": …}` con el mismo tipo de error).
+- **Cancelar:** el padre escribe `cancel` en la entrada del hijo; la herramienta termina y limpia como si corriera en la
+  app. Si no termina en 10 s, el padre mata el proceso. Si la app muere, el hijo ve la entrada cerrada, cancela y sale.
+- **Si el hijo cae:** el trabajo termina con «la herramienta se cerró de forma inesperada» y una línea en el registro
+  (sin datos del documento). Una copia a medias que hubiera dejado la herramienta no se borra sola.
+- **Se quedan en la app:** firmar con un certificado del almacén de Windows (la clave puede estar en una tarjeta y su
+  controlador pide el PIN con un diálogo de la interfaz). Firmar con PFX sí va al hijo.
+- **Sin `pliego.exe` junto a la app** el trabajo falla con «falta pliego.exe (reinstala Pliego)»; solo en compilaciones
+  de depuración (`tauri dev`, pruebas) se ejecuta en el proceso. `PLIEGO_JOBS_IN_PROCESS=1` fuerza ese modo para
+  diagnosticar.
+- **Memoria:** el hijo vive lo que dura el trabajo y carga su propia copia de PDFium; no cuenta en los 150 MB de
+  app + worker. Aligera la app: lo que antes crecía en su proceso (comprimir un PDF grande) ahora crece en el hijo.
 
 ## Registro de diagnóstico
 

@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use pliego_app_service::api::{ApiError, ApiResult};
+use pliego_app_service::isolated::JobSpec;
 use pliego_app_service::protect::{self, FoundMatch, ProtectRequest, RedactRequest, SanitizeRequest};
 use pliego_appdata::jobs::JobId;
 use tauri::State;
@@ -13,19 +14,19 @@ use crate::commands::jobs::JobsState;
 /// Cifra una copia con contraseña, permisos y AES-256 (o AES-128).
 #[tauri::command]
 pub fn protect_encrypt(jobs: State<'_, JobsState>, request: ProtectRequest) -> JobId {
-    jobs.0.spawn(move |ctx| protect::protect(&request, ctx))
+    jobs.spawn_tool(JobSpec::Protect { req: request })
 }
 
 /// Quita la protección de una copia, conociendo la contraseña.
 #[tauri::command]
 pub fn protect_remove(jobs: State<'_, JobsState>, path: PathBuf, password: String) -> JobId {
-    jobs.0.spawn(move |ctx| protect::unprotect(&path, &password, ctx))
+    jobs.spawn_tool(JobSpec::Unprotect { path, password })
 }
 
 /// Quita metadatos, JavaScript, adjuntos, comentarios… de una copia y deja un informe.
 #[tauri::command]
 pub fn protect_sanitize(jobs: State<'_, JobsState>, request: SanitizeRequest) -> JobId {
-    jobs.0.spawn(move |ctx| protect::sanitize(&request, ctx))
+    jobs.spawn_tool(JobSpec::Sanitize { req: request })
 }
 
 /// Vista previa de los datos personales que se redactarían (no modifica nada).
@@ -40,5 +41,5 @@ pub async fn redact_find(path: PathBuf, password: Option<String>, patterns: Vec<
 /// Redacta una copia (zonas marcadas y/o patrones) y verifica que el texto ya no se puede extraer.
 #[tauri::command]
 pub fn redact_apply(jobs: State<'_, JobsState>, request: RedactRequest) -> JobId {
-    jobs.0.spawn(move |ctx| protect::redact(&request, ctx))
+    jobs.spawn_tool(JobSpec::Redact { req: request })
 }

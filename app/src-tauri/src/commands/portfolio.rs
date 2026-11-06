@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use pliego_app_service::api::{ApiError, ApiResult};
+use pliego_app_service::isolated::JobSpec;
 use pliego_app_service::portfolio::{self, Listing};
 use pliego_appdata::jobs::JobId;
 use pliego_core::Error;
@@ -14,8 +15,7 @@ use crate::commands::jobs::JobsState;
 #[tauri::command]
 pub fn portfolio_create(jobs: State<'_, JobsState>, paths: Vec<String>, suffix: String) -> JobId {
     let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
-    jobs.0
-        .spawn(move |ctx| portfolio::create_portfolio(&files, &suffix, ctx))
+    jobs.spawn_tool(JobSpec::PortfolioCreate { files, suffix })
 }
 
 /// Archivos incrustados de `path`.
@@ -37,6 +37,10 @@ pub fn portfolio_extract(
     suffix: String,
 ) -> JobId {
     let path = PathBuf::from(path);
-    jobs.0
-        .spawn(move |ctx| portfolio::extract_copy(&path, &names, password.as_deref(), &suffix, ctx))
+    jobs.spawn_tool(JobSpec::PortfolioExtract {
+        path,
+        names,
+        password,
+        suffix,
+    })
 }

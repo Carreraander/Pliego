@@ -20,7 +20,7 @@ fn opt(pw: &Option<String>) -> Option<&str> {
 }
 
 /// Petición de «Proteger»: cifrar con contraseña y/o permisos.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtectRequest {
     pub path: PathBuf,
@@ -65,7 +65,7 @@ pub fn unprotect(path: &Path, password: &str, ctx: &JobContext<'_>) -> Result<Re
 }
 
 /// Petición de «Sanear documento».
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SanitizeRequest {
     pub path: PathBuf,
@@ -120,7 +120,7 @@ pub fn find_matches(path: &Path, password: Option<&str>, patterns: &[String]) ->
 }
 
 /// Petición de «Redactar»: zonas marcadas a mano y/o patrones.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RedactRequest {
     pub path: PathBuf,

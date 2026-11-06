@@ -137,7 +137,14 @@ pub fn run(c: MeasureCommand, json: bool) -> anyhow::Result<()> {
                     a.page
                 )
             })?;
-            let (m, _) = pliego_measure::add_measurement(&mut doc, page, &scale, &parse_points(&a.points)?, a.closed)?;
+            let (m, _) = pliego_measure::add_measurement_in(
+                &mut doc,
+                page,
+                &scale,
+                &parse_points(&a.points)?,
+                a.closed,
+                pliego_core::Lang::from_env(),
+            )?;
             save(&doc, &a.output)?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&m)?);

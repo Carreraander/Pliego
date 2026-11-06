@@ -9,6 +9,7 @@ pub mod jobs;
 pub mod recents;
 pub mod session;
 pub mod settings;
+pub mod weblink;
 
 use std::path::PathBuf;
 

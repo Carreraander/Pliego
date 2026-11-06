@@ -1,6 +1,7 @@
 //! Envoltorios tipados de los comandos y eventos de Tauri (ver docs/app-integration.md).
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { t } from "../i18n";
 
 export type DocId = number;
 
@@ -42,6 +43,13 @@ export interface PageWord {
   block: number;
   line: number;
 }
+/** Adónde lleva un enlace de una página: otra página (con la altura pedida, en puntos desde su borde superior) o una dirección. */
+export type PageLinkTarget = { type: "page"; page: number; y: number | null } | { type: "uri"; uri: string };
+/** Enlace de una página; `rect` = `[x0, y0, x1, y1]` en puntos de página (origen arriba a la izquierda). */
+export interface PageLink {
+  rect: [number, number, number, number];
+  target: PageLinkTarget;
+}
 export interface DocumentChanged {
   doc_id: DocId;
   revision: number;
@@ -56,6 +64,10 @@ export const api = {
   pageText: (docId: DocId, page: number) => invoke<string>("page_text", { docId, page }),
   /** Palabras con caja de una página (capa de texto del visor). */
   pageWords: (docId: DocId, page: number) => invoke<PageWord[]>("page_words", { docId, page }),
+  /** Enlaces de una página a otra página o a una dirección. */
+  pageLinks: (docId: DocId, page: number) => invoke<PageLink[]>("page_links", { docId, page }),
+  /** Abre una dirección web o de correo en el sistema. Pide confirmación antes (véase `viewer/links/openUrl.ts`). */
+  openWebLink: (url: string) => invoke<void>("open_web_link", { url }),
   search: (docId: DocId, query: string, maxResults?: number) =>
     invoke<SearchHit[]>("search", { docId, query, maxResults }),
   startupFiles: () => invoke<string[]>("startup_files"),
@@ -65,12 +77,12 @@ export const api = {
   pickAnyFiles: (title?: string) => invoke<string[]>("pick_any_files", { title }),
   /** Selector nativo de una carpeta; `null` si se cancela. */
   /** Selector nativo de una acción guardada (.toml o .json); `null` si se cancela. */
-  pickActionFile: (title?: string) => invoke<string | null>("pick_action_file", { title }),
+  pickActionFile: (title?: string) => invoke<string | null>("pick_action_file", { title, filter: t("dialog.filter.action") }),
   pickFolder: (title?: string) => invoke<string | null>("pick_folder", { title }),
   /** Selector nativo de una imagen PNG o JPEG; `null` si se cancela. */
-  pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title }),
+  pickImageFile: (title?: string) => invoke<string | null>("pick_image_file", { title, filter: t("dialog.filter.image") }),
   /** Selector nativo de imágenes, texto y documentos de Office para «Crear PDF». */
-  pickSourceFiles: (title?: string) => invoke<string[]>("pick_source_files", { title }),
+  pickSourceFiles: (title?: string) => invoke<string[]>("pick_source_files", { title, filter: t("dialog.filter.source") }),
   /** Diálogo «Guardar como» de un PDF; `null` si se cancela. */
   pickSavePdf: (title?: string, defaultName?: string) => invoke<string | null>("pick_save_pdf", { title, defaultName }),
   /** Copia el archivo del documento a `target`; devuelve la ruta final (con `.pdf`). */

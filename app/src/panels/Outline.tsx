@@ -4,6 +4,7 @@ import { isApiError } from "../api";
 import { t } from "../i18n";
 import { currentPageIndex, type OpenDoc } from "../state/documents";
 import { goToPage } from "../state/navigation";
+import { requestOpenUrl } from "../viewer/links/openUrl";
 import { withPassword } from "../state/passwords";
 import { IconButton, TextInput, Toolbar, ToolbarSeparator, toast } from "../ui";
 import {
@@ -44,9 +45,10 @@ export function Outline(props: { doc: OpenDoc }) {
     setUndoDepth(await invoke<number>("annot_undo", { docId: props.doc.id, path: props.doc.path }).catch(() => 0));
   };
   const sel = () => selected();
-  /** Va al destino; la altura del PDF (origen abajo) se pasa a distancia desde arriba de la página. */
+  /** Va al destino; la altura del PDF (origen abajo) se pasa a distancia desde arriba de la página. Un marcador que
+   *  abre una web pide confirmación antes, como los enlaces del documento. */
   const go = (item: OutlineNode) => {
-    if (item.page === null) return;
+    if (item.page === null) { if (item.uri) requestOpenUrl(item.uri); return; }
     const h = props.doc.sizes[item.page]?.height;
     goToPage(item.page, item.top != null && h ? Math.max(0, h - item.top) : undefined);
   };

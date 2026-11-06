@@ -17,7 +17,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       startup_files: crashed || reopen ? [] : [doc],
       session_previous: crashed || reopen ? { crashed, docs: [{ path: doc, page: 2 }] } : { crashed: false, docs: [] },
       crash_report: "Pliego 0.1.0 · windows x86_64",
-      outline_tree: [{ title: "Capítulo A", page: 0, children: [], top: 700 }, { title: "Capítulo B", page: 2, children: [] }],
+      outline_tree: [{ title: "Capítulo A", page: 0, children: [], top: 700 }, { title: "Capítulo B", page: 2, children: [] }, { title: "Web del proyecto", page: null, children: [], uri: "https://pdfpliego.com/" }],
       outline_save: 1,
       open_document: 1,
       document_info: { page_count: 3, title: "Escaneo", author: null, is_pdf: true },
@@ -195,7 +195,7 @@ test.describe("humo de la app (backend simulado)", () => {
     await page.getByRole("button", { name: "Elegir el otro PDF…" }).click();
     await page.getByRole("button", { name: "Comparar y guardar informe" }).click();
     expect((await calls(page, "compare_pdfs"))[0]?.args).toEqual({
-      path: DOC, other: "C:\\Docs\\version-2.pdf", passwordA: null, passwordB: null, text: true, visual: true, label: "comparación",
+      path: DOC, other: "C:\\Docs\\version-2.pdf", passwordA: null, passwordB: null, text: true, visual: true, label: "comparación", lang: "es",
     });
   });
 });
@@ -436,14 +436,23 @@ test.describe("marcadores editables (backend simulado)", () => {
     await expect(page.getByRole("tree", { name: "Marcadores" })).toBeVisible();
   });
 
+  test("un marcador que abre una web pide confirmación antes", async ({ page }) => {
+    await page.getByRole("button", { name: "Web del proyecto" }).click();
+    const dialog = page.getByRole("dialog", { name: "¿Abrir este enlace?" });
+    await expect(dialog).toContainText("pdfpliego.com");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
   test("mover, añadir y renombrar guardan el árbol entero sin perder la altura del destino", async ({ page }) => {
     await page.getByRole("button", { name: "Capítulo B" }).click();
     await page.keyboard.press("Alt+ArrowUp");
     await expect.poll(async () => (await calls(page, "outline_save")).length).toBe(1);
     const moved = (await calls(page, "outline_save"))[0]!.args as { nodes: { title: string; top?: number }[]; suffix: string };
-    expect(moved.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Capítulo A"]);
+    expect(moved.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Capítulo A", "Web del proyecto"]);
     expect(moved.nodes[1]).toMatchObject({ top: 700 });
     expect(moved.suffix).toBe("antes de los marcadores");
+    expect(moved.nodes[2]).toMatchObject({ uri: "https://pdfpliego.com/" }); // el enlace web no se pierde
 
     await page.getByRole("button", { name: "Añadir un marcador a la página actual" }).click();
     const input = page.getByRole("textbox", { name: "Cambiar el nombre" });
@@ -452,7 +461,7 @@ test.describe("marcadores editables (backend simulado)", () => {
     await input.press("Enter");
     await expect.poll(async () => (await calls(page, "outline_save")).length).toBe(3);
     const last = (await calls(page, "outline_save"))[2]!.args as { nodes: { title: string; page: number }[] };
-    expect(last.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Anexo", "Capítulo A"]);
+    expect(last.nodes.map((n) => n.title)).toEqual(["Capítulo B", "Anexo", "Capítulo A", "Web del proyecto"]);
     expect(last.nodes[1]).toMatchObject({ page: 2 }); // la página que se estaba viendo (la de «Capítulo B»)
     await expect(page.getByRole("button", { name: "Deshacer" }).first()).toBeEnabled();
   });

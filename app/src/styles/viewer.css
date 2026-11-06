@@ -53,3 +53,13 @@
   .pl-sel { background: Highlight; mix-blend-mode: normal; opacity: 0.45; forced-color-adjust: none; }
   .hit { background: Mark; forced-color-adjust: none; opacity: 0.5; }
 }
+
+/* Enlaces del documento en Leer: botones transparentes sobre cada uno. */
+.pl-link { position: absolute; z-index: var(--pl-z-canvas-overlay); padding: 0; border: 0; border-radius: 2px; background: transparent; cursor: pointer; }
+.pl-link:hover { background: var(--pl-accent-soft); mix-blend-mode: multiply; }
+.pl-link:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 1px; }
+.pl-link-url { display: block; padding: var(--pl-space-2) var(--pl-space-3); border-radius: var(--pl-radius-sm); background: var(--pl-surface-sunken); overflow-wrap: anywhere; user-select: text; }
+@media (forced-colors: active) {
+  .pl-link { forced-color-adjust: none; outline: 1px solid LinkText; outline-offset: -1px; }
+  .pl-link:hover, .pl-link:focus-visible { outline: 2px solid Highlight; background: transparent; mix-blend-mode: normal; }
+}

@@ -3,7 +3,7 @@
 use tauri_plugin_dialog::DialogExt;
 
 /// Muestra el selector de archivos PDF y devuelve las rutas elegidas (vacío si se cancela).
-/// `title` es el título de la ventana del selector (ya traducido por la interfaz).
+/// `title` es el título de la ventana del selector y `filter` el nombre del tipo de archivo (ya traducidos por la interfaz).
 #[tauri::command]
 pub async fn pick_pdf_files(app: tauri::AppHandle, title: Option<String>) -> Vec<String> {
     let mut dialog = app.dialog().file().add_filter("PDF", &["pdf"]);
@@ -22,8 +22,11 @@ pub async fn pick_pdf_files(app: tauri::AppHandle, title: Option<String>) -> Vec
 
 /// Selector de una imagen PNG o JPEG (marca de agua, fondo). `None` si se cancela.
 #[tauri::command]
-pub async fn pick_image_file(app: tauri::AppHandle, title: Option<String>) -> Option<String> {
-    let mut dialog = app.dialog().file().add_filter("Imagen", &["png", "jpg", "jpeg"]);
+pub async fn pick_image_file(app: tauri::AppHandle, title: Option<String>, filter: Option<String>) -> Option<String> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .add_filter(filter.as_deref().unwrap_or("Imagen"), &["png", "jpg", "jpeg"]);
     if let Some(t) = title {
         dialog = dialog.set_title(t);
     }
@@ -35,9 +38,9 @@ pub async fn pick_image_file(app: tauri::AppHandle, title: Option<String>) -> Op
 
 /// Selector de archivos para «Crear PDF»: imágenes, texto, Markdown, HTML, libros EPUB, cómics CBZ, XPS y documentos de Office.
 #[tauri::command]
-pub async fn pick_source_files(app: tauri::AppHandle, title: Option<String>) -> Vec<String> {
+pub async fn pick_source_files(app: tauri::AppHandle, title: Option<String>, filter: Option<String>) -> Vec<String> {
     let mut dialog = app.dialog().file().add_filter(
-        "Imágenes, libros, texto y Office",
+        filter.as_deref().unwrap_or("Imágenes, libros, texto y Office"),
         &[
             "jpg", "jpeg", "png", "tif", "tiff", "webp", "gif", "bmp", "txt", "md", "markdown", "html", "htm", "epub",
             "cbz", "xps", "oxps", "doc", "docx", "docm", "rtf", "odt", "xls", "xlsx", "xlsm", "csv", "ods", "ppt",
@@ -58,8 +61,11 @@ pub async fn pick_source_files(app: tauri::AppHandle, title: Option<String>) -> 
 
 /// Selector de un archivo de certificado con clave (.pfx/.p12); `None` si se cancela.
 #[tauri::command]
-pub async fn pick_key_file(app: tauri::AppHandle, title: Option<String>) -> Option<String> {
-    let mut dialog = app.dialog().file().add_filter("Certificado", &["pfx", "p12"]);
+pub async fn pick_key_file(app: tauri::AppHandle, title: Option<String>, filter: Option<String>) -> Option<String> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .add_filter(filter.as_deref().unwrap_or("Certificado"), &["pfx", "p12"]);
     if let Some(t) = title {
         dialog = dialog.set_title(t);
     }
@@ -100,8 +106,11 @@ pub async fn pick_any_files(app: tauri::AppHandle, title: Option<String>) -> Vec
 
 /// Selector de una acción guardada (`.toml` o `.json`). `None` si se cancela.
 #[tauri::command]
-pub async fn pick_action_file(app: tauri::AppHandle, title: Option<String>) -> Option<String> {
-    let mut dialog = app.dialog().file().add_filter("Acción", &["toml", "json"]);
+pub async fn pick_action_file(app: tauri::AppHandle, title: Option<String>, filter: Option<String>) -> Option<String> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .add_filter(filter.as_deref().unwrap_or("Acción"), &["toml", "json"]);
     if let Some(t) = title {
         dialog = dialog.set_title(t);
     }

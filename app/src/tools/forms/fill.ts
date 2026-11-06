@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { engineText } from "../../i18n/engine";
 import { toast } from "../../ui";
 import type { OpenDoc } from "../../state/documents";
 import { setUndoDepth } from "../annotate/state";
@@ -12,7 +13,7 @@ interface FormEdit { undo_depth: number; messages: string[] }
 
 /** Avisos de los scripts del formulario (`app.alert`, `console.println`, acciones bloqueadas). */
 function showMessages(messages: string[]): void {
-  for (const text of messages) toast({ tone: "warn", text });
+  for (const text of messages) toast({ tone: "warn", text: engineText(text) });
 }
 
 /** Rellena un campo en el PDF abierto, ejecutando el JavaScript del formulario (validación, cálculo y formato). Copia de seguridad la primera vez; el visor se recarga. */

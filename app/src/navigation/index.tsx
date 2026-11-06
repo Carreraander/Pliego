@@ -13,6 +13,7 @@ import { openShortcutSheet, ShortcutSheet } from "./ShortcutSheet";
 import { installShortcuts, registerShortcut } from "./shortcuts";
 import { nt } from "./strings";
 import { registerTextShortcuts } from "../viewer/text/shortcuts";
+import { registerJumpShortcuts } from "../viewer/links/shortcuts";
 import { ToolsPalette, toggleToolsPalette } from "./ToolsPalette";
 import "./navigation.css";
 
@@ -46,6 +47,7 @@ export function installNavigation(): () => void {
     registerShortcut({ id: "help.shortcuts", section: "panels", keys: "F1", title: () => nt("nav.cmd.shortcuts"), run: openShortcutSheet }),
     registerShortcut({ id: "nav.goto", section: "navigation", keys: "Ctrl+G", title: () => (locale() === "es" ? "Ir a la página" : "Go to page"), run: () => openCommandPalette("") }),
     registerReferenceShortcuts(new Set(["nav.goto"])),
+    registerJumpShortcuts(), // Alt+← / Alt+→ por la historia de saltos de los enlaces
     registerTextShortcuts(), // copiar y seleccionar el texto de las páginas (sustituye a las filas de la hoja de atajos)
     installShortcuts(),
   ];

@@ -7,7 +7,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use pliego_core::{Error, JobContext, Report, Result};
+use pliego_core::{Error, JobContext, Lang, Report, Result};
 use pliego_pdf::{Document, Size};
 use pliego_pdf::{EmbeddedFileOptions, Object, PdfDocument, WriteOptions};
 use serde::{Deserialize, Serialize};
@@ -86,7 +86,7 @@ fn unique(name: &str, taken: &mut HashSet<String>) -> String {
     candidate
 }
 
-fn collection_dict(doc: &mut PdfDocument) -> Result<Object> {
+fn collection_dict(doc: &mut PdfDocument, lang: Lang) -> Result<Object> {
     let field = |doc: &mut PdfDocument, subtype: &str, label: &str, order: i32| -> Result<Object> {
         let mut f = doc.new_dict()?;
         f.dict_put("Type", Object::new_name("CollectionField")?)?;
@@ -97,11 +97,11 @@ fn collection_dict(doc: &mut PdfDocument) -> Result<Object> {
     };
     let mut schema = doc.new_dict()?;
     schema.dict_put("Type", Object::new_name("CollectionSchema")?)?;
-    let f = field(doc, "F", "Nombre", 1)?;
+    let f = field(doc, "F", lang.pick("Nombre", "Name"), 1)?;
     schema.dict_put("F", f)?;
-    let s = field(doc, "Size", "Tamaño", 2)?;
+    let s = field(doc, "Size", lang.pick("Tamaño", "Size"), 2)?;
     schema.dict_put("Size", s)?;
-    let m = field(doc, "ModDate", "Modificado", 3)?;
+    let m = field(doc, "ModDate", lang.pick("Modificado", "Modified"), 3)?;
     schema.dict_put("ModDate", m)?;
     let mut c = doc.new_dict()?;
     c.dict_put("Type", Object::new_name("Collection")?)?;
@@ -129,6 +129,11 @@ fn save_atomic(doc: &PdfDocument, out: &Path) -> Result<()> {
 
 /// Crea una cartera con `files` (se incrustan tal cual). Nunca sobrescribe un archivo de entrada.
 pub fn create(files: &[PathBuf], out: &Path, ctx: &JobContext) -> Result<Report> {
+    create_in(files, out, ctx, Lang::Es)
+}
+
+/// Como [`create`], con los encabezados de columna de la cartera (Nombre, Tamaño, Modificado) en `lang`.
+pub fn create_in(files: &[PathBuf], out: &Path, ctx: &JobContext, lang: Lang) -> Result<Report> {
     if files.is_empty() {
         return Err(Error::InvalidInput("indica al menos un archivo para la cartera".into()));
     }
@@ -164,7 +169,7 @@ pub fn create(files: &[PathBuf], out: &Path, ctx: &JobContext) -> Result<Report>
         opts.mime_type = mime_of(&name);
         doc.add_embedded_file(&name, &data, opts)?;
     }
-    let coll = collection_dict(&mut doc)?;
+    let coll = collection_dict(&mut doc, lang)?;
     doc.catalog()?.dict_put("Collection", coll)?;
     save_atomic(&doc, out)?;
     ctx.step(total, total, "Terminado")?;

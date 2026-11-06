@@ -1,4 +1,6 @@
 /** Informes de las comprobaciones (W29) y su forma común para mostrarlos en una lista. */
+import { engineText } from "../../i18n/engine";
+
 export interface A11yReport {
   pages: number; tagged: boolean; language: string | null; title: string | null;
   issues: { code?: string; severity: "error" | "warning"; page: number | null; xref?: number | null; message: string; suggestion: string }[];
@@ -20,13 +22,13 @@ const sum = (rows: Row[]): Summary => ({
 });
 
 export function fromA11y(r: A11yReport): Summary {
-  return sum(r.issues.map((i) => ({ tone: i.severity === "error" ? "danger" : "warn", page: i.page, text: i.message, hint: i.suggestion })));
+  return sum(r.issues.map((i) => ({ tone: i.severity === "error" ? "danger" : "warn", page: i.page, text: engineText(i.message), hint: engineText(i.suggestion) })));
 }
 /** Todo incumplimiento de PDF/A cuenta como error. */
 export function fromPdfa(v: PdfaValidation): Summary {
-  return sum(v.issues.map((i) => ({ tone: "danger", page: i.page, text: i.message })));
+  return sum(v.issues.map((i) => ({ tone: "danger", page: i.page, text: engineText(i.message) })));
 }
 export function fromPreflight(r: PreflightReport): Summary {
   const tone = { error: "danger", warning: "warn", info: "info" } as const;
-  return sum(r.findings.map((f) => ({ tone: tone[f.severity], page: f.page, text: f.message })));
+  return sum(r.findings.map((f) => ({ tone: tone[f.severity], page: f.page, text: engineText(f.message) })));
 }

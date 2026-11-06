@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { tileUrl } from "../api";
 import { t } from "../i18n";
 import { activeMode } from "../shell";
@@ -6,10 +6,12 @@ import { currentPageIndex, setCurrentPageIndex, type OpenDoc } from "../state/do
 import { clearGoTo, goToRequest } from "../state/navigation";
 import { matchIndex, matchesOnPage } from "../state/search";
 import { RedactLayer } from "../tools/protect/RedactLayer";
-import { ContextMenu, type MenuEntry, type Point } from "../ui";
+import { ContextMenu, toast, type MenuEntry, type Point } from "../ui";
+import { followLink, LinksLayer } from "./links/LinksLayer";
+import { registerPlaceProbe } from "./links/history";
 import { pageOverlays } from "./overlays";
 import { createSelectionController } from "./text/controller";
-import { copySelection, hasSelection, selectAll } from "./text/state";
+import { copySelection, hasSelection, selectAll, writeClipboard } from "./text/state";
 import { TextLayer } from "./text/TextLayer";
 import {
   computeLayout, currentPage, lowResZoom, rotationTransform, TILE_SIZE, tilesFor, unrotateRect, visiblePages,
@@ -27,6 +29,8 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
   let box!: HTMLDivElement;
   let content!: HTMLDivElement;
   const [menuAt, setMenuAt] = createSignal<Point | null>(null);
+  /** Enlace bajo el clic derecho (el menú ofrece abrirlo o copiar su dirección). */
+  const [menuLink, setMenuLink] = createSignal<{ kind: string; target: string; y: number | null } | null>(null);
   const [scrollTop, setScrollTop] = createSignal(0);
   const [size, setSize] = createSignal({ width: 800, height: 600 });
 
@@ -38,10 +42,20 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
   const selecting = createSelectionController({
     doc: () => props.doc, zoom: () => props.zoom, rotation: () => props.rotation, layout, box: () => box, content: () => content, active: reading,
   });
-  const menuItems = (): MenuEntry[] => [
+  const textItems = (): MenuEntry[] => [
     { id: "copy", label: t("text.copy"), icon: "copy", shortcut: "Ctrl+C", disabled: !hasSelection(props.doc), onSelect: () => void copySelection(props.doc) },
     { id: "all", label: t("text.selectAll"), shortcut: "Ctrl+A", onSelect: () => selectAll(props.doc) },
   ];
+  const linkItems = (): MenuEntry[] => {
+    const l = menuLink();
+    if (!l) return [];
+    const open = () => followLink(props.doc, l.kind === "uri" ? { type: "uri", uri: l.target } : { type: "page", page: Number(l.target), y: l.y });
+    return [
+      { id: "open", label: t("link.menuOpen"), onSelect: open },
+      ...(l.kind === "uri" ? [{ id: "copy-link", label: t("link.menuCopy"), icon: "copy", onSelect: () => void writeClipboard(l.target).then((ok) => ok && toast({ tone: "ok", text: t("link.copied"), timeout: 1800 })) } as MenuEntry] : []),
+    ];
+  };
+  const menuItems = (): MenuEntry[] => (menuLink() ? linkItems() : textItems());
 
   // Mientras se restaura la posición (el navegador puede recortarla hasta que el contenido tenga su alto) no se
   // guarda lo que lea el visor: sobrescribiría la posición buscada.
@@ -51,6 +65,12 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
     if (!restoring) lastScroll.set(props.doc.id, { top: box.scrollTop, left: box.scrollLeft });
     setCurrentPageIndex(currentPage(layout(), box.scrollTop, size().height));
   };
+  // Para volver con Atrás/Adelante tras un salto de enlace: dónde está el visor ahora.
+  onCleanup(registerPlaceProbe((id) => {
+    if (id !== props.doc.id) return null;
+    const page = currentPageIndex();
+    return { page, y: props.rotation === 0 ? Math.max(0, (box.scrollTop - (layout().tops[page] ?? 0) + 8) / props.zoom) : undefined };
+  }));
   onMount(() => {
     const ro = new ResizeObserver(() => setSize({ width: box.clientWidth, height: box.clientHeight }));
     ro.observe(box);
@@ -87,8 +107,10 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
         onPointerDown={selecting.onPointerDown} onPointerMove={selecting.onPointerMove} onPointerUp={selecting.onPointerUp}
         onPointerCancel={selecting.onPointerCancel} onKeyDown={selecting.onKeyDown}
         onContextMenu={(e) => {
-          if (!reading() || !(e.target as Element).matches(".viewer, .viewer-content, .page, .page-rot, .tile")) return;
+          const link = reading() ? (e.target as Element).closest<HTMLElement>("[data-pl-link]") : null;
+          if (!link && (!reading() || !(e.target as Element).matches(".viewer, .viewer-content, .page, .page-rot, .tile"))) return;
           e.preventDefault();
+          setMenuLink(link ? { kind: link.dataset.plLink!, target: link.dataset.target!, y: link.dataset.y ? Number(link.dataset.y) : null } : null);
           setMenuAt({ x: e.clientX, y: e.clientY });
         }}>
         <div class="viewer-content" ref={content} style={{ height: `${layout().totalHeight}px`, width: `${layout().maxWidth + 24}px` }}>
@@ -140,6 +162,7 @@ function PageView(props: {
               width: `${(match.rect.right - match.rect.left) * props.zoom}px`, height: `${(match.rect.bottom - match.rect.top) * props.zoom}px` }} />
         )}</For>
         <TextLayer doc={props.doc} index={props.index} zoom={props.zoom} />
+        <Show when={activeMode()?.id === "read"}><LinksLayer doc={props.doc} index={props.index} zoom={props.zoom} /></Show>
         <RedactLayer docId={props.doc.id} page={props.index} zoom={props.zoom} size={raw()} />
         <For each={pageOverlays()}>{(Overlay) => <Overlay doc={props.doc} index={props.index} zoom={props.zoom} />}</For>
       </div>

@@ -10,6 +10,7 @@ import { Viewer } from "./viewer/Viewer";
 import { installViewerCommands, saveAs, type ViewerCommandHost } from "./viewer/commands";
 import { installBrowserGuard } from "./browserGuard";
 import { installSession } from "./state/session";
+import { LinkDialog } from "./viewer/links/LinkDialog";
 import { Thumbnails } from "./panels/Thumbnails";
 import { Outline } from "./panels/Outline";
 import { registerAssistantPanel } from "./panels/assistant";
@@ -125,6 +126,7 @@ export function App() {
         </Field>
       </Dialog>
       <PasswordPrompt />
+      <LinkDialog />
       <SignedEditPrompt />
     </AppWindow>
   );

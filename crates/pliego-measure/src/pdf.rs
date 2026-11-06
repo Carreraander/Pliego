@@ -1,10 +1,10 @@
 //! Lectura y escritura de `Measure` en el PDF.
 
-use pliego_core::{Error, Result};
+use pliego_core::{Error, Lang, Result};
 use pliego_pdf::{Object, PdfDocument, PdfPage, Point};
 use serde::{Deserialize, Serialize};
 
-use crate::{Measurement, Pt, Scale, Shape, Unit, measure};
+use crate::{Measurement, Pt, Scale, Shape, Unit, measure, measure_in};
 
 fn page_of(doc: &PdfDocument, page: u32) -> Result<PdfPage> {
     let n = doc.page_count()?;
@@ -117,13 +117,37 @@ pub fn add_measurement(
     points: &[Pt],
     closed: bool,
 ) -> Result<(Measurement, i32)> {
-    let m = measure(scale, points, closed)?;
+    add_measurement_in(doc, page, scale, points, closed, Lang::Es)
+}
+
+/// Como [`add_measurement`], con el asunto y el texto de la anotación en `lang` (el idioma de la interfaz).
+pub fn add_measurement_in(
+    doc: &mut PdfDocument,
+    page: u32,
+    scale: &Scale,
+    points: &[Pt],
+    closed: bool,
+    lang: Lang,
+) -> Result<(Measurement, i32)> {
+    let m = measure_in(scale, points, closed, lang)?;
     let mut pg = page_of(doc, page)?;
     let pts: Vec<Point> = points.iter().map(|p| Point::new(p[0], p[1])).collect();
     let (mut annot, it, subj) = match m.shape {
-        Shape::Line => (pg.add_line_annotation(pts[0], pts[1])?, "LineDimension", "Distancia"),
-        Shape::Polyline => (pg.add_polyline_annotation(&pts)?, "PolyLineDimension", "Longitud"),
-        Shape::Polygon => (pg.add_polygon_annotation(&pts)?, "PolygonDimension", "Área"),
+        Shape::Line => (
+            pg.add_line_annotation(pts[0], pts[1])?,
+            "LineDimension",
+            lang.pick("Distancia", "Distance"),
+        ),
+        Shape::Polyline => (
+            pg.add_polyline_annotation(&pts)?,
+            "PolyLineDimension",
+            lang.pick("Longitud", "Length"),
+        ),
+        Shape::Polygon => (
+            pg.add_polygon_annotation(&pts)?,
+            "PolygonDimension",
+            lang.pick("Área", "Area"),
+        ),
     };
     let mut obj = annot.object();
     let md = measure_dict(doc, scale)?;

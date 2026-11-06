@@ -2,6 +2,7 @@ import "./annotate.css";
 import { createResource, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { isApiError } from "../../api";
+import { engineText } from "../../i18n/engine";
 import { goToPage } from "../../state/navigation";
 import { activeDoc } from "../../state/documents";
 import { EmptyState, Notice, TaskPanel } from "../../ui";
@@ -16,14 +17,14 @@ export interface CommentSummary { total: number; by_kind: Record<string, number>
 export default function SummaryPanel(p: { onClose: () => void }) {
   const [data] = createResource(
     () => activeDoc()?.path,
-    (path) => invoke<CommentSummary>("annot_summary", withPassword({ path })).catch((e) => { throw new Error(isApiError(e) ? e.message : String(e)); }),
+    (path) => invoke<CommentSummary>("annot_summary", withPassword({ path })).catch((e) => { throw new Error(engineText(isApiError(e) ? e.message : String(e))); }),
   );
   const who = (a: AnnotInfo) => a.author || at("annotate.summary.noAuthor");
 
   return (
     <TaskPanel title={at("annotate.summary.title")} onClose={p.onClose} primary={{ label: at("annotate.summary.close"), variant: "normal", onClick: p.onClose }}
       estimate={data() ? at("annotate.summary.total", { n: data()!.total }) : undefined}
-      notice={<Show when={data.error}><Notice tone="danger" inline>{String(data.error?.message ?? data.error)}</Notice></Show>}>
+      notice={<Show when={data.error}><Notice tone="danger" inline>{engineText(String(data.error?.message ?? data.error))}</Notice></Show>}>
       <Show when={!data.loading} fallback={<p>{at("annotate.summary.loading")}</p>}>
         <Show when={data()?.threads.length} fallback={<EmptyState title={at("annotate.summary.none")} />}>
           <ul class="pl-comments">

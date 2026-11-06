@@ -19,7 +19,7 @@ import { SignedEditPrompt } from "./components/SignedEditPrompt";
 import { closeScreen, currentScreen, installNavigation, NavigationHost, openShortcutSheet } from "./navigation";
 import { Home, installHome, openHome, openSettings, recordOpened } from "./home";
 import { installJobs } from "./jobs";
-import { initSettings } from "./settings";
+import { initSettings, settings } from "./settings";
 import { installUpdates } from "./updates";
 import { Dynamic } from "solid-js/web";
 import { AppWindow, registerMode, registerPanel, registerStatusItem, setActivePanel, setMode, type DocTab } from "./shell";
@@ -88,8 +88,9 @@ export function App() {
     ]);
     onCleanup(() => { offs.forEach((off) => off()); unlisten.forEach((off) => off()); });
     for (const p of await api.startupFiles()) await open(p);
-    // Después de abrir lo que pidió el sistema: si la vez anterior se cerró de golpe, Inicio ofrece reabrir las pestañas.
-    offs.push(await installSession((p) => open(p)));
+    // Después de abrir lo que pidió el sistema: si la vez anterior se cerró de golpe, Inicio ofrece reabrir las pestañas
+    // (y con «Reabrir las pestañas al iniciar», se reabren solas tras un cierre normal).
+    offs.push(await installSession((p) => open(p), settings().general.reopenTabs));
   });
 
   return (

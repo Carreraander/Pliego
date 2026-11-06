@@ -45,7 +45,7 @@ Prioridades: **P0** bloquea la 1.0 (se nota en el primer minuto de uso); **P1** 
 | 16 | Escanear desde un escáner (WIA) a PDF con OCR | Botón «Escanear» en Inicio y en «Escanear y OCR» |
 | 17 | Miniaturas y vista previa de PDF en el Explorador (`crates/pliego-shell`, pendiente desde W10) | Controlador de miniaturas y de vista previa con PDFium, opcional en el instalador |
 | 18 | Firmar y validar PDF cifrados; acciones en lote con contraseña | `pliego-sign` rechaza `/Encrypt` (validacion-funciones.md) |
-| 19 | «Hacer Pliego la app predeterminada para PDF» desde Ajustes (hoy solo lo ofrece el instalador) | Botón que abre `ms-settings:defaultapps?registeredAppUser=Pliego` |
+| 19 | «Hacer Pliego la app predeterminada para PDF» desde Ajustes (hoy solo lo ofrece el instalador) | Botón que abre `ms-settings:defaultapps?registeredAppUser=Pliego`. **Hecho en este hilo** (Ajustes > General; en Windows 10 abre la lista general). De paso: el ajuste «Reabrir las pestañas al iniciar» existía pero no hacía nada; ahora reabre las pestañas tras un cierre normal |
 
 ## P3 · Después
 

@@ -63,6 +63,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         recents::recents_pin,
         recents::recent_thumbnail,
         recents::reveal_path,
+        recents::open_default_apps,
         recents::about_info,
         logs::logs_dir,
         logs::open_logs_folder,

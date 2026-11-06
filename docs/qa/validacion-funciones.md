@@ -246,6 +246,12 @@ adjunto no sigan dentro. Pruebas: `portfolio::tests::attachments_are_added_and_r
 el contenido quitado no queda en el archivo) y `app-smoke.spec.ts`. **V**: adjuntar un .xlsx y ver en Reader (clip) que
 se abre; quitarlo y ver que ya no está.
 
+**App predeterminada desde Ajustes** (General > «Elegir en Windows…»): abre `ms-settings:defaultapps?registeredAppUser=Pliego`
+en Windows 11 y `ms-settings:defaultapps` en Windows 10 (compilación leída de `ver`, sin ventana). **W**: pulsarlo en acr12
+(Win10) y en pc (Win11). **«Reabrir las pestañas al iniciar»** ya funciona: con el ajuste activado, tras un cierre normal
+se vuelven a abrir las pestañas en su página (antes el ajuste no hacía nada). Pruebas: `recents::tests::default_apps_page_depends_on_the_windows_build`
+y `app-smoke.spec.ts`.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

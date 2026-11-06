@@ -8,13 +8,14 @@ import { expect, test, type Page } from "@playwright/test";
 const DOC = "C:\\Docs\\escaneo.pdf";
 
 /** `locked`: otros archivos protegidos (ruta → contraseña) que `password_status` reconoce, como el servicio real. */
-async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string>; english?: boolean; signed?: boolean; crashed?: boolean } = {}) {
-  await page.addInitScript(([doc, protectedDoc, locked, english, signed, crashed]: [string, boolean, Record<string, string>, boolean, boolean, boolean]) => {
+async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked?: Record<string, string>; english?: boolean; signed?: boolean; crashed?: boolean; reopen?: boolean } = {}) {
+  await page.addInitScript(([doc, protectedDoc, locked, english, signed, crashed, reopen]: [string, boolean, Record<string, string>, boolean, boolean, boolean, boolean]) => {
     const calls: { cmd: string; args: unknown }[] = [];
     const responses: Record<string, unknown> = {
       // Con `crashed` la app arranca sin archivos y la vez anterior se cerró de golpe con una pestaña abierta.
-      startup_files: crashed ? [] : [doc],
-      session_previous: crashed ? { crashed: true, docs: [{ path: doc, page: 2 }] } : { crashed: false, docs: [] },
+      // Con `reopen`, cierre normal con una pestaña y el ajuste «Reabrir las pestañas al iniciar».
+      startup_files: crashed || reopen ? [] : [doc],
+      session_previous: crashed || reopen ? { crashed, docs: [{ path: doc, page: 2 }] } : { crashed: false, docs: [] },
       crash_report: "Pliego 0.1.0 · windows x86_64",
       outline_tree: [{ title: "Capítulo A", page: 0, children: [], top: 700 }, { title: "Capítulo B", page: 2, children: [] }],
       outline_save: 1,
@@ -36,6 +37,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       pick_any_files: ["C:\\Docs\\anexo.xlsx"],
       attachments_add: 1,
       attachments_remove: 2,
+      open_default_apps: null,
       file_facts: { size: 2048, modified_secs: 1_700_000_000 },
       check_accessibility: {
         pages: 3, tagged: true, language: null, title: null,
@@ -57,7 +59,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
           }]
         : [],
       // Ajustes guardados: con `english` la persona eligió «English» en Ajustes (el valor por defecto es español).
-      get_settings: english ? { version: 2, general: { language: "en" } } : null,
+      get_settings: english ? { version: 2, general: { language: "en" } } : reopen ? { version: 2, general: { reopenTabs: true } } : null,
     };
     let nextId = 1;
     const w = window as unknown as Record<string, unknown>;
@@ -85,7 +87,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
         return cmd in responses ? responses[cmd] : null;
       },
     };
-  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}, opts.english ?? false, opts.signed ?? false, opts.crashed ?? false] as [string, boolean, Record<string, string>, boolean, boolean, boolean]);
+  }, [DOC, opts.protectedDoc ?? false, opts.locked ?? {}, opts.english ?? false, opts.signed ?? false, opts.crashed ?? false, opts.reopen ?? false] as [string, boolean, Record<string, string>, boolean, boolean, boolean, boolean]);
 }
 
 const calls = (page: Page, cmd: string) =>
@@ -155,6 +157,12 @@ test.describe("humo de la app (backend simulado)", () => {
     await expect.poll(async () => (await calls(page, "attachments_remove")).length).toBe(1);
     expect((await calls(page, "attachments_remove"))[0]?.args).toMatchObject({ names: ["factura.xml"] });
     await expect(page.getByRole("button", { name: "Deshacer" })).toBeVisible();
+  });
+
+  test("Ajustes abre la página de Windows para elegir la app predeterminada", async ({ page }) => {
+    await page.keyboard.press("Control+,");
+    await page.getByRole("button", { name: "Elegir en Windows…" }).click();
+    await expect.poll(async () => (await calls(page, "open_default_apps")).length).toBe(1);
   });
 
   test("arranca en español aunque el sistema esté en inglés y abre el documento", async ({ page }) => {
@@ -400,6 +408,18 @@ test.describe("recuperación tras un cierre inesperado (backend simulado)", () =
     await expect(page.getByText("Página 3 de 3")).toBeVisible();
     expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
     await expect.poll(async () => (await calls(page, "session_save")).at(-1)?.args).toMatchObject({ docs: [{ path: DOC, page: 2 }] });
+  });
+});
+
+test.describe("reabrir las pestañas al iniciar (backend simulado)", () => {
+  test("con el ajuste activado, un cierre normal vuelve a abrir las pestañas en su página", async ({ page }, info) => {
+    test.skip(info.project.name !== "claro", "una sola variante basta");
+    await installBackend(page, { reopen: true });
+    await page.goto("/");
+    await page.waitForSelector(".pl-window", { timeout: 45_000 });
+    await expect(page.getByText("Página 3 de 3")).toBeVisible();
+    expect((await calls(page, "open_document"))[0]?.args).toMatchObject({ path: DOC });
+    await expect(page.getByText("se cerró de forma inesperada")).toHaveCount(0);
   });
 });
 

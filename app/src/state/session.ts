@@ -18,10 +18,18 @@ export function sessionDocs(paths: string[], pages: Map<string, number>): Sessio
   return paths.map((path) => ({ path, page: pages.get(path) ?? 0 }));
 }
 
-/** Tras abrir lo que pidió el sistema, mira cómo acabó la vez anterior y empieza a guardar la sesión. */
-export async function installSession(open: (path: string) => Promise<void>): Promise<() => void> {
+/** Tras abrir lo que pidió el sistema, mira cómo acabó la vez anterior y empieza a guardar la sesión. Con `reopen`
+ *  (ajuste «Reabrir las pestañas al iniciar») vuelve a abrir directamente las pestañas de un cierre normal. */
+export async function installSession(open: (path: string) => Promise<void>, reopen = false): Promise<() => void> {
   const previous = await invoke<PreviousRun | null>("session_previous").catch(() => null);
-  if (previous?.crashed && previous.docs.length && docs().length === 0) {
+  if (reopen && previous && !previous.crashed && previous.docs.length && docs().length === 0) {
+    for (const d of previous.docs) {
+      try {
+        await open(d.path);
+        if (d.page > 0) goToPage(d.page);
+      } catch { /* si uno ya no abre, se siguen los demás */ }
+    }
+  } else if (previous?.crashed && previous.docs.length && docs().length === 0) {
     const pageOf = new Map(previous.docs.map((d) => [d.path, d.page]));
     const list: Recoverable[] = previous.docs.map((d) => ({ id: d.path, title: fileName(d.path) }));
     setRecoverable(list, {

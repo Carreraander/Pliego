@@ -9,6 +9,7 @@ hacerlo leyendo solo este directorio, `CLAUDE.md`, `docs/CONVENTIONS.md`, `docs/
 | Archivo | Qué contiene |
 | --- | --- |
 | `README.md` (este) | Estado global, PRs abiertos, decisiones y tareas de Ander |
+| [`huecos-1.0.md`](huecos-1.0.md) | **Lo que falta para la 1.0** (auditoría del 2026-11-06), con prioridad y reparto |
 | [`reglas-operativas.md`](reglas-operativas.md) | Organización de hilos, modelos, autonomía, fusión de PRs, ramas y acr12 |
 | [`memoria.md`](memoria.md) | Hechos para reconstruir la memoria del proyecto nuevo, uno por archivo |
 | [`lecciones-tecnicas.md`](lecciones-tecnicas.md) | Trampas ya descubiertas (Windows, mupdf-rs, Cargo.lock, CI) |

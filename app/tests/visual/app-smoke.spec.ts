@@ -38,6 +38,7 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       attachments_add: 1,
       attachments_remove: 2,
       open_default_apps: null,
+      print_printers: [{ name: "Impresora de prueba", isDefault: true }],
       file_facts: { size: 2048, modified_secs: 1_700_000_000 },
       check_accessibility: {
         pages: 3, tagged: true, language: null, title: null,
@@ -355,12 +356,12 @@ test.describe("atajos del visor y del navegador (backend simulado)", () => {
     expect(await calls(page, "open_document")).toHaveLength(2);
   });
 
-  test("Ctrl+F lleva a la caja de búsqueda y Ctrl+P no imprime la interfaz", async ({ page }) => {
+  test("Ctrl+F lleva a la caja de búsqueda y Ctrl+P abre Imprimir sin imprimir la interfaz", async ({ page }) => {
     await page.keyboard.press("Control+f");
     await expect(page.getByRole("searchbox", { name: "Buscar" })).toBeFocused();
     await page.evaluate(() => { (window as unknown as { print: () => void; __printed: boolean }).print = () => { (window as unknown as { __printed: boolean }).__printed = true; }; });
     await page.keyboard.press("Control+p");
-    await expect(page.getByText("La impresión llegará en una próxima versión.")).toBeVisible();
+    await expect.poll(async () => (await calls(page, "print_printers")).length).toBeGreaterThan(0);
     expect(await page.evaluate(() => (window as unknown as { __printed?: boolean }).__printed)).toBeUndefined();
   });
 

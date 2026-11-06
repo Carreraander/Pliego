@@ -106,11 +106,7 @@ export function installViewerCommands(host: ViewerCommandHost): () => void {
       run: () => { toast({ tone: "info", text: es() ? "Los cambios ya están guardados en el archivo." : "Changes are already saved to the file." }); },
     },
     { id: "file.saveAs", section: "file", keys: "Ctrl+Shift+S", title: () => (es() ? "Guardar como" : "Save as"), when: hasDoc, run: () => void saveAs(host) },
-    {
-      // Hasta que llegue la impresión (docs/handoff/huecos-1.0.md, P0 #1), Ctrl+P no debe imprimir la interfaz.
-      id: "file.print", section: "file", keys: "Ctrl+P", title: () => (es() ? "Imprimir" : "Print"),
-      run: () => { toast({ tone: "info", text: es() ? "La impresión llegará en una próxima versión." : "Printing is coming in a future version." }); },
-    },
+    // Ctrl+P lo atiende la herramienta Imprimir (tools/print/manifest.ts).
     { id: "nav.nextTab", section: "navigation", keys: "Ctrl+Tab", title: () => (es() ? "Pestaña siguiente" : "Next tab"), run: tab(1) },
     { id: "nav.prevTab", section: "navigation", keys: "Ctrl+Shift+Tab", title: () => (es() ? "Pestaña anterior" : "Previous tab"), run: tab(-1) },
     { id: "nav.home", section: "navigation", keys: "Home", scope: "canvas", title: () => (es() ? "Primera página" : "First page"), run: page("first"), when: viewerHasFocus },

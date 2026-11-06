@@ -369,6 +369,12 @@ fn replace_impl(
             0.0
         };
 
+        let top_margin = if flowing {
+            flow::margin_top(pdf, page, col)?
+        } else {
+            0.0
+        };
+
         // Retirar el texto original. El recuadro se encoge un poco para no arrastrar líneas vecinas.
         let inset_y = (b.font_size * 0.15).min((b.bbox[3] - b.bbox[1]) / 4.0);
         let area = rect_of([
@@ -419,12 +425,13 @@ fn replace_impl(
                 leading,
                 rest.len(),
                 gap_after,
+                top_margin,
                 flow,
                 &mut report,
             )?;
             moved = true;
         } else if flowing && delta.abs() > 0.01 {
-            flow::push_below(pdf, page, col, b.bbox[3], leading, delta, flow, &mut report)?;
+            flow::push_below(pdf, page, col, b.bbox[3], leading, delta, top_margin, flow, &mut report)?;
             moved = true;
         }
         let mut p = load_page(pdf, page)?;

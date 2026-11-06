@@ -4193,6 +4193,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "windows",
 ]
 
 [[package]]
@@ -4514,6 +4515,7 @@ dependencies = [
  "pliego-pdfa",
  "pliego-portfolio",
  "pliego-print",
+ "pliego-printer",
  "pliego-protect",
  "pliego-redact",
  "pliego-sign",
@@ -4582,6 +4584,7 @@ dependencies = [
  "pliego-pdfa",
  "pliego-portfolio",
  "pliego-print",
+ "pliego-printer",
  "pliego-protect",
  "pliego-redact",
  "pliego-sign",
@@ -4815,6 +4818,7 @@ dependencies = [
  "tempfile",
  "tiff",
  "ttf-parser",
+ "windows",
  "zune-jpeg",
 ]
 
@@ -4849,6 +4853,18 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "pliego-printer"
+version = "0.1.0"
+dependencies = [
+ "pliego-core",
+ "pliego-pdf",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

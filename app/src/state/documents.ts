@@ -74,9 +74,24 @@ export async function closeDoc(id: DocId): Promise<void> {
   if (activeId() === id) setActiveId(rest.at(-1)?.id ?? null);
 }
 
-/** Escucha `document-changed` para invalidar teselas (la URL lleva la revisión). */
+const sameSizes = (a: PageSize[], b: PageSize[]) =>
+  a.length === b.length && a.every((s, i) => s.width === b[i]!.width && s.height === b[i]!.height);
+
+/**
+ * Escucha `document-changed` para invalidar teselas (la URL lleva la revisión). Una edición puede cambiar el número de
+ * páginas (el texto que desborda inserta páginas), así que se vuelven a leer los tamaños y se aplican junto con la
+ * revisión si cambiaron.
+ */
 export function listenForChanges(): Promise<() => void> {
-  return events.onDocumentChanged(({ doc_id, revision }) =>
-    setDocs((all) => all.map((d) => (d.id === doc_id ? { ...d, revision } : d))),
-  );
+  return events.onDocumentChanged(({ doc_id, revision }) => {
+    const apply = (sizes?: PageSize[]) =>
+      setDocs((all) =>
+        all.map((d) =>
+          d.id === doc_id && d.revision <= revision
+            ? { ...d, revision, ...(sizes && !sameSizes(d.sizes, sizes) ? { sizes } : {}) }
+            : d,
+        ),
+      );
+    void api.pageSizes(doc_id).then(apply, () => apply());
+  });
 }

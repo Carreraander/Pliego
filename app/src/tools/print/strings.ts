@@ -1,0 +1,66 @@
+import { locale } from "../../i18n";
+import { addToolStrings, toolText } from "../strings";
+
+addToolStrings({
+  es: {
+    "tools.print.document.title": "Imprimir…", "tools.print.document.description": "Envía el documento a una impresora",
+    "print.title": "Imprimir", "print.noDoc": "Abre un documento para imprimirlo",
+    "print.printer": "Impresora", "print.loading": "Buscando impresoras…", "print.default": "{name} (predeterminada)",
+    "print.none": "No hay ninguna impresora instalada. Añade una en la configuración de Windows.",
+    "print.unavailable": "No se pudo consultar las impresoras: {error}",
+    "print.pages": "Páginas", "print.pagesAll": "Todas ({n})", "print.pagesCurrent": "Página actual ({n})", "print.pagesRange": "Intervalo",
+    "print.rangePlaceholder": "p. ej. 1-3, 5", "print.rangeLabel": "Páginas a imprimir",
+    "print.err.empty": "Escribe las páginas, por ejemplo 1-3, 5", "print.err.syntax": "Usa números y guiones separados por comas",
+    "print.err.outside": "El documento tiene {n} páginas",
+    "print.copies": "Copias", "print.collate": "Intercalar las copias (1, 2, 3 · 1, 2, 3)",
+    "print.scale": "Ajuste a la hoja", "print.scaleFit": "Ajustar a la hoja", "print.scaleShrink": "Reducir solo lo que no cabe",
+    "print.scaleActual": "Tamaño real (100 %)", "print.scaleCustom": "Porcentaje", "print.percent": "Porcentaje de escala",
+    "print.gray": "Escala de grises", "print.grayHint": "Imprime en blanco y negro con matices de gris.",
+    "print.comments": "Incluir comentarios y marcas", "print.commentsHint": "Los campos de formulario salen siempre con lo escrito.",
+    "print.advanced": "Más opciones", "print.paper": "Papel", "print.paperDefault": "El de la impresora",
+    "print.orientation": "Orientación", "print.orientAuto": "Según la primera página", "print.orientPortrait": "Vertical", "print.orientLandscape": "Horizontal",
+    "print.autoRotate": "Girar las páginas que así caben mejor",
+    "print.duplex": "Doble cara", "print.duplexOff": "Una cara", "print.duplexLong": "Encuadernar por el lado largo", "print.duplexShort": "Encuadernar por el lado corto",
+    "print.noDuplex": "Esta impresora no imprime a doble cara.",
+    "print.subset": "Imprimir", "print.subsetAll": "Todas las páginas elegidas", "print.subsetOdd": "Solo las impares", "print.subsetEven": "Solo las pares",
+    "print.reverse": "De la última a la primera",
+    "print.preview": "Vista previa de la hoja", "print.previewAlt": "Así cae la página {n} en la hoja",
+    "print.summary": "{pages} de {total} páginas · {copies} copia(s)",
+    "print.action": "Imprimir", "print.sending": "Enviando a la impresora…",
+    "print.job": "Imprimir {name}", "print.started": "Imprimiendo… sigue en el centro de tareas",
+    "print.noPages": "No hay ninguna página con esa selección",
+  },
+  en: {
+    "tools.print.document.title": "Print…", "tools.print.document.description": "Send the document to a printer",
+    "print.title": "Print", "print.noDoc": "Open a document to print it",
+    "print.printer": "Printer", "print.loading": "Looking for printers…", "print.default": "{name} (default)",
+    "print.none": "No printer is installed. Add one in the Windows settings.",
+    "print.unavailable": "Could not read the printers: {error}",
+    "print.pages": "Pages", "print.pagesAll": "All ({n})", "print.pagesCurrent": "Current page ({n})", "print.pagesRange": "Range",
+    "print.rangePlaceholder": "e.g. 1-3, 5", "print.rangeLabel": "Pages to print",
+    "print.err.empty": "Type the pages, for example 1-3, 5", "print.err.syntax": "Use numbers and dashes separated by commas",
+    "print.err.outside": "The document has {n} pages",
+    "print.copies": "Copies", "print.collate": "Collate copies (1, 2, 3 · 1, 2, 3)",
+    "print.scale": "Fit to sheet", "print.scaleFit": "Fit to the sheet", "print.scaleShrink": "Shrink only what does not fit",
+    "print.scaleActual": "Actual size (100%)", "print.scaleCustom": "Custom percentage", "print.percent": "Scale percentage",
+    "print.gray": "Grayscale", "print.grayHint": "Prints in black and white with shades of gray.",
+    "print.comments": "Include comments and markup", "print.commentsHint": "Form fields always print with what was typed.",
+    "print.advanced": "More options", "print.paper": "Paper", "print.paperDefault": "The printer's default",
+    "print.orientation": "Orientation", "print.orientAuto": "By the first page", "print.orientPortrait": "Portrait", "print.orientLandscape": "Landscape",
+    "print.autoRotate": "Rotate pages that fit better turned",
+    "print.duplex": "Two-sided", "print.duplexOff": "One side", "print.duplexLong": "Bind on the long edge", "print.duplexShort": "Bind on the short edge",
+    "print.noDuplex": "This printer does not print two-sided.",
+    "print.subset": "Print", "print.subsetAll": "All chosen pages", "print.subsetOdd": "Odd pages only", "print.subsetEven": "Even pages only",
+    "print.reverse": "From last to first",
+    "print.preview": "Sheet preview", "print.previewAlt": "How page {n} lands on the sheet",
+    "print.summary": "{pages} of {total} pages · {copies} copy(ies)",
+    "print.action": "Print", "print.sending": "Sending to the printer…",
+    "print.job": "Print {name}", "print.started": "Printing… follow it in the task centre",
+    "print.noPages": "No page matches that selection",
+  },
+});
+
+/** Texto de Imprimir con sustitución de `{n}`. */
+export function pt(key: string, vars: Record<string, string | number> = {}): string {
+  return toolText(key, locale()).replace(/\{(\w+)\}/g, (_, n: string) => String(vars[n] ?? `{${n}}`));
+}

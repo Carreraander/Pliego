@@ -32,6 +32,7 @@ mod object;
 mod options;
 mod pdfium;
 mod pixmap;
+pub mod print;
 mod text;
 mod widget;
 

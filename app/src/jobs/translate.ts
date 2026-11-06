@@ -12,6 +12,7 @@ import { CLI_RULES } from "../i18n/engine/rules-cli";
 import { CONVERT_RULES } from "../i18n/engine/rules-convert";
 import { DOCS_RULES } from "../i18n/engine/rules-docs";
 import { EDIT_RULES } from "../i18n/engine/rules-edit";
+import { PRINT_RULES } from "../i18n/engine/rules-print";
 import { SIGN_RULES } from "../i18n/engine/rules-sign";
 import { SYSTEM_RULES, type Rule } from "../i18n/engine/rules-system";
 
@@ -31,6 +32,8 @@ const JOB_RULES: readonly Rule[] = [
   ["Leyendo el texto del documento", "Reading the document text"], ["Leyendo {}, página {}", "Reading {1}, page {2}"],
   ["Listo", "Done"], ["Líneas finas corregidas", "Hairlines fixed"], ["Marca de agua", "Watermark"], ["Marcas añadidas", "Marks added"],
   ["Optimizando imágenes", "Optimizing images"], ["Parte {} de {}", "Part {1} of {2}"], ["Poniendo nombre a los campos", "Naming the fields"],
+  ["Preparando el documento", "Preparing the document"], ["Preparando la impresión", "Preparing to print"],
+  ["Imprimiendo la página {}", "Printing page {}"], ["Enviado a la impresora", "Sent to the printer"],
   ["Preparando el paquete", "Preparing the package"], ["Preparando página {}", "Preparing page {}"], ["Preparando", "Preparing"],
   ["Quitando la protección…", "Removing the protection…"], ["Recomprimiendo imágenes", "Recompressing images"],
   ["Reconociendo página {}", "Recognizing page {}"], ["Redacción aplicada", "Redaction applied"],
@@ -40,6 +43,9 @@ const JOB_RULES: readonly Rule[] = [
   ["leyendo capítulos", "reading chapters"], ["leyendo imágenes", "reading images"], ["leyendo la página {}", "reading page {}"],
   ["listo", "done"], ["maquetando", "laying out"], ["página {}", "page {}"], ["sello", "stamp"], ["fin", "end"],
   // ── Resúmenes y avisos (`Report`) ──
+  ["Se enviaron {} página(s) a «{}»", "Sent {1} page(s) to “{2}”"],
+  ["Se enviaron {} página(s) × {} copias a «{}»", "Sent {1} page(s) × {2} copies to “{3}”"],
+  ["«{}» no imprime a doble cara: se imprimió a una cara", "“{}” does not print two-sided: it was printed on one side"],
   ["Cartera con {} archivos.", "Portfolio with {} files."], ["Convertido a {} con la condición «{}».", "Converted to {1} with the condition “{2}”."],
   ["Corregido: {}.", "Fixed: {}."], ["Firmado. Siguiente: {} ({} de {})", "Signed. Next: {1} ({2} of {3})"], ["Firmado. Ya han firmado todos", "Signed. Everyone has signed"], ["Documento cifrado con {}.", "Document encrypted with {}."], ["Documento firmado", "Document signed"],
   ["Enlace actualizado en la página {}", "Link updated on page {}"], ["Enlace añadido en la página {}", "Link added on page {}"],
@@ -105,7 +111,7 @@ const JOB_RULES: readonly Rule[] = [
 const GENERIC: Rule = ["{}: {}", "{1}: {2}"];
 
 /** Todas las reglas. Se aplican de la más específica (más texto fijo) a la más general; la genérica, la última. */
-export const RULES: readonly Rule[] = [...JOB_RULES, ...SYSTEM_RULES, ...SIGN_RULES, ...DOCS_RULES, ...EDIT_RULES, ...CONVERT_RULES, ...CLI_RULES, GENERIC];
+export const RULES: readonly Rule[] = [...JOB_RULES, ...SYSTEM_RULES, ...SIGN_RULES, ...DOCS_RULES, ...EDIT_RULES, ...CONVERT_RULES, ...CLI_RULES, ...PRINT_RULES, GENERIC];
 
 interface Compiled { re: RegExp; en: string; fixed: number }
 const ruleOf = new Map<Compiled, Rule>();

@@ -69,7 +69,7 @@ pub(crate) fn init(path: &Path) -> Result<()> {
 /// La biblioteca de PDFium. Si nadie la ha cargado, lo intenta una vez desde `PLIEGO_PDFIUM_DLL` o la carpeta del
 /// ejecutable ([`crate::pdfium_init_from_environment`]), de modo que los programas y las pruebas no tengan que
 /// llamar a `pdfium_init` si la DLL está donde se espera.
-fn lib() -> Result<&'static Pdfium> {
+pub(crate) fn lib() -> Result<&'static Pdfium> {
     if let Some(p) = PDFIUM.get() {
         return Ok(p);
     }

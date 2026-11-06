@@ -62,6 +62,24 @@ pub struct PageWord {
     pub line: u32,
 }
 
+/// Adónde lleva un enlace de una página.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum PageLinkTarget {
+    /// Otra página del documento (desde 0). `y` = punto de la página, en puntos desde su borde superior, al que el
+    /// destino pide llevar la vista (`None` = el principio de la página).
+    Page { page: u32, y: Option<f32> },
+    /// Dirección externa (web, correo…). El visor decide si se abre; no se ha comprobado nada.
+    Uri { uri: String },
+}
+
+/// Enlace de una página para el visor. `rect` = `[x0, y0, x1, y1]` en el mismo espacio que [`PageWord::rect`].
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PageLink {
+    pub rect: [f32; 4],
+    pub target: PageLinkTarget,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DocInfo {
     pub page_count: u32,
@@ -106,6 +124,10 @@ pub trait EngineDocument {
     /// Palabras de la página con su caja, en orden de lectura (vacío si el motor no las da o la página no tiene
     /// texto). Añadido sin romper el contrato anterior.
     fn page_words(&self, _page: u32) -> Result<Vec<PageWord>> {
+        Ok(Vec::new())
+    }
+    /// Enlaces de la página que llevan a otra página o a una dirección (vacío si no hay o el motor no los da).
+    fn page_links(&self, _page: u32) -> Result<Vec<PageLink>> {
         Ok(Vec::new())
     }
     fn outline(&self) -> Result<Vec<OutlineItem>>;

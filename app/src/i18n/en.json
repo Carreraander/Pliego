@@ -46,5 +46,20 @@
   "text.menu": "Document text",
   "viewer.label": "Document: {title}",
   "viewer.page": "Page {page} of {total}",
-  "viewer.pageNoText": "Page {page} of {total}. No text to read or select; if it is a scan, OCR adds it."
+  "viewer.pageNoText": "Page {page} of {total}. No text to read or select; if it is a scan, OCR adds it.",
+  "link.goto": "Go to page {page}",
+  "link.web": "Open link: {uri}",
+  "link.openTitle": "Open this link?",
+  "link.openBody": "The document wants to open this address outside Pliego:",
+  "link.openSite": "Site: {site}",
+  "link.openHint": "Open it only if you trust this document.",
+  "link.openConfirm": "Open",
+  "link.openCancel": "Cancel",
+  "link.menuOpen": "Open link",
+  "link.menuCopy": "Copy link address",
+  "link.copied": "Address copied",
+  "link.failed": "Could not open the link: {error}",
+  "link.badPage": "The link goes to a page that does not exist.",
+  "link.back": "Back",
+  "link.forward": "Forward"
 }

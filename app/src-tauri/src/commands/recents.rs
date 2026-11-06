@@ -81,3 +81,17 @@ pub fn reveal_path(path: String) -> Result<(), String> {
 pub fn about_info() -> pliego_appdata::about::AboutInfo {
     pliego_appdata::about::about(env!("CARGO_PKG_VERSION"))
 }
+
+/// Abre en el navegador (o el cliente de correo) la dirección de un enlace de un PDF. Solo `http`, `https` y `mailto`;
+/// la interfaz pide confirmación antes de llamar.
+#[tauri::command]
+pub fn open_web_link(url: String) -> Result<(), String> {
+    let url = pliego_appdata::weblink::check_url(&url)?;
+    let (program, args) = pliego_appdata::weblink::open_command(&url);
+    pliego_core::log::info("enlaces", "se abre un enlace web desde un documento");
+    std::process::Command::new(program)
+        .args(args)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("No se pudo abrir el enlace: {e}"))
+}

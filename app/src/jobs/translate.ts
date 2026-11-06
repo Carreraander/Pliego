@@ -11,6 +11,7 @@ import type { Locale } from "../i18n";
 import { CONVERT_RULES } from "../i18n/engine/rules-convert";
 import { DOCS_RULES } from "../i18n/engine/rules-docs";
 import { EDIT_RULES } from "../i18n/engine/rules-edit";
+import { PRINT_RULES } from "../i18n/engine/rules-print";
 import { SIGN_RULES } from "../i18n/engine/rules-sign";
 import { SYSTEM_RULES, type Rule } from "../i18n/engine/rules-system";
 
@@ -106,7 +107,7 @@ const JOB_RULES: readonly Rule[] = [
 const GENERIC: Rule = ["{}: {}", "{1}: {2}"];
 
 /** Todas las reglas. Se aplican de la más específica (más texto fijo) a la más general; la genérica, la última. */
-export const RULES: readonly Rule[] = [...JOB_RULES, ...SYSTEM_RULES, ...SIGN_RULES, ...DOCS_RULES, ...EDIT_RULES, ...CONVERT_RULES, GENERIC];
+export const RULES: readonly Rule[] = [...JOB_RULES, ...SYSTEM_RULES, ...SIGN_RULES, ...DOCS_RULES, ...EDIT_RULES, ...CONVERT_RULES, ...PRINT_RULES, GENERIC];
 
 interface Compiled { re: RegExp; en: string; fixed: number }
 

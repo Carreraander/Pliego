@@ -65,6 +65,9 @@ export function Viewer(props: { doc: OpenDoc; zoom: number; rotation: Rotation }
     if (!restoring) lastScroll.set(props.doc.id, { top: box.scrollTop, left: box.scrollLeft });
     setCurrentPageIndex(currentPage(layout(), box.scrollTop, size().height));
   };
+  // Al desmontarse (p. ej. al cambiar la revisión del documento) se guarda la posición real del visor: el evento de
+  // scroll es asíncrono y puede no haber llegado todavía si el desplazamiento fue justo antes.
+  onCleanup(() => { if (!restoring && box) lastScroll.set(props.doc.id, { top: box.scrollTop, left: box.scrollLeft }); });
   // Para volver con Atrás/Adelante tras un salto de enlace: dónde está el visor ahora.
   onCleanup(registerPlaceProbe((id) => {
     if (id !== props.doc.id) return null;

@@ -9,6 +9,7 @@
 pub mod engine;
 pub mod error;
 pub mod job;
+pub mod lang;
 pub mod log;
 pub mod pages;
 
@@ -17,4 +18,5 @@ pub use engine::{
 };
 pub use error::{Error, Result};
 pub use job::{CancelToken, JobContext, NoProgress, Progress, Report};
+pub use lang::Lang;
 pub use pages::PageRange;

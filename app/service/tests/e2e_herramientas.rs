@@ -418,6 +418,7 @@ fn medir_guarda_la_escala_y_la_medida_en_el_pdf_abierto() {
         &scale,
         &[[100.0, 100.0], [200.0, 100.0]],
         false,
+        pliego_core::Lang::Es,
     )
     .unwrap();
     svc.reload_bytes(id, &bytes).unwrap();

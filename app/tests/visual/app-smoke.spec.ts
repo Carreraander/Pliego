@@ -117,7 +117,7 @@ test.describe("humo de la app (backend simulado)", () => {
     await page.getByRole("button", { name: "Elegir el otro PDF…" }).click();
     await page.getByRole("button", { name: "Comparar y guardar informe" }).click();
     expect((await calls(page, "compare_pdfs"))[0]?.args).toEqual({
-      path: DOC, other: "C:\\Docs\\version-2.pdf", passwordA: null, passwordB: null, text: true, visual: true, label: "comparación",
+      path: DOC, other: "C:\\Docs\\version-2.pdf", passwordA: null, passwordB: null, text: true, visual: true, label: "comparación", lang: "es",
     });
   });
 });

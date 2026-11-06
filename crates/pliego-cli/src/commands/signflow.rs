@@ -67,7 +67,14 @@ pub fn run(a: SignflowArgs, json: bool) -> anyhow::Result<()> {
                 bail!("el archivo de salida no puede ser el de entrada");
             }
             let list = Signers::new(signers.iter().map(|s| parse_signer(s)).collect());
-            let pkg = pliego_signflow::prepare(&read(&input)?, &list)?;
+            let pkg = pliego_signflow::prepare_in(
+                &read(&input)?,
+                &list,
+                match pliego_core::Lang::from_env() {
+                    pliego_core::Lang::Es => pliego_sign::SignLang::Es,
+                    pliego_core::Lang::En => pliego_sign::SignLang::En,
+                },
+            )?;
             write_new(&output, &pkg.pdf)?;
             println!(
                 "Paquete preparado para {} firmantes: {}",

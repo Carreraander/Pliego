@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use pliego_core::Result;
+use pliego_core::{Lang, Result};
 pub use pliego_measure::{Measurement, Pt, Scale, Unit};
 
 use crate::annot::{Editor, open};
@@ -28,8 +28,8 @@ pub fn ratio_scale(n: f64, unit: Unit) -> Result<Scale> {
 }
 
 /// Mide una figura sin tocar el documento.
-pub fn measure(scale: &Scale, points: &[Pt], closed: bool) -> Result<Measurement> {
-    pliego_measure::measure(scale, points, closed)
+pub fn measure(scale: &Scale, points: &[Pt], closed: bool, lang: Lang) -> Result<Measurement> {
+    pliego_measure::measure_in(scale, points, closed, lang)
 }
 
 /// Guarda la escala de la página y una anotación de medida en el propio PDF, añadiendo los cambios al final
@@ -44,11 +44,12 @@ pub fn save(
     scale: &Scale,
     points: &[Pt],
     closed: bool,
+    lang: Lang,
 ) -> Result<(Vec<u8>, Measurement)> {
     let mut measured = None;
     let bytes = editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
         pliego_measure::set_scale(doc, page, scale)?;
-        measured = Some(pliego_measure::add_measurement(doc, page, scale, points, closed)?.0);
+        measured = Some(pliego_measure::add_measurement_in(doc, page, scale, points, closed, lang)?.0);
         Ok(())
     })?;
     Ok((bytes, measured.expect("la edición se aplicó")))
@@ -62,7 +63,13 @@ mod tests {
     fn ratio_scale_matches_the_drawing_scale() {
         // 1:100 → 1 mm de papel = 100 mm reales = 0,1 m.
         let s = ratio_scale(100.0, Unit::M).unwrap();
-        let m = measure(&s, &[[0.0, 0.0], [Unit::Mm.points() as f32 * 10.0, 0.0]], false).unwrap();
+        let m = measure(
+            &s,
+            &[[0.0, 0.0], [Unit::Mm.points() as f32 * 10.0, 0.0]],
+            false,
+            Lang::Es,
+        )
+        .unwrap();
         assert!((m.length - 1.0).abs() < 1e-3, "{m:?}"); // 10 mm de papel = 1 m
         assert!(ratio_scale(0.0, Unit::M).is_err());
     }
@@ -71,10 +78,10 @@ mod tests {
     fn calibration_and_polygon_area() {
         let s = calibrate(100.0, 5.0, Unit::M).unwrap(); // 100 pt = 5 m
         let sq = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0]];
-        let m = measure(&s, &sq, true).unwrap();
+        let m = measure(&s, &sq, true, Lang::Es).unwrap();
         assert!((m.area.unwrap() - 25.0).abs() < 1e-6);
         assert!((m.length - 20.0).abs() < 1e-6);
-        assert!(measure(&s, &sq[..2], true).is_err());
+        assert!(measure(&s, &sq[..2], true, Lang::Es).is_err());
         assert!(calibrate(0.0, 5.0, Unit::M).is_err());
     }
 
@@ -101,6 +108,7 @@ mod tests {
             &scale,
             &[[10.0, 10.0], [110.0, 10.0]],
             false,
+            Lang::Es,
         )
         .unwrap();
         assert!((m.length - 5.0).abs() < 1e-6);
@@ -110,7 +118,7 @@ mod tests {
             .expect("la escala queda en la página");
         assert!((back.units_per_point - scale.units_per_point).abs() < 1e-9);
         assert_eq!(editor.undo_depth(&path), 1);
-        assert!(save(&editor, &path, None, "copia", 0, &scale, &[[0.0, 0.0]], false).is_err());
+        assert!(save(&editor, &path, None, "copia", 0, &scale, &[[0.0, 0.0]], false, Lang::Es).is_err());
         std::fs::remove_dir_all(dir).ok();
     }
 
@@ -133,6 +141,7 @@ mod tests {
             &scale,
             &[[10.0, 10.0], [110.0, 10.0]],
             false,
+            Lang::Es,
         )
         .unwrap();
 

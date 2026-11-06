@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use pliego_app_service::DocId;
 use pliego_app_service::api::ApiResult;
 use pliego_app_service::measure::{self, Measurement, Pt, Scale, Unit};
-use pliego_core::Error;
+use pliego_core::{Error, Lang};
 use serde::Serialize;
 use tauri::State;
 
@@ -39,8 +39,13 @@ pub fn measure_ratio(n: f64, unit: Unit) -> ApiResult<Scale> {
 
 /// Mide una figura sin tocar el documento (para mostrar el resultado mientras se marcan puntos).
 #[tauri::command]
-pub fn measure_shape(scale: Scale, points: Vec<Pt>, closed: bool) -> ApiResult<Measurement> {
-    Ok(measure::measure(&scale, &points, closed)?)
+pub fn measure_shape(scale: Scale, points: Vec<Pt>, closed: bool, lang: Option<String>) -> ApiResult<Measurement> {
+    Ok(measure::measure(&scale, &points, closed, lang_of(lang))?)
+}
+
+/// Idioma del texto de la medida: el de la interfaz (`es` si no se indica).
+fn lang_of(tag: Option<String>) -> Lang {
+    tag.as_deref().map(Lang::from_tag).unwrap_or_default()
 }
 
 #[derive(Serialize)]
@@ -64,6 +69,7 @@ pub async fn measure_save(
     points: Vec<Pt>,
     closed: bool,
     suffix: String,
+    lang: Option<String>,
 ) -> ApiResult<Saved> {
     let path = PathBuf::from(path);
     let (bytes, measurement) = measure::save(
@@ -75,6 +81,7 @@ pub async fn measure_save(
         &scale,
         &points,
         closed,
+        lang_of(lang),
     )?;
     state.service.reload_bytes(doc_id, &bytes)?;
     Ok(Saved {

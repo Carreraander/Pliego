@@ -40,6 +40,16 @@
 - Subcomando por módulo (`pliego pages ...`, `pliego sign ...`). Soporta `--json` global.
 - Test de integración en `crates/pliego-cli/tests/<modulo>.rs` que ejecute el binario.
 
+## Idiomas (español e inglés)
+- Los crates escriben sus mensajes (errores, progreso, informes) en español; la interfaz los traduce al mostrarlos con las
+  reglas de `app/src/i18n/engine/` (`engineText`). Un mensaje nuevo necesita su regla EN en el archivo de su área.
+- Lo que se **guarda en un archivo** (informes, anotaciones, nombres de campo, hojas de Office, sufijos de salida) no se
+  puede traducir después: recibe un `pliego_core::Lang` y elige con `lang.pick("es", "en")`. La CLI lo toma de
+  `PLIEGO_LANG`/`LANG` (`Lang::from_env`); la app, del idioma de la interfaz.
+- Dos pruebas lo vigilan: `app/src/i18n/engine/coverage.test.ts` (literales de Rust sin traducir; lo que no ve nadie va en
+  `not-translated.ts` con su motivo) y `app/src/i18n/fixed-strings.test.ts` (texto fijo en componentes `.tsx`).
+- Pendiente: los mensajes de ejecución y la ayuda (`--help`) de la CLI siguen solo en español.
+
 ## Pruebas
 - Unitarias junto al código; de integración en `tests/` del crate.
 - PDFs de prueba pequeños y generados en `tests/corpus/<modulo>/` (con su script generador en `tools/` si es posible).

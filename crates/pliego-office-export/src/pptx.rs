@@ -14,6 +14,15 @@ xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" 
 xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"";
 const REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
+/// Los textos se escriben con `lang="es-ES"` (idioma de revisión por defecto); en inglés se cambia por `en-US` para que
+/// Office no marque como erróneo el texto del documento. Las comillas del contenido van escapadas, no hay falsas coincidencias.
+fn proofing_lang(xml: &str, lang: pliego_core::Lang) -> std::borrow::Cow<'_, str> {
+    match lang {
+        pliego_core::Lang::Es => std::borrow::Cow::Borrowed(xml),
+        pliego_core::Lang::En => std::borrow::Cow::Owned(xml.replace("lang=\"es-ES\"", "lang=\"en-US\"")),
+    }
+}
+
 fn rpr(r: &Run, k: f32, tag: &str) -> String {
     let sz = (r.size * k * 100.0).round().max(100.0) as i32;
     let mut s = format!("<a:{tag} lang=\"es-ES\" sz=\"{sz}\"");
@@ -325,7 +334,10 @@ pub(crate) fn write_pptx(layout: &Layout) -> Result<Vec<u8>> {
             "<Override PartName=\"/ppt/slides/slide{k}.xml\" ContentType=\"{pml}.slide+xml\"/>"
         );
         let _ = write!(pres, "<p:sldId id=\"{}\" r:id=\"rIdS{k}\"/>", 255 + k);
-        pkg.add(&format!("ppt/slides/slide{k}.xml"), s.xml.as_bytes())?;
+        pkg.add(
+            &format!("ppt/slides/slide{k}.xml"),
+            proofing_lang(&s.xml, layout.lang).as_bytes(),
+        )?;
         let mut items: Vec<(String, String, String)> = vec![(
             "rIdL".into(),
             format!("{REL}/slideLayout"),

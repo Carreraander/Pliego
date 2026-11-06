@@ -5,6 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { trackJob } from "../jobs";
 import { withPassword } from "../state/passwords";
+import { engineText } from "../i18n/engine";
 import { toast } from "../ui";
 
 export { formatBytes } from "./format";
@@ -32,8 +33,8 @@ export async function runToolJob(job: RunToolJob): Promise<number | null> {
 }
 
 export function errorText(e: unknown): string {
-  if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
-  return String(e);
+  if (e && typeof e === "object" && "message" in e) return engineText(String((e as { message: unknown }).message));
+  return engineText(String(e));
 }
 
 export const fileName = (path: string): string => path.split(/[\\/]/).pop() ?? path;

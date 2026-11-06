@@ -6,6 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { createEffect, createRoot, createSignal, For, on, Show } from "solid-js";
+import { engineText } from "../i18n/engine";
 import { activeId, docs } from "../state/documents";
 import { setUpdateService, setUpdateSnapshot, settings, updateSnapshot, type UpdateService, type UpdateSnapshot, type UpdateState } from "../settings";
 import { isTauri } from "../shell/platform";
@@ -27,7 +28,7 @@ const [pendingSave, setPendingSave] = createSignal<UnsavedDoc[] | null>(null);
 const call = (cmd: string, args?: Record<string, unknown>) => invoke<void>(cmd, args);
 
 async function restartNow(): Promise<void> {
-  try { await call("update_restart_now"); } catch (e) { toast({ tone: "danger", text: ut2("restartFailed", { error: String(e) }) }); }
+  try { await call("update_restart_now"); } catch (e) { toast({ tone: "danger", text: ut2("restartFailed", { error: engineText(String(e)) }) }); }
 }
 
 /** "Reiniciar ahora": si hay documentos con cambios, pide guardarlos antes. */

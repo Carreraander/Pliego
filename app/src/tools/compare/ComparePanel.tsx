@@ -1,5 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import { api } from "../../api";
+import { locale } from "../../i18n";
 import { activeDoc } from "../../state/documents";
 import { unlockFile } from "../../state/unlock";
 import { Button, Checkbox, Field, Notice, TaskPanel, toast } from "../../ui";
@@ -24,7 +25,7 @@ export default function ComparePanel(p: { onClose: () => void }) {
     setOther(f);
     setPasswordB(u.password);
   };
-  const args = () => compareArgs({ path: doc()?.path ?? "", other: other(), passwordB: passwordB(), text: text(), visual: visual(), label: cmt("compare.suffix") });
+  const args = () => compareArgs({ path: doc()?.path ?? "", other: other(), passwordB: passwordB(), text: text(), visual: visual(), label: cmt("compare.suffix"), lang: locale() });
   const same = () => !!doc() && !!other() && sameFile(doc()!.path, other()!);
   const run = async () => {
     const a = args();

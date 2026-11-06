@@ -35,12 +35,15 @@ pub struct ProtectRequest {
     pub cipher: Cipher,
     #[serde(default)]
     pub permissions: Permissions,
+    /// Sufijo del nombre de la copia (ya traducido); por defecto, «protegido».
+    #[serde(default)]
+    pub suffix: Option<String>,
 }
 
 /// Cifra una copia del documento.
 pub fn protect(req: &ProtectRequest, ctx: &JobContext<'_>) -> Result<Report> {
     ctx.step(0, 1, "Cifrando…")?;
-    let out = copy_path(&req.path, "protegido");
+    let out = copy_path(&req.path, req.suffix.as_deref().unwrap_or("protegido"));
     let enc = Encryption {
         cipher: req.cipher,
         user_password: req.user_password.clone(),
@@ -53,12 +56,13 @@ pub fn protect(req: &ProtectRequest, ctx: &JobContext<'_>) -> Result<Report> {
 }
 
 /// Quita la protección de una copia (hace falta la contraseña).
-pub fn unprotect(path: &Path, password: &str, ctx: &JobContext<'_>) -> Result<Report> {
+/// `suffix` es el sufijo del nombre de la copia, ya traducido (por defecto, «sin protección»).
+pub fn unprotect(path: &Path, password: &str, suffix: Option<&str>, ctx: &JobContext<'_>) -> Result<Report> {
     if password.is_empty() {
         return Err(Error::InvalidInput("indica la contraseña del documento".into()));
     }
     ctx.step(0, 1, "Quitando la protección…")?;
-    let out = copy_path(path, "sin protección");
+    let out = copy_path(path, suffix.unwrap_or("sin protección"));
     let report = pliego_protect::decrypt(path, &out, password)?;
     ctx.step(1, 1, "Listo")?;
     Ok(report)
@@ -72,10 +76,13 @@ pub struct SanitizeRequest {
     #[serde(default)]
     pub password: Option<String>,
     pub options: SanitizeOptions,
+    /// Sufijo del nombre de la copia (ya traducido); por defecto, «saneado».
+    #[serde(default)]
+    pub suffix: Option<String>,
 }
 
 pub fn sanitize(req: &SanitizeRequest, ctx: &JobContext<'_>) -> Result<Report> {
-    let out = copy_path(&req.path, "saneado");
+    let out = copy_path(&req.path, req.suffix.as_deref().unwrap_or("saneado"));
     pliego_protect::sanitize(&req.path, &out, opt(&req.password), &req.options, ctx)
 }
 
@@ -132,6 +139,9 @@ pub struct RedactRequest {
     pub patterns: Vec<String>,
     #[serde(default)]
     pub options: RedactOptions,
+    /// Sufijo del nombre de la copia (ya traducido); por defecto, «redactado».
+    #[serde(default)]
+    pub suffix: Option<String>,
 }
 
 /// Redacta una copia y verifica que el texto ya no se puede extraer.
@@ -141,6 +151,6 @@ pub fn redact(req: &RedactRequest, ctx: &JobContext<'_>) -> Result<Report> {
         patterns: parse_patterns(&req.patterns)?,
         options: req.options,
     };
-    let out = copy_path(&req.path, "redactado");
+    let out = copy_path(&req.path, req.suffix.as_deref().unwrap_or("redactado"));
     pliego_redact::apply(&req.path, &out, opt(&req.password), &job, ctx)
 }

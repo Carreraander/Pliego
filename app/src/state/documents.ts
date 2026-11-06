@@ -2,6 +2,7 @@ import { forgetPassword, rememberPassword } from "./passwords";
 import { forgetSignedChoice } from "./signedEdit";
 import { createSignal } from "solid-js";
 import { api, events, isApiError, type DocId, type PageSize } from "../api";
+import { engineText } from "../i18n/engine";
 import { fitWidthZoom, type Rotation } from "../viewer/layout";
 
 export interface OpenDoc {
@@ -43,8 +44,8 @@ export async function openPath(path: string, viewportWidth: number, password?: s
     if (sizes[0]) setZoom(Math.min(1.5, fitWidthZoom(sizes[0], 0, viewportWidth)));
     return "ok";
   } catch (e) {
-    if (isApiError(e)) return e.code === "password" ? "password" : e.message;
-    return String(e);
+    if (isApiError(e)) return e.code === "password" ? "password" : engineText(e.message);
+    return engineText(String(e));
   }
 }
 

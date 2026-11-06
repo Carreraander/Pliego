@@ -3,6 +3,7 @@ import { goToPage } from "../../state/navigation";
 import { Button, Chip, EmptyState, Field, IconButton, Notice, ProgressBar, Tabs, TextInput, toast } from "../../ui";
 import { isApiError } from "../../api";
 import { locale } from "../../i18n";
+import { engineText } from "../../i18n/engine";
 import { assistantApi, assistantEvents, type KeyDatum, type ModelInfo, type Status, type Summary } from "./api";
 import { addMessage, chatOf, clearChat, formatSize, newJobId, progressFraction, sourcePages, splitCitations } from "./chat";
 import { at } from "./strings";
@@ -35,7 +36,7 @@ export function AssistantPanel(props: { docId: string | null }) {
       return { ok: true, value: await work(id) };
     } catch (e) {
       if (isApiError(e) && e.code === "cancelled") return { ok: false, error: null };
-      return { ok: false, error: isApiError(e) ? e.message : String(e) };
+      return { ok: false, error: engineText(isApiError(e) ? e.message : String(e)) };
     } finally {
       setJob(null);
     }
@@ -43,7 +44,7 @@ export function AssistantPanel(props: { docId: string | null }) {
   const cancel = () => { const j = job(); if (j) void assistantApi.cancel(j.id); };
 
   async function simple(call: () => Promise<Status>) {
-    try { mutate(await call()); } catch (e) { toast({ tone: "danger", text: at("error", { message: isApiError(e) ? e.message : String(e) }) }); }
+    try { mutate(await call()); } catch (e) { toast({ tone: "danger", text: at("error", { message: engineText(isApiError(e) ? e.message : String(e)) }) }); }
   }
 
   async function download(m: ModelInfo) {
@@ -195,7 +196,7 @@ function Conversation(props: { docId: string }) {
                   <Match when={m.role === "assistant" && m}>{(a) => (
                     <>
                       <p class="pl-assistant__text">
-                        <For each={splitCitations(a().text)}>{(seg) => seg.kind === "text" ? <>{seg.text}</> : <PageChip page={seg.page} />}</For>
+                        <For each={splitCitations(engineText(a().text))}>{(seg) => seg.kind === "text" ? <>{seg.text}</> : <PageChip page={seg.page} />}</For>
                       </p>
                       <Show when={a().citations.length && !a().citations.some((c) => c.cited_by_model)}>
                         <div class="pl-assistant__sources">

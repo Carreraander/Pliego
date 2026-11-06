@@ -389,7 +389,7 @@ fn name_oc_configs(doc: &PdfDocument, catalog: &Object) -> Result<()> {
     }
     for (i, mut c) in configs.into_iter().enumerate() {
         if c.is_dict().unwrap_or(false) && get(&c, "Name").is_none() {
-            c.dict_put("Name", doc.new_string(&format!("Configuración {}", i + 1))?)?;
+            c.dict_put("Name", doc.new_string(&format!("Config {}", i + 1))?)?;
         }
     }
     Ok(())

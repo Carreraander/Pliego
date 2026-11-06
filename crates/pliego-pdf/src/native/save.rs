@@ -64,7 +64,7 @@ impl PdfDocument {
     pub fn save_with_options(&self, path: impl AsRef<Path>, options: &WriteOptions) -> Result<()> {
         let path = path.as_ref();
         // Se escribe directamente al archivo: con un PDF de cientos de MB no se tiene el resultado entero en memoria.
-        if self.st.borrow().view_only.is_some() {
+        if self.st.borrow().view_only.is_some() || self.st.borrow().lean.is_some() {
             return Err(super::view::view_only_error());
         }
         let file = std::fs::File::create(path).map_err(|e| Error::io_at(path, e))?;
@@ -77,6 +77,66 @@ impl PdfDocument {
             let _ = std::fs::remove_file(path);
             return Err(e);
         }
+        self.st.borrow_mut().unsaved = false;
+        Ok(())
+    }
+
+    /// Guarda en `out` un documento abierto con [`PdfDocument::open_lean`]: copia el archivo original tal cual y le añade
+    /// al final los cambios (guardado incremental). No lee el original a memoria ni toca sus flujos.
+    ///
+    /// [`Error::Unsupported`] si el documento no está en modo ligero, si el archivo de origen cambió desde que se abrió o
+    /// si algún cambio toca un flujo grande que no se cargó. En cualquier error `out` no queda escrito.
+    pub fn save_lean(&self, out: impl AsRef<Path>) -> Result<()> {
+        let out = out.as_ref();
+        let st = self.st.borrow();
+        let lean = st
+            .lean
+            .as_ref()
+            .ok_or_else(|| Error::Unsupported("el documento no está abierto en modo ligero".into()))?;
+        let meta = std::fs::metadata(&lean.path).map_err(|e| Error::io_at(&lean.path, e))?;
+        if meta.len() != lean.len || meta.modified().ok() != lean.modified {
+            return Err(Error::Unsupported(
+                "el archivo cambió mientras se editaba; vuelve a abrirlo".into(),
+            ));
+        }
+        // Un flujo omitido al cargar (sin contenido ni posición en el archivo) no puede volver a escribirse.
+        let touches_skipped = st.dirty.iter().any(|id| {
+            matches!(st.doc.objects.get(id), Some(L::Stream(s)) if s.content.is_empty() && s.start_position.is_none())
+        });
+        if touches_skipped {
+            return Err(Error::Unsupported(
+                "el cambio afecta a un flujo grande que no está cargado".into(),
+            ));
+        }
+        let mut options = WriteOptions::default();
+        options.set_incremental(true);
+        let section = incremental(
+            &st,
+            &options,
+            Prefix::Absent {
+                len: lean.len as usize,
+                last: lean.last_byte,
+            },
+        )?;
+        let written = std::fs::copy(&lean.path, out)
+            .map_err(|e| Error::io_at(out, e))
+            .and_then(|n| {
+                if n != lean.len {
+                    return Err(Error::Unsupported("el archivo cambió mientras se guardaba".into()));
+                }
+                let mut f = std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(out)
+                    .map_err(|e| Error::io_at(out, e))?;
+                f.write_all(&section)
+                    .and_then(|()| f.flush())
+                    .map_err(|e| Error::io_at(out, e))
+            });
+        if let Err(e) = written {
+            let _ = std::fs::remove_file(out);
+            return Err(e);
+        }
+        drop(st);
         self.st.borrow_mut().unsaved = false;
         Ok(())
     }
@@ -126,11 +186,11 @@ fn render_into<W: Write>(st: &State, options: &WriteOptions, out: &mut W) -> Res
     if st.locked {
         return Err(Error::Password);
     }
-    if st.view_only.is_some() {
+    if st.view_only.is_some() || st.lean.is_some() {
         return Err(super::view::view_only_error());
     }
     if options.incremental {
-        return out.write_all(&incremental(st, options)?).map_err(io_err);
+        return out.write_all(&incremental(st, options, Prefix::Bytes)?).map_err(io_err);
     }
     let mut doc = st.doc.clone();
     let original_encryption = st.base.as_ref().and_then(|b| b.encryption_state.clone());
@@ -155,7 +215,35 @@ fn io_err(e: std::io::Error) -> Error {
 
 // --- Guardado incremental ---
 
-fn incremental(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
+/// De dónde salen los bytes del archivo original que el guardado incremental deja delante de lo añadido.
+enum Prefix {
+    /// Los tiene el documento (`Base::bytes`).
+    Bytes,
+    /// No están en memoria (documento en modo ligero): solo se calcula lo que se añade. lopdf necesita un búfer de la
+    /// longitud del original para numerar las posiciones; es un búfer a cero que nadie escribe ni lee (el sistema no
+    /// reserva memoria física hasta que se toca) y `Tail` descarta su contenido.
+    Absent { len: usize, last: u8 },
+}
+
+/// Recibe lo que lopdf escribe y se queda solo con lo posterior a los primeros `skip` bytes (el original).
+struct Tail {
+    skip: usize,
+    out: Vec<u8>,
+}
+
+impl Write for Tail {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        let n = self.skip.min(data.len());
+        self.skip -= n;
+        self.out.extend_from_slice(&data[n..]);
+        Ok(data.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn incremental(st: &State, options: &WriteOptions, prefix: Prefix) -> Result<Vec<u8>> {
     let base = st
         .base
         .as_ref()
@@ -182,7 +270,17 @@ fn incremental(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
     prev.encryption_state = base.encryption_state.clone();
     prev.version = st.doc.version.clone();
 
-    let mut inc = IncrementalDocument::create_from(base.bytes.clone(), prev);
+    let (bytes, skip) = match prefix {
+        Prefix::Bytes => (base.bytes.clone(), 0),
+        Prefix::Absent { len, last } => {
+            let mut zeros = vec![0u8; len];
+            if let Some(b) = zeros.last_mut() {
+                *b = last;
+            }
+            (zeros, len)
+        }
+    };
+    let mut inc = IncrementalDocument::create_from(bytes, prev);
     inc.new_document.max_id = st.doc.max_id.max(base.max_id);
     for id in &st.dirty {
         if let Some(o) = st.doc.objects.get(id) {
@@ -215,9 +313,14 @@ fn incremental(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
     inc.new_document.trailer = trailer;
 
     stream_options(&mut inc.new_document.objects, options, &HashSet::new());
-    let mut out = Vec::new();
-    inc.save_to(&mut out).map_err(io_err)?;
-    Ok(out)
+    if skip == 0 {
+        let mut out = Vec::new();
+        inc.save_to(&mut out).map_err(io_err)?;
+        return Ok(out);
+    }
+    let mut tail = Tail { skip, out: Vec::new() };
+    inc.save_to(&mut tail).map_err(io_err)?;
+    Ok(tail.out)
 }
 
 // --- Guardado completo ---

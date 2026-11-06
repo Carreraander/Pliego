@@ -575,3 +575,161 @@ fn scan_pdf(path: &std::path::Path, pages: usize, image_bytes: usize) {
     );
     std::fs::write(path, out).unwrap();
 }
+
+fn set_page_mode(doc: &PdfDocument) {
+    doc.catalog().unwrap().dict_put_name("PageMode", "UseOutlines").unwrap();
+}
+
+#[test]
+fn lean_save_appends_only_the_change() {
+    for object_streams in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("grande.pdf");
+        if object_streams {
+            // Referencias en un flujo (PDF 1.5): el añadido también las escribe así.
+            let mut o = WriteOptions::new();
+            o.set_object_streams(true);
+            std::fs::write(&path, sample().to_bytes(&o).unwrap()).unwrap();
+        } else {
+            scan_pdf(&path, 3, 300_000);
+        }
+        let original = std::fs::read(&path).unwrap();
+        let pages = PdfDocument::open(&path).unwrap().page_count().unwrap();
+        let lean = PdfDocument::open_lean(&path, None).unwrap();
+        set_page_mode(&lean);
+        let out = dir.path().join("salida.pdf");
+        lean.save_lean(&out).unwrap();
+
+        let saved = std::fs::read(&out).unwrap();
+        assert!(saved.starts_with(&original), "el original queda intacto al principio");
+        assert!(
+            saved.len() < original.len() + 3000,
+            "solo se añade lo cambiado ({} bytes)",
+            saved.len() - original.len()
+        );
+        let again = PdfDocument::open(&out).unwrap();
+        assert_eq!(again.page_count().unwrap(), pages);
+        assert_eq!(
+            again.catalog().unwrap().dict_get_name("PageMode").unwrap().as_deref(),
+            Some("UseOutlines")
+        );
+        // Las páginas se ven igual que en el original (los flujos grandes siguen ahí).
+        let (a, b) = (PdfDocument::open(&path).unwrap(), again);
+        let ctm = Matrix::new_scale(0.5, 0.5);
+        for i in 0..pages {
+            let px = |d: &PdfDocument| {
+                d.load_page(i)
+                    .unwrap()
+                    .to_pixmap(&ctm, Colorspace::Rgb, false, true)
+                    .unwrap()
+                    .to_rgba()
+            };
+            assert_eq!(px(&a), px(&b), "página {i}");
+        }
+        // Y lo guardado se puede volver a editar de la misma forma.
+        let second = PdfDocument::open_lean(&out, None).unwrap();
+        second
+            .catalog()
+            .unwrap()
+            .dict_put_name("PageLayout", "TwoColumnLeft")
+            .unwrap();
+        let out2 = dir.path().join("salida2.pdf");
+        second.save_lean(&out2).unwrap();
+        let again2 = PdfDocument::open(&out2).unwrap();
+        assert_eq!(
+            again2.catalog().unwrap().dict_get_name("PageMode").unwrap().as_deref(),
+            Some("UseOutlines")
+        );
+        assert_eq!(
+            again2
+                .catalog()
+                .unwrap()
+                .dict_get_name("PageLayout")
+                .unwrap()
+                .as_deref(),
+            Some("TwoColumnLeft")
+        );
+    }
+}
+
+#[test]
+fn lean_save_refuses_changes_to_skipped_streams_and_leaves_no_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("grande.pdf");
+    scan_pdf(&path, 2, 300_000);
+    let lean = PdfDocument::open_lean(&path, None).unwrap();
+    let res = lean.load_page(0).unwrap().resources().unwrap();
+    let xobjects = res.get_dict("XObject").unwrap().unwrap();
+    let mut image = xobjects.get_dict("Im0").unwrap().unwrap();
+    image.dict_put_name("Foo", "Bar").unwrap();
+    let out = dir.path().join("salida.pdf");
+    let r = lean.save_lean(&out);
+    assert!(matches!(r, Err(pliego_core::Error::Unsupported(_))), "{r:?}");
+    assert!(!out.exists());
+}
+
+#[test]
+fn lean_documents_cannot_be_serialized_whole_and_notice_a_changed_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("grande.pdf");
+    scan_pdf(&path, 2, 100_000);
+    let lean = PdfDocument::open_lean(&path, None).unwrap();
+    assert!(matches!(
+        lean.to_bytes(&WriteOptions::new()),
+        Err(pliego_core::Error::Unsupported(_))
+    ));
+    set_page_mode(&lean);
+    // Si otro programa cambia el archivo, no se guarda encima de una versión que no es la que se editó.
+    let mut bytes = std::fs::read(&path).unwrap();
+    bytes.extend(b"\n% otro programa\n");
+    std::fs::write(&path, bytes).unwrap();
+    let out = dir.path().join("salida.pdf");
+    assert!(matches!(lean.save_lean(&out), Err(pliego_core::Error::Unsupported(_))));
+    assert!(!out.exists());
+    // Un documento normal no se guarda así.
+    assert!(matches!(
+        PdfDocument::open(&path).unwrap().save_lean(&out),
+        Err(pliego_core::Error::Unsupported(_))
+    ));
+}
+
+#[test]
+fn lean_refuses_encrypted_documents() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("c.pdf");
+    let mut o = WriteOptions::new();
+    o.set_encryption(Encryption::Aes256)
+        .set_user_password("abrir")
+        .set_owner_password("duenio");
+    std::fs::write(&path, sample().to_bytes(&o).unwrap()).unwrap();
+    let r = PdfDocument::open_lean(&path, Some("abrir"));
+    assert!(matches!(r, Err(pliego_core::Error::Unsupported(_))), "{:?}", r.err());
+}
+
+#[test]
+fn view_only_and_lean_read_objects_stored_in_object_streams() {
+    // Casi todos los PDF modernos guardan catálogo, páginas y anotaciones dentro de flujos de objetos.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("os.pdf");
+    let mut o = WriteOptions::new();
+    o.set_object_streams(true);
+    std::fs::write(&path, sample().to_bytes(&o).unwrap()).unwrap();
+    let full = PdfDocument::open(&path).unwrap();
+    for doc in [
+        PdfDocument::open_for_viewing(&path, None).unwrap(),
+        PdfDocument::open_lean(&path, None).unwrap(),
+    ] {
+        assert_eq!(doc.page_count().unwrap(), 2);
+        assert!(doc.catalog().unwrap().dict_get_name("Type").unwrap().is_some());
+        for i in 0..2 {
+            assert_eq!(
+                doc.load_page(i).unwrap().text().unwrap(),
+                full.load_page(i).unwrap().text().unwrap()
+            );
+            assert_eq!(
+                doc.load_page(i).unwrap().bounds().unwrap(),
+                full.load_page(i).unwrap().bounds().unwrap()
+            );
+        }
+    }
+}

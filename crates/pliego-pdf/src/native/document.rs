@@ -12,7 +12,7 @@ use pliego_core::{Error, Result};
 use super::graft::{self, GraftMap};
 use super::object::{Object, decode_stream};
 use super::page::PdfPage;
-use super::{Base, Shared, State, err, outline, pdf_err, tree};
+use super::{Base, Lean, Shared, State, err, outline, pdf_err, tree};
 use crate::geom::Size;
 use crate::links::LinkDestination;
 use crate::object::Value;
@@ -72,6 +72,7 @@ impl PdfDocument {
             password: None,
             view: Default::default(),
             view_only: None,
+            lean: None,
         };
         let mut pages = Dictionary::new();
         pages.set("Type", L::Name(b"Pages".to_vec()));
@@ -122,27 +123,35 @@ impl PdfDocument {
     /// [`Error::Password`] si pide contraseña y falta o es incorrecta.
     pub fn open_for_viewing(path: impl AsRef<Path>, password: Option<&str>) -> Result<PdfDocument> {
         let path = path.as_ref();
-        let bytes = indirect_encrypt(read_file(path)?);
-        let (mut doc, mut locked) = load_view(&bytes, None)?;
-        let mut used = None;
-        if locked && let Some(pw) = password {
-            match load_view(&bytes, Some(pw)) {
-                Ok((d, l)) => {
-                    doc = d;
-                    locked = l;
-                    used = Some(pw.to_owned());
-                }
-                Err(Error::Password) => {}
-                Err(e) => return Err(e),
-            }
-        }
-        if locked {
-            return Err(Error::Password);
-        }
-        // El búfer con el archivo entero ya no hace falta: el modelo no lo referencia.
-        drop(bytes);
-        let mut state = new_state(Vec::new(), doc, false, used);
+        let (mut state, _) = load_light(path, password)?;
         state.view_only = Some(path.to_path_buf());
+        Ok(Self::from_state(state))
+    }
+
+    /// Abre un PDF grande **para cambios pequeños** (comentarios, anotaciones...): como [`PdfDocument::open_for_viewing`]
+    /// no guarda en memoria los flujos grandes (imágenes, contenido de página), pero admite cambios que no los toquen y
+    /// se guardan con [`PdfDocument::save_lean`], añadidos al final del archivo sin reescribirlo ni leerlo de nuevo.
+    ///
+    /// [`Error::Unsupported`] si el documento no admite guardado incremental (cifrado, reparado). Un cambio que toque un
+    /// flujo omitido hace fallar el guardado con [`Error::Unsupported`]: el archivo no se modifica.
+    pub fn open_lean(path: impl AsRef<Path>, password: Option<&str>) -> Result<PdfDocument> {
+        let path = path.as_ref();
+        let (mut state, tail) = load_light(path, password)?;
+        let base = state.base.as_ref();
+        if state.password.is_some()
+            || base.is_none_or(|b| b.repaired || b.xref_start == 0 || b.encryption_state.is_some())
+        {
+            return Err(Error::Unsupported(
+                "este documento no admite el guardado incremental ligero".into(),
+            ));
+        }
+        let meta = std::fs::metadata(path).map_err(|e| Error::io_at(path, e))?;
+        state.lean = Some(Lean {
+            path: path.to_path_buf(),
+            len: tail.0,
+            modified: meta.modified().ok(),
+            last_byte: tail.1,
+        });
         Ok(Self::from_state(state))
     }
 
@@ -989,6 +998,32 @@ fn load(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)>
     Ok((doc, locked))
 }
 
+/// Lee `path` y construye el modelo sin los flujos grandes. Devuelve también el tamaño del archivo y su último byte.
+fn load_light(path: &Path, password: Option<&str>) -> Result<(State, (u64, u8))> {
+    let raw = read_file(path)?;
+    let tail = (raw.len() as u64, raw.last().copied().unwrap_or(b'\n'));
+    let bytes = indirect_encrypt(raw);
+    let (mut doc, mut locked) = load_view(&bytes, None)?;
+    let mut used = None;
+    if locked && let Some(pw) = password {
+        match load_view(&bytes, Some(pw)) {
+            Ok((d, l)) => {
+                doc = d;
+                locked = l;
+                used = Some(pw.to_owned());
+            }
+            Err(Error::Password) => {}
+            Err(e) => return Err(e),
+        }
+    }
+    if locked {
+        return Err(Error::Password);
+    }
+    // El búfer con el archivo entero ya no hace falta: el modelo no lo referencia.
+    drop(bytes);
+    Ok((new_state(Vec::new(), doc, false, used), tail))
+}
+
 /// Descarta los datos de los flujos grandes al cargar (véase [`PdfDocument::open_for_viewing`]). Los flujos de objetos y
 /// de referencias se conservan: lopdf los necesita para leer el resto del archivo.
 fn drop_big_streams(id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
@@ -1006,8 +1041,16 @@ fn drop_big_streams(id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
             s.start_position = None;
         }
     }
-    // lopdf solo mira si devuelve `Some`: el objeto que queda es el que se ha modificado aquí.
-    Some((id, L::Null))
+    // Un objeto suelto en el archivo queda como se ha modificado aquí (lopdf solo mira si se devuelve `Some`), pero uno
+    // que venía dentro de un flujo de objetos queda como el que se devuelve: ahí no puede haber flujos.
+    Some((
+        id,
+        if matches!(object, L::Stream(_)) {
+            L::Null
+        } else {
+            object.clone()
+        },
+    ))
 }
 
 fn load_view(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)> {
@@ -1054,6 +1097,7 @@ fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool, password: Optio
         password,
         view: Default::default(),
         view_only: None,
+        lean: None,
     }
 }
 

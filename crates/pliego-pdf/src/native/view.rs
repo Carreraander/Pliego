@@ -52,7 +52,7 @@ impl PdfPage {
             // Sin cambios desde que se abrió: el archivo original (PDFium descifra por su cuenta con la contraseña
             // ya validada). Con cambios, o en un documento nuevo: una copia sin cifrar de lo que hay en memoria.
             // Un documento abierto solo para ver se lee siempre del archivo y no admite cambios.
-            if let Some(path) = &s.view_only {
+            if let Some(path) = s.view_only.as_ref().or(s.lean.as_ref().map(|l| &l.path)) {
                 return if s.generation == 0 {
                     Ok(ViewSource::File(path.clone(), s.password.clone()))
                 } else {

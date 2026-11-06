@@ -30,6 +30,7 @@ async function installBackend(page: Page, signed = false) {
     let nextId = 1;
     const w = window as unknown as Record<string, unknown>;
     w.__calls = calls;
+    w.__responses = responses;
     // Eventos del backend: `__emit("document-changed", {...})` llama a lo que registró `listen`.
     const listeners: Record<string, number> = {};
     w.__emit = (event: string, payload: unknown) =>
@@ -100,21 +101,21 @@ test.describe("modo Editar (backend simulado)", () => {
     expect(Math.abs(t.transform.dx)).toBeGreaterThan(1);
     expect(t.transform.scale_x).toBeCloseTo(1);
     await page.getByRole("button", { name: "Borrar", exact: true }).click();
-    expect((await calls(page, "edit_object_delete"))[0]?.args).toMatchObject({ kind: "image", id: 0, page: 0 });
+    await expect.poll(async () => (await calls(page, "edit_object_delete"))[0]?.args).toMatchObject({ kind: "image", id: 0, page: 0 });
   });
 
   test("imágenes: reemplazar pide el archivo y envía su ruta", async ({ page }) => {
     await page.getByRole("radio", { name: "Imágenes" }).check();
     await page.getByRole("button", { name: "Imagen 1" }).first().click();
     await page.getByRole("button", { name: "Reemplazar imagen" }).click();
-    expect((await calls(page, "edit_image_replace"))[0]?.args).toMatchObject({ page: 0, id: 0, image: "C:\\Docs\\logo.png" });
+    await expect.poll(async () => (await calls(page, "edit_image_replace"))[0]?.args).toMatchObject({ page: 0, id: 0, image: "C:\\Docs\\logo.png" });
   });
 
   test("objetos vectoriales: se eligen y se giran", async ({ page }) => {
     await page.getByRole("radio", { name: "Objetos" }).check();
     await page.getByRole("button", { name: "Objeto 4" }).first().click();
     await page.getByRole("button", { name: "Girar 90°" }).click();
-    expect((await calls(page, "edit_object_transform"))[0]?.args).toMatchObject({ kind: "vector", id: 3, transform: { rotate_degrees: 90 } });
+    await expect.poll(async () => (await calls(page, "edit_object_transform"))[0]?.args).toMatchObject({ kind: "vector", id: 3, transform: { rotate_degrees: 90 } });
   });
 
   test("enlaces: cambiar el destino a una página y borrar", async ({ page }) => {
@@ -124,11 +125,11 @@ test.describe("modo Editar (backend simulado)", () => {
     await expect(field).toHaveValue("https://pdfpliego.com");
     await field.fill("2");
     await page.getByRole("button", { name: "Aplicar" }).click();
-    expect((await calls(page, "edit_link_update"))[0]?.args).toMatchObject({ page: 0, id: 4, target: { type: "page", page: 1 } });
+    await expect.poll(async () => (await calls(page, "edit_link_update"))[0]?.args).toMatchObject({ page: 0, id: 4, target: { type: "page", page: 1 } });
 
     await page.getByRole("button", { name: /Enlace a https:\/\/pdfpliego.com/ }).first().click();
     await page.getByRole("button", { name: "Borrar enlace" }).click();
-    expect((await calls(page, "edit_link_delete"))[0]?.args).toMatchObject({ page: 0, id: 4 });
+    await expect.poll(async () => (await calls(page, "edit_link_delete"))[0]?.args).toMatchObject({ page: 0, id: 4 });
   });
 
   test("enlaces: un destino no válido no se puede aplicar", async ({ page }) => {
@@ -143,9 +144,21 @@ test.describe("modo Editar (backend simulado)", () => {
     const viewer = page.getByTestId("viewer");
     await viewer.evaluate((el) => { el.scrollTop = 300; });
     await expect.poll(() => viewer.evaluate((el) => el.scrollTop)).toBe(300);
+    // Deja pasar el evento de scroll (asíncrono) antes de cambiar la revisión.
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
     await page.evaluate(() => (window as unknown as { __emit: (e: string, p: unknown) => void }).__emit("document-changed", { doc_id: 1, revision: 5 }));
     await page.waitForTimeout(300);
-    expect(await page.getByTestId("viewer").evaluate((el) => el.scrollTop)).toBe(300);
+    await expect.poll(() => page.getByTestId("viewer").evaluate((el) => el.scrollTop)).toBe(300);
+  });
+
+  test("si la edición cambia el número de páginas, el visor lo refleja sin reabrir", async ({ page }) => {
+    await expect(page.getByText("de 2").first()).toBeVisible();
+    await page.evaluate(() => {
+      const w = window as unknown as { __responses: Record<string, unknown>; __emit: (e: string, p: unknown) => void };
+      w.__responses.page_sizes = [{ width: 595, height: 842 }, { width: 595, height: 842 }, { width: 595, height: 842 }];
+      w.__emit("document-changed", { doc_id: 1, revision: 6 });
+    });
+    await expect(page.getByText(/Página \d+ de 3/).first()).toBeVisible();
   });
 
   test("un documento firmado avisa antes de la primera edición y no edita si se cancela", async ({ page }) => {

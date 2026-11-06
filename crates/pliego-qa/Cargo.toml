@@ -18,6 +18,7 @@ serde.workspace = true
 serde_json.workspace = true
 flate2 = "1"
 tempfile.workspace = true
+jpeg-encoder = "0.6"
 
 [dev-dependencies]
 pliego-redact = { path = "../pliego-redact" }
@@ -36,3 +37,7 @@ path = "src/bin/engine_compare.rs"
 [[bin]]
 name = "redaction-oracle"
 path = "src/bin/redaction_oracle.rs"
+
+[[bin]]
+name = "big-bench"
+path = "src/bin/big_bench.rs"

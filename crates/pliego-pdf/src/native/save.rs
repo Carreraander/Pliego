@@ -41,10 +41,10 @@ const DECODABLE: &[&[u8]] = &[
 impl PdfDocument {
     /// Serializa el documento a `w` con las opciones dadas.
     pub fn write_to_with_options<W: Write>(&self, w: &mut W, options: &WriteOptions) -> Result<u64> {
-        let bytes = self.render(options)?;
-        w.write_all(&bytes)?;
+        let mut counted = Counting { inner: w, n: 0 };
+        render_into(&self.st.borrow(), options, &mut counted)?;
         self.st.borrow_mut().unsaved = false;
-        Ok(bytes.len() as u64)
+        Ok(counted.n)
     }
 
     /// Serializa con las opciones por defecto.
@@ -63,8 +63,20 @@ impl PdfDocument {
     /// `incremental` se escribe el original más lo añadido, sin leer lo que hubiera en `path`.
     pub fn save_with_options(&self, path: impl AsRef<Path>, options: &WriteOptions) -> Result<()> {
         let path = path.as_ref();
-        let bytes = self.render(options)?;
-        std::fs::write(path, &bytes).map_err(|e| Error::io_at(path, e))?;
+        // Se escribe directamente al archivo: con un PDF de cientos de MB no se tiene el resultado entero en memoria.
+        if self.st.borrow().view_only.is_some() {
+            return Err(super::view::view_only_error());
+        }
+        let file = std::fs::File::create(path).map_err(|e| Error::io_at(path, e))?;
+        let mut w = std::io::BufWriter::with_capacity(1 << 20, file);
+        let written =
+            render_into(&self.st.borrow(), options, &mut w).and_then(|()| w.flush().map_err(|e| Error::io_at(path, e)));
+        if let Err(e) = written {
+            // No se deja a medias un archivo que no es un PDF completo.
+            drop(w);
+            let _ = std::fs::remove_file(path);
+            return Err(e);
+        }
         self.st.borrow_mut().unsaved = false;
         Ok(())
     }
@@ -78,6 +90,24 @@ impl PdfDocument {
     }
 }
 
+/// Cuenta lo que se escribe.
+struct Counting<'a, W: Write> {
+    inner: &'a mut W,
+    n: u64,
+}
+
+impl<W: Write> Write for Counting<'_, W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.n += n as u64;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 /// Copia del estado tal como está, sin cifrar y sin tocar `unsaved`: es la que lee PDFium (véase `view.rs`).
 pub(crate) fn snapshot_clear(st: &State) -> Result<Vec<u8>> {
     let mut options = WriteOptions::default();
@@ -86,28 +116,37 @@ pub(crate) fn snapshot_clear(st: &State) -> Result<Vec<u8>> {
 }
 
 fn render_state(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
+    let mut out = Vec::new();
+    render_into(st, options, &mut out)?;
+    Ok(out)
+}
+
+/// Escribe el documento en `out` (a memoria o a un archivo con búfer).
+fn render_into<W: Write>(st: &State, options: &WriteOptions, out: &mut W) -> Result<()> {
     if st.locked {
         return Err(Error::Password);
     }
+    if st.view_only.is_some() {
+        return Err(super::view::view_only_error());
+    }
     if options.incremental {
-        return incremental(st, options);
+        return out.write_all(&incremental(st, options)?).map_err(io_err);
     }
     let mut doc = st.doc.clone();
     let original_encryption = st.base.as_ref().and_then(|b| b.encryption_state.clone());
     prepare(&mut doc, options, original_encryption)?;
-    let mut out = Vec::new();
     if options.object_streams {
         let so = SaveOptions::builder()
             .use_object_streams(true)
             .use_xref_streams(true)
             .compression_level(6)
             .build();
-        doc.save_with_options(&mut out, so).map_err(io_err)?;
+        doc.save_with_options(out, so).map_err(io_err)?;
     } else {
         doc.reference_table.cross_reference_type = XrefType::CrossReferenceTable;
-        doc.save_to(&mut out).map_err(io_err)?;
+        doc.save_to(out).map_err(io_err)?;
     }
-    Ok(out)
+    Ok(())
 }
 
 fn io_err(e: std::io::Error) -> Error {

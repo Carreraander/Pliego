@@ -54,3 +54,20 @@ Trampas que costó descubrir. Consultar antes de tocar lo relacionado.
 - `pdfium-render` con `thread_safe` serializa todas las llamadas con un cerrojo global (PDFium no admite hilos concurrentes); sin la característica `image_*` no arrastra la crate `image`.
 - PDFium no soporta el filtro Brotli de PDF 2.0, y alguna página mal formada da `FormatError` donde MuPDF la repara: de ahí el respaldo a MuPDF del worker.
 
+
+## PDF grandes (hueco P1 #11, W44)
+
+- **lopdf guarda los flujos enteros en memoria**, además del `Vec<u8>` del archivo: un PDF de 1 GB ocupaba 2 GB al abrirse y, con la copia que
+  PDFium pedía al dibujar, 3 GB; al buscar en todas las páginas subía a 4 GB (en Windows el job object del worker, 2 GB, lo mataba).
+- **PDFium retiene los datos de las imágenes de cada página que carga hasta cerrar el documento** (3,5 MB por página en el escaneado de prueba).
+  Por eso `pdfium::DocLink` recicla (cierra y abre) el documento leído de archivo tras `RECYCLE_AFTER_BYTES` leídos: abrirlo solo lee la tabla de
+  referencias.
+- `LoadOptions::filter` de lopdf es un `fn` sin estado y **solo mira si devuelve `Some`**: el objeto que queda es el que el filtro modificó en
+  sitio (devolver otro objeto no sirve). Un flujo con contenido vacío se vuelve a leer del archivo salvo que se ponga `start_position = None`;
+  los flujos `ObjStm`/`XRef` no se pueden vaciar (lopdf los usa para leer el resto).
+- `FPDF_LoadCustomDocument` (`load_pdf_from_reader`): PDFium da por buena **cualquier lectura no vacía**, así que el lector debe llenar el búfer
+  entero (salvo al final del archivo); y `m_FileLen` es `unsigned long` (32 bits en Windows): no se abren archivos de 4 GiB o más.
+- **Sin manejador abierto entre lecturas** (`LazyFile`): en Windows un manejador abierto impide `rename` encima del archivo, que es como la app
+  guarda las ediciones. El archivo puede cambiar bajo el visor; `LazyFile` lo detecta (tamaño y fecha) y falla limpio hasta que se recarga.
+- **glibc (Linux) no devuelve a RssAnon la memoria de muchas asignaciones de unos MB** aunque se liberen (la medida parecía una fuga: 2 GB
+  tras editar). Para medir en Linux: `MALLOC_MMAP_THRESHOLD_=1048576 MALLOC_TRIM_THRESHOLD_=1048576`. En Windows no ocurre.

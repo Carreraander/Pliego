@@ -12,6 +12,7 @@ use super::page::{PdfPage, rect_of};
 use super::{outline, pdf_err, save, tree};
 use crate::geom::{IRect, Matrix, Quad, Rect};
 use crate::links::{Link, LinkDestination};
+use crate::pdfium::ViewSource;
 use crate::pixmap::{Colorspace, Pixmap};
 use crate::text::{TextBlock, TextBlockKind, TextFlags, TextPage, TextWord};
 
@@ -50,9 +51,17 @@ impl PdfPage {
         let mut link = s.view.page(index, s.generation, || {
             // Sin cambios desde que se abrió: el archivo original (PDFium descifra por su cuenta con la contraseña
             // ya validada). Con cambios, o en un documento nuevo: una copia sin cifrar de lo que hay en memoria.
+            // Un documento abierto solo para ver se lee siempre del archivo y no admite cambios.
+            if let Some(path) = &s.view_only {
+                return if s.generation == 0 {
+                    Ok(ViewSource::File(path.clone(), s.password.clone()))
+                } else {
+                    Err(view_only_error())
+                };
+            }
             match (&s.base, s.generation) {
-                (Some(b), 0) => Ok((b.bytes.clone(), s.password.clone())),
-                _ => save::snapshot_clear(&s).map(|bytes| (bytes, None)),
+                (Some(b), 0) => Ok(ViewSource::Bytes(b.bytes.clone(), s.password.clone())),
+                _ => save::snapshot_clear(&s).map(|bytes| ViewSource::Bytes(bytes, None)),
             }
         })?;
         drop(s);
@@ -175,4 +184,11 @@ impl PdfPage {
         }
         Ok(out.into_iter())
     }
+}
+
+/// Error de las operaciones que un documento abierto con `PdfDocument::open_for_viewing` no admite.
+pub(crate) fn view_only_error() -> Error {
+    Error::Unsupported(
+        "el documento está abierto solo para verlo (PDF grande): no se puede modificar ni guardar desde ahí".into(),
+    )
 }

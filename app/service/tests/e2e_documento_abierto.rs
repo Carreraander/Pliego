@@ -59,6 +59,14 @@ fn service() -> DocumentService {
     DocumentService::new(c)
 }
 
+/// Servicio cuyo worker abre todo «solo para ver» (así abre la app los PDF grandes).
+fn view_only_service() -> DocumentService {
+    let mut c = WorkerConfig::new(worker_exe());
+    c.timeout = std::time::Duration::from_secs(120);
+    c.view_only_mb = Some(0);
+    DocumentService::new(c)
+}
+
 /// Copia un PDF del corpus a una carpeta temporal y lo abre en el worker, como hace la app al abrir un archivo.
 fn open(rel: &str) -> (tempfile::TempDir, PathBuf, DocumentService, DocId) {
     let dir = tempfile::tempdir().unwrap();
@@ -490,4 +498,52 @@ fn ocr_con_la_cli_real_desde_un_pdf_abierto() {
         !svc.page_text(rid, 0).unwrap().trim().is_empty(),
         "el PDF resultante tiene texto"
     );
+}
+
+/// PDF grande: el worker lo lee del archivo (sin manejador abierto), el historial de deshacer va a disco y cada edición
+/// puede sustituir el archivo con el documento abierto. Es el recorrido que no podía fallar en Windows.
+#[test]
+fn pdf_grande_editar_y_deshacer_sin_memoria_ni_archivos_abiertos() {
+    use pliego_app_service::history::Limits;
+    let _s = serial();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hola.pdf");
+    std::fs::copy(corpus("basic/hola.pdf"), &path).unwrap();
+    let original = std::fs::read(&path).unwrap();
+    let svc = view_only_service();
+    let id = svc.open_document(&path, None).unwrap();
+    // `mem_step: 0` manda todos los pasos a disco, como harían los de un PDF de cientos de MB.
+    let ed = Editor::with_history_limits(Limits {
+        mem_step: 0,
+        ..Limits::default()
+    });
+    let spilled = || {
+        std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".pliego-deshacer-")
+            })
+            .count()
+    };
+
+    for _ in 0..2 {
+        let mut s = AnnotSpec::new(0, pliego_annot::Geometry::Note { at: [100.0, 100.0] });
+        s.contents = Some("nota".into());
+        let rev = svc.revision(id).unwrap();
+        let b = ed.add(&path, None, &s, "copia de seguridad").unwrap();
+        svc.reload_bytes(id, &b).unwrap();
+        assert_repaints(&svc, id, rev);
+    }
+    assert_eq!(ed.undo_depth(&path), 2);
+    assert_eq!(spilled(), 2, "cada paso es un temporal junto al documento, no memoria");
+    for _ in 0..2 {
+        let b = ed.undo(&path).unwrap().unwrap();
+        svc.reload_bytes(id, &b).unwrap();
+    }
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    assert_eq!(spilled(), 0);
 }

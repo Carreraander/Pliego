@@ -4,13 +4,12 @@
 //! Son las funciones que llaman los comandos de la app (que no tienen pruebas propias): reciben rutas y nunca
 //! tocan el original; las que escriben un PDF lo hacen a una ruta distinta, de forma atómica.
 
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::path::Path;
 
 use pliego_core::{Error, Result};
 use pliego_pdf::{Document, PdfDocument, WriteOptions};
 
+use crate::history::{History, Popped};
 use pliego_appdata::copyjob::unique_sibling;
 use pliego_core::Report;
 
@@ -21,7 +20,7 @@ pub use pliego_forms::{FieldInfo, FieldValue, FieldValues, KeystrokeResult};
 /// Abre un PDF para anotarlo. Se lee a memoria para no dejar el archivo abierto (en Windows impediría sustituirlo).
 pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    open_bytes(&bytes, password).map_err(|e| match e {
+    open_vec(bytes, password).map_err(|e| match e {
         Error::InvalidInput(_) => Error::InvalidInput(format!("{} no es un PDF", path.display())),
         e => e,
     })
@@ -29,7 +28,12 @@ pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
 
 /// Abre un PDF desde memoria; [`Error::Password`] si está protegido y la contraseña falta o es incorrecta.
 pub fn open_bytes(bytes: &[u8], password: Option<&str>) -> Result<PdfDocument> {
-    let mut doc = Document::from_bytes(bytes, "application/pdf")?;
+    open_vec(bytes.to_vec(), password)
+}
+
+/// Como [`open_bytes`] pero toma el búfer: con un PDF grande, la única copia en memoria es la del documento.
+pub fn open_vec(bytes: Vec<u8>, password: Option<&str>) -> Result<PdfDocument> {
+    let mut doc = Document::from_vec(bytes, "application/pdf")?;
     if doc.needs_password()? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
         return Err(Error::Password);
     }
@@ -136,21 +140,22 @@ pub fn import_xfdf_copy(src: &Path, password: Option<&str>, xfdf: &Path, suffix:
     Ok(Report::with_output(out, format!("{added} comentario(s) importados")))
 }
 
-/// Máximo de pasos que se pueden deshacer por documento.
-const MAX_UNDO: usize = 30;
-
 /// Edición de comentarios **sobre el propio PDF** con deshacer. Antes del primer cambio de cada archivo se guarda una
-/// copia de seguridad `<nombre> (copia de seguridad).pdf`; cada cambio apila el contenido anterior (en memoria).
+/// copia de seguridad `<nombre> (copia de seguridad).pdf`; cada cambio apila el contenido anterior con un presupuesto
+/// de memoria (los pasos grandes van a temporales en disco: véase [`History`]).
 #[derive(Default)]
 pub struct Editor {
-    undo: Mutex<HashMap<PathBuf, Vec<Vec<u8>>>>,
-}
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
+    undo: History,
 }
 
 impl Editor {
+    /// Editor con otros límites de historial (pruebas y diagnóstico).
+    pub fn with_history_limits(limits: crate::history::Limits) -> Self {
+        Self {
+            undo: History::new(limits),
+        }
+    }
+
     /// Añade una anotación al archivo y devuelve el contenido nuevo (para recargar el visor).
     ///
     /// Todas las ediciones reciben la `password` del documento (`None` si no está protegido): el archivo se abre con
@@ -232,16 +237,25 @@ impl Editor {
 
     /// Deshace el último cambio; `None` si no hay nada que deshacer.
     pub fn undo(&self, path: &Path) -> Result<Option<Vec<u8>>> {
-        let Some(prev) = lock(&self.undo).get_mut(path).and_then(Vec::pop) else {
+        let Some(prev) = self.undo.pop(path)? else {
             return Ok(None);
         };
-        write_bytes(path, &prev)?;
-        Ok(Some(prev))
+        match prev {
+            Popped::Mem(bytes) => {
+                write_bytes(path, &bytes)?;
+                Ok(Some(bytes))
+            }
+            Popped::Disk(tmp) => {
+                // De archivo a archivo; solo se lee a memoria el resultado que se devuelve para recargar el visor.
+                copy_over(&tmp, path)?;
+                std::fs::read(path).map(Some).map_err(|e| Error::io_at(path, e))
+            }
+        }
     }
 
     /// Cuántos cambios se pueden deshacer.
     pub fn undo_depth(&self, path: &Path) -> usize {
-        lock(&self.undo).get(path).map_or(0, Vec::len)
+        self.undo.depth(path)
     }
 
     /// Aplica `op` a un `PdfDocument` del archivo (copia de seguridad la primera vez, deshacer y guardado atómico).
@@ -254,7 +268,7 @@ impl Editor {
         backup_suffix: &str,
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
-        self.edit_with(path, backup_suffix, |bytes| open_bytes(bytes, password), op, save)
+        self.edit_with(path, backup_suffix, |p| open(p, password), op, save)
     }
 
     /// Como [`Editor::edit_pdf`] pero conservando los bytes originales: añade los cambios al final del archivo
@@ -267,13 +281,7 @@ impl Editor {
         backup_suffix: &str,
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
-        self.edit_with(
-            path,
-            backup_suffix,
-            |bytes| open_bytes(bytes, password),
-            op,
-            save_preserving,
-        )
+        self.edit_with(path, backup_suffix, |p| open(p, password), op, save_preserving)
     }
 
     /// Igual que [`Editor::edit_pdf`] pero sobre un `pliego_document::Document` (lo que piden `pliego-edit`).
@@ -287,7 +295,7 @@ impl Editor {
         self.edit_with(
             path,
             backup_suffix,
-            |bytes| pliego_document::Document::open_bytes(bytes, password),
+            |p| pliego_document::Document::open(p, password),
             op,
             |d: &pliego_document::Document, out: &Path| save(d.pdf(), out),
         )
@@ -297,28 +305,47 @@ impl Editor {
         &self,
         path: &Path,
         backup_suffix: &str,
-        open: impl FnOnce(&[u8]) -> Result<D>,
+        open: impl FnOnce(&Path) -> Result<D>,
         op: impl FnOnce(&mut D) -> Result<()>,
         save_doc: impl FnOnce(&D, &Path) -> Result<()>,
     ) -> Result<Vec<u8>> {
-        let before = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-        let mut doc = open(&before)?;
+        // El contenido anterior no se lee a memoria: el documento carga el archivo (su única copia) y la copia de
+        // seguridad y el paso de deshacer se copian de archivo a archivo (o se leen si son pequeños).
+        let mut doc = open(path)?;
         op(&mut doc)?;
-        let first = !lock(&self.undo).contains_key(path);
-        if first {
+        if !self.undo.tracks(path) {
             // La copia de seguridad se escribe antes de tocar el original.
-            write_bytes(&unique_sibling(path, backup_suffix, "pdf"), &before)?;
+            copy_file(path, &unique_sibling(path, backup_suffix, "pdf"))?;
         }
+        let previous = self.undo.capture(path)?;
         save_doc(&doc, path)?;
-        let after = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-        let mut all = lock(&self.undo);
-        let stack = all.entry(path.to_path_buf()).or_default();
-        stack.push(before);
-        if stack.len() > MAX_UNDO {
-            stack.remove(0);
-        }
-        Ok(after)
+        // Con un PDF grande cada copia pesa: se suelta el documento antes de leer el resultado.
+        drop(doc);
+        self.undo.push(path, previous);
+        std::fs::read(path).map_err(|e| Error::io_at(path, e))
     }
+}
+
+/// Sustituye `to` por una copia de `from` (temporal junto a `to` y renombrado), sin pasar el contenido por memoria.
+fn copy_over(from: &Path, to: &Path) -> Result<()> {
+    copy_file(from, to)
+}
+
+/// Copia `from` en `to` sin pasar el contenido por memoria (el renombrado sustituye lo que hubiera en `to`).
+fn copy_file(from: &Path, to: &Path) -> Result<()> {
+    let dir = to
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    // Temporal en la misma carpeta y renombrado: un corte a medias no deja una copia de seguridad truncada.
+    let tmp = tempfile::Builder::new()
+        .prefix(".pliego-")
+        .suffix(".tmp")
+        .tempfile_in(dir)
+        .map_err(|e| Error::io_at(dir, e))?
+        .into_temp_path();
+    std::fs::copy(from, &tmp).map_err(|e| Error::io_at(from, e))?;
+    persist_with_retry(tmp, to)
 }
 
 /// Escribe `bytes` en `out` de forma atómica (temporal + renombrado).

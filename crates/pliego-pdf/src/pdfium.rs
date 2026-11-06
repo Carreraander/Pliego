@@ -16,6 +16,7 @@
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use pdfium_render::prelude::*;
@@ -89,49 +90,207 @@ fn lib() -> Result<&'static Pdfium> {
 /// Documento abierto en PDFium. Las páginas no se conservan: se cargan en cada operación.
 pub(crate) struct State {
     doc: PdfDocument<'static>,
+    /// Bytes que PDFium ha pedido al archivo desde que se abrió (solo documentos leídos de archivo).
+    consumed: Option<Arc<AtomicU64>>,
 }
 
 impl State {
     fn from_vec(bytes: Vec<u8>, password: Option<&str>) -> Result<Self> {
         let doc = lib()?.load_pdf_from_byte_vec(bytes, password).map_err(perr)?;
-        Ok(Self { doc })
+        Ok(Self { doc, consumed: None })
     }
+
+    /// Abre el archivo sin tenerlo en memoria: PDFium pide los bloques que necesita a un [`LazyFile`].
+    fn from_file(path: &Path, password: Option<&str>) -> Result<Self> {
+        let mut reader = LazyFile::open(path)?;
+        let consumed = Arc::new(AtomicU64::new(0));
+        reader.consumed = Some(consumed.clone());
+        let doc = lib()?.load_pdf_from_reader(reader, password).map_err(perr)?;
+        Ok(Self {
+            doc,
+            consumed: Some(consumed),
+        })
+    }
+}
+
+/// Tamaño de cada bloque que lee [`LazyFile`] del disco.
+const BLOCK: u64 = 256 * 1024;
+/// Bloques recientes que conserva [`LazyFile`] (2 MiB en total).
+const KEEP_BLOCKS: usize = 8;
+/// PDFium (en Windows `unsigned long` son 32 bits) no sabe de archivos de 4 GiB o más al leer por bloques.
+pub(crate) const MAX_FILE_BYTES: u64 = u32::MAX as u64;
+
+/// Lector de un archivo **sin manejador abierto entre lecturas**: abre el archivo, lee un bloque de 256 KiB, lo cierra
+/// y guarda los últimos bloques. Así PDFium puede trabajar sobre un PDF de 1 GB sin que el proceso lo tenga en memoria
+/// y, a la vez, el archivo sigue siendo sustituible (guardar encima con un temporal y renombrar) porque en Windows un
+/// manejador abierto lo impediría. Si el archivo cambia (tamaño o fecha) mientras está abierto, la lectura falla con
+/// un error limpio en lugar de mezclar dos versiones: la app recarga el documento tras cada edición.
+pub(crate) struct LazyFile {
+    path: std::path::PathBuf,
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+    pos: u64,
+    /// (índice de bloque, contenido), el más reciente al final.
+    blocks: Vec<(u64, Vec<u8>)>,
+    /// Suma de lo que PDFium ha leído (para saber cuándo reciclar el documento).
+    consumed: Option<Arc<AtomicU64>>,
+}
+
+impl LazyFile {
+    pub(crate) fn open(path: &Path) -> Result<Self> {
+        let meta = std::fs::metadata(path).map_err(|e| Error::io_at(path, e))?;
+        if meta.len() >= MAX_FILE_BYTES {
+            return Err(Error::Unsupported(format!(
+                "{} pesa {} MB: Pliego no abre PDF de 4 GB o más",
+                path.display(),
+                meta.len() / 1_048_576
+            )));
+        }
+        Ok(Self {
+            path: path.to_path_buf(),
+            len: meta.len(),
+            modified: meta.modified().ok(),
+            pos: 0,
+            blocks: Vec::new(),
+            consumed: None,
+        })
+    }
+
+    /// El bloque `idx`, del disco si no estaba guardado.
+    fn block(&mut self, idx: u64) -> std::io::Result<&[u8]> {
+        use std::io::{Error as E, Read, Seek, SeekFrom};
+        if let Some(i) = self.blocks.iter().position(|(b, _)| *b == idx) {
+            let hit = self.blocks.remove(i);
+            self.blocks.push(hit);
+        } else {
+            let mut f = std::fs::File::open(&self.path)?;
+            let meta = f.metadata()?;
+            if meta.len() != self.len || meta.modified().ok() != self.modified {
+                return Err(E::other("el archivo cambió mientras estaba abierto en el visor"));
+            }
+            let start = idx * BLOCK;
+            let want = BLOCK.min(self.len.saturating_sub(start)) as usize;
+            f.seek(SeekFrom::Start(start))?;
+            let mut buf = vec![0u8; want];
+            f.read_exact(&mut buf)?;
+            if self.blocks.len() >= KEEP_BLOCKS {
+                self.blocks.remove(0);
+            }
+            self.blocks.push((idx, buf));
+        }
+        Ok(&self.blocks.last().expect("bloque recién añadido").1)
+    }
+}
+
+impl std::io::Read for LazyFile {
+    /// Llena `out` por completo salvo al final del archivo: PDFium da por buena cualquier lectura no vacía.
+    fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+        let mut done = 0;
+        while done < out.len() && self.pos < self.len {
+            let (idx, off) = (self.pos / BLOCK, (self.pos % BLOCK) as usize);
+            let block = self.block(idx)?;
+            let n = (block.len() - off).min(out.len() - done);
+            if n == 0 {
+                break;
+            }
+            out[done..done + n].copy_from_slice(&block[off..off + n]);
+            done += n;
+            self.pos += n as u64;
+        }
+        if let Some(c) = &self.consumed {
+            c.fetch_add(done as u64, Ordering::Relaxed);
+        }
+        Ok(done)
+    }
+}
+
+impl std::io::Seek for LazyFile {
+    fn seek(&mut self, to: std::io::SeekFrom) -> std::io::Result<u64> {
+        use std::io::SeekFrom::{Current, End, Start};
+        let target = match to {
+            Start(n) => Some(n),
+            End(d) => self.len.checked_add_signed(d),
+            Current(d) => self.pos.checked_add_signed(d),
+        }
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "posición antes del inicio"))?;
+        self.pos = target;
+        Ok(target)
+    }
+}
+
+/// De dónde sale el PDF que lee PDFium.
+pub(crate) enum ViewSource {
+    /// Una copia en memoria (con la contraseña, si va cifrado).
+    Bytes(Vec<u8>, Option<String>),
+    /// Un archivo de disco, leído por bloques.
+    File(std::path::PathBuf, Option<String>),
+}
+
+/// Lo que puede leer PDFium de un archivo antes de cerrar el documento y abrirlo de nuevo. PDFium conserva los datos
+/// de las imágenes de cada página que carga hasta cerrar el documento (3,5 MB por página en un escaneado, 1 GB al buscar
+/// en 300 páginas); abrir un documento leído por bloques solo cuesta leer la tabla de referencias, así que se recicla y
+/// la memoria queda acotada. Lo leído es una buena medida de lo retenido: un texto de 5 000 páginas pide ~5 KB por
+/// página (casi nunca se recicla) y un escaneado, el tamaño de cada imagen.
+const RECYCLE_AFTER_BYTES: u64 = 24 * 1024 * 1024;
+/// Respaldo por si lo retenido no es lo leído (muchas páginas pequeñas con estructura).
+const RECYCLE_AFTER_PAGES: usize = 400;
+
+struct Cached {
+    generation: u64,
+    state: Rc<State>,
+    /// Leído de archivo (se puede reciclar sin copiar nada). Los documentos en memoria no se reciclan.
+    from_file: bool,
+    /// Páginas distintas cargadas desde que se abrió esta copia.
+    touched: Vec<i32>,
 }
 
 /// Copia de un documento de Pliego en PDFium, válida mientras el documento no cambie (se compara su «generación»,
 /// véase `native::State::generation`). Se crea al pedir la primera página.
 #[derive(Default)]
 pub(crate) struct DocLink {
-    cached: RefCell<Option<(u64, Rc<State>)>>,
+    cached: RefCell<Option<Cached>>,
 }
 
 impl DocLink {
     /// Enlace con la página `index`. `generation` es la del documento; si no coincide con la copia guardada, se llama
-    /// a `source`, que debe devolver el PDF actual (con la contraseña, si va cifrado) para abrir una copia nueva.
+    /// a `source`, que debe dar el PDF actual (en memoria o un archivo, con la contraseña si va cifrado) para abrir
+    /// una copia nueva.
     pub(crate) fn page(
         &self,
         index: i32,
         generation: u64,
-        source: impl FnOnce() -> Result<(Vec<u8>, Option<String>)>,
+        source: impl FnOnce() -> Result<ViewSource>,
     ) -> Result<PageLink> {
         if index < 0 {
             return Err(Error::InvalidInput(format!("página {index} no válida")));
         }
-        let cached = self
-            .cached
-            .borrow()
-            .as_ref()
-            .filter(|(g, _)| *g == generation)
-            .map(|(_, s)| s.clone());
-        let state = match cached {
-            Some(s) => s,
+        let mut cache = self.cached.borrow_mut();
+        if let Some(c) = cache.as_mut().filter(|c| c.generation == generation && c.from_file) {
+            let read = c.state.consumed.as_ref().map_or(0, |n| n.load(Ordering::Relaxed));
+            if read >= RECYCLE_AFTER_BYTES || c.touched.len() >= RECYCLE_AFTER_PAGES {
+                *cache = None;
+            } else if !c.touched.contains(&index) {
+                c.touched.push(index);
+            }
+        }
+        let state = match cache.as_ref().filter(|c| c.generation == generation) {
+            Some(c) => c.state.clone(),
             None => {
-                let (bytes, password) = source()?;
-                let s = Rc::new(State::from_vec(bytes, password.as_deref())?);
-                *self.cached.borrow_mut() = Some((generation, s.clone()));
-                s
+                let (state, from_file) = match source()? {
+                    ViewSource::Bytes(bytes, password) => (State::from_vec(bytes, password.as_deref())?, false),
+                    ViewSource::File(path, password) => (State::from_file(&path, password.as_deref())?, true),
+                };
+                let state = Rc::new(state);
+                *cache = Some(Cached {
+                    generation,
+                    state: state.clone(),
+                    from_file,
+                    touched: vec![index],
+                });
+                state
             }
         };
+        drop(cache);
         let count = state.doc.pages().len();
         if index >= count {
             return Err(Error::Pdf(format!("PDFium: la página {index} no existe (hay {count})")));
@@ -763,4 +922,91 @@ pub(crate) fn blocks_to_html(blocks: &[TextBlock], id: i32, full: bool) -> Strin
         out.push_str("</body>\n</html>\n");
     }
     out
+}
+
+#[cfg(test)]
+mod lazy_file_tests {
+    use super::*;
+    use std::io::{Read, Seek, SeekFrom};
+
+    /// Archivo de 3,5 bloques con contenido que depende de la posición.
+    fn sample(dir: &std::path::Path) -> (std::path::PathBuf, Vec<u8>) {
+        let data: Vec<u8> = (0..(BLOCK * 7 / 2) as usize).map(|i| (i * 31 % 251) as u8).collect();
+        let path = dir.join("a.bin");
+        std::fs::write(&path, &data).unwrap();
+        (path, data)
+    }
+
+    #[test]
+    fn reads_match_the_file_across_block_boundaries() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, data) = sample(dir.path());
+        let mut f = LazyFile::open(&path).unwrap();
+        let counter = Arc::new(AtomicU64::new(0));
+        f.consumed = Some(counter.clone());
+        for (start, len) in [
+            (0u64, 10usize),
+            (BLOCK - 5, 10),
+            (BLOCK * 2 - 1, (BLOCK + 2) as usize),
+            (data.len() as u64 - 7, 7),
+            (3, data.len() - 3),
+        ] {
+            f.seek(SeekFrom::Start(start)).unwrap();
+            let mut buf = vec![0u8; len];
+            f.read_exact(&mut buf).unwrap();
+            assert_eq!(buf, data[start as usize..start as usize + len], "en {start}");
+        }
+        // Al final del archivo no hay más y la lectura larga se queda corta sin error.
+        f.seek(SeekFrom::End(-4)).unwrap();
+        let mut rest = [0u8; 16];
+        assert_eq!(f.read(&mut rest).unwrap(), 4);
+        assert_eq!(f.read(&mut rest).unwrap(), 0);
+        assert!(counter.load(Ordering::Relaxed) > data.len() as u64);
+        assert_eq!(f.seek(SeekFrom::End(0)).unwrap(), data.len() as u64);
+        assert!(f.seek(SeekFrom::Current(-(data.len() as i64) - 1)).is_err());
+    }
+
+    #[test]
+    fn keeps_a_few_blocks_and_holds_no_file_handle() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, data) = sample(dir.path());
+        let mut f = LazyFile::open(&path).unwrap();
+        let mut one = [0u8; 1];
+        for i in 0..3 {
+            f.seek(SeekFrom::Start(i * BLOCK)).unwrap();
+            f.read_exact(&mut one).unwrap();
+        }
+        assert_eq!(f.blocks.len(), 3);
+        // Sin manejador abierto: se puede sustituir el archivo con un renombrado, que en Windows falla si hay uno.
+        let other = dir.path().join("b.bin");
+        std::fs::write(&other, b"otra cosa").unwrap();
+        std::fs::rename(&other, &path).unwrap();
+        // Lo guardado sigue sirviendo, pero lo que haya que pedir al disco falla en vez de mezclar versiones.
+        f.seek(SeekFrom::Start(5)).unwrap();
+        assert!(f.read_exact(&mut one).is_ok(), "bloque 0 ya estaba en memoria");
+        assert_eq!(one[0], data[5]);
+        f.seek(SeekFrom::Start(BLOCK * 3 + 1)).unwrap();
+        assert!(f.read_exact(&mut one).is_err(), "el archivo cambió");
+    }
+
+    #[test]
+    fn evicts_the_oldest_block() {
+        let dir = tempfile::tempdir().unwrap();
+        let big = dir.path().join("big.bin");
+        std::fs::write(&big, vec![9u8; (BLOCK as usize) * (KEEP_BLOCKS + 3)]).unwrap();
+        let mut f = LazyFile::open(&big).unwrap();
+        let mut one = [0u8; 1];
+        for i in 0..(KEEP_BLOCKS as u64 + 3) {
+            f.seek(SeekFrom::Start(i * BLOCK)).unwrap();
+            f.read_exact(&mut one).unwrap();
+        }
+        assert_eq!(f.blocks.len(), KEEP_BLOCKS);
+        assert_eq!(f.blocks.first().unwrap().0, 3);
+    }
+
+    #[test]
+    fn refuses_files_that_pdfium_cannot_index() {
+        // No se crea un archivo de 4 GiB: se comprueba el límite sobre la constante.
+        assert_eq!(MAX_FILE_BYTES, u32::MAX as u64);
+    }
 }

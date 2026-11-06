@@ -112,6 +112,9 @@ pub(crate) struct State {
     pub(crate) password: Option<String>,
     /// Copia del documento en PDFium (render, texto y búsqueda).
     pub(crate) view: crate::pdfium::DocLink,
+    /// Documento abierto **solo para ver** (`PdfDocument::open_for_viewing`): archivo de origen. Sus flujos grandes no
+    /// están en memoria, así que no se puede guardar ni modificar; PDFium lo lee de este archivo.
+    pub(crate) view_only: Option<std::path::PathBuf>,
 }
 
 /// Datos del archivo de origen.

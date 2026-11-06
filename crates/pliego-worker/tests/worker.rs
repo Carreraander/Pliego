@@ -320,3 +320,103 @@ fn unknown_layer_is_rejected_and_plain_pdfs_have_none() {
         Err(Error::InvalidInput(_))
     ));
 }
+
+// --- Abrir solo para ver (PDF grandes) ---
+
+fn view_only_engine() -> WorkerEngine {
+    let mut c = config();
+    c.view_only_mb = Some(0);
+    WorkerEngine::new(c)
+}
+
+#[test]
+fn view_only_worker_matches_the_normal_one() {
+    let v = view_only_engine().open(&hola(), None).unwrap();
+    let n = engine().open(&hola(), None).unwrap();
+    assert_eq!(v.info().unwrap(), n.info().unwrap());
+    assert_eq!(v.page_size(1).unwrap(), n.page_size(1).unwrap());
+    assert_eq!(v.page_text(0).unwrap(), n.page_text(0).unwrap());
+    assert_eq!(v.outline().unwrap(), n.outline().unwrap());
+    assert_eq!(v.render_page(0, 0.5).unwrap(), n.render_page(0, 0.5).unwrap());
+    assert_eq!(v.render_tile(tile()).unwrap(), n.render_tile(tile()).unwrap());
+    assert_eq!(
+        v.search_page(1, "Pliego", 5).unwrap(),
+        n.search_page(1, "Pliego", 5).unwrap()
+    );
+    assert!(matches!(
+        view_only_engine().open(&hola().with_file_name("nada.pdf"), None),
+        Err(Error::Io { .. })
+    ));
+}
+
+#[test]
+fn view_only_layers_can_still_be_hidden() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("capas.pdf");
+    std::fs::write(&path, layered_pdf()).unwrap();
+    let doc = view_only_engine().open(&path, None).unwrap();
+    let id = doc.layers().unwrap()[0].id;
+    let req = TileRequest {
+        page: 0,
+        zoom: 1.0,
+        col: 0,
+        row: 0,
+        size: 128,
+    };
+    assert!(dark_pixels(&doc.render_tile(req).unwrap()) > 5000);
+    doc.set_layer_visible(id, false).unwrap();
+    assert!(!doc.layers().unwrap()[0].visible);
+    assert_eq!(dark_pixels(&doc.render_tile(req).unwrap()), 0);
+    // Y sobreviven a un reinicio del worker, que vuelve a abrir solo para ver y repasa las capas ocultas.
+    doc.kill_worker();
+    assert_eq!(dark_pixels(&doc.render_tile(req).unwrap()), 0);
+    doc.set_layer_visible(id, true).unwrap();
+    assert!(dark_pixels(&doc.render_tile(req).unwrap()) > 5000);
+}
+
+/// El contenido de `hola.pdf` más basura al final hasta superar `size` (los lectores la ignoran tras `%%EOF`).
+fn padded_hola(size: usize) -> Vec<u8> {
+    let mut b = std::fs::read(hola()).unwrap();
+    b.push(b'\n');
+    while b.len() < size {
+        b.extend_from_slice(b"% relleno para pesar mucho, sin significado\n");
+    }
+    b
+}
+
+#[test]
+fn big_reloads_go_through_a_temp_file_beside_the_document() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("grande.pdf");
+    std::fs::copy(hola(), &path).unwrap();
+    let doc = engine().open(&path, None).unwrap();
+    let leftovers = || {
+        std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".pliego-vista-")
+            })
+            .count()
+    };
+    assert_eq!(leftovers(), 0);
+    let big = padded_hola(17 * 1024 * 1024);
+    doc.reload_bytes(&big, 1).unwrap();
+    assert_eq!(doc.page_count().unwrap(), 2);
+    assert_eq!(leftovers(), 1, "el contenido grande vive en un temporal, no en la app");
+    // Una segunda recarga sustituye al temporal anterior.
+    doc.reload_bytes(&padded_hola(18 * 1024 * 1024), 2).unwrap();
+    assert_eq!(
+        doc.page_text(0).unwrap(),
+        engine().open(&hola(), None).unwrap().page_text(0).unwrap()
+    );
+    assert_eq!(leftovers(), 1);
+    // Tras un reinicio del worker sigue abriendo desde el temporal.
+    doc.kill_worker();
+    assert_eq!(doc.page_count().unwrap(), 2);
+    drop(doc);
+    assert_eq!(leftovers(), 0, "se borra al cerrar el documento");
+}

@@ -4864,6 +4864,7 @@ dependencies = [
  "anyhow",
  "clap",
  "flate2",
+ "jpeg-encoder",
  "pliego-core",
  "pliego-engine",
  "pliego-pdf",

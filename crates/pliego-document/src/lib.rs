@@ -76,8 +76,10 @@ pub struct Document {
     pdf_matches_original: bool,
     revision: u64,
     next_revision: u64,
-    /// Estado actual serializado (necesario para poder deshacer la siguiente operación).
+    /// Estado actual serializado (necesario para poder deshacer la siguiente operación). Si `current_stale`, `bytes`
+    /// va retrasado respecto a `pdf`: se vuelve a serializar solo cuando se necesita ([`Document::sync_current`]).
     current: Snapshot,
+    current_stale: bool,
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
     limits: UndoLimits,
@@ -90,8 +92,9 @@ fn open_pdf(path: &Path) -> Result<PdfDocument> {
     PdfDocument::open(path)
 }
 
-// TODO(W02): cada operación serializa el documento completo sin comprimir; con PDFs de 100 MB o más
-// la memoria y la latencia crecen. Pasar a instantáneas incrementales o limitar el historial por tamaño.
+/// Serializa el documento completo sin comprimir. Es lo más caro de una operación con un PDF grande (reescribe todo el
+/// archivo en memoria), por eso solo se hace cuando hace falta guardar el estado anterior o volver a él: véase
+/// [`Document::sync_current`]. El historial está acotado por pasos y por bytes ([`UndoLimits`]).
 fn serialize(pdf: &PdfDocument) -> Result<Vec<u8>> {
     let mut opts = WriteOptions::default();
     // Sin compresión extra ni limpieza: la instantánea debe ser fiel y rápida.
@@ -146,6 +149,7 @@ impl Document {
             revision: 0,
             next_revision: 1,
             current: Snapshot { revision: 0, bytes },
+            current_stale: false,
             undo: Vec::new(),
             redo: Vec::new(),
             limits: UndoLimits::default(),
@@ -201,12 +205,22 @@ impl Document {
     /// Aplica una operación de modificación. Si `f` devuelve `Ok`, sube la revisión y se puede deshacer;
     /// si devuelve `Err`, el documento vuelve al estado anterior.
     pub fn with_pdf_mut<T>(&mut self, f: impl FnOnce(&mut PdfDocument) -> Result<T>) -> Result<T> {
+        // El estado de antes de la operación es el que se apila y al que se vuelve si falla.
+        self.sync_current()?;
         match f(&mut self.pdf) {
             Ok(value) => {
-                let bytes = serialize(&self.pdf)?;
                 let rev = self.next_revision;
                 self.next_revision += 1;
-                let previous = std::mem::replace(&mut self.current, Snapshot { revision: rev, bytes });
+                // El estado nuevo no se serializa todavía: si el documento se guarda y se descarta (lo normal en la
+                // app, una edición por documento), nunca hace falta.
+                let previous = std::mem::replace(
+                    &mut self.current,
+                    Snapshot {
+                        revision: rev,
+                        bytes: Vec::new(),
+                    },
+                );
+                self.current_stale = true;
                 self.undo.push(previous);
                 self.redo.clear();
                 self.revision = rev;
@@ -219,6 +233,16 @@ impl Document {
                 Err(e)
             }
         }
+    }
+
+    /// Pone al día `current.bytes` si va retrasado respecto al documento.
+    fn sync_current(&mut self) -> Result<()> {
+        if self.current_stale {
+            self.current.bytes = serialize(&self.pdf)?;
+            self.current_stale = false;
+            self.trim_undo();
+        }
+        Ok(())
     }
 
     fn trim_undo(&mut self) {
@@ -246,6 +270,11 @@ impl Document {
 
     /// Deshace la última operación. Devuelve `false` si no hay nada que deshacer.
     pub fn undo(&mut self) -> Result<bool> {
+        if self.undo.is_empty() {
+            return Ok(false);
+        }
+        // El estado actual pasa a «rehacer»: tiene que estar serializado.
+        self.sync_current()?;
         let Some(prev) = self.undo.pop() else {
             return Ok(false);
         };
@@ -260,6 +289,10 @@ impl Document {
 
     /// Rehace la última operación deshecha. Devuelve `false` si no hay nada que rehacer.
     pub fn redo(&mut self) -> Result<bool> {
+        if self.redo.is_empty() {
+            return Ok(false);
+        }
+        self.sync_current()?;
         let Some(next) = self.redo.pop() else {
             return Ok(false);
         };
@@ -373,11 +406,10 @@ impl Document {
         Ok(())
     }
 
-    /// Windows no deja reemplazar un archivo que MuPDF mantiene abierto: se pasa el documento a memoria
-    /// (misma revisión) antes de renombrar. `after_save` vuelve a abrir el archivo guardado.
+    /// Antes de renombrar encima del archivo de origen. Con MuPDF había que pasar el documento a memoria (Windows no
+    /// deja reemplazar un archivo abierto); el modelo propio lee el archivo entero al abrir y no deja ningún manejador,
+    /// así que no hay nada que soltar. Se mantiene el punto por si cambia. `after_save` vuelve a abrir el archivo.
     fn release_file_handle(&mut self) -> Result<()> {
-        self.pdf = load(&self.current.bytes, self.password.as_deref())?;
-        self.pdf_matches_original = false;
         Ok(())
     }
 
@@ -385,18 +417,24 @@ impl Document {
         self.saved_revision = self.revision;
         // El archivo guardado pasa a ser la nueva base. Se recarga para que el guardado incremental
         // posterior parta de él; si falla, simplemente deja de estar disponible.
-        let Ok(bytes) = fs::read(path) else { return };
-        let Ok(mut doc) = open_pdf(path) else { return };
+        let Ok(bytes) = fs::read(path) else {
+            self.pdf_matches_original = false;
+            return;
+        };
+        let Ok(mut doc) = open_pdf(path) else {
+            self.pdf_matches_original = false;
+            return;
+        };
         if unlock(&mut doc, self.password.as_deref()).is_err() {
+            self.pdf_matches_original = false;
             return;
         }
         self.pdf = doc;
         self.path = Some(path.to_path_buf());
         self.original_len = Some(bytes.len());
         self.pdf_matches_original = true;
-        if let Ok(snapshot) = serialize(&self.pdf) {
-            self.current.bytes = snapshot;
-        }
+        // El estado guardado es el mismo, pero reabierto: su serialización se rehace si algún día hace falta.
+        self.current_stale = true;
     }
 }
 

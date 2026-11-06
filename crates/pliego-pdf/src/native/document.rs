@@ -71,6 +71,7 @@ impl PdfDocument {
             generation: 0,
             password: None,
             view: Default::default(),
+            view_only: None,
         };
         let mut pages = Dictionary::new();
         pages.set("Type", L::Name(b"Pages".to_vec()));
@@ -89,23 +90,63 @@ impl PdfDocument {
 
     /// Abre un PDF. No pide contraseña (ver [`PdfDocument::open_with_password`]). Falla si no es un PDF.
     pub fn open(path: impl AsRef<Path>) -> Result<PdfDocument> {
-        Self::from_vec(read_file(path.as_ref())?, None, false)
+        Self::build(read_file(path.as_ref())?, None, false)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<PdfDocument> {
-        Self::from_vec(bytes.to_vec(), None, false)
+        Self::build(bytes.to_vec(), None, false)
+    }
+
+    /// Como [`PdfDocument::from_bytes`] pero toma el búfer: con un PDF grande evita una copia entera en memoria.
+    pub fn from_vec(bytes: Vec<u8>) -> Result<PdfDocument> {
+        Self::build(bytes, None, false)
     }
 
     /// Abre y desbloquea. [`Error::Password`] si hace falta contraseña y falta o es incorrecta.
     pub fn open_with_password(path: impl AsRef<Path>, password: Option<&str>) -> Result<PdfDocument> {
-        Self::from_vec(read_file(path.as_ref())?, password, true)
+        Self::build(read_file(path.as_ref())?, password, true)
     }
 
     pub fn from_bytes_with_password(bytes: &[u8], password: Option<&str>) -> Result<PdfDocument> {
-        Self::from_vec(bytes.to_vec(), password, true)
+        Self::build(bytes.to_vec(), password, true)
     }
 
-    fn from_vec(bytes: Vec<u8>, password: Option<&str>, require_unlocked: bool) -> Result<PdfDocument> {
+    /// Abre un PDF **solo para verlo**, con la memoria mínima: el archivo se lee una vez para construir el modelo de
+    /// objetos y luego se suelta; los flujos de más de 4 KiB (imágenes, contenido de página, fuentes) no se conservan.
+    /// PDFium lee las páginas directamente del archivo, por bloques y sin manejador abierto (véase
+    /// `pdfium::LazyFile`), así que el proceso no crece con el tamaño del PDF.
+    ///
+    /// El documento resultante sirve para lo que no necesita los datos de los flujos: número de páginas, tamaños,
+    /// marcadores, metadatos, capas, enlaces y todo lo que dibuja o extrae PDFium. **No se puede modificar ni
+    /// guardar** (devuelve [`Error::Unsupported`]); para eso hay que abrirlo con [`PdfDocument::open_with_password`].
+    /// [`Error::Password`] si pide contraseña y falta o es incorrecta.
+    pub fn open_for_viewing(path: impl AsRef<Path>, password: Option<&str>) -> Result<PdfDocument> {
+        let path = path.as_ref();
+        let bytes = indirect_encrypt(read_file(path)?);
+        let (mut doc, mut locked) = load_view(&bytes, None)?;
+        let mut used = None;
+        if locked && let Some(pw) = password {
+            match load_view(&bytes, Some(pw)) {
+                Ok((d, l)) => {
+                    doc = d;
+                    locked = l;
+                    used = Some(pw.to_owned());
+                }
+                Err(Error::Password) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        if locked {
+            return Err(Error::Password);
+        }
+        // El búfer con el archivo entero ya no hace falta: el modelo no lo referencia.
+        drop(bytes);
+        let mut state = new_state(Vec::new(), doc, false, used);
+        state.view_only = Some(path.to_path_buf());
+        Ok(Self::from_state(state))
+    }
+
+    fn build(bytes: Vec<u8>, password: Option<&str>, require_unlocked: bool) -> Result<PdfDocument> {
         let bytes = indirect_encrypt(bytes);
         let (doc, locked) = load(&bytes, None)?;
         let mut state = new_state(bytes, doc, locked, None);
@@ -948,6 +989,45 @@ fn load(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)>
     Ok((doc, locked))
 }
 
+/// Descarta los datos de los flujos grandes al cargar (véase [`PdfDocument::open_for_viewing`]). Los flujos de objetos y
+/// de referencias se conservan: lopdf los necesita para leer el resto del archivo.
+fn drop_big_streams(id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
+    const KEEP: usize = 4096;
+    if let L::Stream(s) = object {
+        let structural = s
+            .dict
+            .get(b"Type")
+            .ok()
+            .and_then(|t| t.as_name().ok())
+            .is_some_and(|n| n == b"ObjStm" || n == b"XRef");
+        if !structural && s.content.len() > KEEP {
+            s.content = Vec::new();
+            // Sin posición de inicio lopdf no vuelve a leerlo como «flujo de longitud cero».
+            s.start_position = None;
+        }
+    }
+    // lopdf solo mira si devuelve `Some`: el objeto que queda es el que se ha modificado aquí.
+    Some((id, L::Null))
+}
+
+fn load_view(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)> {
+    let opts = LoadOptions {
+        password: password.map(str::to_owned),
+        filter: Some(drop_big_streams),
+        ..Default::default()
+    };
+    let doc = match lopdf::Document::load_mem_with_options(bytes, opts) {
+        Ok(d) => d,
+        Err(lopdf::Error::InvalidPassword) => return Err(Error::Password),
+        Err(e) => return Err(err(e)),
+    };
+    let locked = doc.trailer.get(b"Encrypt").is_ok();
+    if doc.trailer.get(b"Root").is_err() && !locked {
+        return Err(pdf_err("el PDF no tiene catálogo (/Root)"));
+    }
+    Ok((doc, locked))
+}
+
 fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool, password: Option<String>) -> State {
     let base = Base {
         trailer: doc.trailer.clone(),
@@ -973,6 +1053,7 @@ fn new_state(bytes: Vec<u8>, doc: lopdf::Document, locked: bool, password: Optio
         generation: 0,
         password,
         view: Default::default(),
+        view_only: None,
     }
 }
 

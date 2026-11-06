@@ -232,6 +232,13 @@ que cambia. Backend: `pliego_a11y::fix_file_with` (nuevo `FixOptions::autotag`, 
 `fix.test.ts` y `app-smoke.spec.ts`. **W/V**: pasar un PDF sin etiquetas, abrir la copia, poner el texto alternativo de
 una figura y comprobar con «Comprobar accesibilidad» y con el Narrador que lee el título y la figura.
 
+**Propiedades editables** (Propiedades del documento): título, autor, asunto y palabras clave se cambian en el propio
+PDF (copia «(antes de las propiedades)» y deshacer compartido); solo se manda lo que cambia y vaciar un campo lo quita.
+Si el documento declara PDF/A (1b, 2b, 2u o 3b), `pliego_pdfa::update_info` rehace también el XMP para que siga validando;
+con otro XMP se deja y manda `/Info`, que lleva fecha más nueva. Pruebas: `editing_properties_keeps_pdfa_valid_and_xmp_in_sync`,
+`facts::tests::properties_are_saved_in_place_with_backup_and_undo`, `properties.test.ts` y `app-smoke.spec.ts`. **V**:
+cambiar el título de un PDF y de un PDF/A y ver en Reader (Archivo > Propiedades) los valores nuevos.
+
 Los trabajos en segundo plano ya no se quedan «en curso» si la herramienta da un pánico: `JobRegistry::spawn` lo recoge y
 termina el trabajo con el error «fallo interno de la herramienta» (prueba `panic_finishes_the_job_with_an_error`).
 

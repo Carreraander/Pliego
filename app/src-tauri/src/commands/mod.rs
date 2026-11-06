@@ -51,6 +51,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         document::document_info,
         document::page_sizes,
         document::file_facts,
+        document::properties_save,
         document::bump_revision,
         document::save_document_as,
         search::search,

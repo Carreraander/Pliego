@@ -43,3 +43,19 @@ function row(key: string, value: string | null | undefined): PropertyRow | null 
   const v = value?.trim();
   return v ? { key, value: v } : null;
 }
+
+/** Las propiedades que se pueden cambiar desde el panel. */
+export const EDITABLE = ["title", "author", "subject", "keywords"] as const;
+export type EditableKey = (typeof EDITABLE)[number];
+export type InfoForm = Record<EditableKey, string>;
+
+export const infoForm = (info: DocFacts): InfoForm => ({
+  title: info.title?.trim() ?? "", author: info.author?.trim() ?? "", subject: info.subject?.trim() ?? "", keywords: info.keywords?.trim() ?? "",
+});
+
+/** Lo que cambió respecto al documento (`pliego_pdfa::InfoEdit`; texto vacío = quitar), o `null` si nada. */
+export function infoEdit(before: InfoForm, now: InfoForm): Partial<InfoForm> | null {
+  const edit: Partial<InfoForm> = {};
+  for (const k of EDITABLE) if (now[k].trim() !== before[k]) edit[k] = now[k].trim();
+  return Object.keys(edit).length ? edit : null;
+}

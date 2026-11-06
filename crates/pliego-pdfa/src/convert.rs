@@ -455,7 +455,7 @@ fn associate_attachments(doc: &PdfDocument, catalog: &mut Object) -> Result<usiz
     Ok(n)
 }
 
-fn read_info(doc: &PdfDocument) -> Result<InfoValues> {
+pub(crate) fn read_info(doc: &PdfDocument) -> Result<InfoValues> {
     let trailer = doc.trailer()?;
     let info = get(&trailer, "Info").filter(|i| i.is_dict().unwrap_or(false));
     let f = |k: &str| info.as_ref().and_then(|i| text_of(i, k));
@@ -471,7 +471,7 @@ fn read_info(doc: &PdfDocument) -> Result<InfoValues> {
     })
 }
 
-fn write_info(doc: &mut PdfDocument, v: &InfoValues) -> Result<()> {
+pub(crate) fn write_info(doc: &mut PdfDocument, v: &InfoValues) -> Result<()> {
     let mut trailer = doc.trailer()?;
     let mut info = match get(&trailer, "Info").filter(|i| i.is_dict().unwrap_or(false)) {
         Some(i) => i,

@@ -31,6 +31,8 @@ async function installBackend(page: Page, opts: { protectedDoc?: boolean; locked
       compress_pdf: 14,
       crop_pages: 18,
       make_accessible: 19,
+      properties_save: 1,
+      file_facts: { size: 2048, modified_secs: 1_700_000_000 },
       check_accessibility: {
         pages: 3, tagged: true, language: null, title: null,
         issues: [{ code: "figure_without_alt", severity: "error", page: 1, xref: 40, message: "Figura sin texto alternativo", suggestion: "" }],
@@ -126,6 +128,17 @@ test.describe("humo de la app (backend simulado)", () => {
       path: DOC,
       options: { autotag: false, title: "Escaneo de abril", language: "es-ES", alt_texts: [[40, "Gráfico de ventas"]], tab_order: true },
     });
+  });
+
+  test("Propiedades guarda solo lo que cambió en el propio PDF", async ({ page }) => {
+    await openTool(page, "propiedades", /^Propiedades del documento/);
+    await expect(page.getByRole("textbox", { name: "Título" })).toHaveValue("Escaneo");
+    await page.getByRole("textbox", { name: "Autor" }).fill("Ana Muñoz");
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect.poll(async () => (await calls(page, "properties_save")).length).toBe(1);
+    expect((await calls(page, "properties_save"))[0]?.args).toMatchObject({ path: DOC, edit: { author: "Ana Muñoz" } });
+    expect(Object.keys((await calls(page, "properties_save"))[0]!.args.edit as object)).toEqual(["author"]);
+    await expect(page.getByRole("button", { name: "Deshacer" })).toBeVisible();
   });
 
   test("arranca en español aunque el sistema esté en inglés y abre el documento", async ({ page }) => {

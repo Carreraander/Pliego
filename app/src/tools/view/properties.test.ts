@@ -21,3 +21,13 @@ describe("propiedades del documento", () => {
     expect(keys).not.toContain("pageSize");
   });
 });
+
+describe("editar propiedades", () => {
+  it("solo manda lo que cambia y un campo vaciado se quita", async () => {
+    const { infoEdit, infoForm } = await import("./properties");
+    const before = infoForm(info);
+    expect(before).toEqual({ title: "Contrato", author: "", subject: "", keywords: "" });
+    expect(infoEdit(before, { ...before, title: "Contrato " })).toBeNull();
+    expect(infoEdit(before, { ...before, author: " Ana ", title: "" })).toEqual({ title: "", author: "Ana" });
+  });
+});

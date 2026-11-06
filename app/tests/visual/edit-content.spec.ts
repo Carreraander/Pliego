@@ -173,4 +173,26 @@ test.describe("modo Editar (backend simulado)", () => {
     await expect.poll(async () => (await calls(fresh, "edit_text_replace")).length).toBe(2);
     await expect(fresh.getByRole("dialog", { name: "Documento firmado" })).toBeHidden();
   });
+
+  test("imágenes: mientras se arrastra se ve una vista previa de la imagen en su nueva posición", async ({ page }) => {
+    await page.getByRole("radio", { name: "Imágenes" }).check();
+    const img = page.getByRole("button", { name: "Imagen 1" }).first();
+    const box = (await img.boundingBox())!;
+    await expect(page.getByTestId("edit-ghost")).toHaveCount(0);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 30, { steps: 4 });
+    const ghost = page.getByTestId("edit-ghost");
+    await expect(ghost).toHaveCount(1);
+    await expect(ghost.locator("img").first()).toBeAttached();
+    // Mover no cambia el tamaño: no se escala.
+    const [g, o] = [await ghost.boundingBox(), await img.boundingBox()];
+    expect(Math.abs(g!.x - o!.x)).toBeLessThan(3);
+    expect(Math.abs(g!.y - o!.y)).toBeLessThan(3);
+    expect(Math.abs(g!.width - o!.width)).toBeLessThan(3);
+    await expect(ghost.locator(".pl-edit-ghost__page")).toHaveCSS("transform", /matrix\(1, 0, 0, 1,/);
+    await page.mouse.up();
+    await expect(page.getByTestId("edit-ghost")).toHaveCount(0);
+    expect((await calls(page, "edit_object_transform")).length).toBe(1);
+  });
 });

@@ -165,7 +165,7 @@ pub async fn outline_save(
     suffix: String,
 ) -> pliego_app_service::api::ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = organize::outline_save(&editor.0, &path, password.as_deref(), &nodes, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let saved = organize::outline_save_saved(&editor.0, &path, password.as_deref(), &nodes, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(editor.0.undo_depth(&path))
 }

@@ -156,8 +156,10 @@ pub async fn forms_fill(
     suffix: String,
 ) -> ApiResult<FormEdit> {
     let path = PathBuf::from(path);
-    let (bytes, messages) = editor.0.fill_report(&path, password.as_deref(), &values, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let (saved, messages) = editor
+        .0
+        .fill_report_saved(&path, password.as_deref(), &values, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(FormEdit {
         undo_depth: editor.0.undo_depth(&path),
         messages,
@@ -178,10 +180,10 @@ pub async fn forms_run_action(
     suffix: String,
 ) -> ApiResult<FormEdit> {
     let path = PathBuf::from(path);
-    let (bytes, messages) = editor
+    let (saved, messages) = editor
         .0
-        .run_action(&path, password.as_deref(), &name, &trigger, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+        .run_action_saved(&path, password.as_deref(), &name, &trigger, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(FormEdit {
         undo_depth: editor.0.undo_depth(&path),
         messages,

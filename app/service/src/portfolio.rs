@@ -53,10 +53,21 @@ pub fn attachments_add(
     files: &[PathBuf],
     backup_suffix: &str,
 ) -> Result<Vec<u8>> {
+    attachments_add_saved(editor, path, password, files, backup_suffix)?.into_bytes()
+}
+
+/// Como [`attachments_add`], con el resultado como [`crate::annot::Saved`] (PDF grandes: se guarda al final del archivo).
+pub fn attachments_add_saved(
+    editor: &crate::annot::Editor,
+    path: &Path,
+    password: Option<&str>,
+    files: &[PathBuf],
+    backup_suffix: &str,
+) -> Result<crate::annot::Saved> {
     if files.iter().any(|f| same_file(f, path)) {
         return Err(Error::InvalidInput("un PDF no puede adjuntarse a sí mismo".into()));
     }
-    editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
+    editor.edit_pdf_preserving_saved(path, password, backup_suffix, |doc| {
         pliego_portfolio::add_files(doc, files).map(|_| ())
     })
 }

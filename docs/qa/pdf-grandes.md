@@ -112,9 +112,9 @@ Nota de la pasada: el script compilaba con `cargo build --release -p pliego-qa -
 - **Pico al abrir:** un PDF se lee entero una vez para construir el modelo; el búfer se suelta enseguida, pero el Administrador de tareas lo ve
   unos segundos (≈ tamaño del archivo). Por eso el máximo es 1,7 GB (`VIEW_ONLY_MAX_BYTES`, bajo el límite de 2 GB del worker); PDFium no abre
   archivos de 4 GiB o más en Windows.
-- **Comentar en un PDF grande (≥ 64 MiB)** usa el modo ligero (`PdfDocument::open_lean` / `save_lean`): el modelo se carga sin los
+- **Comentar, Rellenar, Diseñar formularios, Medir, Propiedades, Adjuntos (añadir) y Marcadores en un PDF grande (≥ 64 MiB)** usan el modo ligero (`PdfDocument::open_lean` / `save_lean`): el modelo se carga sin los
   flujos grandes y los cambios se añaden al final del propio archivo (el deshacer corta el archivo en el tamaño anterior; no hay copias). El pico es leer el archivo una vez (≈ su tamaño). Si el cambio tocara un
   flujo que no se cargó, o el PDF está cifrado o reparado, se usa el camino de siempre, que **reescribe el PDF entero** (lopdf): pico de
-  ~3 GB durante segundos. Las demás herramientas que editan (formularios, texto, medir, páginas) siguen por ese camino.
+  ~3 GB durante segundos. Quitar adjuntos y Editar texto/imágenes/objetos/enlaces siguen por ese camino (véase W46).
 - **Capas en PDF grandes:** mostrar u ocultar una capa necesita el documento entero; solo se admite hasta 256 MB (`LAYER_EDIT_MAX_BYTES`).
 - El ejecutable `pliego` (CLI) abre los PDF enteros: sus pasos no usan el modo «solo para ver».

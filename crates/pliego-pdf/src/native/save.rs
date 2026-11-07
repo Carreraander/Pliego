@@ -213,11 +213,13 @@ fn lean_section(st: &State) -> Result<(&super::Lean, Vec<u8>)> {
             "el archivo cambió mientras se editaba; vuelve a abrirlo".into(),
         ));
     }
-    // Un flujo omitido al cargar (sin contenido ni posición en el archivo) no puede volver a escribirse.
-    let touches_skipped = st.dirty.iter().any(
-        |id| matches!(st.doc.objects.get(id), Some(L::Stream(s)) if s.content.is_empty() && s.start_position.is_none()),
-    );
-    if touches_skipped {
+    // Un flujo omitido al cargar no puede volver a escribirse, y si alguien intentó leer uno lo que haya calculado con
+    // él no es fiable.
+    let touches_omitted = st
+        .dirty
+        .iter()
+        .any(|id| matches!(st.doc.objects.get(id), Some(L::Stream(s)) if s.dict.has(super::object::OMITTED_KEY)));
+    if touches_omitted || super::object::OMITTED_READ.with(std::cell::Cell::get) {
         return Err(Error::Unsupported(
             "el cambio afecta a un flujo grande que no está cargado".into(),
         ));

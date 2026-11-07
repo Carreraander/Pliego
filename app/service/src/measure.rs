@@ -9,7 +9,7 @@ use std::path::Path;
 use pliego_core::{Lang, Result};
 pub use pliego_measure::{Measurement, Pt, Scale, Unit};
 
-use crate::annot::{Editor, open};
+use crate::annot::{Editor, Saved, open};
 
 /// Escala guardada en la página `page` (desde 0), si tiene una.
 pub fn page_scale(path: &Path, password: Option<&str>, page: u32) -> Result<Option<Scale>> {
@@ -46,8 +46,25 @@ pub fn save(
     closed: bool,
     lang: Lang,
 ) -> Result<(Vec<u8>, Measurement)> {
+    let (saved, m) = save_saved(editor, path, password, backup_suffix, page, scale, points, closed, lang)?;
+    Ok((saved.into_bytes()?, m))
+}
+
+/// Como [`save`], con el resultado como [`Saved`] (PDF grandes: se guarda al final del archivo).
+#[allow(clippy::too_many_arguments)]
+pub fn save_saved(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    backup_suffix: &str,
+    page: u32,
+    scale: &Scale,
+    points: &[Pt],
+    closed: bool,
+    lang: Lang,
+) -> Result<(Saved, Measurement)> {
     let mut measured = None;
-    let bytes = editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
+    let bytes = editor.edit_pdf_preserving_saved(path, password, backup_suffix, |doc| {
         pliego_measure::set_scale(doc, page, scale)?;
         measured = Some(pliego_measure::add_measurement_in(doc, page, scale, points, closed, lang)?.0);
         Ok(())

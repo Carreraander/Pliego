@@ -766,3 +766,29 @@ fn lean_append_writes_in_place_and_matches_the_copy() {
     assert!(matches!(append.write(), Err(pliego_core::Error::Unsupported(_))));
     assert_eq!(std::fs::read(&path).unwrap(), other);
 }
+
+#[test]
+fn lean_keeps_mid_size_streams_and_refuses_after_reading_an_omitted_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("grande.pdf");
+    scan_pdf(&path, 2, 300_000);
+    let lean = PdfDocument::open_lean(&path, None).unwrap();
+    let res = lean.load_page(0).unwrap().resources().unwrap();
+    let image = res
+        .get_dict("XObject")
+        .unwrap()
+        .unwrap()
+        .get_dict("Im0")
+        .unwrap()
+        .unwrap();
+    // La imagen (300 KB) no está cargada: leerla falla y deja el documento marcado, aunque el cambio no la toque.
+    assert!(matches!(image.read_stream(), Err(pliego_core::Error::Unsupported(_))));
+    set_page_mode(&lean);
+    let out = dir.path().join("salida.pdf");
+    assert!(matches!(lean.save_lean(&out), Err(pliego_core::Error::Unsupported(_))));
+    assert!(!out.exists());
+    // Un documento nuevo en el mismo hilo empieza limpio.
+    let lean = PdfDocument::open_lean(&path, None).unwrap();
+    set_page_mode(&lean);
+    lean.save_lean(&out).unwrap();
+}

@@ -13,7 +13,7 @@ use pliego_pdf::{Matrix, PdfDocument};
 
 pub use pliego_formdesign::{FieldPatch, FieldSpec, FieldType};
 
-use crate::annot::{Editor, open};
+use crate::annot::{Editor, Saved, open};
 
 /// Caja `[x0, y0, x1, y1]` normalizada de los cuatro vértices transformados.
 fn bounds_of(pts: [(f32, f32); 4]) -> [f32; 4] {
@@ -62,7 +62,18 @@ pub fn add(
     spec: &FieldSpec,
     backup_suffix: &str,
 ) -> Result<Vec<u8>> {
-    editor.edit_pdf(path, password, backup_suffix, |doc| {
+    add_saved(editor, path, password, spec, backup_suffix)?.into_bytes()
+}
+
+/// Como [`add`], con el resultado como [`Saved`] (PDF grandes: se guarda al final del archivo).
+pub fn add_saved(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    spec: &FieldSpec,
+    backup_suffix: &str,
+) -> Result<Saved> {
+    editor.edit_pdf_saved(path, password, backup_suffix, |doc| {
         let mut spec = spec.clone();
         spec.rect = page_to_user(doc, spec.page, spec.rect)?;
         pliego_formdesign::add_field(doc, &spec)
@@ -78,7 +89,19 @@ pub fn update(
     patch: &FieldPatch,
     backup_suffix: &str,
 ) -> Result<Vec<u8>> {
-    editor.edit_pdf(path, password, backup_suffix, |doc| {
+    update_saved(editor, path, password, name, patch, backup_suffix)?.into_bytes()
+}
+
+/// Como [`update`], con el resultado como [`Saved`].
+pub fn update_saved(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    name: &str,
+    patch: &FieldPatch,
+    backup_suffix: &str,
+) -> Result<Saved> {
+    editor.edit_pdf_saved(path, password, backup_suffix, |doc| {
         let mut patch = patch.clone();
         if let Some(r) = patch.rect {
             let page = pliego_formdesign::list_fields(doc)?
@@ -100,7 +123,18 @@ pub fn delete(
     name: &str,
     backup_suffix: &str,
 ) -> Result<Vec<u8>> {
-    editor.edit_pdf(path, password, backup_suffix, |doc| {
+    delete_saved(editor, path, password, name, backup_suffix)?.into_bytes()
+}
+
+/// Como [`delete`], con el resultado como [`Saved`].
+pub fn delete_saved(
+    editor: &Editor,
+    path: &Path,
+    password: Option<&str>,
+    name: &str,
+    backup_suffix: &str,
+) -> Result<Saved> {
+    editor.edit_pdf_saved(path, password, backup_suffix, |doc| {
         pliego_formdesign::delete_field(doc, name)
     })
 }

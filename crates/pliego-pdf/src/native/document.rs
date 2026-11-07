@@ -123,7 +123,7 @@ impl PdfDocument {
     /// [`Error::Password`] si pide contraseña y falta o es incorrecta.
     pub fn open_for_viewing(path: impl AsRef<Path>, password: Option<&str>) -> Result<PdfDocument> {
         let path = path.as_ref();
-        let (mut state, _) = load_light(path, password)?;
+        let (mut state, _) = load_light(path, password, drop_big_streams)?;
         state.view_only = Some(path.to_path_buf());
         Ok(Self::from_state(state))
     }
@@ -136,7 +136,8 @@ impl PdfDocument {
     /// flujo omitido hace fallar el guardado con [`Error::Unsupported`]: el archivo no se modifica.
     pub fn open_lean(path: impl AsRef<Path>, password: Option<&str>) -> Result<PdfDocument> {
         let path = path.as_ref();
-        let (mut state, tail) = load_light(path, password)?;
+        super::object::OMITTED_READ.with(|f| f.set(false));
+        let (mut state, tail) = load_light(path, password, drop_huge_streams)?;
         let base = state.base.as_ref();
         if state.password.is_some()
             || base.is_none_or(|b| b.repaired || b.xref_start == 0 || b.encryption_state.is_some())
@@ -999,14 +1000,14 @@ fn load(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)>
 }
 
 /// Lee `path` y construye el modelo sin los flujos grandes. Devuelve también el tamaño del archivo y su último byte.
-fn load_light(path: &Path, password: Option<&str>) -> Result<(State, (u64, u8))> {
+fn load_light(path: &Path, password: Option<&str>, filter: lopdf::FilterFunc) -> Result<(State, (u64, u8))> {
     let raw = read_file(path)?;
     let tail = (raw.len() as u64, raw.last().copied().unwrap_or(b'\n'));
     let bytes = indirect_encrypt(raw);
-    let (mut doc, mut locked) = load_view(&bytes, None)?;
+    let (mut doc, mut locked) = load_view(&bytes, None, filter)?;
     let mut used = None;
     if locked && let Some(pw) = password {
-        match load_view(&bytes, Some(pw)) {
+        match load_view(&bytes, Some(pw), filter) {
             Ok((d, l)) => {
                 doc = d;
                 locked = l;
@@ -1027,7 +1028,16 @@ fn load_light(path: &Path, password: Option<&str>) -> Result<(State, (u64, u8))>
 /// Descarta los datos de los flujos grandes al cargar (véase [`PdfDocument::open_for_viewing`]). Los flujos de objetos y
 /// de referencias se conservan: lopdf los necesita para leer el resto del archivo.
 fn drop_big_streams(id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
-    const KEEP: usize = 4096;
+    omit_streams_over(4096, id, object)
+}
+
+/// Como [`drop_big_streams`] pero conserva los flujos de hasta 64 KiB (contenido de página, scripts, apariencias): en
+/// el modo ligero el documento vive solo lo que dura una edición y lo que se edita suele estar ahí.
+fn drop_huge_streams(id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
+    omit_streams_over(64 * 1024, id, object)
+}
+
+fn omit_streams_over(keep: usize, id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
     if let L::Stream(s) = object {
         let structural = s
             .dict
@@ -1035,10 +1045,12 @@ fn drop_big_streams(id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
             .ok()
             .and_then(|t| t.as_name().ok())
             .is_some_and(|n| n == b"ObjStm" || n == b"XRef");
-        if !structural && s.content.len() > KEEP {
+        if !structural && s.content.len() > keep {
             s.content = Vec::new();
             // Sin posición de inicio lopdf no vuelve a leerlo como «flujo de longitud cero».
             s.start_position = None;
+            // Y marcado, para no confundirlo después con un flujo vacío de verdad.
+            s.dict.set(super::object::OMITTED_KEY, L::Boolean(true));
         }
     }
     // Un objeto suelto en el archivo queda como se ha modificado aquí (lopdf solo mira si se devuelve `Some`), pero uno
@@ -1053,10 +1065,10 @@ fn drop_big_streams(id: ObjectId, object: &mut L) -> Option<(ObjectId, L)> {
     ))
 }
 
-fn load_view(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)> {
+fn load_view(bytes: &[u8], password: Option<&str>, filter: lopdf::FilterFunc) -> Result<(lopdf::Document, bool)> {
     let opts = LoadOptions {
         password: password.map(str::to_owned),
-        filter: Some(drop_big_streams),
+        filter: Some(filter),
         ..Default::default()
     };
     let doc = match lopdf::Document::load_mem_with_options(bytes, opts) {

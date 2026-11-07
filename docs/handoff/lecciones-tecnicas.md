@@ -79,5 +79,3 @@ Trampas que costó descubrir. Consultar antes de tocar lo relacionado.
   recuadro vacío y se avisa en el informe (`missing`).
 - Los emojis salen en monocromo: el subconjunto (`subsetter`) conserva los contornos `glyf` pero no la capa de color COLR/CPAL.
 - Las pruebas de `pliego-edit` necesitan PDFium: `PLIEGO_PDFIUM_DLL` con la biblioteca fijada en `tools/pdfium/pdfium.lock.json`.
-- El formulario de Editar texto (`TextEditor.tsx`) se recoloca con `placeForm` para que no lo corte el borde de la página: debajo del
-  texto, encima si no cabe, o pegado al borde inferior.

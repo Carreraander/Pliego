@@ -41,10 +41,21 @@ pub fn properties_save(
     edit: &InfoEdit,
     backup_suffix: &str,
 ) -> Result<Vec<u8>> {
+    properties_save_saved(editor, path, password, edit, backup_suffix)?.into_bytes()
+}
+
+/// Como [`properties_save`], con el resultado como [`crate::annot::Saved`] (PDF grandes: se guarda al final del archivo).
+pub fn properties_save_saved(
+    editor: &crate::annot::Editor,
+    path: &Path,
+    password: Option<&str>,
+    edit: &InfoEdit,
+    backup_suffix: &str,
+) -> Result<crate::annot::Saved> {
     if *edit == InfoEdit::default() {
         return Err(Error::InvalidInput("no hay ninguna propiedad que cambiar".into()));
     }
-    editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
+    editor.edit_pdf_preserving_saved(path, password, backup_suffix, |doc| {
         pliego_pdfa::update_info(doc, edit).map(|_| ())
     })
 }

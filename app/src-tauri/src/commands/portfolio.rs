@@ -59,8 +59,8 @@ pub async fn attachments_add(
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
     let files: Vec<PathBuf> = files.into_iter().map(PathBuf::from).collect();
-    let bytes = portfolio::attachments_add(&editor.0, &path, password.as_deref(), &files, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let saved = portfolio::attachments_add_saved(&editor.0, &path, password.as_deref(), &files, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(editor.0.undo_depth(&path))
 }
 

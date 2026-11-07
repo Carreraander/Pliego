@@ -289,10 +289,21 @@ pub fn outline_save(
     nodes: &[pliego_organize::OutlineNode],
     backup_suffix: &str,
 ) -> Result<Vec<u8>> {
+    outline_save_saved(editor, path, password, nodes, backup_suffix)?.into_bytes()
+}
+
+/// Como [`outline_save`], con el resultado como [`crate::annot::Saved`] (PDF grandes: se guarda al final del archivo).
+pub fn outline_save_saved(
+    editor: &crate::annot::Editor,
+    path: &Path,
+    password: Option<&str>,
+    nodes: &[pliego_organize::OutlineNode],
+    backup_suffix: &str,
+) -> Result<crate::annot::Saved> {
     if nodes.iter().any(has_empty_title) {
         return Err(Error::InvalidInput("un marcador no puede quedarse sin nombre".into()));
     }
-    editor.edit_pdf_preserving(path, password, backup_suffix, |doc| {
+    editor.edit_pdf_preserving_saved(path, password, backup_suffix, |doc| {
         pliego_organize::write_outline(doc, nodes)
     })
 }

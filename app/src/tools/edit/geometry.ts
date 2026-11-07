@@ -31,6 +31,25 @@ export function addBox(a: Pt, b: Pt): Box {
   return [a[0], a[1], a[0] + DEFAULT_ADD[0], a[1] + DEFAULT_ADD[1]];
 }
 
+/** Hueco (píxeles de pantalla) entre el recuadro y el formulario, y margen mínimo al borde de la zona visible. */
+export const FORM_GAP = 6;
+export const FORM_MARGIN = 8;
+
+/**
+ * Dónde poner el formulario emergente (píxeles de ventana) para que quede siempre dentro de `bounds` (la zona visible
+ * del visor): debajo del recuadro `anchor`; si no cabe, encima; si tampoco, pegado al borde inferior. Si es más alto o
+ * ancho que la zona visible se acota (`maxHeight`, `maxWidth`) y su contenido se desplaza.
+ */
+export function placeForm(anchor: Box, size: { width: number; height: number }, bounds: Box, gap = FORM_GAP, margin = FORM_MARGIN): { left: number; top: number; maxHeight: number; maxWidth: number } {
+  const maxWidth = Math.max(0, bounds[2] - bounds[0] - 2 * margin);
+  const maxHeight = Math.max(0, bounds[3] - bounds[1] - 2 * margin);
+  const w = Math.min(size.width, maxWidth), h = Math.min(size.height, maxHeight);
+  const left = Math.min(Math.max(anchor[0], bounds[0] + margin), bounds[2] - margin - w);
+  const below = anchor[3] + gap, above = anchor[1] - gap - h;
+  const top = below + h <= bounds[3] - margin ? below : above >= bounds[1] + margin ? above : Math.max(bounds[1] + margin, bounds[3] - margin - h);
+  return { left, top, maxHeight, maxWidth };
+}
+
 /** Estilo a enviar: solo lo que el usuario cambió respecto al bloque (para que el resto lo herede). */
 export function styleFor(block: TextBlock | null, v: { family: Family; size: number; bold: boolean; italic: boolean; align: Align; color?: Rgb }): TextStyle {
   const s: TextStyle = { align: v.align };

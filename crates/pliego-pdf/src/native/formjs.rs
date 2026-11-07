@@ -79,6 +79,9 @@ fn action_js(st: &State, o: &L) -> Option<String> {
     match st.deref(d.get(b"JS").ok()?)? {
         s @ L::String(..) => decode_text(s),
         L::Stream(s) => {
+            if super::object::omitted(s) {
+                return None;
+            }
             let b = s
                 .decompressed_content_with_limit(MAX_JS_BYTES)
                 .unwrap_or_else(|_| s.content.clone());

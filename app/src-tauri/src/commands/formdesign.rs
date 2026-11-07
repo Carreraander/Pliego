@@ -35,8 +35,8 @@ pub async fn form_add_field(
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = formdesign::add(&editor.0, &path, password.as_deref(), &spec, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let saved = formdesign::add_saved(&editor.0, &path, password.as_deref(), &spec, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(editor.0.undo_depth(&path))
 }
 
@@ -54,8 +54,8 @@ pub async fn form_update_field(
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = formdesign::update(&editor.0, &path, password.as_deref(), &name, &patch, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let saved = formdesign::update_saved(&editor.0, &path, password.as_deref(), &name, &patch, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(editor.0.undo_depth(&path))
 }
 
@@ -71,7 +71,7 @@ pub async fn form_delete_field(
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = formdesign::delete(&editor.0, &path, password.as_deref(), &name, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let saved = formdesign::delete_saved(&editor.0, &path, password.as_deref(), &name, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(editor.0.undo_depth(&path))
 }

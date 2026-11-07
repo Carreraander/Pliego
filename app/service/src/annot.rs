@@ -251,8 +251,20 @@ impl Editor {
         values: &FieldValues,
         backup_suffix: &str,
     ) -> Result<(Vec<u8>, Vec<String>)> {
+        let (saved, messages) = self.fill_report_saved(path, password, values, backup_suffix)?;
+        Ok((saved.into_bytes()?, messages))
+    }
+
+    /// Como [`Editor::fill_report`], con el resultado como [`Saved`] (PDF grandes: se guarda al final del archivo).
+    pub fn fill_report_saved(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        values: &FieldValues,
+        backup_suffix: &str,
+    ) -> Result<(Saved, Vec<String>)> {
         let mut messages = Vec::new();
-        let bytes = self.edit_pdf(path, password, backup_suffix, |doc| {
+        let bytes = self.edit_pdf_saved(path, password, backup_suffix, |doc| {
             // Con el JavaScript del formulario: validación, cálculo entre campos y formato, como un lector.
             let r = pliego_forms::fill_with_scripts(doc, values)?;
             if r.filled.is_empty() {
@@ -283,8 +295,21 @@ impl Editor {
         trigger: &str,
         backup_suffix: &str,
     ) -> Result<(Vec<u8>, Vec<String>)> {
+        let (saved, messages) = self.run_action_saved(path, password, name, trigger, backup_suffix)?;
+        Ok((saved.into_bytes()?, messages))
+    }
+
+    /// Como [`Editor::run_action`], con el resultado como [`Saved`].
+    pub fn run_action_saved(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        name: &str,
+        trigger: &str,
+        backup_suffix: &str,
+    ) -> Result<(Saved, Vec<String>)> {
         let mut messages = Vec::new();
-        let bytes = self.edit_pdf(path, password, backup_suffix, |doc| {
+        let bytes = self.edit_pdf_saved(path, password, backup_suffix, |doc| {
             match pliego_forms::run_action(doc, name, trigger)? {
                 Some(m) => messages = m,
                 None => return Err(Error::InvalidInput(format!("el campo «{name}» no tiene esa acción"))),
@@ -420,6 +445,29 @@ impl Editor {
         path: &Path,
         password: Option<&str>,
         backup_suffix: &str,
+        op: impl FnMut(&mut PdfDocument) -> Result<()>,
+    ) -> Result<Saved> {
+        self.edit_saved(path, password, backup_suffix, false, op)
+    }
+
+    /// Como [`Editor::edit_pdf_saved`] pero, en los documentos pequeños, conservando los bytes originales (guardado
+    /// incremental, como [`Editor::edit_pdf_preserving`]).
+    pub fn edit_pdf_preserving_saved(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        backup_suffix: &str,
+        op: impl FnMut(&mut PdfDocument) -> Result<()>,
+    ) -> Result<Saved> {
+        self.edit_saved(path, password, backup_suffix, true, op)
+    }
+
+    fn edit_saved(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        backup_suffix: &str,
+        preserving: bool,
         mut op: impl FnMut(&mut PdfDocument) -> Result<()>,
     ) -> Result<Saved> {
         let size = std::fs::metadata(path).map_err(|e| Error::io_at(path, e))?.len();
@@ -429,7 +477,11 @@ impl Editor {
                 other => return other.map(|()| Saved::File(path.to_path_buf())),
             }
         }
-        self.edit_with(path, backup_suffix, |p| open(p, password), op, save)?;
+        if preserving {
+            self.edit_with(path, backup_suffix, |p| open(p, password), op, save_preserving)?;
+        } else {
+            self.edit_with(path, backup_suffix, |p| open(p, password), op, save)?;
+        }
         saved_of(path)
     }
 
@@ -686,5 +738,85 @@ trailer<</Root 1 0 R/Size 6>>\n%%EOF\n";
         assert!(summary_of(&p, None).is_err());
         ed.undo_saved(&p).unwrap().unwrap();
         assert_eq!(summary_of(&p, Some("abrir")).unwrap().total, 0);
+    }
+
+    #[test]
+    fn every_editing_mode_appends_to_big_files_and_undoes_by_cutting() {
+        use crate::{facts, formdesign, measure, organize};
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("f.pdf");
+        form_pdf(&p);
+        // El de la prueba tiene la tabla de referencias a mano (lopdf la reconstruye): se reescribe bien formado.
+        save(&open(&p, None).unwrap(), &p).unwrap();
+        let original = std::fs::read(&p).unwrap();
+        // `0`: todo se trata como un PDF grande.
+        let ed = Editor::default().with_lean_min_bytes(0);
+        let appended = |before: &[u8]| {
+            let now = std::fs::read(&p).unwrap();
+            assert!(now.starts_with(before) && now.len() > before.len(), "se añade al final");
+            now
+        };
+
+        // Rellenar.
+        let mut v = FieldValues::new();
+        v.insert("nombre".into(), FieldValue::Text("Ñandú".into()));
+        let (saved, _) = ed.fill_report_saved(&p, None, &v, "copia").unwrap();
+        assert!(matches!(saved, Saved::File(_)), "{saved:?}");
+        let after_fill = appended(&original);
+        assert_eq!(form_fields(&p, None).unwrap()[0].value.as_deref(), Some("Ñandú"));
+
+        // Diseñar formularios: cambiar el nombre visible de un campo.
+        let patch = pliego_formdesign::FieldPatch {
+            required: Some(true),
+            ..Default::default()
+        };
+        let saved = formdesign::update_saved(&ed, &p, None, "nombre", &patch, "copia").unwrap();
+        assert!(matches!(saved, Saved::File(_)), "{saved:?}");
+        let after_design = appended(&after_fill);
+
+        // Propiedades.
+        let edit = facts::InfoEdit {
+            title: Some("Título nuevo".into()),
+            ..Default::default()
+        };
+        let saved = facts::properties_save_saved(&ed, &p, None, &edit, "copia").unwrap();
+        assert!(matches!(saved, Saved::File(_)), "{saved:?}");
+        let after_props = appended(&after_design);
+
+        // Marcadores.
+        let nodes = vec![pliego_organize::OutlineNode {
+            title: "Inicio".into(),
+            page: Some(0),
+            children: vec![],
+            ..Default::default()
+        }];
+        let saved = organize::outline_save_saved(&ed, &p, None, &nodes, "copia").unwrap();
+        assert!(matches!(saved, Saved::File(_)), "{saved:?}");
+        let after_outline = appended(&after_props);
+
+        // Medir.
+        let scale = measure::calibrate(100.0, 5.0, pliego_measure::Unit::M).unwrap();
+        let saved = measure::save_saved(
+            &ed,
+            &p,
+            None,
+            "copia",
+            0,
+            &scale,
+            &[[10.0, 10.0], [110.0, 10.0]],
+            false,
+            pliego_core::Lang::Es,
+        )
+        .unwrap()
+        .0;
+        assert!(matches!(saved, Saved::File(_)), "{saved:?}");
+        appended(&after_outline);
+
+        // Cinco cambios, cinco «deshacer» que solo cortan el archivo.
+        assert_eq!(ed.undo_depth(&p), 5);
+        for expected in [&after_outline, &after_props, &after_design, &after_fill, &original] {
+            ed.undo_saved(&p).unwrap().unwrap();
+            assert_eq!(&std::fs::read(&p).unwrap(), expected);
+        }
     }
 }

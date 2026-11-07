@@ -34,7 +34,16 @@ const TextLayer: PageOverlay = (p) => {
   const [target, setTarget] = createSignal<Target | null>(null);
   const at_ = (e: PointerEvent): Pt => [e.offsetX / p.zoom, e.offsetY / p.zoom];
   const px = (b: Box) => ({ left: `${b[0] * p.zoom}px`, top: `${b[1] * p.zoom}px`, width: `${(b[2] - b[0]) * p.zoom}px`, height: `${(b[3] - b[1]) * p.zoom}px` });
-  const corner = (b: Box) => ({ left: `${b[0] * p.zoom}px`, top: `${b[3] * p.zoom + 6}px` });
+  let layer: HTMLDivElement | undefined;
+  /** Recuadro (puntos de página) → píxeles de ventana, y la zona visible del visor, para colocar el formulario. */
+  const anchorOf = (b: Box) => (): Box => {
+    const r = layer?.getBoundingClientRect();
+    return r ? [r.left + b[0] * p.zoom, r.top + b[1] * p.zoom, r.left + b[2] * p.zoom, r.top + b[3] * p.zoom] : [0, 0, 0, 0];
+  };
+  const visible = (): Box => {
+    const r = (layer?.closest(".viewer") ?? document.documentElement).getBoundingClientRect();
+    return [Math.max(0, r.left), Math.max(0, r.top), Math.min(innerWidth, r.right), Math.min(innerHeight, r.bottom)];
+  };
   const preview = () => { const d = drag(); return d ? boxOf(d[0], d[1]) : null; };
 
   const apply = async (text: string, style: Parameters<typeof replaceText>[3]) => {
@@ -46,7 +55,7 @@ const TextLayer: PageOverlay = (p) => {
 
   return (
     <Show when={active()}>
-      <div class="pl-edit-layer" data-tool={editTool()} data-testid="edit-layer"
+      <div ref={layer} class="pl-edit-layer" data-tool={editTool()} data-testid="edit-layer"
         onPointerDown={(e) => {
           if (e.button !== 0 || e.target !== e.currentTarget) return;
           setTarget(null);
@@ -66,7 +75,7 @@ const TextLayer: PageOverlay = (p) => {
         </Show>
         <Show when={preview()} keyed>{(b) => <div class="pl-edit-preview" style={px(b)} />}</Show>
         <Show when={target()} keyed>{(t) => (
-          <TextEditor block={t.kind === "block" ? t.block : null} style={corner(t.kind === "block" ? t.block.bbox : t.rect)}
+          <TextEditor block={t.kind === "block" ? t.block : null} anchor={anchorOf(t.kind === "block" ? t.block.bbox : t.rect)} bounds={visible}
             onApply={(text, style) => void apply(text, style)} onCancel={() => setTarget(null)} />
         )}</Show>
       </div>

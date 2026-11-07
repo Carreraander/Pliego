@@ -139,6 +139,44 @@ test.describe("modo Editar (backend simulado)", () => {
     await expect(page.getByRole("button", { name: "Aplicar" })).toBeDisabled();
   });
 
+  test("Añadir texto al final de lo visible: el formulario no se corta, queda dentro del visor", async ({ page }) => {
+    await page.getByRole("radio", { name: "Añadir texto" }).check();
+    const viewer = page.getByTestId("viewer");
+    const vb = (await viewer.boundingBox())!;
+    // Arrastra a 30 px del borde inferior del visor (en la primera página, hasta el final de lo visible).
+    await page.mouse.move(vb.x + 300, vb.y + vb.height - 70);
+    await page.mouse.down();
+    await page.mouse.move(vb.x + 420, vb.y + vb.height - 30, { steps: 4 });
+    await page.mouse.up();
+    const form = page.locator(".pl-edit-form");
+    await expect(form).toBeVisible();
+    const fb = (await form.boundingBox())!;
+    expect(fb.y).toBeGreaterThanOrEqual(vb.y);
+    expect(fb.y + fb.height).toBeLessThanOrEqual(vb.y + vb.height + 0.5);
+    expect(fb.x + fb.width).toBeLessThanOrEqual(vb.x + vb.width + 0.5);
+    await expect(page.getByRole("button", { name: "Aplicar" })).toBeInViewport();
+    await page.getByLabel("Texto", { exact: true }).fill("Prueba Ander");
+    await expect(page.getByLabel("Texto", { exact: true })).toHaveValue("Prueba Ander");
+  });
+
+  test("Editar texto: con un párrafo al final de lo visible el panel queda dentro del visor", async ({ page }) => {
+    const viewer = page.getByTestId("viewer");
+    const block = page.getByRole("button", { name: /Párrafo: Hola mundo/ }).first();
+    // Sube el párrafo hasta el borde inferior del visor.
+    await viewer.evaluate((el) => { el.scrollTop = 0; });
+    const vb = (await viewer.boundingBox())!;
+    const bb = (await block.boundingBox())!;
+    const target = vb.y + vb.height - bb.height - 4;
+    await viewer.evaluate((el, dy) => { el.scrollTop = Math.max(0, -dy); }, target - bb.y);
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+    await block.click();
+    const form = page.locator(".pl-edit-form");
+    await expect(form).toBeVisible();
+    const fb = (await form.boundingBox())!;
+    expect(fb.y).toBeGreaterThanOrEqual(vb.y);
+    expect(fb.y + fb.height).toBeLessThanOrEqual(vb.y + vb.height + 0.5);
+  });
+
   test("el visor conserva la posición al cambiar la revisión del documento (tras editar una imagen)", async ({ page }) => {
     await page.getByRole("radio", { name: "Imágenes" }).check();
     const viewer = page.getByTestId("viewer");

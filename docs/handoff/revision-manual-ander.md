@@ -9,7 +9,8 @@ Con un PDF abierto, pulsa **Ctrl+P** (o busca «Imprimir» en Ctrl+K):
 1. Se abre el panel «Imprimir» en la columna derecha (no se imprime la interfaz de la app ni sale el menú de Edge).
 2. La **vista previa de la hoja** cambia al elegir «Tamaño real», un porcentaje o «Horizontal», y la página apaisada se gira sola en una hoja vertical.
 3. Imprime en «Microsoft Print to PDF» (o en una impresora de papel): las páginas elegidas salen, centradas y sin cortes; con 2 copias y «Intercalar» el orden es 1, 2 · 1, 2.
-4. Con comentarios y campos rellenados: salen los campos con lo escrito y, con «Incluir comentarios» desmarcado, sin notas ni resaltados.
+4. Con «Páginas por hoja» (2, 4, 6, 9, 16) la vista previa muestra la cuadrícula; con «Folleto» sale en hoja apaisada con dos páginas por cara. Imprime un PDF de 8 páginas como folleto a doble cara, dobla las hojas y comprueba que las páginas quedan en orden y que el reverso no sale boca abajo.
+5. Con comentarios y campos rellenados: salen los campos con lo escrito y, con «Incluir comentarios» desmarcado, sin notas ni resaltados.
 
 ## W43: edición tipo Acrobat (PR #211)
 

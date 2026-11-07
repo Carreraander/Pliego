@@ -45,6 +45,23 @@ fn rejects_invalid_options_before_touching_any_printer() {
 }
 
 #[test]
+fn rejects_incompatible_sheet_layouts() {
+    let run = |extra: &[&str]| {
+        let out = pliego()
+            .args(["printer", "send"])
+            .arg(hola())
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        stderr(&out)
+    };
+    assert!(run(&["--per-sheet", "3"]).contains("las páginas por hoja pueden ser"));
+    assert!(run(&["--booklet", "both", "--per-sheet", "2"]).contains("el folleto ya pone dos páginas"));
+    assert!(run(&["--booklet", "front", "--subset", "odd"]).contains("anversos o los reversos"));
+}
+
+#[test]
 fn list_prints_json_on_windows_and_explains_elsewhere() {
     let out = pliego().args(["--json", "printer", "list"]).output().unwrap();
     if cfg!(windows) {

@@ -4,5 +4,6 @@
 .print-preview__page { position: absolute; display: grid; place-items: center; overflow: visible; box-shadow: 0 0 0 1px var(--pl-border); background: var(--pl-surface-raised); }
 .print-preview__page img { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; }
 .print-preview__img--turned { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+.print-preview__page--framed { box-shadow: 0 0 0 1px var(--pl-text-2); }
 .print-copies { max-width: 8em; }
 @media (forced-colors: active) { .print-preview__sheet { border-color: CanvasText; } .print-preview__area { outline-color: GrayText; } }

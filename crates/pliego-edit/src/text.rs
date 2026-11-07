@@ -15,9 +15,12 @@ use crate::fonts::{Metrics, base14_name, encode};
 use crate::load_page;
 use crate::original::{self, Original};
 use crate::types::{Align, FontFamily, RectPts, Style};
-use crate::unicode::{LoadedFont, Shaper, find_font, is_wide};
+use crate::unicode::{FontSet, Shaper, Stack, find_fonts, is_wide};
 
 const DEFAULT_SIZE: f32 = 12.0;
+/// Comillas angulares con las que los avisos rodean el nombre de una fuente.
+const OPEN: char = '\u{AB}';
+const CLOSE: char = '\u{BB}';
 
 /// Texto ya resuelto: fuente, tamaño y color finales.
 struct Resolved {
@@ -50,9 +53,10 @@ enum Face<'a> {
         name: &'static str,
         metrics: Metrics,
     },
+    /// Una o varias fuentes Unicode: cada carácter va con la primera que lo tiene.
     Uni {
-        shaper: Box<Shaper<'a>>,
-        bytes: &'a [u8],
+        stack: Stack<'a>,
+        set: &'a FontSet,
     },
     /// La fuente que ya usa el bloque original.
     Orig(Original),
@@ -62,7 +66,11 @@ impl Face<'_> {
     fn width(&self, text: &str, size: f32) -> f32 {
         match self {
             Face::Std { metrics, .. } => metrics.width(text, size),
-            Face::Uni { shaper, .. } => shaper.width(text, size),
+            Face::Uni { stack, .. } => stack
+                .runs(text)
+                .iter()
+                .map(|(f, run)| stack.shapers[*f].width(run, size))
+                .sum(),
             Face::Orig(o) => o.width(text, size).unwrap_or(0.0),
         }
     }
@@ -71,52 +79,73 @@ impl Face<'_> {
     fn ascent(&self) -> f32 {
         match self {
             Face::Std { name, .. } => Font::new(name).map(|f| f.ascender().clamp(0.5, 1.2)).unwrap_or(0.8),
-            Face::Uni { shaper, .. } => shaper.ascender().clamp(0.5, 1.2),
+            Face::Uni { stack, .. } => stack.shapers.first().map_or(0.8, |s| s.ascender().clamp(0.5, 1.2)),
             Face::Orig(_) => 0.8,
         }
     }
 
     /// Prepara la fuente en la página para dibujar `lines`: nombre del recurso y, con fuente Unicode, el paso de
-    /// glifo original a código del subconjunto incrustado.
-    fn prepare(&self, page: &mut PdfPage, doc: &mut PdfDocument, lines: &[String], label: &str) -> Result<Prepared> {
+    /// glifo original a código del subconjunto incrustado (una fuente incrustada por cada fuente usada).
+    fn prepare(&self, page: &mut PdfPage, doc: &mut PdfDocument, lines: &[String]) -> Result<Prepared> {
         match self {
-            Face::Std { name, .. } => Ok(Prepared {
-                resource: page.insert_font(doc, name)?.0,
-                codes: None,
-            }),
-            Face::Orig(o) => Ok(Prepared {
-                resource: o.resource.clone(),
-                codes: None,
-            }),
-            Face::Uni { bytes, .. } => {
-                let e = embed_subset(doc, page, bytes, label, lines)?;
-                Ok(Prepared {
-                    resource: e.resource,
-                    codes: Some(e.codes),
-                })
+            Face::Std { name, .. } => Ok(Prepared::Single(page.insert_font(doc, name)?.0)),
+            Face::Orig(o) => Ok(Prepared::Single(o.resource.clone())),
+            Face::Uni { stack, set } => {
+                let mut per_font: Vec<Vec<String>> = vec![Vec::new(); set.fonts.len()];
+                for line in lines {
+                    for (f, run) in stack.runs(line) {
+                        per_font[f].push(run.to_owned());
+                    }
+                }
+                let mut out = Vec::with_capacity(per_font.len());
+                for (f, runs) in per_font.iter().enumerate() {
+                    if runs.is_empty() {
+                        out.push(None);
+                        continue;
+                    }
+                    let font = &set.fonts[f];
+                    let e = embed_subset(doc, page, &font.data, &font.label, runs)?;
+                    out.push(Some((e.resource, e.codes)));
+                }
+                Ok(Prepared::Uni(out))
             }
         }
     }
 
-    /// Cadena hexadecimal del texto con los códigos que usa la fuente en el PDF.
-    fn hex(&self, line: &str, prepared: &Prepared) -> Result<String> {
-        Ok(match (self, &prepared.codes) {
-            (Face::Orig(o), _) => o.hex(line),
-            (Face::Uni { shaper, .. }, Some(codes)) => shaper
-                .shape(line, 1.0)
-                .glyphs
-                .iter()
-                .map(|(g, _)| format!("{:04X}", codes.get(g).copied().unwrap_or(0)))
-                .collect(),
-            _ => encode(line)?.iter().map(|b| format!("{b:02X}")).collect(),
+    /// Trozos de la línea con su fuente (recurso de la página) y su texto en hexadecimal con los códigos que usa
+    /// la fuente en el PDF.
+    fn segments(&self, line: &str, prepared: &Prepared) -> Result<Vec<(String, String)>> {
+        Ok(match (self, prepared) {
+            (Face::Orig(o), Prepared::Single(res)) => vec![(res.clone(), o.hex(line))],
+            (Face::Uni { stack, .. }, Prepared::Uni(fonts)) => {
+                let mut out = Vec::new();
+                for (f, run) in stack.runs(line) {
+                    let Some(Some((res, codes))) = fonts.get(f) else {
+                        continue;
+                    };
+                    let hex: String = stack.shapers[f]
+                        .shape(run, 1.0)
+                        .glyphs
+                        .iter()
+                        .map(|(g, _)| format!("{:04X}", codes.get(g).copied().unwrap_or(0)))
+                        .collect();
+                    out.push((res.clone(), hex));
+                }
+                out
+            }
+            (_, Prepared::Single(res)) => {
+                vec![(res.clone(), encode(line)?.iter().map(|b| format!("{b:02X}")).collect())]
+            }
+            _ => Vec::new(),
         })
     }
 }
 
 /// Fuente lista en la página.
-struct Prepared {
-    resource: String,
-    codes: Option<std::collections::HashMap<u16, u16>>,
+enum Prepared {
+    Single(String),
+    /// Por cada fuente de la pila: recurso y paso de glifo a código (`None` si no se usa).
+    Uni(Vec<Option<(String, std::collections::HashMap<u16, u16>)>>),
 }
 
 /// Trozos de una línea: cada uno puede ir tras un espacio. Los ideogramas, kana y hangul se pueden partir
@@ -196,10 +225,8 @@ fn draw(
     baseline: f32,
     leading: f32,
     face: &Face,
-    label: &str,
 ) -> Result<()> {
-    let prepared = face.prepare(page, doc, lines, label)?;
-    let font_res = &prepared.resource;
+    let prepared = face.prepare(page, doc, lines)?;
     let inv = page
         .object()
         .page_ctm()?
@@ -208,7 +235,6 @@ fn draw(
     let mut s = String::new();
     let [cr, cg, cb] = r.color;
     let _ = writeln!(s, "q\n{} {} {} rg\nBT", pdf_num(cr), pdf_num(cg), pdf_num(cb));
-    let _ = writeln!(s, "{font_res} {} Tf", pdf_num(r.size));
     for (i, line) in lines.iter().enumerate() {
         if line.is_empty() {
             continue;
@@ -223,10 +249,9 @@ fn draw(
         // de texto incluye la inversa de la página para que también salga derecho si está girada.
         let mut tm = Matrix::new(1.0, 0.0, 0.0, -1.0, x, baseline + leading * i as f32);
         tm.concat(inv);
-        let hex = face.hex(line, &prepared)?;
         let _ = writeln!(
             s,
-            "{} {} {} {} {} {} Tm <{hex}> Tj",
+            "{} {} {} {} {} {} Tm",
             pdf_num(tm.a),
             pdf_num(tm.b),
             pdf_num(tm.c),
@@ -234,29 +259,35 @@ fn draw(
             pdf_num(tm.e),
             pdf_num(tm.f)
         );
+        // Cada trozo con su fuente; tras cada `Tj` la posición avanza lo que midió el trozo.
+        for (res, hex) in face.segments(line, &prepared)? {
+            let _ = writeln!(s, "{res} {} Tf <{hex}> Tj", pdf_num(r.size));
+        }
     }
     s.push_str("ET\nQ\n");
     page.insert_contents(doc, s.as_bytes(), true)?;
     Ok(())
 }
 
-/// Carga la fuente Unicode si el texto no cabe en WinAnsi o si se indicó una fuente concreta.
-fn load_unicode(text: &str, style: &Style) -> Result<Option<LoadedFont>> {
+/// Carga las fuentes Unicode si el texto no cabe en WinAnsi o si se indicó una fuente concreta.
+fn load_unicode(text: &str, style: &Style) -> Result<Option<FontSet>> {
     if style.font_file.is_none() && encode(&text.replace('\n', "")).is_ok() {
         return Ok(None);
     }
-    find_font(text, style.font_file.as_deref()).map(Some)
+    find_fonts(text, style.font_file.as_deref()).map(Some)
 }
 
-fn label(loaded: &Option<LoadedFont>) -> &str {
-    loaded.as_ref().map_or("", |l| l.label.as_str())
-}
-
-fn make_face<'a>(res: &Resolved, loaded: &'a Option<LoadedFont>) -> Result<Face<'a>> {
+fn make_face<'a>(res: &Resolved, loaded: &'a Option<FontSet>) -> Result<Face<'a>> {
     Ok(match loaded {
-        Some(l) => Face::Uni {
-            shaper: Box::new(Shaper::new(&l.data)?),
-            bytes: &l.data,
+        Some(set) => Face::Uni {
+            stack: Stack {
+                shapers: set
+                    .fonts
+                    .iter()
+                    .map(|f| Shaper::new(&f.data))
+                    .collect::<Result<Vec<_>>>()?,
+            },
+            set,
         },
         None => Face::Std {
             name: res.font,
@@ -265,28 +296,51 @@ fn make_face<'a>(res: &Resolved, loaded: &'a Option<LoadedFont>) -> Result<Face<
     })
 }
 
-fn font_warning(res: &Resolved, loaded: &Option<LoadedFont>, original: Option<&str>, text: &str) -> String {
+fn font_warnings(res: &Resolved, loaded: &Option<FontSet>, original: Option<&str>, text: &str) -> Vec<String> {
+    let mut out = Vec::new();
     match loaded {
-        Some(l) if encode(&text.replace('\n', "")).is_ok() => format!(
-            "el texto se compuso con la fuente indicada «{}» (negrita y cursiva no se aplican)",
-            l.label
-        ),
-        Some(l) => format!(
-            "el texto usa caracteres que las fuentes estándar no tienen: se compuso con la fuente «{}» (negrita y cursiva no se aplican)",
-            l.label
-        ),
+        Some(set) => {
+            let main = set.fonts[0].label.as_str();
+            let std_ok = encode(&text.replace('\n', "")).is_ok();
+            if set.fonts.len() > 1 {
+                let rest = set.fonts[1..]
+                    .iter()
+                    .map(|f| f.label.as_str())
+                    .collect::<Vec<_>>()
+                    .join(&format!("{CLOSE}, {OPEN}"));
+                out.push(if std_ok {
+                    format!("el texto se compuso con la fuente indicada «{main}» y, para los caracteres que no tiene, con «{rest}» (negrita y cursiva no se aplican)")
+                } else {
+                    format!("el texto usa caracteres que las fuentes estándar no tienen: se compuso con la fuente «{main}» y, para los caracteres que no tiene, con «{rest}» (negrita y cursiva no se aplican)")
+                });
+            } else {
+                out.push(if std_ok {
+                    format!("el texto se compuso con la fuente indicada «{main}» (negrita y cursiva no se aplican)")
+                } else {
+                    format!("el texto usa caracteres que las fuentes estándar no tienen: se compuso con la fuente «{main}» (negrita y cursiva no se aplican)")
+                });
+            }
+            if !set.missing.is_empty() {
+                let list: String = set.missing.iter().take(8).collect();
+                out.push(format!(
+                    "ninguna fuente instalada tiene los caracteres «{list}»: se dibujan como un recuadro vacío. \
+                     Indica otra fuente con --font-file o instala Noto Sans CJK desde los ajustes de Pliego"
+                ));
+            }
+        }
         None if original.is_some_and(|o| o.eq_ignore_ascii_case(res.font)) => {
-            format!(
+            out.push(format!(
                 "se compuso con la fuente estándar {}, la misma que el original",
                 res.font
-            )
+            ));
         }
-        None => format!(
+        None => out.push(format!(
             "se usó la fuente estándar {} en lugar de «{}»: el aspecto del texto puede variar ligeramente",
             res.font,
             original.unwrap_or("desconocida")
-        ),
+        )),
     }
+    out
 }
 
 fn rect_of(r: RectPts) -> Rect {
@@ -445,7 +499,6 @@ fn replace_impl(
             raw.first_origin.1,
             leading,
             &face,
-            label(&loaded),
         )?;
         for pl in placements {
             // El resto del párrafo continúa en lo alto del cuerpo de las páginas siguientes.
@@ -460,7 +513,6 @@ fn replace_impl(
                 pl.top + (raw.first_origin.1 - b.bbox[1]),
                 leading,
                 &face,
-                label(&loaded),
             )?;
         }
 
@@ -478,7 +530,7 @@ fn replace_impl(
         } else {
             report
                 .warnings
-                .push(font_warning(&res, &loaded, b.font_name.as_deref(), new_text));
+                .extend(font_warnings(&res, &loaded, b.font_name.as_deref(), new_text));
         }
         report.summary = format!("Texto del bloque {block} reemplazado en la página {}", page + 1);
         Ok(())
@@ -510,7 +562,6 @@ pub fn insert_text(doc: &mut Document, page: usize, rect: RectPts, text: &str, s
             rect[1] + ascent,
             leading,
             &face,
-            label(&loaded),
         )?;
         let bottom = rect[1] + ascent + leading * (lines.len().saturating_sub(1)) as f32;
         if bottom > rect[3] + 0.5 {
@@ -519,7 +570,7 @@ pub fn insert_text(doc: &mut Document, page: usize, rect: RectPts, text: &str, s
                 .push("el texto no cabe en el recuadro y se sale por abajo".into());
         }
         if loaded.is_some() {
-            report.warnings.push(font_warning(&res, &loaded, None, text));
+            report.warnings.extend(font_warnings(&res, &loaded, None, text));
         }
         report.summary = format!("Texto añadido en la página {}", page + 1);
         Ok(())

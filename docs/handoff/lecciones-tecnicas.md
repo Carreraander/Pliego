@@ -71,3 +71,13 @@ Trampas que costó descubrir. Consultar antes de tocar lo relacionado.
   guarda las ediciones. El archivo puede cambiar bajo el visor; `LazyFile` lo detecta (tamaño y fecha) y falla limpio hasta que se recarga.
 - **glibc (Linux) no devuelve a RssAnon la memoria de muchas asignaciones de unos MB** aunque se liberen (la medida parecía una fuga: 2 GB
   tras editar). Para medir en Linux: `MALLOC_MMAP_THRESHOLD_=1048576 MALLOC_TRIM_THRESHOLD_=1048576`. En Windows no ocurre.
+
+## Edición de texto con emojis y fuentes sin glifos
+- `pliego-edit` ya no falla si ninguna fuente tiene un carácter: `unicode::find_fonts` busca una sola fuente que lo cubra todo y, si no
+  hay, combina varias (la que cubre más primero; símbolos y emojis de Windows `seguisym.ttf`/`seguiemj.ttf` al final). El texto se parte
+  en trozos por fuente (`Stack::runs`) y cada trozo lleva su `Tf` y su subconjunto incrustado. Lo que ninguna fuente tiene sale como
+  recuadro vacío y se avisa en el informe (`missing`).
+- Los emojis salen en monocromo: el subconjunto (`subsetter`) conserva los contornos `glyf` pero no la capa de color COLR/CPAL.
+- Las pruebas de `pliego-edit` necesitan PDFium: `PLIEGO_PDFIUM_DLL` con la biblioteca fijada en `tools/pdfium/pdfium.lock.json`.
+- El formulario de Editar texto (`TextEditor.tsx`) se recoloca con `placeForm` para que no lo corte el borde de la página: debajo del
+  texto, encima si no cabe, o pegado al borde inferior.

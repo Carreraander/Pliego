@@ -3,7 +3,7 @@ import { createResource, createSignal, For, Match, Show, Switch } from "solid-js
 import { activeMode } from "../../shell";
 import type { PageOverlay } from "../../viewer/overlays";
 import { insertText, loadBlocks, replaceText } from "./edit";
-import { addBox, boxOf, type Box, type Pt, type TextBlock } from "./geometry";
+import { addBox, boxOf, type Box, type FormAnchor, type Pt, type TextBlock } from "./geometry";
 import { editTool, reflow } from "./state";
 import { LinkLayer } from "./LinkLayer";
 import { ObjectLayer } from "./ObjectLayer";
@@ -34,7 +34,7 @@ const TextLayer: PageOverlay = (p) => {
   const [target, setTarget] = createSignal<Target | null>(null);
   const at_ = (e: PointerEvent): Pt => [e.offsetX / p.zoom, e.offsetY / p.zoom];
   const px = (b: Box) => ({ left: `${b[0] * p.zoom}px`, top: `${b[1] * p.zoom}px`, width: `${(b[2] - b[0]) * p.zoom}px`, height: `${(b[3] - b[1]) * p.zoom}px` });
-  const corner = (b: Box) => ({ left: `${b[0] * p.zoom}px`, top: `${b[3] * p.zoom + 6}px` });
+  const corner = (b: Box): FormAnchor => ({ x: b[0] * p.zoom, below: b[3] * p.zoom + 6, above: b[1] * p.zoom - 6 });
   const preview = () => { const d = drag(); return d ? boxOf(d[0], d[1]) : null; };
 
   const apply = async (text: string, style: Parameters<typeof replaceText>[3]) => {
@@ -66,7 +66,7 @@ const TextLayer: PageOverlay = (p) => {
         </Show>
         <Show when={preview()} keyed>{(b) => <div class="pl-edit-preview" style={px(b)} />}</Show>
         <Show when={target()} keyed>{(t) => (
-          <TextEditor block={t.kind === "block" ? t.block : null} style={corner(t.kind === "block" ? t.block.bbox : t.rect)}
+          <TextEditor block={t.kind === "block" ? t.block : null} anchor={corner(t.kind === "block" ? t.block.bbox : t.rect)}
             onApply={(text, style) => void apply(text, style)} onCancel={() => setTarget(null)} />
         )}</Show>
       </div>

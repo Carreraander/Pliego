@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addBox, blockAt, changed, clampBox, dragBox, parseColor, parseSize, parseTarget, rotateTransform, styleFor, targetText, toHex, transformBetween, type TextBlock } from "./geometry";
+import { addBox, blockAt, changed, clampBox, dragBox, parseColor, parseSize, parseTarget, placeForm, rotateTransform, styleFor, targetText, toHex, transformBetween, type TextBlock } from "./geometry";
 
 const block = (id: number, bbox: [number, number, number, number]): TextBlock =>
   ({ page: 0, id, bbox, text: "t", lines: ["t"], font_size: 12, bold: false, italic: false, family: "sans" });
@@ -80,5 +80,17 @@ describe("geometría de imágenes, objetos y enlaces", () => {
     expect(targetText({ type: "page", page: 2 })).toBe("3");
     expect(targetText({ type: "uri", uri: "https://a.es" })).toBe("https://a.es");
     expect(targetText(null)).toBe("");
+  });
+  it("coloca el formulario sin que se corte por el borde de la página", () => {
+    const size = { w: 320, h: 280 };
+    const page = { w: 600, h: 800 };
+    // Cabe debajo.
+    expect(placeForm({ x: 50, below: 100, above: 90 }, size, page)).toEqual({ left: 50, top: 100 });
+    // No cabe debajo (texto al final de la página): va encima.
+    expect(placeForm({ x: 50, below: 760, above: 740 }, size, page)).toEqual({ left: 50, top: 460 });
+    // No cabe ni debajo ni encima: pegado al borde inferior.
+    expect(placeForm({ x: 50, below: 200, above: 190 }, size, { w: 600, h: 300 })).toEqual({ left: 50, top: 20 });
+    // Se mantiene dentro por la derecha.
+    expect(placeForm({ x: 500, below: 100, above: 90 }, size, page).left).toBe(280);
   });
 });

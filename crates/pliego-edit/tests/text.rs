@@ -101,12 +101,15 @@ fn reflujo_largo_y_aviso_de_desborde() {
 }
 
 #[test]
-fn caracteres_que_ninguna_fuente_tiene_fallan_con_mensaje() {
+fn caracteres_que_ninguna_fuente_tiene_avisan_sin_bloquear() {
     let mut doc = open();
     let b = text_blocks(&doc, 0).unwrap().remove(0);
-    let err = replace_text(&mut doc, 0, b.id, "\u{10FFFD}", &Style::default()).unwrap_err();
-    assert!(err.to_string().contains("ninguna fuente"), "{err}");
-    assert!(!doc.is_modified());
+    let report = replace_text(&mut doc, 0, b.id, "ok \u{10FFFD}", &Style::default()).unwrap();
+    assert!(
+        report.warnings.iter().any(|w| w.contains("ninguna fuente")),
+        "{report:?}"
+    );
+    assert!(doc.is_modified());
 }
 
 #[test]

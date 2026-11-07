@@ -31,6 +31,20 @@ export function addBox(a: Pt, b: Pt): Box {
   return [a[0], a[1], a[0] + DEFAULT_ADD[0], a[1] + DEFAULT_ADD[1]];
 }
 
+/** Dónde anclar el formulario (píxeles de la página): a la izquierda del texto, debajo de él o, si no cabe, encima. */
+export interface FormAnchor { x: number; below: number; above: number }
+
+/**
+ * Posición del formulario de `size` (px) dentro de una página de `page` (px) sin que se corte: debajo del texto si
+ * cabe; si no, encima; y si tampoco, pegado al borde inferior de la página. Horizontalmente se mantiene dentro.
+ */
+export function placeForm(a: FormAnchor, size: { w: number; h: number }, page: { w: number; h: number }): { left: number; top: number } {
+  const left = Math.max(0, Math.min(a.x, page.w - size.w));
+  let top = a.below;
+  if (top + size.h > page.h) top = a.above - size.h >= 0 ? a.above - size.h : Math.max(0, page.h - size.h);
+  return { left, top };
+}
+
 /** Estilo a enviar: solo lo que el usuario cambió respecto al bloque (para que el resto lo herede). */
 export function styleFor(block: TextBlock | null, v: { family: Family; size: number; bold: boolean; italic: boolean; align: Align; color?: Rgb }): TextStyle {
   const s: TextStyle = { align: v.align };

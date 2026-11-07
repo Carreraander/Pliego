@@ -88,8 +88,34 @@ const DECODABLE: &[&[u8]] = &[
 /// Límite de tamaño al descomprimir un flujo (defensa contra bombas de descompresión).
 const MAX_DECODED: usize = 1 << 30;
 
+/// Clave que marca, en el diccionario de un flujo, que su contenido no se cargó (documentos abiertos con
+/// `PdfDocument::open_for_viewing` y `PdfDocument::open_lean`). Nunca se escribe en un archivo.
+pub(crate) const OMITTED_KEY: &[u8] = b"PliegoOmitido";
+
+std::thread_local! {
+    /// Alguien intentó leer un flujo omitido en este hilo desde el último `PdfDocument::open_lean`: lo que se haya
+    /// calculado con ese contenido vacío no es fiable, así que el guardado ligero se niega (y se usa el completo).
+    pub(crate) static OMITTED_READ: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// `true` si el contenido de `s` no se cargó; en ese caso anota la lectura en [`OMITTED_READ`].
+pub(crate) fn omitted(s: &Stream) -> bool {
+    let om = s.dict.has(OMITTED_KEY);
+    if om {
+        OMITTED_READ.with(|f| f.set(true));
+    }
+    om
+}
+
+fn omitted_error() -> pliego_core::Error {
+    pliego_core::Error::Unsupported("el flujo es muy grande y no está cargado en este modo".into())
+}
+
 /// Contenido del flujo con los filtros genéricos aplicados (se detiene ante un filtro de imagen).
 pub(crate) fn decode_stream(s: &Stream) -> Result<Vec<u8>> {
+    if omitted(s) {
+        return Err(omitted_error());
+    }
     let filters: Vec<Vec<u8>> = match s.filters() {
         Ok(f) => f.into_iter().map(<[u8]>::to_vec).collect(),
         Err(_) => return Ok(s.content.clone()),
@@ -449,6 +475,7 @@ impl Object {
     /// Contenido del flujo tal como está en el archivo (con sus filtros).
     pub fn read_raw_stream(&self) -> Result<Vec<u8>> {
         self.read(|o| match o {
+            L::Stream(s) if omitted(s) => Err(omitted_error()),
             L::Stream(s) => Ok(s.content.clone()),
             _ => Err(pdf_err("el objeto no es un flujo")),
         })

@@ -72,7 +72,7 @@ pub async fn measure_save(
     lang: Option<String>,
 ) -> ApiResult<Saved> {
     let path = PathBuf::from(path);
-    let (bytes, measurement) = measure::save(
+    let (saved, measurement) = measure::save_saved(
         &editor.0,
         &path,
         password.as_deref(),
@@ -83,7 +83,7 @@ pub async fn measure_save(
         closed,
         lang_of(lang),
     )?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(Saved {
         measurement,
         undo_depth: editor.0.undo_depth(&path),

@@ -84,6 +84,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         print::print_printer_caps,
         print::print_sheet,
         print::print_preview_layout,
+        print::print_preview_landscape,
         checks::check_accessibility,
         measure::measure_page_scale,
         measure::measure_calibrate,

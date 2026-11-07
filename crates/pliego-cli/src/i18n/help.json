@@ -363,5 +363,10 @@
   ["No incluye comentarios ni marcas","Leave out comments and markup"],
   ["Identificador de papel de Windows (9 = A4…). Por defecto, el de la impresora","Windows paper identifier (9 = A4…). Defaults to the printer's own"],
   ["Imprime en un archivo (impresoras «a PDF»; sirve para probar sin gastar papel)","Print to a file (“to PDF” printers; useful to test without using paper)"],
-  ["Contraseña del PDF. Si falta se usa `PLIEGO_PASSWORD`","PDF password. If missing, `PLIEGO_PASSWORD` is used"]
+  ["Contraseña del PDF. Si falta se usa `PLIEGO_PASSWORD`","PDF password. If missing, `PLIEGO_PASSWORD` is used"],
+  ["Páginas por hoja: 1, 2, 4, 6, 9 o 16 (con varias, la escala es siempre «ajustar»)","Pages per sheet: 1, 2, 4, 6, 9 or 16 (with several, the scale is always “fit”)"],
+  ["Orden de las páginas en la hoja con `--per-sheet`","Page order on the sheet with `--per-sheet`"],
+  ["Dibuja un marco alrededor de cada página (varias por hoja y folleto)","Draw a frame around each page (several per sheet and booklet)"],
+  ["Folleto: dos páginas por cara, ordenadas para doblar y grapar","Booklet: two pages per side, ordered for folding and stapling"],
+  ["Folleto de derecha a izquierda (lomo a la derecha)","Right-to-left booklet (spine on the right)"]
 ]

@@ -11,9 +11,10 @@ use std::ptr::{null, null_mut};
 use pliego_core::{Error, JobContext, Report, Result};
 use pliego_pdf::print::{PrintDocument, flags};
 use windows_sys::Win32::Graphics::Gdi::{
-    CreateDCW, CreateICW, DEVMODEW, DM_COLLATE, DM_COLOR, DM_COPIES, DM_DUPLEX, DM_IN_BUFFER, DM_ORIENTATION,
-    DM_OUT_BUFFER, DM_PAPERSIZE, DMCOLOR_MONOCHROME, DeleteDC, GetDeviceCaps, HDC, HORZRES, LOGPIXELSX, LOGPIXELSY,
-    PHYSICALHEIGHT, PHYSICALOFFSETX, PHYSICALOFFSETY, PHYSICALWIDTH, VERTRES,
+    CreateDCW, CreateICW, CreatePen, DEVMODEW, DM_COLLATE, DM_COLOR, DM_COPIES, DM_DUPLEX, DM_IN_BUFFER,
+    DM_ORIENTATION, DM_OUT_BUFFER, DM_PAPERSIZE, DMCOLOR_MONOCHROME, DeleteDC, DeleteObject, GetDeviceCaps,
+    GetStockObject, HDC, HORZRES, LOGPIXELSX, LOGPIXELSY, NULL_BRUSH, PHYSICALHEIGHT, PHYSICALOFFSETX, PHYSICALOFFSETY,
+    PHYSICALWIDTH, PS_SOLID, Rectangle, SelectObject, VERTRES,
 };
 use windows_sys::Win32::Graphics::Printing::{
     ClosePrinter, DocumentPropertiesW, EnumPrintersW, GetDefaultPrinterW, OpenPrinterW, PRINTER_ENUM_CONNECTIONS,
@@ -26,7 +27,7 @@ use windows_sys::Win32::Storage::Xps::{
 
 use crate::devices::{Paper, PrinterCaps, PrinterEntry};
 use crate::job::{PrintTarget, run_job};
-use crate::layout::{CopiesPlan, Placement, SheetMetrics, choose_landscape, plan_copies};
+use crate::layout::{CopiesPlan, SheetMetrics, SheetPlan, choose_landscape, plan_copies, plan_copies_for};
 use crate::options::{Duplex, PrintOptions};
 use crate::prepare::prepare;
 
@@ -276,7 +277,7 @@ fn job_devmode(
             }
         }
         if caps.duplex {
-            d.dmDuplex = match options.duplex {
+            d.dmDuplex = match options.effective_duplex() {
                 Duplex::Off => DMDUP_SIMPLEX,
                 Duplex::LongEdge => DMDUP_VERTICAL,
                 Duplex::ShortEdge => DMDUP_HORIZONTAL,
@@ -373,6 +374,25 @@ impl Drop for GdiTarget<'_> {
     }
 }
 
+impl GdiTarget<'_> {
+    /// Marco fino (media punta de 72 ppp, al menos un píxel) alrededor del rectángulo dado.
+    fn frame(&self, x: i32, y: i32, w: i32, h: i32) {
+        let dpi = f64::from(unsafe { GetDeviceCaps(self.hdc, LOGPIXELSX as i32) }).max(1.0);
+        let width = ((dpi / 144.0).round() as i32).max(1);
+        // SAFETY: lápiz propio que se selecciona, se usa y se devuelve al contexto antes de borrarlo; el pincel nulo es
+        // un objeto de serie que no se borra.
+        unsafe {
+            let pen = CreatePen(PS_SOLID, width, 0);
+            let old_pen = SelectObject(self.hdc, pen);
+            let old_brush = SelectObject(self.hdc, GetStockObject(NULL_BRUSH));
+            Rectangle(self.hdc, x, y, x + w, y + h);
+            SelectObject(self.hdc, old_brush);
+            SelectObject(self.hdc, old_pen);
+            DeleteObject(pen);
+        }
+    }
+}
+
 impl PrintTarget for GdiTarget<'_> {
     fn metrics(&self) -> SheetMetrics {
         metrics_of(self.hdc)
@@ -398,21 +418,31 @@ impl PrintTarget for GdiTarget<'_> {
         Ok(())
     }
 
-    fn print_page(&mut self, page: u32, placement: &Placement) -> Result<()> {
+    fn print_sheet(&mut self, sheet: &SheetPlan) -> Result<()> {
         // SAFETY: contexto válido con un documento abierto.
         if unsafe { StartPage(self.hdc) } <= 0 {
             return Err(Error::Other("la impresora no aceptó la hoja".into()));
         }
-        // SAFETY: `hdc` es un contexto de impresora válido con una página abierta (StartPage) hasta el EndPage de abajo.
-        let drawn = unsafe {
-            self.doc.draw_page(
-                page as i32,
-                self.hdc.cast::<c_void>(),
-                (placement.x, placement.y, placement.w, placement.h),
-                placement.rotate,
-                self.flags,
-            )
-        };
+        let mut drawn = Ok(());
+        for slot in &sheet.slots {
+            let p = &slot.placement;
+            // SAFETY: `hdc` es un contexto de impresora válido con una página abierta (StartPage) hasta el EndPage de abajo.
+            drawn = unsafe {
+                self.doc.draw_page(
+                    slot.page as i32,
+                    self.hdc.cast::<c_void>(),
+                    (p.x, p.y, p.w, p.h),
+                    p.rotate,
+                    self.flags,
+                )
+            };
+            if drawn.is_err() {
+                break;
+            }
+            if sheet.borders {
+                self.frame(p.x, p.y, p.w, p.h);
+            }
+        }
         // SAFETY: cierra la hoja abierta arriba.
         let ended = unsafe { EndPage(self.hdc) };
         drawn?;
@@ -447,7 +477,7 @@ pub fn print_file(path: &Path, password: Option<&str>, options: &PrintOptions, c
     let prepared = prepare(path, password)?;
     let doc = PrintDocument::open(prepared.bytes, prepared.password.as_deref())?;
     let count = doc.page_count().max(0) as u32;
-    let selection = options.selection(count)?;
+    let first_page = options.base_selection(count)?[0];
     let sizes = (0..count as i32)
         .map(|i| doc.page_size(i))
         .collect::<Result<Vec<_>>>()?;
@@ -462,11 +492,18 @@ pub fn print_file(path: &Path, password: Option<&str>, options: &PrintOptions, c
     };
     let caps = capabilities(&name)?;
     let mut warnings = Vec::new();
-    if options.duplex != Duplex::Off && !caps.duplex {
+    let duplex = options.effective_duplex() != Duplex::Off;
+    if duplex && !caps.duplex {
         warnings.push(format!("«{name}» no imprime a doble cara: se imprimió a una cara"));
     }
-    let copies = plan_copies(options.copies, options.collate, caps.max_copies, caps.collate);
-    let landscape = choose_landscape(options, sizes[selection[0] as usize]);
+    let copies = plan_copies_for(
+        options.copies,
+        options.collate,
+        caps.max_copies,
+        caps.collate,
+        duplex && caps.duplex,
+    );
+    let landscape = choose_landscape(options, sizes[first_page as usize]);
     let devmode = job_devmode(&name, options, landscape, &copies, &caps)?;
 
     let wname = wide(&name);
@@ -495,11 +532,11 @@ pub fn print_file(path: &Path, password: Option<&str>, options: &PrintOptions, c
     let sent = run_job(&sizes, options, copies, &mut target, &title, ctx)?;
     let summary = if copies.device_copies > 1 {
         format!(
-            "Se enviaron {} página(s) × {} copias a «{name}»",
-            sent.distinct_pages, copies.device_copies
+            "Se enviaron {} hoja(s) × {} copias a «{name}»",
+            sent.distinct_sheets, copies.device_copies
         )
     } else {
-        format!("Se enviaron {} página(s) a «{name}»", sent.pages_sent)
+        format!("Se enviaron {} hoja(s) a «{name}»", sent.sheets_sent)
     };
     Ok(Report {
         outputs: options.output.iter().cloned().collect(),

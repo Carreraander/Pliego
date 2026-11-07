@@ -2,7 +2,9 @@
 
 use pliego_app_service::api::{ApiError, ApiResult};
 use pliego_app_service::ocr::find_cli;
-use pliego_app_service::print::{self, Placement, PrintOptions, PrintRequest, PrinterCaps, PrinterEntry, SheetMetrics};
+use pliego_app_service::print::{
+    self, PreviewPlan, PrintOptions, PrintRequest, PrinterCaps, PrinterEntry, SheetMetrics,
+};
 use pliego_appdata::jobs::JobId;
 use pliego_core::Error;
 use tauri::State;
@@ -46,13 +48,19 @@ pub async fn print_sheet(name: String, paper: Option<i16>, landscape: bool) -> A
     query(move |cli| print::sheet(cli, &name, paper, landscape)).await
 }
 
-/// Dónde cae una página en la hoja con las opciones elegidas (las mismas cuentas que la impresión).
+/// Cómo sale la primera cara en la hoja con las opciones elegidas, y cuántas caras son (las mismas cuentas que la
+/// impresión). `sizes` son los tamaños `(ancho, alto)` en puntos de todas las páginas del documento.
 #[tauri::command]
 pub fn print_preview_layout(
-    page_width: f32,
-    page_height: f32,
+    sizes: Vec<(f32, f32)>,
     sheet: SheetMetrics,
     options: PrintOptions,
-) -> ApiResult<Placement> {
-    print::preview_placement(page_width, page_height, &sheet, &options).map_err(ApiError::from)
+) -> ApiResult<PreviewPlan> {
+    print::preview_plan(&sizes, &sheet, &options).map_err(ApiError::from)
+}
+
+/// ¿La hoja del trabajo es apaisada? (decide qué hoja pedir a la impresora para la vista previa).
+#[tauri::command]
+pub fn print_preview_landscape(options: PrintOptions, first_width: f32, first_height: f32) -> ApiResult<bool> {
+    print::preview_landscape(&options, (first_width, first_height)).map_err(ApiError::from)
 }

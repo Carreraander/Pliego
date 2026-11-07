@@ -124,6 +124,26 @@ if ($varias) {
         Imprimir $varias.FullName (Join-Path $Salida 'alreves.pdf') @('--paper', '9', '--reverse') | Out-Null
         if ((Info (Join-Path $Salida 'alreves.pdf')).page_count -ne $total) { throw 'al revés no imprimió todas' }
     }
+    Caso "varias páginas por hoja y folleto ($($varias.Name))" {
+        $total = (Info $varias.FullName).page_count
+        Imprimir $varias.FullName (Join-Path $Salida 'dos-por-hoja.pdf') @('--paper', '9', '--per-sheet', '2', '--borders') | Out-Null
+        if ((Info (Join-Path $Salida 'dos-por-hoja.pdf')).page_count -ne [math]::Ceiling($total / 2)) { throw '2 por hoja no cuadra' }
+        Imprimir $varias.FullName (Join-Path $Salida 'cuatro-por-hoja.pdf') @('--paper', '9', '--per-sheet', '4', '--nup-order', 'vertical') | Out-Null
+        if ((Info (Join-Path $Salida 'cuatro-por-hoja.pdf')).page_count -ne [math]::Ceiling($total / 4)) { throw '4 por hoja no cuadra' }
+        Imprimir $varias.FullName (Join-Path $Salida 'folleto.pdf') @('--paper', '9', '--booklet', 'both') | Out-Null
+        if ((Info (Join-Path $Salida 'folleto.pdf')).page_count -ne ([math]::Ceiling($total / 4) * 2)) { throw 'el folleto no cuadra' }
+        Imprimir $varias.FullName (Join-Path $Salida 'folleto-anversos.pdf') @('--paper', '9', '--booklet', 'front') | Out-Null
+        if ((Info (Join-Path $Salida 'folleto-anversos.pdf')).page_count -ne [math]::Ceiling($total / 4)) { throw 'los anversos no cuadran' }
+        Pagina (Join-Path $Salida 'dos-por-hoja.pdf') 'dos-por-hoja'
+        Pagina (Join-Path $Salida 'cuatro-por-hoja.pdf') 'cuatro-por-hoja'
+        Pagina (Join-Path $Salida 'folleto.pdf') 'folleto'
+    }
+}
+Caso 'rechaza repartos incompatibles antes de tocar la impresora' {
+    & $Pliego printer send $hola -P $Impresora --per-sheet 3 2>$null
+    if ($LASTEXITCODE -eq 0) { throw 'aceptó 3 páginas por hoja' }
+    & $Pliego printer send $hola -P $Impresora --booklet both --per-sheet 2 2>$null
+    if ($LASTEXITCODE -eq 0) { throw 'aceptó folleto con varias por hoja' }
 }
 Write-Host ''
 Write-Host "Resultados en $Salida (abre los PNG de cada subcarpeta para el juicio visual)."

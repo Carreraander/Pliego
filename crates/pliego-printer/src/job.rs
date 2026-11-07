@@ -3,7 +3,7 @@
 
 use pliego_core::{JobContext, Result};
 
-use crate::layout::{CopiesPlan, Placement, SheetMetrics, place};
+use crate::layout::{CopiesPlan, SheetMetrics, SheetPlan, plan_sheets};
 use crate::options::PrintOptions;
 
 /// Donde caen las páginas.
@@ -11,8 +11,9 @@ pub trait PrintTarget {
     /// Medidas de la hoja (con la orientación del trabajo).
     fn metrics(&self) -> SheetMetrics;
     fn start_document(&mut self, title: &str) -> Result<()>;
-    /// Imprime la página `page` (desde 0) ya colocada: abre una hoja, la dibuja y la cierra.
-    fn print_page(&mut self, page: u32, placement: &Placement) -> Result<()>;
+    /// Imprime una cara: abre la hoja, dibuja en ella cada página ya colocada (y su marco si se pide) y la cierra.
+    /// Sin páginas es una hoja en blanco.
+    fn print_sheet(&mut self, sheet: &SheetPlan) -> Result<()>;
     fn end_document(&mut self) -> Result<()>;
     /// Cancela el trabajo; no debe fallar.
     fn abort_document(&mut self);
@@ -21,10 +22,10 @@ pub trait PrintTarget {
 /// Lo que se hizo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JobSummary {
-    /// Hojas enviadas por Pliego (las copias que hace el controlador no cuentan).
-    pub pages_sent: u32,
-    /// Páginas distintas del documento.
-    pub distinct_pages: u32,
+    /// Caras enviadas por Pliego (las copias que hace el controlador no cuentan).
+    pub sheets_sent: u32,
+    /// Caras distintas del trabajo.
+    pub distinct_sheets: u32,
 }
 
 /// Imprime las páginas de `options` (con `sizes[i]` = tamaño en puntos de la página `i`).
@@ -36,22 +37,32 @@ pub fn run_job(
     title: &str,
     ctx: &JobContext,
 ) -> Result<JobSummary> {
-    let pages = options.selection(sizes.len() as u32)?;
-    let total = u64::from(pages.len() as u32) * u64::from(copies.set_repeats) * u64::from(copies.page_repeats);
+    // Se calcula todo antes de tocar la impresora: una selección vacía o unas opciones no válidas no abren trabajo.
+    let sheet = target.metrics();
+    let plans = plan_sheets(sizes, &sheet, options)?;
+    let blank = SheetPlan::default();
+    let padding = u64::from(copies.pad_odd_sets && plans.len() % 2 == 1) * u64::from(copies.set_repeats - 1);
+    let total = plans.len() as u64 * u64::from(copies.set_repeats) * u64::from(copies.page_repeats) + padding;
     ctx.step(0, total, "Preparando la impresión")?;
     target.start_document(title)?;
-    let sheet = target.metrics();
     let mut done = 0u64;
     let result: Result<()> = (|| {
-        for _ in 0..copies.set_repeats {
-            for &page in &pages {
-                let (w, h) = sizes[page as usize];
-                let placement = place(w, h, &sheet, options);
+        for set in 0..copies.set_repeats {
+            for (n, plan) in plans.iter().enumerate() {
+                let message = match plan.slots.as_slice() {
+                    [one] => format!("Imprimiendo la página {}", one.page + 1),
+                    _ => format!("Imprimiendo la hoja {}", n + 1),
+                };
                 for _ in 0..copies.page_repeats {
-                    ctx.step(done, total, &format!("Imprimiendo la página {}", page + 1))?;
-                    target.print_page(page, &placement)?;
+                    ctx.step(done, total, &message)?;
+                    target.print_sheet(plan)?;
                     done += 1;
                 }
+            }
+            if copies.pad_odd_sets && plans.len() % 2 == 1 && set + 1 < copies.set_repeats {
+                ctx.step(done, total, "Añadiendo una hoja en blanco")?;
+                target.print_sheet(&blank)?;
+                done += 1;
             }
         }
         Ok(())
@@ -61,8 +72,8 @@ pub fn run_job(
             target.end_document()?;
             ctx.step(total, total, "Enviado a la impresora")?;
             Ok(JobSummary {
-                pages_sent: done as u32,
-                distinct_pages: pages.len() as u32,
+                sheets_sent: done as u32,
+                distinct_sheets: plans.len() as u32,
             })
         }
         Err(e) => {
@@ -97,11 +108,20 @@ mod tests {
             self.log.push(format!("doc:{title}"));
             Ok(())
         }
-        fn print_page(&mut self, page: u32, p: &Placement) -> Result<()> {
-            if self.fail_on == Some(page) {
+        fn print_sheet(&mut self, sheet: &SheetPlan) -> Result<()> {
+            if sheet.slots.iter().any(|s| self.fail_on == Some(s.page)) {
                 return Err(Error::Other("la impresora no responde".into()));
             }
-            self.log.push(format!("p{}:r{}", page + 1, p.rotate));
+            if sheet.slots.is_empty() {
+                self.log.push("blank".into());
+            } else {
+                let parts: Vec<String> = sheet
+                    .slots
+                    .iter()
+                    .map(|s| format!("p{}:r{}", s.page + 1, s.placement.rotate))
+                    .collect();
+                self.log.push(parts.join("+"));
+            }
             Ok(())
         }
         fn end_document(&mut self) -> Result<()> {
@@ -132,7 +152,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(t.log, ["doc:doc", "p1:r0", "p2:r1", "p3:r0", "end"]);
-        assert_eq!((s.pages_sent, s.distinct_pages), (3, 3));
+        assert_eq!((s.sheets_sent, s.distinct_sheets), (3, 3));
     }
 
     #[test]
@@ -234,5 +254,48 @@ mod tests {
             .is_err()
         );
         assert!(t.log.is_empty());
+    }
+
+    #[test]
+    fn booklet_job_prints_two_pages_per_side() {
+        let mut t = Fake::default();
+        let opts = PrintOptions {
+            booklet: crate::options::Booklet::Both,
+            ..PrintOptions::default()
+        };
+        let sizes = [(595.0, 842.0); 4];
+        let s = run_job(
+            &sizes,
+            &opts,
+            plan_copies(1, true, 1, false),
+            &mut t,
+            "d",
+            &JobContext::silent(),
+        )
+        .unwrap();
+        assert_eq!(t.log, ["doc:d", "p4:r0+p1:r0", "p2:r0+p3:r0", "end"]);
+        assert_eq!(s.sheets_sent, 2);
+    }
+
+    #[test]
+    fn odd_duplex_sets_get_a_blank_side_between_copies() {
+        let mut t = Fake::default();
+        let sizes = [(595.0, 842.0); 3];
+        let copies = crate::layout::plan_copies_for(2, true, 1, false, true);
+        run_job(
+            &sizes,
+            &PrintOptions::default(),
+            copies,
+            &mut t,
+            "d",
+            &JobContext::silent(),
+        )
+        .unwrap();
+        assert_eq!(
+            t.log,
+            [
+                "doc:d", "p1:r0", "p2:r0", "p3:r0", "blank", "p1:r0", "p2:r0", "p3:r0", "end"
+            ]
+        );
     }
 }

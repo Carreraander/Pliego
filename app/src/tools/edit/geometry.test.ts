@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addBox, blockAt, changed, clampBox, dragBox, parseColor, parseSize, parseTarget, rotateTransform, styleFor, targetText, toHex, transformBetween, type TextBlock } from "./geometry";
+import { addBox, blockAt, changed, clampBox, dragBox, parseColor, parseSize, parseTarget, placeForm, rotateTransform, styleFor, targetText, toHex, transformBetween, type TextBlock } from "./geometry";
 
 const block = (id: number, bbox: [number, number, number, number]): TextBlock =>
   ({ page: 0, id, bbox, text: "t", lines: ["t"], font_size: 12, bold: false, italic: false, family: "sans" });
@@ -80,5 +80,30 @@ describe("geometría de imágenes, objetos y enlaces", () => {
     expect(targetText({ type: "page", page: 2 })).toBe("3");
     expect(targetText({ type: "uri", uri: "https://a.es" })).toBe("https://a.es");
     expect(targetText(null)).toBe("");
+  });
+});
+
+describe("placeForm: el formulario siempre dentro de la zona visible", () => {
+  const bounds: [number, number, number, number] = [0, 100, 1000, 700];
+  const size = { width: 320, height: 300 };
+  it("va debajo del recuadro si cabe", () => {
+    expect(placeForm([100, 150, 300, 190], size, bounds)).toMatchObject({ left: 100, top: 196 });
+  });
+  it("si debajo no cabe (final de página) se pone encima", () => {
+    const r = placeForm([100, 600, 300, 640], size, bounds);
+    expect(r.top).toBe(600 - 6 - 300);
+  });
+  it("si no cabe ni debajo ni encima se pega al borde inferior", () => {
+    const r = placeForm([100, 300, 300, 520], size, bounds);
+    expect(r.top).toBe(700 - 8 - 300);
+  });
+  it("no se sale por la derecha ni por la izquierda", () => {
+    expect(placeForm([900, 150, 990, 190], size, bounds).left).toBe(1000 - 8 - 320);
+    expect(placeForm([-50, 150, 20, 190], size, bounds).left).toBe(8);
+  });
+  it("si es más alto que la zona visible se acota", () => {
+    const r = placeForm([100, 150, 300, 190], { width: 320, height: 900 }, bounds);
+    expect(r.maxHeight).toBe(584);
+    expect(r.top).toBe(108);
   });
 });

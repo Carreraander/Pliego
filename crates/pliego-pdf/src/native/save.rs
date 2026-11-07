@@ -41,10 +41,10 @@ const DECODABLE: &[&[u8]] = &[
 impl PdfDocument {
     /// Serializa el documento a `w` con las opciones dadas.
     pub fn write_to_with_options<W: Write>(&self, w: &mut W, options: &WriteOptions) -> Result<u64> {
-        let bytes = self.render(options)?;
-        w.write_all(&bytes)?;
+        let mut counted = Counting { inner: w, n: 0 };
+        render_into(&self.st.borrow(), options, &mut counted)?;
         self.st.borrow_mut().unsaved = false;
-        Ok(bytes.len() as u64)
+        Ok(counted.n)
     }
 
     /// Serializa con las opciones por defecto.
@@ -63,10 +63,68 @@ impl PdfDocument {
     /// `incremental` se escribe el original más lo añadido, sin leer lo que hubiera en `path`.
     pub fn save_with_options(&self, path: impl AsRef<Path>, options: &WriteOptions) -> Result<()> {
         let path = path.as_ref();
-        let bytes = self.render(options)?;
-        std::fs::write(path, &bytes).map_err(|e| Error::io_at(path, e))?;
+        // Se escribe directamente al archivo: con un PDF de cientos de MB no se tiene el resultado entero en memoria.
+        if self.st.borrow().view_only.is_some() || self.st.borrow().lean.is_some() {
+            return Err(super::view::view_only_error());
+        }
+        let file = std::fs::File::create(path).map_err(|e| Error::io_at(path, e))?;
+        let mut w = std::io::BufWriter::with_capacity(1 << 20, file);
+        let written =
+            render_into(&self.st.borrow(), options, &mut w).and_then(|()| w.flush().map_err(|e| Error::io_at(path, e)));
+        if let Err(e) = written {
+            // No se deja a medias un archivo que no es un PDF completo.
+            drop(w);
+            let _ = std::fs::remove_file(path);
+            return Err(e);
+        }
         self.st.borrow_mut().unsaved = false;
         Ok(())
+    }
+
+    /// Guarda en `out` un documento abierto con [`PdfDocument::open_lean`]: copia el archivo original tal cual y le añade
+    /// al final los cambios (guardado incremental). No lee el original a memoria ni toca sus flujos.
+    ///
+    /// [`Error::Unsupported`] si el documento no está en modo ligero, si el archivo de origen cambió desde que se abrió o
+    /// si algún cambio toca un flujo grande que no se cargó. En cualquier error `out` no queda escrito.
+    pub fn save_lean(&self, out: impl AsRef<Path>) -> Result<()> {
+        let out = out.as_ref();
+        let st = self.st.borrow();
+        let (lean, section) = lean_section(&st)?;
+        let written = std::fs::copy(&lean.path, out)
+            .map_err(|e| Error::io_at(out, e))
+            .and_then(|n| {
+                if n != lean.len {
+                    return Err(Error::Unsupported("el archivo cambió mientras se guardaba".into()));
+                }
+                let mut f = std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(out)
+                    .map_err(|e| Error::io_at(out, e))?;
+                f.write_all(&section)
+                    .and_then(|()| f.flush())
+                    .map_err(|e| Error::io_at(out, e))
+            });
+        if let Err(e) = written {
+            let _ = std::fs::remove_file(out);
+            return Err(e);
+        }
+        drop(st);
+        self.st.borrow_mut().unsaved = false;
+        Ok(())
+    }
+
+    /// Calcula, sin escribir nada, lo que un documento abierto con [`PdfDocument::open_lean`] añade al final de su archivo
+    /// de origen. Los mismos errores que [`PdfDocument::save_lean`]; con el resultado, [`LeanAppend::write`] lo escribe
+    /// **en el propio archivo**: no se copia el original, así que cuesta lo que pesa el cambio y no el PDF.
+    pub fn prepare_lean_append(&self) -> Result<LeanAppend> {
+        let st = self.st.borrow();
+        let (lean, section) = lean_section(&st)?;
+        Ok(LeanAppend {
+            path: lean.path.clone(),
+            before: lean.len,
+            modified: lean.modified,
+            section,
+        })
     }
 
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
@@ -78,6 +136,24 @@ impl PdfDocument {
     }
 }
 
+/// Cuenta lo que se escribe.
+struct Counting<'a, W: Write> {
+    inner: &'a mut W,
+    n: u64,
+}
+
+impl<W: Write> Write for Counting<'_, W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.n += n as u64;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 /// Copia del estado tal como está, sin cifrar y sin tocar `unsaved`: es la que lee PDFium (véase `view.rs`).
 pub(crate) fn snapshot_clear(st: &State) -> Result<Vec<u8>> {
     let mut options = WriteOptions::default();
@@ -86,28 +162,37 @@ pub(crate) fn snapshot_clear(st: &State) -> Result<Vec<u8>> {
 }
 
 fn render_state(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
+    let mut out = Vec::new();
+    render_into(st, options, &mut out)?;
+    Ok(out)
+}
+
+/// Escribe el documento en `out` (a memoria o a un archivo con búfer).
+fn render_into<W: Write>(st: &State, options: &WriteOptions, out: &mut W) -> Result<()> {
     if st.locked {
         return Err(Error::Password);
     }
+    if st.view_only.is_some() || st.lean.is_some() {
+        return Err(super::view::view_only_error());
+    }
     if options.incremental {
-        return incremental(st, options);
+        return out.write_all(&incremental(st, options, Prefix::Bytes)?).map_err(io_err);
     }
     let mut doc = st.doc.clone();
     let original_encryption = st.base.as_ref().and_then(|b| b.encryption_state.clone());
     prepare(&mut doc, options, original_encryption)?;
-    let mut out = Vec::new();
     if options.object_streams {
         let so = SaveOptions::builder()
             .use_object_streams(true)
             .use_xref_streams(true)
             .compression_level(6)
             .build();
-        doc.save_with_options(&mut out, so).map_err(io_err)?;
+        doc.save_with_options(out, so).map_err(io_err)?;
     } else {
         doc.reference_table.cross_reference_type = XrefType::CrossReferenceTable;
-        doc.save_to(&mut out).map_err(io_err)?;
+        doc.save_to(out).map_err(io_err)?;
     }
-    Ok(out)
+    Ok(())
 }
 
 fn io_err(e: std::io::Error) -> Error {
@@ -116,7 +201,109 @@ fn io_err(e: std::io::Error) -> Error {
 
 // --- Guardado incremental ---
 
-fn incremental(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
+/// Valida un documento en modo ligero y calcula lo que se añade al final de su archivo.
+fn lean_section(st: &State) -> Result<(&super::Lean, Vec<u8>)> {
+    let lean = st
+        .lean
+        .as_ref()
+        .ok_or_else(|| Error::Unsupported("el documento no está abierto en modo ligero".into()))?;
+    let meta = std::fs::metadata(&lean.path).map_err(|e| Error::io_at(&lean.path, e))?;
+    if meta.len() != lean.len || meta.modified().ok() != lean.modified {
+        return Err(Error::Unsupported(
+            "el archivo cambió mientras se editaba; vuelve a abrirlo".into(),
+        ));
+    }
+    // Un flujo omitido al cargar (sin contenido ni posición en el archivo) no puede volver a escribirse.
+    let touches_skipped = st.dirty.iter().any(
+        |id| matches!(st.doc.objects.get(id), Some(L::Stream(s)) if s.content.is_empty() && s.start_position.is_none()),
+    );
+    if touches_skipped {
+        return Err(Error::Unsupported(
+            "el cambio afecta a un flujo grande que no está cargado".into(),
+        ));
+    }
+    let mut options = WriteOptions::default();
+    options.set_incremental(true);
+    let section = incremental(
+        st,
+        &options,
+        Prefix::Absent {
+            len: lean.len as usize,
+            last: lean.last_byte,
+        },
+    )?;
+    Ok((lean, section))
+}
+
+/// Lo que un guardado ligero añade al final del archivo de origen (véase [`PdfDocument::prepare_lean_append`]).
+pub struct LeanAppend {
+    path: std::path::PathBuf,
+    before: u64,
+    modified: Option<std::time::SystemTime>,
+    section: Vec<u8>,
+}
+
+impl LeanAppend {
+    /// Tamaño del archivo antes de añadir.
+    pub fn before_len(&self) -> u64 {
+        self.before
+    }
+
+    /// Tamaño del archivo después de añadir.
+    pub fn after_len(&self) -> u64 {
+        self.before + self.section.len() as u64
+    }
+
+    /// Añade los cambios al final del archivo. Si algo falla a mitad, lo vuelve a dejar con su tamaño anterior.
+    /// [`Error::Unsupported`] si otro programa lo cambió desde que se abrió.
+    pub fn write(self) -> Result<()> {
+        let path = &self.path;
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(path)
+            .map_err(|e| Error::io_at(path, e))?;
+        let meta = f.metadata().map_err(|e| Error::io_at(path, e))?;
+        if meta.len() != self.before || meta.modified().ok() != self.modified {
+            return Err(Error::Unsupported("el archivo cambió mientras se editaba".into()));
+        }
+        let written = f.write_all(&self.section).and_then(|()| f.sync_all());
+        if let Err(e) = written {
+            let _ = f.set_len(self.before);
+            return Err(Error::io_at(path, e));
+        }
+        Ok(())
+    }
+}
+
+/// De dónde salen los bytes del archivo original que el guardado incremental deja delante de lo añadido.
+enum Prefix {
+    /// Los tiene el documento (`Base::bytes`).
+    Bytes,
+    /// No están en memoria (documento en modo ligero): solo se calcula lo que se añade. lopdf necesita un búfer de la
+    /// longitud del original para numerar las posiciones; es un búfer a cero que nadie escribe ni lee (el sistema no
+    /// reserva memoria física hasta que se toca) y `Tail` descarta su contenido.
+    Absent { len: usize, last: u8 },
+}
+
+/// Recibe lo que lopdf escribe y se queda solo con lo posterior a los primeros `skip` bytes (el original).
+struct Tail {
+    skip: usize,
+    out: Vec<u8>,
+}
+
+impl Write for Tail {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        let n = self.skip.min(data.len());
+        self.skip -= n;
+        self.out.extend_from_slice(&data[n..]);
+        Ok(data.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn incremental(st: &State, options: &WriteOptions, prefix: Prefix) -> Result<Vec<u8>> {
     let base = st
         .base
         .as_ref()
@@ -143,7 +330,17 @@ fn incremental(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
     prev.encryption_state = base.encryption_state.clone();
     prev.version = st.doc.version.clone();
 
-    let mut inc = IncrementalDocument::create_from(base.bytes.clone(), prev);
+    let (bytes, skip) = match prefix {
+        Prefix::Bytes => (base.bytes.clone(), 0),
+        Prefix::Absent { len, last } => {
+            let mut zeros = vec![0u8; len];
+            if let Some(b) = zeros.last_mut() {
+                *b = last;
+            }
+            (zeros, len)
+        }
+    };
+    let mut inc = IncrementalDocument::create_from(bytes, prev);
     inc.new_document.max_id = st.doc.max_id.max(base.max_id);
     for id in &st.dirty {
         if let Some(o) = st.doc.objects.get(id) {
@@ -176,9 +373,14 @@ fn incremental(st: &State, options: &WriteOptions) -> Result<Vec<u8>> {
     inc.new_document.trailer = trailer;
 
     stream_options(&mut inc.new_document.objects, options, &HashSet::new());
-    let mut out = Vec::new();
-    inc.save_to(&mut out).map_err(io_err)?;
-    Ok(out)
+    if skip == 0 {
+        let mut out = Vec::new();
+        inc.save_to(&mut out).map_err(io_err)?;
+        return Ok(out);
+    }
+    let mut tail = Tail { skip, out: Vec::new() };
+    inc.save_to(&mut tail).map_err(io_err)?;
+    Ok(tail.out)
 }
 
 // --- Guardado completo ---

@@ -87,7 +87,7 @@ fn handle(
     match req {
         Request::OpenPath { path, password } => {
             *doc = None;
-            *doc = Some(DefaultEngine.open(path.as_ref(), password.as_deref())?);
+            *doc = Some(DefaultEngine.open_auto(path.as_ref(), password.as_deref())?);
             Ok((Response::Ok, None))
         }
         Request::OpenBytes { password } => {

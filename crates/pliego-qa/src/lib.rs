@@ -5,6 +5,7 @@
 //! - [`validate`]: validadores externos opcionales (`qpdf --check`, veraPDF).
 //! - [`engines`]: registro de motores por nombre; aquí se enchufará el motor nuevo.
 
+pub mod bigpdf;
 pub mod compare;
 pub mod engines;
 pub mod oracle;

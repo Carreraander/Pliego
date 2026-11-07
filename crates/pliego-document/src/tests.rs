@@ -214,3 +214,34 @@ fn repair_truncated_pdf() {
     assert!(repair(&broken, &broken, None).is_err());
     assert_eq!(fs::read(&broken).unwrap(), bytes, "el original no se modifica");
 }
+
+#[test]
+fn undo_works_after_a_save_between_operations() {
+    // El estado nuevo no se serializa al operar (solo cuando hace falta): deshacer, rehacer y guardar entre medias
+    // tienen que seguir devolviendo el contenido correcto.
+    let dir = tempfile::tempdir().unwrap();
+    let path = copy_to(dir.path(), "basic", "hola.pdf");
+    let mut doc = Document::open(&path, None).unwrap();
+    set_title(&mut doc, "Uno");
+    doc.save(&path, &SaveOptions::default()).unwrap();
+    set_title(&mut doc, "Dos");
+    assert!(doc.undo().unwrap());
+    assert_eq!(title(&doc).as_deref(), Some("Uno"));
+    assert!(doc.redo().unwrap());
+    assert_eq!(title(&doc).as_deref(), Some("Dos"));
+    // Una operación que falla tras otra sin serializar restaura el estado anterior, no uno más viejo.
+    set_title(&mut doc, "Tres");
+    let r = doc.with_pdf_mut(|pdf| {
+        let mut info = pdf.trailer()?.get_dict("Info")?.expect("Info");
+        let v = pdf.new_string("a medias")?;
+        info.dict_put("Title", v)?;
+        Err::<(), _>(Error::InvalidInput("falla a propósito".into()))
+    });
+    assert!(r.is_err());
+    assert_eq!(title(&doc).as_deref(), Some("Tres"));
+    assert!(doc.undo().unwrap() && doc.undo().unwrap() && doc.undo().unwrap());
+    assert_eq!(title(&doc).as_deref(), Some("Documento de prueba"));
+    // El archivo guardado en medio sigue teniendo "Uno".
+    let saved = Document::open(&path, None).unwrap();
+    assert_eq!(title(&saved).as_deref(), Some("Uno"));
+}

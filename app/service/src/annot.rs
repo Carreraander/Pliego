@@ -4,13 +4,12 @@
 //! Son las funciones que llaman los comandos de la app (que no tienen pruebas propias): reciben rutas y nunca
 //! tocan el original; las que escriben un PDF lo hacen a una ruta distinta, de forma atómica.
 
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::path::Path;
 
 use pliego_core::{Error, Result};
 use pliego_pdf::{Document, PdfDocument, WriteOptions};
 
+use crate::history::{History, Popped, Previous};
 use pliego_appdata::copyjob::unique_sibling;
 use pliego_core::Report;
 
@@ -21,7 +20,7 @@ pub use pliego_forms::{FieldInfo, FieldValue, FieldValues, KeystrokeResult};
 /// Abre un PDF para anotarlo. Se lee a memoria para no dejar el archivo abierto (en Windows impediría sustituirlo).
 pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
     let bytes = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-    open_bytes(&bytes, password).map_err(|e| match e {
+    open_vec(bytes, password).map_err(|e| match e {
         Error::InvalidInput(_) => Error::InvalidInput(format!("{} no es un PDF", path.display())),
         e => e,
     })
@@ -29,7 +28,12 @@ pub fn open(path: &Path, password: Option<&str>) -> Result<PdfDocument> {
 
 /// Abre un PDF desde memoria; [`Error::Password`] si está protegido y la contraseña falta o es incorrecta.
 pub fn open_bytes(bytes: &[u8], password: Option<&str>) -> Result<PdfDocument> {
-    let mut doc = Document::from_bytes(bytes, "application/pdf")?;
+    open_vec(bytes.to_vec(), password)
+}
+
+/// Como [`open_bytes`] pero toma el búfer: con un PDF grande, la única copia en memoria es la del documento.
+pub fn open_vec(bytes: Vec<u8>, password: Option<&str>) -> Result<PdfDocument> {
+    let mut doc = Document::from_vec(bytes, "application/pdf")?;
     if doc.needs_password()? && !password.is_some_and(|p| doc.authenticate(p).unwrap_or(false)) {
         return Err(Error::Password);
     }
@@ -136,21 +140,63 @@ pub fn import_xfdf_copy(src: &Path, password: Option<&str>, xfdf: &Path, suffix:
     Ok(Report::with_output(out, format!("{added} comentario(s) importados")))
 }
 
-/// Máximo de pasos que se pueden deshacer por documento.
-const MAX_UNDO: usize = 30;
-
-/// Edición de comentarios **sobre el propio PDF** con deshacer. Antes del primer cambio de cada archivo se guarda una
-/// copia de seguridad `<nombre> (copia de seguridad).pdf`; cada cambio apila el contenido anterior (en memoria).
-#[derive(Default)]
-pub struct Editor {
-    undo: Mutex<HashMap<PathBuf, Vec<Vec<u8>>>>,
+/// Resultado de una edición para recargar el visor. Con un PDF grande el contenido no pasa por la memoria de la app:
+/// se recarga leyendo el archivo ya guardado.
+#[derive(Debug)]
+pub enum Saved {
+    /// Contenido nuevo en memoria (documentos pequeños).
+    Bytes(Vec<u8>),
+    /// El archivo ya está guardado en esta ruta.
+    File(std::path::PathBuf),
 }
 
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
+impl Saved {
+    /// El contenido nuevo en memoria (lo lee del archivo si hace falta).
+    pub fn into_bytes(self) -> Result<Vec<u8>> {
+        match self {
+            Saved::Bytes(b) => Ok(b),
+            Saved::File(p) => std::fs::read(&p).map_err(|e| Error::io_at(&p, e)),
+        }
+    }
+}
+
+/// Desde este tamaño el resultado de una edición se entrega como archivo y no como bytes (16 MiB, como el worker).
+const SAVED_AS_FILE_MIN: u64 = 16 * 1024 * 1024;
+
+/// Desde este tamaño los comentarios se guardan en modo ligero (se añaden al final del archivo, sin cargarlo entero ni
+/// reescribirlo). `PLIEGO_LEAN_MB` lo cambia (pruebas y diagnóstico).
+fn lean_min_bytes() -> u64 {
+    std::env::var("PLIEGO_LEAN_MB")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .map_or(64 * 1024 * 1024, |mb| mb.saturating_mul(1024 * 1024))
+}
+
+/// Edición de comentarios **sobre el propio PDF** con deshacer. Antes del primer cambio de cada archivo se guarda una
+/// copia de seguridad `<nombre> (copia de seguridad).pdf`; cada cambio apila el contenido anterior con un presupuesto
+/// de memoria (los pasos grandes van a temporales en disco: véase [`History`]).
+#[derive(Default)]
+pub struct Editor {
+    undo: History,
+    /// Tamaño desde el que se guarda en modo ligero (`None`: el predeterminado).
+    lean_min: Option<u64>,
 }
 
 impl Editor {
+    /// Editor con otros límites de historial (pruebas y diagnóstico).
+    pub fn with_history_limits(limits: crate::history::Limits) -> Self {
+        Self {
+            undo: History::new(limits),
+            lean_min: None,
+        }
+    }
+
+    /// Cambia el tamaño desde el que se guarda en modo ligero (pruebas).
+    pub fn with_lean_min_bytes(mut self, bytes: u64) -> Self {
+        self.lean_min = Some(bytes);
+        self
+    }
+
     /// Añade una anotación al archivo y devuelve el contenido nuevo (para recargar el visor).
     ///
     /// Todas las ediciones reciben la `password` del documento (`None` si no está protegido): el archivo se abre con
@@ -164,6 +210,24 @@ impl Editor {
     /// Borra una anotación del archivo.
     pub fn delete(&self, path: &Path, password: Option<&str>, id: AnnotId, backup_suffix: &str) -> Result<Vec<u8>> {
         self.edit_pdf(path, password, backup_suffix, |doc| pliego_annot::delete(doc, id))
+    }
+
+    /// Como [`Editor::add`], para recargar el visor sin pasar un PDF grande por memoria (véase [`Saved`]).
+    pub fn add_saved(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        spec: &AnnotSpec,
+        backup_suffix: &str,
+    ) -> Result<Saved> {
+        self.edit_pdf_saved(path, password, backup_suffix, |doc| {
+            pliego_annot::add(doc, spec).map(drop)
+        })
+    }
+
+    /// Como [`Editor::delete`], con el resultado como [`Saved`].
+    pub fn delete_saved(&self, path: &Path, password: Option<&str>, id: AnnotId, backup_suffix: &str) -> Result<Saved> {
+        self.edit_pdf_saved(path, password, backup_suffix, |doc| pliego_annot::delete(doc, id))
     }
 
     /// Rellena campos de formulario en el archivo (Rellenar y firmar). Comparte la pila de deshacer con los comentarios.
@@ -232,16 +296,50 @@ impl Editor {
 
     /// Deshace el último cambio; `None` si no hay nada que deshacer.
     pub fn undo(&self, path: &Path) -> Result<Option<Vec<u8>>> {
-        let Some(prev) = lock(&self.undo).get_mut(path).and_then(Vec::pop) else {
+        let Some(prev) = self.undo.pop(path)? else {
             return Ok(None);
         };
-        write_bytes(path, &prev)?;
-        Ok(Some(prev))
+        match prev {
+            Popped::Mem(bytes) => {
+                write_bytes(path, &bytes)?;
+                Ok(Some(bytes))
+            }
+            Popped::Disk(tmp) => {
+                // De archivo a archivo; solo se lee a memoria el resultado que se devuelve para recargar el visor.
+                copy_over(&tmp, path)?;
+                std::fs::read(path).map(Some).map_err(|e| Error::io_at(path, e))
+            }
+            Popped::Tail { before, after } => {
+                cut_tail(path, before, after)?;
+                std::fs::read(path).map(Some).map_err(|e| Error::io_at(path, e))
+            }
+        }
+    }
+
+    /// Como [`Editor::undo`], con el resultado como [`Saved`].
+    pub fn undo_saved(&self, path: &Path) -> Result<Option<Saved>> {
+        let Some(prev) = self.undo.pop(path)? else {
+            return Ok(None);
+        };
+        match prev {
+            Popped::Mem(bytes) => {
+                write_bytes(path, &bytes)?;
+                Ok(Some(Saved::Bytes(bytes)))
+            }
+            Popped::Disk(tmp) => {
+                copy_over(&tmp, path)?;
+                saved_of(path).map(Some)
+            }
+            Popped::Tail { before, after } => {
+                cut_tail(path, before, after)?;
+                saved_of(path).map(Some)
+            }
+        }
     }
 
     /// Cuántos cambios se pueden deshacer.
     pub fn undo_depth(&self, path: &Path) -> usize {
-        lock(&self.undo).get(path).map_or(0, Vec::len)
+        self.undo.depth(path)
     }
 
     /// Aplica `op` a un `PdfDocument` del archivo (copia de seguridad la primera vez, deshacer y guardado atómico).
@@ -254,7 +352,8 @@ impl Editor {
         backup_suffix: &str,
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
-        self.edit_with(path, backup_suffix, |bytes| open_bytes(bytes, password), op, save)
+        self.edit_with(path, backup_suffix, |p| open(p, password), op, save)?;
+        read_result(path)
     }
 
     /// Como [`Editor::edit_pdf`] pero conservando los bytes originales: añade los cambios al final del archivo
@@ -267,13 +366,8 @@ impl Editor {
         backup_suffix: &str,
         op: impl FnOnce(&mut PdfDocument) -> Result<()>,
     ) -> Result<Vec<u8>> {
-        self.edit_with(
-            path,
-            backup_suffix,
-            |bytes| open_bytes(bytes, password),
-            op,
-            save_preserving,
-        )
+        self.edit_with(path, backup_suffix, |p| open(p, password), op, save_preserving)?;
+        read_result(path)
     }
 
     /// Igual que [`Editor::edit_pdf`] pero sobre un `pliego_document::Document` (lo que piden `pliego-edit`).
@@ -287,38 +381,134 @@ impl Editor {
         self.edit_with(
             path,
             backup_suffix,
-            |bytes| pliego_document::Document::open_bytes(bytes, password),
+            |p| pliego_document::Document::open(p, password),
             op,
             |d: &pliego_document::Document, out: &Path| save(d.pdf(), out),
-        )
+        )?;
+        read_result(path)
     }
 
     fn edit_with<D>(
         &self,
         path: &Path,
         backup_suffix: &str,
-        open: impl FnOnce(&[u8]) -> Result<D>,
+        open: impl FnOnce(&Path) -> Result<D>,
         op: impl FnOnce(&mut D) -> Result<()>,
         save_doc: impl FnOnce(&D, &Path) -> Result<()>,
-    ) -> Result<Vec<u8>> {
-        let before = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-        let mut doc = open(&before)?;
+    ) -> Result<()> {
+        // El contenido anterior no se lee a memoria: el documento carga el archivo (su única copia) y la copia de
+        // seguridad y el paso de deshacer se copian de archivo a archivo (o se leen si son pequeños).
+        let mut doc = open(path)?;
         op(&mut doc)?;
-        let first = !lock(&self.undo).contains_key(path);
-        if first {
+        if !self.undo.tracks(path) {
             // La copia de seguridad se escribe antes de tocar el original.
-            write_bytes(&unique_sibling(path, backup_suffix, "pdf"), &before)?;
+            copy_file(path, &unique_sibling(path, backup_suffix, "pdf"))?;
         }
+        let previous = self.undo.capture(path)?;
         save_doc(&doc, path)?;
-        let after = std::fs::read(path).map_err(|e| Error::io_at(path, e))?;
-        let mut all = lock(&self.undo);
-        let stack = all.entry(path.to_path_buf()).or_default();
-        stack.push(before);
-        if stack.len() > MAX_UNDO {
-            stack.remove(0);
-        }
-        Ok(after)
+        // Con un PDF grande cada copia pesa: se suelta el documento antes de leer el resultado.
+        drop(doc);
+        self.undo.push(path, previous);
+        Ok(())
     }
+
+    /// Como [`Editor::edit_pdf`] para cambios pequeños (comentarios): con un PDF grande abre el documento en modo ligero
+    /// y guarda los cambios **al final del archivo**, sin cargar sus imágenes ni reescribirlo; el resultado se entrega
+    /// como archivo ([`Saved::File`]). Si el documento no lo admite (cifrado, reparado...), usa el camino de siempre.
+    pub fn edit_pdf_saved(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        backup_suffix: &str,
+        mut op: impl FnMut(&mut PdfDocument) -> Result<()>,
+    ) -> Result<Saved> {
+        let size = std::fs::metadata(path).map_err(|e| Error::io_at(path, e))?.len();
+        if size >= self.lean_min.unwrap_or_else(lean_min_bytes) {
+            match self.edit_lean(path, password, backup_suffix, &mut op) {
+                Err(Error::Unsupported(_)) => {}
+                other => return other.map(|()| Saved::File(path.to_path_buf())),
+            }
+        }
+        self.edit_with(path, backup_suffix, |p| open(p, password), op, save)?;
+        saved_of(path)
+    }
+
+    fn edit_lean(
+        &self,
+        path: &Path,
+        password: Option<&str>,
+        backup_suffix: &str,
+        op: &mut impl FnMut(&mut PdfDocument) -> Result<()>,
+    ) -> Result<()> {
+        let mut doc = PdfDocument::open_lean(path, password)?;
+        op(&mut doc)?;
+        // Primero se calcula lo que se añade, sin escribir: si no se puede (flujo grande afectado...) no se ha tocado nada.
+        let append = doc.prepare_lean_append()?;
+        drop(doc);
+        if !self.undo.tracks(path) {
+            copy_file(path, &unique_sibling(path, backup_suffix, "pdf"))?;
+        }
+        // El cambio solo añade al final: el contenido anterior son los primeros `before` bytes. Deshacer corta el
+        // archivo ahí, sin guardar una copia de 1 GB por paso ni reescribirlo.
+        let (before, after) = (append.before_len(), append.after_len());
+        append.write()?;
+        self.undo.push(path, Previous::Tail { before, after });
+        Ok(())
+    }
+}
+
+/// Contenido del archivo recién guardado.
+fn read_result(path: &Path) -> Result<Vec<u8>> {
+    std::fs::read(path).map_err(|e| Error::io_at(path, e))
+}
+
+/// El archivo recién guardado, como archivo si es grande y en memoria si no.
+fn saved_of(path: &Path) -> Result<Saved> {
+    let size = std::fs::metadata(path).map_err(|e| Error::io_at(path, e))?.len();
+    if size >= SAVED_AS_FILE_MIN {
+        Ok(Saved::File(path.to_path_buf()))
+    } else {
+        read_result(path).map(Saved::Bytes)
+    }
+}
+
+/// Deshace un cambio que solo añadió bytes al final: corta `path` en `before` bytes. `after` es lo que medía justo
+/// tras el cambio; si no coincide, el archivo cambió por otro lado y no se toca.
+fn cut_tail(path: &Path, before: u64, after: u64) -> Result<()> {
+    let f = std::fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .map_err(|e| Error::io_at(path, e))?;
+    let len = f.metadata().map_err(|e| Error::io_at(path, e))?.len();
+    if len != after {
+        return Err(Error::InvalidInput(format!(
+            "{} cambió desde el último comentario; no se puede deshacer",
+            path.display()
+        )));
+    }
+    f.set_len(before).map_err(|e| Error::io_at(path, e))
+}
+
+/// Sustituye `to` por una copia de `from` (temporal junto a `to` y renombrado), sin pasar el contenido por memoria.
+fn copy_over(from: &Path, to: &Path) -> Result<()> {
+    copy_file(from, to)
+}
+
+/// Copia `from` en `to` sin pasar el contenido por memoria (el renombrado sustituye lo que hubiera en `to`).
+fn copy_file(from: &Path, to: &Path) -> Result<()> {
+    let dir = to
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    // Temporal en la misma carpeta y renombrado: un corte a medias no deja una copia de seguridad truncada.
+    let tmp = tempfile::Builder::new()
+        .prefix(".pliego-")
+        .suffix(".tmp")
+        .tempfile_in(dir)
+        .map_err(|e| Error::io_at(dir, e))?
+        .into_temp_path();
+    std::fs::copy(from, &tmp).map_err(|e| Error::io_at(from, e))?;
+    persist_with_retry(tmp, to)
 }
 
 /// Escribe `bytes` en `out` de forma atómica (temporal + renombrado).
@@ -473,5 +663,28 @@ trailer<</Root 1 0 R/Size 6>>\n%%EOF\n";
         assert_eq!(ed.undo_depth(&p), 1);
         ed.undo(&p).unwrap().unwrap();
         assert_eq!(form_fields(&p, None).unwrap()[0].value.as_deref().unwrap_or(""), "");
+    }
+
+    #[test]
+    fn lean_editing_falls_back_to_the_normal_path_when_the_document_does_not_allow_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("cifrado.pdf");
+        let mut doc = PdfDocument::new();
+        doc.new_page(Size::A4).unwrap();
+        let mut o = WriteOptions::new();
+        o.set_encryption(pliego_pdf::Encryption::Aes256)
+            .set_user_password("abrir")
+            .set_owner_password("duenio");
+        std::fs::write(&p, doc.to_bytes(&o).unwrap()).unwrap();
+        let ed = Editor::default().with_lean_min_bytes(0);
+        let mut s = AnnotSpec::new(0, Geometry::Note { at: [50.0, 50.0] });
+        s.contents = Some("nota".into());
+        let saved = ed.add_saved(&p, Some("abrir"), &s, "copia de seguridad").unwrap();
+        // Cifrado: no admite el modo ligero; se guardó entero y sigue protegido.
+        assert!(matches!(saved, Saved::Bytes(_)), "{saved:?}");
+        assert_eq!(summary_of(&p, Some("abrir")).unwrap().total, 1);
+        assert!(summary_of(&p, None).is_err());
+        ed.undo_saved(&p).unwrap().unwrap();
+        assert_eq!(summary_of(&p, Some("abrir")).unwrap().total, 0);
     }
 }

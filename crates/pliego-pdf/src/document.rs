@@ -44,6 +44,12 @@ impl Document {
         PdfDocument::from_bytes(bytes).map(|pdf| Document { pdf })
     }
 
+    /// Como [`Document::from_bytes`] pero toma el búfer (sin copiarlo).
+    pub fn from_vec(bytes: Vec<u8>, magic: &str) -> Result<Document> {
+        check_magic(magic)?;
+        PdfDocument::from_vec(bytes).map(|pdf| Document { pdf })
+    }
+
     /// Abre un PDF y, si pide contraseña, la comprueba. [`Error::Password`] si falta o es incorrecta.
     pub fn open_with_password(path: impl AsRef<Path>, password: Option<&str>) -> Result<Document> {
         PdfDocument::open_with_password(path, password).map(|pdf| Document { pdf })

@@ -72,6 +72,7 @@ pub use object::Object;
 pub use page::PdfPage;
 pub use raster::Raster;
 pub use redact::{ContentMove, CutContent, MoveReport, RedactReport};
+pub use save::LeanAppend;
 pub use widget::PdfWidget;
 
 use std::cell::RefCell;
@@ -112,6 +113,21 @@ pub(crate) struct State {
     pub(crate) password: Option<String>,
     /// Copia del documento en PDFium (render, texto y búsqueda).
     pub(crate) view: crate::pdfium::DocLink,
+    /// Documento abierto **solo para ver** (`PdfDocument::open_for_viewing`): archivo de origen. Sus flujos grandes no
+    /// están en memoria, así que no se puede guardar ni modificar; PDFium lo lee de este archivo.
+    pub(crate) view_only: Option<std::path::PathBuf>,
+    /// Documento abierto en **modo ligero** (`PdfDocument::open_lean`): como el de solo ver, sin los flujos grandes, pero
+    /// admite cambios pequeños que se guardan **al final del archivo** (`save_lean`).
+    pub(crate) lean: Option<Lean>,
+}
+
+/// Archivo de origen de un documento abierto en modo ligero.
+pub(crate) struct Lean {
+    pub(crate) path: std::path::PathBuf,
+    /// Tamaño y fecha del archivo al abrirlo: si cambian, el guardado se niega.
+    pub(crate) len: u64,
+    pub(crate) modified: Option<std::time::SystemTime>,
+    pub(crate) last_byte: u8,
 }
 
 /// Datos del archivo de origen.

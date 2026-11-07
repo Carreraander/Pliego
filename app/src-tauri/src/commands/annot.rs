@@ -88,8 +88,8 @@ pub async fn annot_add(
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = editor.0.add(&path, password.as_deref(), &spec, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let saved = editor.0.add_saved(&path, password.as_deref(), &spec, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(editor.0.undo_depth(&path))
 }
 
@@ -105,8 +105,8 @@ pub async fn annot_delete(
     suffix: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    let bytes = editor.0.delete(&path, password.as_deref(), id, &suffix)?;
-    state.service.reload_bytes(doc_id, &bytes)?;
+    let saved = editor.0.delete_saved(&path, password.as_deref(), id, &suffix)?;
+    state.service.reload_saved(doc_id, &path, &saved)?;
     Ok(editor.0.undo_depth(&path))
 }
 
@@ -119,8 +119,8 @@ pub async fn annot_undo(
     path: String,
 ) -> ApiResult<usize> {
     let path = PathBuf::from(path);
-    if let Some(bytes) = editor.0.undo(&path)? {
-        state.service.reload_bytes(doc_id, &bytes)?;
+    if let Some(saved) = editor.0.undo_saved(&path)? {
+        state.service.reload_saved(doc_id, &path, &saved)?;
     }
     Ok(editor.0.undo_depth(&path))
 }

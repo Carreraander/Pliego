@@ -90,6 +90,7 @@ https://claude.ai/artifact/Pin9i2YGZRQUuDdft48FVR. El contenido equivalente est�
 | [W43](flujos/w43.md) | Edición tipo Acrobat (recolocar texto; imágenes, vectores y enlaces) | En curso | PR 1: motor de movimiento y recolocación; falta la interfaz y validar en acr12/pc |
 | [W44](flujos/w44.md) | Texto seleccionable y enlaces en Leer; Narrador | En curso | #236 (texto y copiar) y #240 (enlaces) fusionados; PR 3 (Narrador, foco, alto contraste) en revisión; falta la prueba con el Narrador real |
 | [W45](flujos/w45.md) | Imprimir documentos PDF, con varias páginas por hoja y folleto (panel, `pliego printer`, PDFium sobre el HDC) | Hecho; falta validar | Pasar `tools\validar-impresion.ps1` en acr12 y probar una impresora de papel real |
+| [W46](flujos/w46.md) | PDF grandes (banco de memoria y rendimiento) | En curso | Comentar sin reescribir el PDF (modo ligero) hecho; falta la pasada en acr12/pc con `tools/bench-pdf-grandes.ps1` |
 
 ## Decisiones de gestión de la ola 4 (2026-11-04)
 

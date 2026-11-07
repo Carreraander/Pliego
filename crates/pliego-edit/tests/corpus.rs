@@ -83,8 +83,13 @@ fn comprobar(path: &std::path::Path, tmp: &std::path::Path) -> Result<(), String
     let others: Vec<String> = blocks.iter().filter(|x| x.id != b.id).map(|x| flat(&x.text)).collect();
 
     match replace_text(&mut doc, 0, b.id, &nuevo, &Style::default()) {
+        // Sin fuente CJK instalada en este equipo, el caso no se puede ejercitar: el texto se compone con recuadros
+        // vacíos y se avisa.
+        Ok(r) if r.warnings.iter().any(|w| w.contains("ninguna fuente instalada tiene")) => {
+            eprintln!("{}: sin fuente instalada, se omite", path.display());
+            return Ok(());
+        }
         Ok(_) => {}
-        // Sin fuente CJK instalada en este equipo, el caso no se puede ejercitar.
         Err(pliego_core::Error::Unsupported(m)) if m.contains("ninguna fuente") => {
             eprintln!("{}: sin fuente instalada, se omite", path.display());
             return Ok(());

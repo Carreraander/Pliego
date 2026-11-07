@@ -33,6 +33,14 @@ fn roundtrip(nuevo: &str) {
         }
         Err(e) => panic!("{e}"),
     };
+    if report
+        .warnings
+        .iter()
+        .any(|w| w.contains("ninguna fuente instalada tiene"))
+    {
+        eprintln!("sin fuente instalada para {nuevo:?}: se omite");
+        return;
+    }
     assert!(
         report.warnings.iter().any(|w| w.contains("compuso con la fuente")),
         "{report:?}"
@@ -76,10 +84,67 @@ fn fuente_indicada_que_no_existe_da_error_claro() {
     assert!(!doc.is_modified());
 }
 
+/// Un carácter que ninguna fuente tiene no bloquea la edición: se avisa y el resto del texto se compone.
 #[test]
-fn caracter_inexistente_en_toda_fuente_da_error() {
+fn caracter_inexistente_en_toda_fuente_avisa_sin_bloquear() {
     let mut doc = open();
     // Plano privado: ninguna fuente razonable lo tiene.
-    let err = insert_text(&mut doc, 0, [10.0, 10.0, 200.0, 40.0], "\u{10FFFD}", &Style::default()).unwrap_err();
-    assert!(err.to_string().contains("ninguna fuente"), "{err}");
+    let report = insert_text(
+        &mut doc,
+        0,
+        [10.0, 10.0, 200.0, 40.0],
+        "hola \u{10FFFD}",
+        &Style::default(),
+    )
+    .unwrap();
+    assert!(
+        report
+            .warnings
+            .iter()
+            .any(|w| w.contains("ninguna fuente instalada tiene")),
+        "{report:?}"
+    );
+    assert!(doc.is_modified());
+}
+
+/// Emojis y símbolos mezclados con texto normal: se completan con otra fuente en lugar de dar error.
+#[test]
+fn emojis_y_simbolos_se_completan_con_otra_fuente() {
+    let nuevo = "Proxy explícito: ✅ listo y ❌ no";
+    let mut doc = open();
+    let b = text_blocks(&doc, 0).unwrap().remove(0);
+    let report = replace_text(&mut doc, 0, b.id, nuevo, &Style::default()).unwrap();
+    assert!(
+        report.warnings.iter().any(|w| w.contains("compuso con la fuente")),
+        "{report:?}"
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("e.pdf");
+    doc.save(&out, &SaveOptions::default()).unwrap();
+    let re = Document::open(&out, None).unwrap();
+    let t = texto(&re).replace('\n', " ");
+    assert!(t.contains("Proxy explícito:"), "{t}");
+    assert!(t.contains("listo y"), "{t}");
+    let sin_glifo = report
+        .warnings
+        .iter()
+        .any(|w| w.contains("ninguna fuente instalada tiene"));
+    if !sin_glifo {
+        assert!(t.contains('✅') && t.contains('❌'), "{t}");
+    }
+    assert!(t.contains("Este es otro bloque"), "el otro bloque cambió: {t}");
+}
+
+#[test]
+fn varias_fuentes_en_una_misma_linea_al_insertar() {
+    let mut doc = open();
+    let report = insert_text(
+        &mut doc,
+        0,
+        [10.0, 10.0, 300.0, 60.0],
+        "Привет ✅ мир ❌ ok",
+        &Style::default(),
+    )
+    .unwrap();
+    assert!(doc.is_modified(), "{report:?}");
 }

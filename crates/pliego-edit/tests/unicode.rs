@@ -33,6 +33,14 @@ fn roundtrip(nuevo: &str) {
         }
         Err(e) => panic!("{e}"),
     };
+    if report
+        .warnings
+        .iter()
+        .any(|w| w.contains("ninguna fuente instalada tiene"))
+    {
+        eprintln!("sin fuente instalada para {nuevo:?}: se omite");
+        return;
+    }
     assert!(
         report.warnings.iter().any(|w| w.contains("compuso con la fuente")),
         "{report:?}"
